@@ -1,0 +1,17 @@
+{
+  "name": "screenrig",
+  "version": "0.1.0",
+  "description": "Pair screens, claim public browser setup codes, and operate ScreenRig content with the bundled CLI.",
+  "author": {
+    "name": "ScreenRig"
+  },
+  "homepage": "https://screenrig.ai",
+  "repository": "https://github.com/screenrig/plugin",
+  "license": "Apache-2.0",
+  "keywords": [
+    "screenrig",
+    "digital-signage",
+    "kiosk",
+    "agent-cli"
+  ]
+}

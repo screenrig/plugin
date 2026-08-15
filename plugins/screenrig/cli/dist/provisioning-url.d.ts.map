@@ -1,0 +1,1 @@
+{"version":3,"file":"provisioning-url.d.ts","sourceRoot":"","sources":["../src/provisioning-url.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,wBAAwB,CAAC;AAGjE,MAAM,WAAW,qBAAqB;IACpC,SAAS,EAAE,MAAM,CAAC;IAClB,eAAe,EAAE,MAAM,CAAC;CACzB;AAED,wBAAgB,wBAAwB,CAAC,KAAK,EAAE,kBAAkB,GAAG,qBAAqB,CA4BzF"}

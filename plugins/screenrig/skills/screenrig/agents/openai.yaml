@@ -1,0 +1,4 @@
+interface:
+  display_name: "ScreenRig"
+  short_description: "Operate ScreenRig with the bundled CLI"
+  default_prompt: "Use $screenrig to pair the six-character code shown on my Player, claim a public browser setup code I provide, or manage my existing screens with machine-readable output."

@@ -1,0 +1,22 @@
+{
+  "name": "screenrig",
+  "description": "Pair screens, claim public browser setup codes, and operate ScreenRig content with the bundled CLI.",
+  "author": {
+    "name": "ScreenRig"
+  },
+  "homepage": "https://screenrig.ai",
+  "repository": "https://github.com/screenrig/plugin",
+  "license": "Apache-2.0",
+  "keywords": [
+    "screenrig",
+    "digital-signage",
+    "kiosk",
+    "agent-cli"
+  ],
+  "interface": {
+    "displayName": "ScreenRig",
+    "shortDescription": "Operate ScreenRig with its bundled CLI",
+    "longDescription": "Pair and manage ScreenRig screens, safely claim public homepage browser setup codes, and operate content through a packaged noninteractive CLI with automatic first-use enrollment.",
+    "defaultPrompt": "Use $screenrig to pair the six-character code shown on my Player, claim a public browser setup code I provide, or manage my existing screens with machine-readable output."
+  }
+}

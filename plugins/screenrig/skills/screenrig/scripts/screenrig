@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+plugin_cli="$script_dir/../../../cli/dist/bin.js"
+
+if [ -f "$plugin_cli" ]; then
+  exec node "$plugin_cli" "$@"
+fi
+echo "ScreenRig bundled CLI is missing; reinstall the ScreenRig plugin." >&2
+exit 78
