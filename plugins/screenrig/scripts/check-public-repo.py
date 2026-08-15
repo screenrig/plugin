@@ -89,7 +89,8 @@ def check_public_tree(errors: list[str]) -> None:
         workflow = workflow_path.read_text(encoding="utf-8")
         for fact in (
             "fetch-depth: 0",
-            "SCREENRIG_RELEASE_ARTIFACT_TOKEN",
+            "scripts/package-release.sh",
+            "git -C \"${RUNNER_TEMP}/screenrig-cli-source\" fetch --no-tags --depth=1",
             "--cli-artifact",
             "python3 scripts/validate-plugin.py",
             "name: screenrig-plugin",

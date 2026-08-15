@@ -24,20 +24,26 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
-      - name: Download the exact pinned CLI artifact
-        env:
-          GH_TOKEN: ${{ secrets.SCREENRIG_RELEASE_ARTIFACT_TOKEN }}
+      - name: Reproduce the exact pinned CLI artifact
         run: |
-          test -n "${GH_TOKEN}"
           test "$(jq -r .state components.lock.json)" = resolved
           repository="$(jq -r .cli.repository components.lock.json)"
           commit="$(jq -r .cli.commit components.lock.json)"
           filename="$(jq -r .cli.artifact.file components.lock.json)"
-          run_id="$(gh run list --repo "${repository}" --commit "${commit}" --workflow ci.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
-          test -n "${run_id}"
+          expected="$(jq -r .cli.artifact.sha256 components.lock.json)"
+          test "${repository}" = screenrig/cli
+          install -d "${RUNNER_TEMP}/screenrig-cli-source"
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" init --quiet
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --no-tags --depth=1 \
+            "https://github.com/${repository}.git" "${commit}"
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" checkout --quiet --detach FETCH_HEAD
+          test "$(git -C "${RUNNER_TEMP}/screenrig-cli-source" rev-parse HEAD)" = "${commit}"
           install -d "${RUNNER_TEMP}/screenrig-cli"
-          gh run download "${run_id}" --repo "${repository}" --name screenrig-cli --dir "${RUNNER_TEMP}/screenrig-cli"
+          bash "${RUNNER_TEMP}/screenrig-cli-source/scripts/package-release.sh" \
+            "${RUNNER_TEMP}/screenrig-cli/${filename}"
           test -f "${RUNNER_TEMP}/screenrig-cli/${filename}"
+          printf '%s  %s\n' "${expected}" "${RUNNER_TEMP}/screenrig-cli/${filename}" \
+            | sha256sum --check --status
       - name: Rebuild and verify the committed plugin bundle
         run: |
           filename="$(jq -r .cli.artifact.file components.lock.json)"
