@@ -38,6 +38,8 @@ jobs:
             "https://github.com/${repository}.git" "${commit}"
           git -C "${RUNNER_TEMP}/screenrig-cli-source" checkout --quiet --detach FETCH_HEAD
           test "$(git -C "${RUNNER_TEMP}/screenrig-cli-source" rev-parse HEAD)" = "${commit}"
+          npm --prefix "${RUNNER_TEMP}/screenrig-cli-source" ci
+          npm --prefix "${RUNNER_TEMP}/screenrig-cli-source" run build
           install -d "${RUNNER_TEMP}/screenrig-cli"
           bash "${RUNNER_TEMP}/screenrig-cli-source/scripts/package-release.sh" \
             "${RUNNER_TEMP}/screenrig-cli/${filename}"
