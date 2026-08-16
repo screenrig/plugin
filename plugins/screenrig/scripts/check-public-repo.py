@@ -93,6 +93,7 @@ def check_public_tree(errors: list[str]) -> None:
             "git -C \"${RUNNER_TEMP}/screenrig-cli-source\" fetch --no-tags --depth=1",
             "npm --prefix \"${RUNNER_TEMP}/screenrig-cli-source\" run build",
             "--cli-artifact",
+            "--cli-source",
             "python3 scripts/validate-plugin.py",
             "name: screenrig-plugin",
             "gitleaks\" git",

@@ -50,7 +50,7 @@ jobs:
         run: |
           filename="$(jq -r .cli.artifact.file components.lock.json)"
           python3 scripts/build-plugin.py --check --cli-artifact "${RUNNER_TEMP}/screenrig-cli/${filename}"
-          python3 scripts/validate-plugin.py --cli-artifact "${RUNNER_TEMP}/screenrig-cli/${filename}"
+          python3 scripts/validate-plugin.py --cli-artifact "${RUNNER_TEMP}/screenrig-cli/${filename}" --cli-source "${RUNNER_TEMP}/screenrig-cli-source"
           python3 scripts/check-public-repo.py
       - name: Package deterministic plugin artifact
         run: >-

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import stat
@@ -20,7 +21,54 @@ PLUGIN = ROOT / "plugins" / "screenrig"
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 RELEASE_VERSION = "0.1.0"
+CLI_SOURCE_FILES = (
+    "src/commands.ts",
+    "src/client.ts",
+    "src/localhost-smoke.ts",
+    "src/server-smoke.ts",
+)
 errors: list[str] = []
+
+
+def requested_cli_source(explicit: str | None) -> tuple[Path | None, str | None]:
+    if explicit:
+        return Path(explicit).expanduser(), "--cli-source"
+    env = os.environ.get("SCREENRIG_CLI_SOURCE")
+    if env:
+        return Path(env).expanduser(), "SCREENRIG_CLI_SOURCE"
+    sibling = ROOT.parent / "cli"
+    if sibling.is_dir():
+        return sibling, "sibling cli checkout"
+    return None, None
+
+
+def require_cli_source(explicit: str | None) -> Path | None:
+    path, origin = requested_cli_source(explicit)
+    if path is None:
+        errors.append(
+            "CLI source is required for pairing facts and the stale-language audit; "
+            "pass --cli-source, set SCREENRIG_CLI_SOURCE, or check out screenrig/cli "
+            "as a sibling directory"
+        )
+        return None
+    missing = [relative for relative in CLI_SOURCE_FILES if not (path / relative).is_file()]
+    if missing:
+        errors.append(f"{origin} is not a ScreenRig CLI checkout (missing {', '.join(missing)})")
+        return None
+    return path
+
+
+def display_path(path: Path, cli_source: Path | None) -> str:
+    try:
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        pass
+    if cli_source is not None:
+        try:
+            return f"cli/{path.relative_to(cli_source).as_posix()}"
+        except ValueError:
+            pass
+    return path.name
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -164,7 +212,7 @@ def check_package() -> None:
                 errors.append(f"packaged CLI credential lifecycle missing: {fact}")
 
 
-def check_no_alternate_surfaces() -> None:
+def check_no_alternate_surfaces(cli_source: Path | None) -> None:
     for path in PLUGIN.rglob("*"):
         if path.is_file() and path.name in {".mcp.json", "mcp.json"}:
             errors.append(f"{path.relative_to(ROOT)}: unsupported server declaration")
@@ -173,13 +221,9 @@ def check_no_alternate_surfaces() -> None:
             if re.search(r'"mcpServers"\s*:', text):
                 errors.append(f"{path.relative_to(ROOT)}: unsupported server manifest key")
 
-    audit_paths = [
-        ROOT / "skills" / "screenrig" / "SKILL.md",
-        ROOT / "packages" / "cli" / "src" / "commands.ts",
-        ROOT / "packages" / "cli" / "src" / "client.ts",
-        ROOT / "packages" / "cli" / "src" / "localhost-smoke.ts",
-        ROOT / "packages" / "cli" / "src" / "server-smoke.ts",
-    ]
+    audit_paths = [ROOT / "skills" / "screenrig" / "SKILL.md"]
+    if cli_source is not None:
+        audit_paths.extend(cli_source / relative for relative in CLI_SOURCE_FILES)
     required_pairing = {
         "skills/screenrig/SKILL.md": [
             "screen pair CODE",
@@ -189,7 +233,9 @@ def check_no_alternate_surfaces() -> None:
             "browser setup --code ABC-234",
             "fragment-free Player public URL",
         ],
-        "packages/cli/src/commands.ts": [
+    }
+    required_cli_pairing = {
+        "src/commands.ts": [
             "screen pair CODE [--label LABEL]",
             "/api/v1/screens/pair",
             "screen provision (--open | --print-url)",
@@ -201,11 +247,23 @@ def check_no_alternate_surfaces() -> None:
     for relative, facts in required_pairing.items():
         path = ROOT / relative
         if not path.is_file():
+            errors.append(f"{relative}: required pairing file missing")
             continue
         text = path.read_text(encoding="utf-8")
         for fact in facts:
             if fact not in text:
                 errors.append(f"{relative}: required pairing fact missing: {fact}")
+    if cli_source is not None:
+        for relative, facts in required_cli_pairing.items():
+            path = cli_source / relative
+            label = f"cli/{relative}"
+            if not path.is_file():
+                errors.append(f"{label}: required pairing file missing")
+                continue
+            text = path.read_text(encoding="utf-8")
+            for fact in facts:
+                if fact not in text:
+                    errors.append(f"{label}: required pairing fact missing: {fact}")
 
     required_marketplace = {
         "README.md": [
@@ -225,6 +283,7 @@ def check_no_alternate_surfaces() -> None:
             "retrying the exact revocation is safe",
             "SCREENRIG_FFPROBE",
             "--no-transcode",
+            "encodes video to H.264",
         ],
         "skills/screenrig/SKILL.md": [
             "https://github.com/screenrig/plugin",
@@ -255,6 +314,7 @@ def check_no_alternate_surfaces() -> None:
             "SCREENRIG_FFMPEG",
             "--no-transcode",
             "--codec hevc",
+            "H.264 MP4 by default",
             "fails `media upload` alone",
         ],
     }
@@ -284,16 +344,18 @@ def check_no_alternate_surfaces() -> None:
     }
     for root in audit_paths:
         if not root.is_file():
+            errors.append(f"{display_path(root, cli_source)}: required stale-language audit file missing")
             continue
         text = root.read_text(encoding="utf-8")
         for label, pattern in forbidden.items():
             if pattern.search(text):
-                errors.append(f"{root.relative_to(ROOT)}: stale {label} language")
+                errors.append(f"{display_path(root, cli_source)}: stale {label} language")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli-artifact")
+    parser.add_argument("--cli-source")
     args = parser.parse_args()
     command = [sys.executable, str(ROOT / "scripts" / "build-plugin.py"), "--check"]
     if args.cli_artifact:
@@ -303,7 +365,7 @@ def main() -> int:
         errors.append("generated plugin build check failed")
     check_marketplaces()
     check_package()
-    check_no_alternate_surfaces()
+    check_no_alternate_surfaces(require_cli_source(args.cli_source))
     if errors:
         print("ScreenRig plugin validation failed:", file=sys.stderr)
         for error in errors:
