@@ -6,9 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -92,6 +94,33 @@ def check_package() -> None:
     wrapper = required[1]
     if wrapper.is_file() and "../../../cli/dist/bin.js" not in wrapper.read_text(encoding="utf-8"):
         errors.append("plugin wrapper must resolve the CLI by package-relative path")
+    if wrapper.is_file():
+        wrapper_text = wrapper.read_text(encoding="utf-8")
+        for fact in ("command -v node", "Node.js 20.11 or newer", "major === 20 && minor >= 11"):
+            if fact not in wrapper_text:
+                errors.append(f"plugin wrapper is missing the Node.js preflight fact: {fact}")
+        dirname = shutil.which("dirname")
+        if dirname is None:
+            errors.append("cannot exercise the wrapper's missing-Node.js preflight: dirname is unavailable")
+        else:
+            with tempfile.TemporaryDirectory(prefix="screenrig-wrapper-path-") as temporary:
+                Path(temporary, "dirname").symlink_to(dirname)
+                missing_node = subprocess.run(
+                    [str(wrapper), "--json", "version"],
+                    cwd=ROOT,
+                    env={"PATH": temporary},
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=False,
+                )
+            if (
+                missing_node.returncode != 69
+                or missing_node.stdout
+                or missing_node.stderr.strip()
+                != "ScreenRig requires Node.js 20.11 or newer; install or expose a compatible node runtime, then retry."
+            ):
+                errors.append("plugin wrapper missing-Node.js preflight is not deterministic")
     forbidden_packaged = [path for path in (PLUGIN / "cli" / "dist").rglob("*") if path.is_file() and ".test." in path.name]
     if forbidden_packaged:
         errors.append("packaged CLI contains test output")
@@ -127,6 +156,12 @@ def check_package() -> None:
         or repository.get("url") != CLI_REPOSITORY
     ):
         errors.append("packaged CLI public release metadata drift")
+    packaged_commands = PLUGIN / "cli" / "dist" / "commands.js"
+    if packaged_commands.is_file():
+        commands_text = packaged_commands.read_text(encoding="utf-8")
+        for fact in ("auth revoke --yes", "/api/v1/account/credential/revoke"):
+            if fact not in commands_text:
+                errors.append(f"packaged CLI credential lifecycle missing: {fact}")
 
 
 def check_no_alternate_surfaces() -> None:
@@ -171,6 +206,59 @@ def check_no_alternate_surfaces() -> None:
         for fact in facts:
             if fact not in text:
                 errors.append(f"{relative}: required pairing fact missing: {fact}")
+
+    required_marketplace = {
+        "README.md": [
+            "https://github.com/screenrig/plugin",
+            "claude plugin marketplace add https://github.com/screenrig/plugin.git --scope user",
+            "claude plugin install screenrig@screenrig --scope user",
+            "codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main --json",
+            "codex plugin add screenrig@screenrig --json",
+            "claude plugin list --json",
+            "codex plugin list --json",
+            "Node.js 20.11 or newer",
+            "$XDG_CONFIG_HOME/screenrig/config.json",
+            "%APPDATA%\\screenrig\\config.json",
+            "auth revoke --yes",
+            "empty `204` response",
+            "separate new account",
+            "retrying the exact revocation is safe",
+        ],
+        "skills/screenrig/SKILL.md": [
+            "https://github.com/screenrig/plugin",
+            "claude plugin marketplace add https://github.com/screenrig/plugin.git --scope user",
+            "claude plugin install screenrig@screenrig --scope user",
+            "codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main --json",
+            "codex plugin add screenrig@screenrig --json",
+            "claude plugin list --json",
+            "codex plugin list --json",
+            "Node.js 20.11 or newer",
+            "authorizes adding",
+            "presentation-only",
+            "what content",
+            "$XDG_CONFIG_HOME/screenrig/config.json",
+            "%APPDATA%\\screenrig\\config.json",
+            "I authorize you to install the official ScreenRig plugin from https://github.com/screenrig/plugin",
+            "auth revoke --yes",
+            "server-first",
+            "empty `204`",
+            "transient authenticated-operation state",
+            "separate new account",
+            "On a failed or ambiguous response",
+            "Do not claim that `doctor` repairs",
+            "browser_already_paired",
+            "browser_link_not_claimed",
+            "handoff_session_rate_limited",
+            "do not use revocation as generic recovery",
+        ],
+    }
+    for relative, facts in required_marketplace.items():
+        text = re.sub(r"\s+", " ", (ROOT / relative).read_text(encoding="utf-8"))
+        for fact in facts:
+            if fact not in text:
+                errors.append(f"{relative}: required marketplace fact missing: {fact}")
+    if "request ID for support" in (ROOT / "skills/screenrig/SKILL.md").read_text(encoding="utf-8"):
+        errors.append("skills/screenrig/SKILL.md: nonexistent support recovery path remains")
     forbidden = {
         "account create": re.compile(r"\baccount create\b", re.IGNORECASE),
         "email onboarding": re.compile(r"--email|requires? email", re.IGNORECASE),

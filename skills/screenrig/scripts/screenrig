@@ -4,6 +4,15 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 plugin_cli="$script_dir/../../../cli/dist/bin.js"
 
+if ! command -v node >/dev/null 2>&1; then
+  echo "ScreenRig requires Node.js 20.11 or newer; install or expose a compatible node runtime, then retry." >&2
+  exit 69
+fi
+if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 20 || (major === 20 && minor >= 11) ? 0 : 1)' >/dev/null 2>&1; then
+  echo "ScreenRig requires Node.js 20.11 or newer; upgrade the active node runtime, then retry." >&2
+  exit 69
+fi
+
 if [ -f "$plugin_cli" ]; then
   exec node "$plugin_cli" "$@"
 fi
