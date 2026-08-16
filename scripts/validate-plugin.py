@@ -223,6 +223,8 @@ def check_no_alternate_surfaces() -> None:
             "empty `204` response",
             "separate new account",
             "retrying the exact revocation is safe",
+            "SCREENRIG_FFPROBE",
+            "--no-transcode",
         ],
         "skills/screenrig/SKILL.md": [
             "https://github.com/screenrig/plugin",
@@ -250,6 +252,10 @@ def check_no_alternate_surfaces() -> None:
             "browser_link_not_claimed",
             "handoff_session_rate_limited",
             "do not use revocation as generic recovery",
+            "SCREENRIG_FFMPEG",
+            "--no-transcode",
+            "--codec hevc",
+            "fails `media upload` alone",
         ],
     }
     for relative, facts in required_marketplace.items():

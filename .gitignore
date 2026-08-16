@@ -1,0 +1,6 @@
+# Agent working state. This repository is public; agent memory and session
+# notes must never be committed here.
+.claude/
+
+__pycache__/
+node_modules/

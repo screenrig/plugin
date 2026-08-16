@@ -155,6 +155,95 @@ tickets, object keys, or protected asset URLs. Preserve request and operation
 IDs in reports. Reuse an idempotency key after an ambiguous mutation retry and
 use `--if-match` only with the current resource revision.
 
+## Media uploads and the ffmpeg toolchain
+
+Pre-upload conversion is a property of the pinned CLI build in this bundle, not
+of the launcher. Confirm the build before the first `media upload` of a
+session:
+
+```bash
+"$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig" --json doctor
+```
+
+Read `data.checks`. A build that reports `ffmpeg` and `ffprobe` converts media
+before upload. A build that reports neither uploads the source bytes unchanged
+and needs no external tool; skip the rest of this section.
+
+On a build that converts:
+
+- `media upload <file>` encodes video to an H.264 (High profile) MP4 by
+  default and images to WebP, then uploads the converted bytes.
+- The conversion runs `ffmpeg` and `ffprobe`. They must be on `PATH`, or their
+  absolute paths must be in `SCREENRIG_FFMPEG` and `SCREENRIG_FFPROBE`.
+- `doctor` reports the `ffmpeg`, `ffprobe`, `encoder_libx264`,
+  `encoder_libx265`, `encoder_libwebp`, and `filter_hdr_tonemap` checks. Use it
+  to name the missing part before you ask the user for anything. The default
+  encode path needs `libx264`.
+
+A missing or unusable toolchain fails `media upload` alone. It returns a usage
+error, not a plugin installation failure. `screen pair`, `browser setup`,
+`playlist`, `kv`, `doctor`, and every other command keep working, so do not
+reinstall the plugin and do not stop the wider task. Any failed check makes
+`doctor` itself exit non-zero, so read the individual check names before you
+call the installation unhealthy.
+
+When the toolchain is missing, tell the user which check failed and ask them to
+install ffmpeg 6.0 or newer, with `ffmpeg` and `ffprobe` reachable on `PATH`.
+Point them at their platform package manager or `https://ffmpeg.org/download.html`.
+An `encoder_libx264`, `encoder_libx265`, or `encoder_libwebp` failure means the
+installed ffmpeg build lacks that encoder, so the user needs a build that
+includes it. Do not install software on the user's computer without their
+explicit request. `--no-transcode` is the escape hatch: it skips conversion
+entirely and uploads the source file unchanged.
+
+### Codec choice
+
+`media upload` produces an H.264 MP4 by default. Every current browser and
+every ScreenRig player decodes it. ScreenRig stores exactly one rendition per
+media object, and the layout contract carries no codec parameter, so there is
+no fallback. A screen that cannot decode the stored rendition shows nothing
+useful.
+
+`--codec hevc` opts in to H.265 for a smaller file at the same quality. Use it
+only when every screen that will play the media is a native player
+(Qt/GStreamer or Android/MediaCodec). H.265 in a browser depends on platform
+hardware decode and is not dependable. Do not re-upload the same file in both
+codecs to test it. Ask which screens will play it, then choose once.
+
+### Filenames
+
+Check the filename before you run `media upload`. Do this whether or not
+conversion runs. Conversion preserves the source name stem, so a poor name
+survives the whole pipeline.
+
+The filename is the human-readable handle for a media object. It is what a
+person reads in media listings, playlists, and playback reporting. If every
+upload is `video.mp4`, none of those surfaces can tell one item from another.
+
+Treat these as low-information names: a generic stem (`video`, `clip`,
+`output`, `untitled`, `final`, `export`, `image`, `photo`); a camera or phone
+default (`IMG_1234.jpg`, `DSC_0001.jpg`, `VID_20240101_120000.mp4`,
+`GX010001.mp4`); a screen-recording default; a bare number or bare date; a
+one- or two-character stem; or a name that is only counters and noise
+(`final2`, `copy`, `v1`, `video (1)`).
+
+Ask the user for a distinctive name before uploading. Suggest one drawn from
+what the media actually shows and where it will play, for example
+`lobby-welcome-loop.mp4` or `store-hours-winter-2026.png`. Offer it as a
+suggestion. The user decides. If they keep the original name, upload it. Do
+not rename the user's file on disk, and do not silently substitute a different
+name in the upload.
+
+Ask once per file. Do not re-prompt or re-upload to fix a name the user
+already accepted.
+
+The CLI is a backstop, not the prompt. It cannot ask anything, because it is
+noninteractive. When a low-information name reaches it, it adds an advisory
+warning with code `generic_filename` to the envelope `warnings[]` array and
+still completes the upload successfully. Seeing that warning in a result means
+the asking step was missed; surface it to the user rather than retrying the
+upload.
+
 ## Credential removal
 
 Run `auth revoke --yes` only when the user explicitly accepts permanent loss
@@ -227,7 +316,8 @@ version
 
 Use the same `screen pair CODE` flow for first use and recovery. Application upload
 accepts one already-built static directory with a root `index.html`. Media upload keeps
-the signed transfer private and returns metadata only. Application K/V is
+the signed transfer private and returns metadata only; see "Media uploads and the
+ffmpeg toolchain" before the first upload of a session. Application K/V is
 binary-safe; use exactly one value mode.
 
 On `revision_conflict`, fetch the resource, reapply the intended change, and

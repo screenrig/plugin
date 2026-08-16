@@ -77,6 +77,29 @@ authorization. Runtime pages use `screenrig.canvas/v1`; protected content and
 `screenrig.webapp-package/v1` artifacts remain manifest-bound. Screenshotting
 is not part of v1.
 
+## Media uploads
+
+The launcher preflights Node.js only. Pre-upload media conversion is a property
+of the pinned CLI build, so read it from the tool itself:
+
+```sh
+<plugin-root>/skills/screenrig/scripts/screenrig --json doctor
+```
+
+A build whose `checks` include `ffmpeg` and `ffprobe` encodes video to H.264
+(High profile) MP4 and images to WebP before upload. That build needs ffmpeg 6.0 or
+newer, with `ffmpeg` and `ffprobe` on `PATH` or their absolute paths in
+`SCREENRIG_FFMPEG` and `SCREENRIG_FFPROBE`. `doctor` also reports the
+`encoder_libx264`, `encoder_libx265`, `encoder_libwebp`, and
+`filter_hdr_tonemap` checks. A build that reports none of these uploads the
+source bytes unchanged.
+
+A missing toolchain fails `media upload` alone; pairing, playlists, and
+application K/V are unaffected. `--no-transcode` uploads the source file
+unchanged. `--codec hevc` opts in to H.265 for a smaller file at the same
+quality; use it only when every screen that will play the media is a native
+player (Qt/GStreamer or Android/MediaCodec).
+
 ## Artifact provenance and validation
 
 `components.lock.json` pins the exact `screenrig/cli` commit, artifact

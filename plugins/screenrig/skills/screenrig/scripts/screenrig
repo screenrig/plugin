@@ -4,6 +4,9 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 plugin_cli="$script_dir/../../../cli/dist/bin.js"
 
+# Preflight only what must exist before Node can run. The bundled CLI diagnoses
+# every other dependency itself and reports it in its JSON envelope, so a
+# dependency that one command needs must never fail this shared entry point.
 if ! command -v node >/dev/null 2>&1; then
   echo "ScreenRig requires Node.js 20.11 or newer; install or expose a compatible node runtime, then retry." >&2
   exit 69

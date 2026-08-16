@@ -26,6 +26,12 @@ does not own the CLI source, players, backend, site, or production deployment.
   README, and skill behavior aligned.
 - The launcher must remain package-relative, preflight Node.js 20.11+, and
   execute only the bundled `cli/dist/bin.js`.
+- The launcher preflights Node.js and nothing else. It must stay silent on
+  success: `scripts/check-public-repo.py` and `scripts/validate-plugin.py` both
+  require clean JSON on stdout and empty stderr. A dependency that only one
+  command needs, such as the media toolchain, belongs to that command in the
+  CLI, which can return a machine-readable envelope; it must never fail or warn
+  from this shared entry point.
 - Preserve unrelated work. Do not commit, push, tag, publish, deploy, or change
   marketplace/GitHub state unless explicitly authorized.
 
