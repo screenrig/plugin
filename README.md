@@ -1,8 +1,8 @@
 # ScreenRig agent plugin
 
-ScreenRig is an agent-first digital-signage and kiosk workflow. The canonical
-public marketplace source is
-[github.com/screenrig/plugin](https://github.com/screenrig/plugin).
+ScreenRig is an agent-first digital-signage workflow. This public repository is
+the canonical marketplace source and distributes one generated plugin containing
+the ScreenRig skill plus a pinned CLI artifact.
 
 ## Install
 
@@ -20,64 +20,86 @@ codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main 
 codex plugin add screenrig@screenrig --json
 ```
 
-Then open the [ScreenRig Player](https://play.screenrig.ai) and ask your agent
-to pair the six-character code, or paste a public
-`https://screenrig.ai/ABC-234` setup instruction into the agent. Do not look
-for or install a global `screenrig` binary: the plugin's skill invokes its
-pinned, bundled CLI.
+Confirm the installed entry and read its package root:
 
-This distributable contains the ScreenRig skill and its pinned, bundled CLI.
-The CLI requires Node.js 20.11 or newer. The wrapper resolves only the bundled
-CLI; it does not download or execute a mutable command at runtime. Agent
-workflows use machine-readable output and keep credentials in user-private
-application state outside the replaceable plugin directory.
+```sh
+claude plugin list --json
+codex plugin list --json
+```
 
-If a newly installed plugin is not loaded into the current agent session, run
-`claude plugin list --json` and read the `installPath` for
-`screenrig@screenrig`, or run `codex plugin list --json` and read its
-`source.path`. Verify that exact installation before continuing:
+Run `node --version` first. The package-relative launcher fails closed unless
+Node.js 20.11 or newer is active. After installation, use the agent's plugin list
+JSON to read the ScreenRig `installPath` (Claude Code) or `source.path`
+(Codex), then verify the installed bundle:
 
 ```sh
 <plugin-root>/skills/screenrig/scripts/screenrig --json version
 ```
 
-Then use that same package-relative wrapper for ScreenRig commands. Do not add
-it to `PATH` or substitute another executable.
+Use that same launcher for every ScreenRig command. It resolves only
+`<plugin-root>/cli/dist/bin.js`; it does not use a global executable or fetch a
+mutable command at runtime.
 
-The first authenticated operation creates a ScreenRig account automatically,
-stores its permanent credential with user-only permissions, and resumes the
-requested operation. The default file is
+## Pairing and browser setup
+
+Open `https://play.screenrig.ai` and ask the agent to pair the six-character
+code. The browser Player displays a middle dash such as `ABC-234`; the current
+default pair command requires the canonical six characters:
+
+```sh
+<plugin-root>/skills/screenrig/scripts/screenrig --json screen pair ABC234
+```
+
+The public homepage handoff is separate first-use convenience. An unclaimed
+`https://screenrig.ai/ABC-234` locator lasts 30 minutes. `browser setup --code
+ABC-234` accepts the dashed display form (or `ABC234`), and a successful claim
+creates a fresh independent 10-minute protected delivery window. CLI output is
+limited to the normalized code, claim status, and fragment-free Player URL.
+
+The first authenticated operation enrolls automatically, stores its credential
+with user-only permissions outside the replaceable plugin directory, verifies
+it, and resumes the original request. The default configuration is
 `$XDG_CONFIG_HOME/screenrig/config.json` when `XDG_CONFIG_HOME` is set,
 `%APPDATA%\screenrig\config.json` on Windows, or
-`~/.config/screenrig/config.json` otherwise. `SCREENRIG_CONFIG` may select a
-different path. Uninstalling or upgrading the plugin does not remove this user
-configuration.
+`~/.config/screenrig/config.json`; `SCREENRIG_CONFIG` may override it.
 
-The canonical customer command is `screen pair CODE [--label LABEL]`. The
-plugin also supports implemented application, playlist, media, screen, event,
-and application K/V operations documented by the bundled skill.
-
-Credential removal is explicit and server-first. `screenrig auth revoke --yes`
-revokes exactly the stored calling credential, issues no replacement, and
-removes local credential, enrollment, and transient authenticated-operation
-state only after the server confirms an empty `204` response. Non-secret API
-configuration is preserved. The account, screens, and content remain, but the
-revoked credential cannot be recovered in the current anonymous no-email
-model; the next account-scoped command enrolls a separate new account. Failed
-or ambiguous requests retain local state, and retrying the exact revocation is
+`auth revoke --yes` revokes the calling credential on the server before local
+credential and retry state are removed. Success requires an empty `204`
+response and issues no replacement. The account, screens, and content remain;
+the next account-scoped command enrolls a separate new account. Failed or
+ambiguous results preserve local state, and retrying the exact revocation is
 safe.
 
-## Validation
+Browser sessions use server-managed HttpOnly cookies. Native Android and Qt
+players are separate native-first applications that use protected
+`ScreenRig-Pairing`, `ScreenRig-Device`, and `ScreenRig-Session`
+authorization. Runtime pages use `screenrig.canvas/v1`; protected content and
+`screenrig.webapp-package/v1` artifacts remain manifest-bound. Screenshotting
+is not part of v1.
+
+## Artifact provenance and validation
+
+`components.lock.json` pins the exact `screenrig/cli` commit, artifact
+filename, and SHA-256 used to generate `plugins/screenrig`. Root skill and
+metadata files are canonical; the committed plugin directory is generated and
+must not be edited independently. CI reproduces the pinned CLI artifact,
+rebuilds/validates the bundle, scans the public boundary, and publishes
+deterministic `screenrig-plugin.tar.gz`.
+
+This repository does not deploy ScreenRig. Production assembly is owned only by
+the backend component lock.
 
 ```sh
 python3 scripts/check-public-repo.py
 skills/screenrig/scripts/screenrig --json version
 ```
 
-Security reports belong in
-[GitHub Private Vulnerability Reporting](https://github.com/screenrig/plugin/security/advisories/new),
-not in public issues. See [SECURITY.md](SECURITY.md).
+Full regeneration additionally requires the exact CLI artifact selected by
+`components.lock.json`. Source validation does not prove marketplace
+installation, automatic enrollment against the live API, pairing, public
+browser handoff, native hardware, or production deployment.
 
-This repository is licensed under Apache-2.0. The license applies to this
-public plugin and its bundled Apache-2.0 CLI; it does not license other
-ScreenRig services or repositories.
+Security reports belong in
+[GitHub Private Vulnerability Reporting](https://github.com/screenrig/plugin/security/advisories/new).
+See [SECURITY.md](SECURITY.md). The Apache-2.0 license covers this public plugin
+and its bundled CLI, not other ScreenRig services or repositories.
