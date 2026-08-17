@@ -12,6 +12,5 @@ export declare function compileIgnore(patterns: string[]): (posixPath: string, i
 export declare const BUILTIN_IGNORE_PATTERNS: string[];
 export declare function isDotComponentPath(posixPath: string): boolean;
 export declare function isBuiltinIgnored(posixPath: string, isDir: boolean): boolean;
-export declare function joinPosix(...parts: string[]): string;
 export declare function toPosixRelative(root: string, absolute: string): string;
 //# sourceMappingURL=paths.d.ts.map

@@ -15,6 +15,8 @@ export interface CliRuntime {
     signedRawPut?: SignedRawPut;
     cwd: () => string;
     openUrl?: OpenUrl;
+    runProcess?: RunProcess;
+    isStderrTty?: () => boolean;
 }
 export interface SignedRawPutRequest {
     url: string;
@@ -29,6 +31,27 @@ export interface SignedRawPutResponse {
     bodyText?: string;
 }
 export type SignedRawPut = (request: SignedRawPutRequest) => Promise<SignedRawPutResponse>;
+export interface RunProcessRequest {
+    command: string;
+    args: string[];
+    /** Receives each complete stdout line. When set, stdout is streamed instead of captured. */
+    onStdoutLine?: (line: string) => void;
+    timeoutMs?: number;
+}
+export interface RunProcessResult {
+    /** Null when the child was terminated by a signal or never started cleanly. */
+    code: number | null;
+    signal: string | null;
+    /** Captured stdout, or the empty string when onStdoutLine streamed it. */
+    stdout: string;
+    /** Bounded tail of stderr, for diagnostics only. */
+    stderrTail: string;
+    /** Set when the process could not be started at all. */
+    spawnError?: string;
+    timedOut?: boolean;
+}
+export type RunProcess = (request: RunProcessRequest) => Promise<RunProcessResult>;
+export declare function spawnRunProcess(): RunProcess;
 export declare function fetchSignedRawPut(fetchImpl?: typeof fetch): SignedRawPut;
 export declare function processRuntime(): CliRuntime;
 //# sourceMappingURL=runtime.d.ts.map

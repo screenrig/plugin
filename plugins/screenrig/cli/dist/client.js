@@ -1,7 +1,6 @@
-import { errorEnvelope, successEnvelope } from "./envelope.js";
 import { ExitCode } from "./exit-codes.js";
 import { isValidIdempotencyKey, isValidRequestId, newIdempotencyKey, newRequestId } from "./ids.js";
-import { CliError, makeProblem, normalizeProblem, timeoutError, usageError } from "./problems.js";
+import { CliError, makeProblem, normalizeProblem, parseRetryAfter, timeoutError, usageError, withQuotaGuidance, withRetryAfter, } from "./problems.js";
 export class ApiClient {
     requestId;
     idempotencyKey;
@@ -50,7 +49,7 @@ export class ApiClient {
                 request_id: response.headers["x-request-id"] ?? this.requestId,
                 bodyText: typeof response.rawText === "string" ? response.rawText : undefined,
             });
-            throw new CliError(problem);
+            throw new CliError(withQuotaGuidance(withRetryAfter(problem, parseRetryAfter(response.headers["retry-after"], Date.now()))));
         }
         return response;
     }
@@ -84,9 +83,6 @@ export class ApiClient {
         }
     }
 }
-export function envelopeFromUnknown(data, requestId, operationId) {
-    return successEnvelope(data, { request_id: requestId, operation_id: operationId });
-}
 export function requireToken(token) {
     if (!token) {
         throw new CliError(makeProblem("unauthenticated", "Credential unavailable", 401, "Automatic enrollment did not produce a durable credential.", {
@@ -98,5 +94,4 @@ export function requireToken(token) {
     }
     return token;
 }
-export { errorEnvelope };
 //# sourceMappingURL=client.js.map

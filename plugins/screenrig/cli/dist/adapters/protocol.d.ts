@@ -64,7 +64,8 @@ export interface EventPage {
     next_cursor: string;
 }
 export interface Capabilities {
-    account_content_bytes: 1073741824;
+    /** Plan storage quota. Smaller than the per-upload transport ceiling, and checked first. */
+    account_content_bytes: 104857600;
     api_version: string;
     application_compressed_bytes: 104857600;
     application_expanded_bytes: 262144000;
@@ -89,29 +90,13 @@ export interface ArchiveLimits {
 }
 export declare const DEFAULT_ARCHIVE_LIMITS: ArchiveLimits;
 export declare function limitsFromCapabilities(capabilities: Capabilities): ArchiveLimits;
-export interface Application {
-    id: string;
-    name: string;
-    revision: number;
-    state: string;
-    release_id?: string;
-    [key: string]: unknown;
-}
-export interface ApplicationRelease {
-    id: string;
-    application_id: string;
-    sha256: string;
-    compressed_bytes: number;
-    expanded_bytes: number;
-    file_count: number;
-    operation_id?: string;
-}
-export interface Playlist {
-    id: string;
-    revision: number;
-    name: string;
-    pages: Array<Record<string, unknown>>;
-}
+/**
+ * Playlist pages stay opaque on purpose. The CLI forwards author-supplied
+ * playlist JSON verbatim and never constructs a page, so the contract's page,
+ * placement, and content schemas — including the `text`, `box`, and `line`
+ * vector placements — are deliberately not mirrored here. Mirror a schema only
+ * when the CLI builds or reads its fields.
+ */
 export interface Screen {
     content_access_generation: number;
     created_at: string;
@@ -124,10 +109,6 @@ export interface Screen {
     state: "pairing_pending" | "active";
     updated_at: string;
 }
-export interface ScreenPatch {
-    name?: string;
-    playlist_id?: string;
-}
 export interface PairScreen {
     code: string;
     label?: string;
@@ -139,6 +120,20 @@ export interface ScreenProvisioning {
     screen: Screen;
     public_url: string;
     provisioning_url: string;
+    expires_at: string;
+}
+export type ScreenToastLevel = "error" | "alert" | "info";
+/**
+ * Write body for POST /api/v1/screens/{id}/toast. Colours are player chrome
+ * and are never sent. duration_ms is omitted so the server can default it.
+ */
+export interface ScreenToastWrite {
+    level: ScreenToastLevel;
+    text: string;
+    duration_ms?: number;
+}
+/** Accepted toast write. The toast itself lives on the durable screen.toast event. */
+export interface ScreenToastAccepted {
     expires_at: string;
 }
 export interface PairingClaim {
@@ -158,22 +153,6 @@ export interface BrowserLinkClaim {
     session_id: string;
     status: "claimed";
     screen: BrowserLinkClaimScreen;
-}
-export interface Media {
-    bytes: number;
-    content_type: string;
-    created_at: string;
-    duration_ms?: number;
-    filename: string;
-    height: number;
-    id: string;
-    kind: "image" | "video";
-    operation_id: string;
-    revision: number;
-    sha256: string;
-    state: "ready";
-    updated_at: string;
-    width: number;
 }
 export interface MediaCommit {
     bytes: number;
@@ -213,8 +192,34 @@ export interface KVSummary extends KVMetadata {
 export interface KVEntry extends KVMetadata {
     value_base64: string;
 }
-export interface KVList {
-    items: KVSummary[];
+export type FeedbackKind = "bug" | "feature";
+/**
+ * Closed diagnostic envelope. Every member is an optional constrained scalar and
+ * the server rejects an unknown member, so nothing free-form can be persisted
+ * through it. `command` is a command path only; the pattern rejects flags and
+ * argument values.
+ */
+export interface FeedbackContext {
+    cli_version?: string;
+    command?: string;
+    platform?: string;
+}
+export interface FeedbackWrite {
+    title: string;
+    body: string;
+    context?: FeedbackContext;
+}
+/** Immutable once written, which is why it carries no revision. */
+export interface FeedbackSubmission {
+    id: string;
+    kind: FeedbackKind;
+    title: string;
+    body: string;
+    context?: FeedbackContext;
+    created_at: string;
+}
+export interface FeedbackList {
+    items: FeedbackSubmission[];
 }
 export declare const TEMPORARY_PROTOCOL_VERSION = "screenrig.cli.adapter/0";
 export {};

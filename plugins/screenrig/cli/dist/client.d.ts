@@ -1,5 +1,3 @@
-import type { Envelope } from "./envelope.js";
-import { errorEnvelope } from "./envelope.js";
 import type { Transport, TransportRequest, TransportResponse } from "./transport/types.js";
 import type { Operation } from "./adapters/protocol.js";
 export interface ApiClientOptions {
@@ -29,7 +27,5 @@ export declare class ApiClient {
         sleep: (ms: number) => Promise<void>;
     }): Promise<Operation>;
 }
-export declare function envelopeFromUnknown<T>(data: T, requestId?: string, operationId?: string): Envelope<T>;
 export declare function requireToken(token: string | undefined): string;
-export { errorEnvelope };
 //# sourceMappingURL=client.d.ts.map
