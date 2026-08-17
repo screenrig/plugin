@@ -295,6 +295,7 @@ screen list
 screen rotate-public-id <id> --if-match REVISION
 screen revoke-credential <id> --if-match REVISION
 screen delete <id> --if-match REVISION
+screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
 
 operations get <id>
 operations wait <id> [--timeout MS] [--poll-ms MS]
@@ -319,6 +320,16 @@ accepts one already-built static directory with a root `index.html`. Media uploa
 the signed transfer private and returns metadata only; see "Media uploads and the
 ffmpeg toolchain" before the first upload of a session. Application K/V is
 binary-safe; use exactly one value mode.
+
+`screen toast` posts one transient stage-chrome message to a named screen. It is
+not a placement: it occupies no canvas slot, has no layer, and is not part of
+readiness or crossfade. `--level` is `error`, `alert`, or `info`. `--text` is 1
+to 120 characters, line feed only, and at most three lines. `--duration-ms` is
+optional and must be between 2000 and 60000 when supplied; omitted values
+default to 10000 on the server. Latest-wins: there is no queue and no cancel
+command. The accepted envelope is `{ expires_at }` only; do not expect the text
+back, and do not put credentials or other secret material in the text. Level
+colours are player chrome and are not API fields.
 
 On `revision_conflict`, fetch the resource, reapply the intended change, and
 retry with the returned revision. On an ambiguous transport failure, reuse the
