@@ -321,6 +321,74 @@ the signed transfer private and returns metadata only; see "Media uploads and th
 ffmpeg toolchain" before the first upload of a session. Application K/V is
 binary-safe; use exactly one value mode.
 
+## Playlist writes
+
+`playlist create` and `playlist update` send the JSON file verbatim. Image and
+video placements write a `selector`. Do not put `media_id` on the content
+object. Do not send server-resolved `items`. Advance with `media_end`, never
+`video_end`.
+
+Selector `by` values:
+
+- `id`: one ready `media_id`. `one_at_a_time` must be false.
+- `ids`: 1–32 unique ready IDs.
+- `all`: every ready object of that placement kind.
+- `tag`: ready objects of that kind whose tag matches `^[A-Za-z0-9]{1,32}$`.
+
+`media_end` is valid only on a page with exactly one image or video placement.
+Video `loop` must be false. An image on `media_end` requires `dwell_ms`.
+`dwell_ms` is rejected on duration and application pages.
+
+```json
+{
+  "name": "Lobby loop",
+  "pages": [
+    {
+      "id": "poster",
+      "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+      "transition": { "type": "crossfade", "duration_ms": 200 },
+      "advance": { "mode": "duration", "after_ms": 8000 },
+      "placements": [
+        {
+          "id": "hero",
+          "content": {
+            "type": "image",
+            "selector": { "by": "id", "media_id": "med_01EXAMPLEIMAGE0000000000" },
+            "alt": "Lobby poster"
+          },
+          "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "layer": 0,
+          "content_fit": "contain"
+        }
+      ]
+    },
+    {
+      "id": "clip",
+      "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+      "transition": { "type": "crossfade", "duration_ms": 200 },
+      "advance": { "mode": "media_end" },
+      "placements": [
+        {
+          "id": "feature",
+          "content": {
+            "type": "video",
+            "selector": { "by": "id", "media_id": "med_01EXAMPLEVIDEO0000000000" },
+            "muted": true,
+            "loop": false
+          },
+          "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "layer": 0,
+          "content_fit": "contain"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Use the `media_id` returned by `media upload`. Do not invent one. Do not author
+`text`, `box`, or `line` placements.
+
 `screen toast` posts one transient stage-chrome message to a named screen. It is
 not a placement: it occupies no canvas slot, has no layer, and is not part of
 readiness or crossfade. `--level` is `error`, `alert`, or `info`. `--text` is 1
