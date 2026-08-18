@@ -4,3 +4,7 @@
 
 __pycache__/
 node_modules/
+
+# Workspace-local checkout symlink. Do not ignore plugins/screenrig/cli/.
+/cli
+

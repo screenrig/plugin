@@ -1,6 +1,6 @@
 import { ExitCode } from "./exit-codes.js";
 import { isValidIdempotencyKey, isValidRequestId, newIdempotencyKey, newRequestId } from "./ids.js";
-import { CliError, makeProblem, normalizeProblem, parseRetryAfter, timeoutError, usageError, withQuotaGuidance, withRetryAfter, } from "./problems.js";
+import { CliError, makeProblem, normalizeProblem, parseRetryAfter, timeoutError, usageError, withPaymentGuidance, withQuotaGuidance, withRetryAfter, } from "./problems.js";
 export class ApiClient {
     requestId;
     idempotencyKey;
@@ -49,7 +49,7 @@ export class ApiClient {
                 request_id: response.headers["x-request-id"] ?? this.requestId,
                 bodyText: typeof response.rawText === "string" ? response.rawText : undefined,
             });
-            throw new CliError(withQuotaGuidance(withRetryAfter(problem, parseRetryAfter(response.headers["retry-after"], Date.now()))));
+            throw new CliError(withPaymentGuidance(withQuotaGuidance(withRetryAfter(problem, parseRetryAfter(response.headers["retry-after"], Date.now())))));
         }
         return response;
     }

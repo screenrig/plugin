@@ -3,22 +3,44 @@ import path from "node:path";
 import { configError } from "./problems.js";
 import { redactToken, tokenLookupId } from "./redact.js";
 export const DEFAULT_API_URL = "https://api.screenrig.ai";
-export function defaultConfigPath(fsLike) {
-    const fromEnv = fsLike.env.SCREENRIG_CONFIG;
-    if (fromEnv && fromEnv.length > 0) {
-        return fromEnv;
-    }
+const DEFAULT_CONFIG_NAME = "config.json";
+const LOCAL_DEV_CONFIG_NAME = "config.local-dev.json";
+function defaultConfigDir(fsLike) {
     const xdg = fsLike.env.XDG_CONFIG_HOME;
     if (xdg && xdg.length > 0) {
-        return path.join(xdg, "screenrig", "config.json");
+        return path.join(xdg, "screenrig");
     }
     if (process.platform === "win32") {
         const appdata = fsLike.env.APPDATA;
         if (appdata && appdata.length > 0) {
-            return path.join(appdata, "screenrig", "config.json");
+            return path.join(appdata, "screenrig");
         }
     }
-    return path.join(fsLike.homedir(), ".config", "screenrig", "config.json");
+    return path.join(fsLike.homedir(), ".config", "screenrig");
+}
+async function configPathExists(filePath, fsLike) {
+    try {
+        await fsLike.stat(filePath);
+        return true;
+    }
+    catch (err) {
+        if (err.code === "ENOENT") {
+            return false;
+        }
+        throw err;
+    }
+}
+export async function defaultConfigPath(fsLike) {
+    const fromEnv = fsLike.env.SCREENRIG_CONFIG;
+    if (fromEnv && fromEnv.length > 0) {
+        return fromEnv;
+    }
+    const dir = defaultConfigDir(fsLike);
+    const localDev = path.join(dir, LOCAL_DEV_CONFIG_NAME);
+    if (await configPathExists(localDev, fsLike)) {
+        return localDev;
+    }
+    return path.join(dir, DEFAULT_CONFIG_NAME);
 }
 function modeOf(value) {
     return value.mode & 0o777;
@@ -168,7 +190,7 @@ export async function withConfigLock(configPath, fsLike, options, callback) {
 }
 export async function resolveConfig(options) {
     const configPath = (typeof options.flags.config === "string" && options.flags.config) ||
-        defaultConfigPath(options.fs);
+        (await defaultConfigPath(options.fs));
     const file = await readConfigFile(configPath, options.fs, { repair: options.repair });
     const flagApi = typeof options.flags["api-url"] === "string" ? options.flags["api-url"] : undefined;
     const envApi = options.fs.env.SCREENRIG_API_URL;

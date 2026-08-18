@@ -23,12 +23,18 @@ export declare function describeRetryInterval(seconds: number): string;
  */
 export declare function withRetryAfter(problem: NormalizedProblem, retryAfterSeconds: number | undefined): NormalizedProblem;
 /**
- * The account plan quota is smaller than the per-upload transport ceiling and is
- * checked first, so `quota_exceeded` is the limit a user actually meets. Point
- * at the command that reports the remaining allowance, unless the server
- * already supplied its own guidance.
+ * A custom storage ceiling, when present, is checked before the 1 GiB
+ * transport bound, so `quota_exceeded` is still the limit a user meets on that
+ * path. Point at the command that reports used_bytes and content_limit_bytes,
+ * unless the server already supplied its own guidance.
  */
 export declare function withQuotaGuidance(problem: NormalizedProblem): NormalizedProblem;
+/**
+ * Remaining prepaid credit of zero rejects costly operations with
+ * `payment_required`. Point at account show for credit_remaining_mcr. Do not
+ * invent a pay command; v1 does not collect money here.
+ */
+export declare function withPaymentGuidance(problem: NormalizedProblem): NormalizedProblem;
 export declare function usageError(detail: string, next?: ProblemNext): CliError;
 export declare function configError(detail: string, next?: ProblemNext): CliError;
 export declare function networkError(detail: string, request_id?: string): CliError;

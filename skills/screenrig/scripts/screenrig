@@ -2,7 +2,6 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-plugin_cli="$script_dir/../../../cli/dist/bin.js"
 
 # Preflight only what must exist before Node can run. The bundled CLI diagnoses
 # every other dependency itself and reports it in its JSON envelope, so a
@@ -16,8 +15,49 @@ if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number
   exit 69
 fi
 
-if [ -f "$plugin_cli" ]; then
-  exec node "$plugin_cli" "$@"
+# Prefer the marketplace bundle path, then plugin-root env vars, then a
+# parent-directory walk (logical, then physical) so a source checkout works.
+try_exec() {
+  cli=$1
+  shift
+  if [ -f "$cli" ]; then
+    exec node "$cli" "$@"
+  fi
+}
+
+walk_exec() {
+  dir=$1
+  shift
+  while :; do
+    if [ -f "$dir/cli/dist/bin.js" ]; then
+      exec node "$dir/cli/dist/bin.js" "$@"
+    fi
+    parent=$(dirname -- "$dir")
+    if [ "$parent" = "$dir" ]; then
+      return 0
+    fi
+    dir=$parent
+  done
+}
+
+try_exec "$script_dir/../../../cli/dist/bin.js" "$@"
+if [ -n "${GROK_PLUGIN_ROOT-}" ]; then
+  try_exec "$GROK_PLUGIN_ROOT/cli/dist/bin.js" "$@"
 fi
-echo "ScreenRig bundled CLI is missing; reinstall the ScreenRig plugin." >&2
+if [ -n "${SCREENRIG_PLUGIN_ROOT-}" ]; then
+  try_exec "$SCREENRIG_PLUGIN_ROOT/cli/dist/bin.js" "$@"
+fi
+if [ -n "${CLAUDE_PLUGIN_ROOT-}" ]; then
+  try_exec "$CLAUDE_PLUGIN_ROOT/cli/dist/bin.js" "$@"
+fi
+if [ -n "${CODEX_PLUGIN_ROOT-}" ]; then
+  try_exec "$CODEX_PLUGIN_ROOT/cli/dist/bin.js" "$@"
+fi
+walk_exec "$script_dir" "$@"
+physical_dir=$(CDPATH= cd -- "$script_dir" && pwd -P)
+if [ "$physical_dir" != "$script_dir" ]; then
+  walk_exec "$physical_dir" "$@"
+fi
+
+echo "ScreenRig CLI is missing; reinstall the ScreenRig plugin, or from a source checkout build cli/dist/bin.js." >&2
 exit 78

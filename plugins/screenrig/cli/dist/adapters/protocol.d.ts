@@ -11,12 +11,13 @@ export type OperationState = "queued" | "running" | "succeeded" | "failed" | "ca
 export interface Account {
     content_limit_bytes: number;
     created_at: string;
+    credit_remaining_mcr: number;
     id: string;
     reserved_bytes: number;
     revision: number;
     screen_count: number;
     screen_limit: number;
-    status: "active";
+    status: "active" | "cancelled" | "deleted";
     updated_at: string;
     used_bytes: number;
 }
@@ -28,6 +29,8 @@ export interface CLIEnrollment {
 }
 export interface CLIEnrollmentRequest {
     client_id: string;
+    /** Present only when the operator supplies --beta-key or SCREENRIG_BETA_KEY. */
+    beta_key?: string;
 }
 export interface Operation {
     created_at: string;
@@ -41,7 +44,14 @@ export interface Operation {
     [key: string]: unknown;
 }
 export interface OperationAccepted {
+    /** Application identifier the upload was attributed to. */
     id: string;
+    /**
+     * Release created by this upload. The server has always returned it and the
+     * contract now requires it. It is the only handle a playlist placement
+     * accepts, so report it rather than making the caller poll the operation.
+     */
+    release_id: string;
     operation_id: string;
 }
 export interface EventResource {
@@ -64,8 +74,8 @@ export interface EventPage {
     next_cursor: string;
 }
 export interface Capabilities {
-    /** Plan storage quota. Smaller than the per-upload transport ceiling, and checked first. */
-    account_content_bytes: 104857600;
+    /** Default-plan storage cap. Zero means no product storage cap. */
+    account_content_bytes: 0;
     api_version: string;
     application_compressed_bytes: 104857600;
     application_expanded_bytes: 262144000;
@@ -78,7 +88,7 @@ export interface Capabilities {
     playlist_max_media_per_selector: 32;
     playlist_max_pages: 100;
     protocol_version: string;
-    screens_per_account: 50;
+    screens_per_account: 100;
     transition_max_duration_ms: 60000;
 }
 export interface ArchiveLimits {
@@ -92,11 +102,17 @@ export interface ArchiveLimits {
 export declare const DEFAULT_ARCHIVE_LIMITS: ArchiveLimits;
 export declare function limitsFromCapabilities(capabilities: Capabilities): ArchiveLimits;
 /**
- * Playlist pages stay opaque on purpose. The CLI forwards author-supplied
- * playlist JSON verbatim and never constructs a page, so the contract's page,
- * placement, and content schemas — including the `text`, `box`, and `line`
- * vector placements — are deliberately not mirrored here. Mirror a schema only
- * when the CLI builds or reads its fields.
+ * Full playlist pages stay opaque: the CLI forwards author-supplied playlist
+ * JSON unchanged. Templated pages are the exception — the CLI expands
+ * `template` + `slots` into an ordinary write page in `playlist-templates.ts`
+ * and never sends `template` to the server. The contract's page, placement,
+ * and content schemas are still not mirrored here except for the fields that
+ * expander writes. Mirror a schema only when the CLI builds or reads its
+ * fields.
+ *
+ * Page `visibility` is inspected only for key presence. That is exactly what
+ * decides whether a playlist needs the target screen to carry a timezone, so
+ * no member of the schedule object is mirrored either.
  */
 export interface Screen {
     content_access_generation: number;
@@ -108,7 +124,22 @@ export interface Screen {
     public_id: string;
     revision: number;
     state: "pairing_pending" | "active";
+    /**
+     * IANA time zone identifier. Absent until it is set. Page visibility rules
+     * are civil, so they are evaluated in this zone.
+     */
+    timezone?: string;
     updated_at: string;
+}
+/**
+ * The screen patch body. Every member is optional and the server requires at
+ * least one, which is why each command builds only the members it was asked
+ * for rather than sending undefined placeholders.
+ */
+export interface ScreenPatch {
+    name?: string;
+    playlist_id?: string;
+    timezone?: string;
 }
 export interface PairScreen {
     code: string;
@@ -136,6 +167,25 @@ export interface ScreenToastWrite {
 /** Accepted toast write. The toast itself lives on the durable screen.toast event. */
 export interface ScreenToastAccepted {
     expires_at: string;
+}
+/** shot_ plus 16 to 64 unpadded base64url characters. */
+export type ScreenshotCaptureID = string;
+/** Accepted POST /api/v1/screens/{id}/screenshot. */
+export interface ScreenScreenshotAccepted {
+    capture_id: ScreenshotCaptureID;
+    expires_at: string;
+}
+export type ScreenScreenshotState = "idle" | "pending" | "ready" | "timed_out";
+/** GET /api/v1/screens/{id}/screenshot/status. Image bytes are never present. */
+export interface ScreenScreenshotStatus {
+    bytes?: number;
+    capture_id?: ScreenshotCaptureID;
+    captured_at?: string;
+    expires_at?: string;
+    height?: number;
+    sha256?: string;
+    state: ScreenScreenshotState;
+    width?: number;
 }
 export interface PairingClaim {
     public_url: string;

@@ -28,7 +28,7 @@ export interface ConfigFs {
     homedir: () => string;
     env: NodeJS.Dict<string>;
 }
-export declare function defaultConfigPath(fsLike: Pick<ConfigFs, "homedir" | "env">): string;
+export declare function defaultConfigPath(fsLike: Pick<ConfigFs, "homedir" | "env" | "stat">): Promise<string>;
 export declare function isWorldOrGroupReadable(mode: number): boolean;
 export declare function readConfigFile(configPath: string, fsLike: ConfigFs, options?: {
     repair?: boolean;

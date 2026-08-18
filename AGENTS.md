@@ -24,8 +24,10 @@ does not own the CLI source, players, backend, site, or production deployment.
   lock only when intentionally selecting a reviewed CLI CI artifact.
 - Keep Codex and Claude marketplace metadata, generated manifests, public
   README, and skill behavior aligned.
-- The launcher must remain package-relative, preflight Node.js 20.11+, and
-  execute only the bundled `cli/dist/bin.js`.
+- The launcher must preflight Node.js 20.11+ and prefer the package-relative
+  bundled `cli/dist/bin.js`. When that file is absent, resolve `cli/dist/bin.js`
+  from a plugin-root environment variable or a parent-directory walk so a
+  source checkout works without a marketplace install.
 - The launcher preflights Node.js and nothing else. It must stay silent on
   success: `scripts/check-public-repo.py` and `scripts/validate-plugin.py` both
   require clean JSON on stdout and empty stderr. A dependency that only one
@@ -48,7 +50,8 @@ does not own the CLI source, players, backend, site, or production deployment.
 - The plugin does not implement rendering, native auth, package caching, public
   handoff TTLs, or deployment; describe those only from pinned/current owning
   sources.
-- Screenshotting is outside v1 and no screenshot command may be documented.
+- Screenshotting is in v1. `screen screenshot <id>` blocks on a still WebP and
+  writes a file. Do not print pixels.
 
 ## Verification
 

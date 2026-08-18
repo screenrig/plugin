@@ -11,9 +11,11 @@ export async function run(runtime = processRuntime()) {
         const args = parseArgv(runtime.argv);
         const result = await dispatch(args, runtime);
         if (json || args.flags.json === true) {
-            runtime.stdout.write(`${JSON.stringify(result.envelope)}\n`);
+            if (result.human) {
+                runtime.stdout.write(`${JSON.stringify(result.envelope)}\n`);
+            }
         }
-        else {
+        else if (result.human) {
             runtime.stdout.write(`${result.human}\n`);
         }
         return result.exitCode;

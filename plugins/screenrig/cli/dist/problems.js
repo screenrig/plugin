@@ -170,10 +170,10 @@ export function withRetryAfter(problem, retryAfterSeconds) {
     };
 }
 /**
- * The account plan quota is smaller than the per-upload transport ceiling and is
- * checked first, so `quota_exceeded` is the limit a user actually meets. Point
- * at the command that reports the remaining allowance, unless the server
- * already supplied its own guidance.
+ * A custom storage ceiling, when present, is checked before the 1 GiB
+ * transport bound, so `quota_exceeded` is still the limit a user meets on that
+ * path. Point at the command that reports used_bytes and content_limit_bytes,
+ * unless the server already supplied its own guidance.
  */
 export function withQuotaGuidance(problem) {
     if (problem.code !== "quota_exceeded" || problem.next) {
@@ -184,6 +184,23 @@ export function withQuotaGuidance(problem) {
         next: {
             command: "screenrig --json account show",
             reason: "Read used_bytes and content_limit_bytes, then free space or upload a smaller file.",
+        },
+    };
+}
+/**
+ * Remaining prepaid credit of zero rejects costly operations with
+ * `payment_required`. Point at account show for credit_remaining_mcr. Do not
+ * invent a pay command; v1 does not collect money here.
+ */
+export function withPaymentGuidance(problem) {
+    if (problem.code !== "payment_required" || problem.next) {
+        return problem;
+    }
+    return {
+        ...problem,
+        next: {
+            command: "screenrig --json account show",
+            reason: "Read credit_remaining_mcr. Remaining prepaid credit of zero rejects costly operations.",
         },
     };
 }

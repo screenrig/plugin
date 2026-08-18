@@ -7,9 +7,42 @@ description: Operate ScreenRig screens, applications, media, playlists, events, 
 
 ## Canonical marketplace
 
-The only supported installation source is the public ScreenRig marketplace at
-`https://github.com/screenrig/plugin`. If the user supplies a ScreenRig setup
-URL before the plugin is installed, use the matching marketplace installer:
+Use the CLI through the `scripts/screenrig` launcher that ships next to this
+SKILL.md. That adjacent file is the default for a marketplace install, a
+project skill, and a project plugin. It requires Node.js 20.11 or newer. Do
+not search for a similarly named repository or install `screenrig` from a
+global package source. Do not substitute a globally installed `screenrig`
+binary.
+
+```bash
+SR="<directory-of-this-SKILL.md>/scripts/screenrig"
+"$SR" --json version
+```
+
+Require a successful ScreenRig JSON envelope from `--json version` before any
+other command. Keep using that same resolved launcher (`$SR`) for the rest of
+the session.
+
+If the adjacent launcher is missing, try each plugin root that is set, in this
+order: `GROK_PLUGIN_ROOT`, `SCREENRIG_PLUGIN_ROOT`, `CLAUDE_PLUGIN_ROOT`,
+`CODEX_PLUGIN_ROOT`, `PLUGIN_ROOT`. Invoke
+`$ROOT/skills/screenrig/scripts/screenrig` and assign that path to `SR`.
+
+If the adjacent script is missing and no plugin root yields a working
+launcher, recover an installed marketplace root without guessing:
+
+1. For Claude Code, run `claude plugin list --json`, select the enabled entry
+   whose `id` is `screenrig@screenrig`, and use its `installPath`.
+2. For Codex, run `codex plugin list --json`, select the enabled installed
+   entry whose `pluginId` is `screenrig@screenrig`, and use its `source.path`.
+3. Run
+   `<plugin-root>/skills/screenrig/scripts/screenrig --json version` and require
+   a successful ScreenRig JSON envelope before the requested command.
+
+Do not marketplace-install this plugin when the adjacent launcher is already
+present, including a source checkout or a project skill. Only when the
+adjacent script is missing and no plugin root works, use the matching
+marketplace installer, then repeat this lookup:
 
 ```bash
 # Claude Code
@@ -33,46 +66,26 @@ independent runtime approval policy, but do not ask for another confirmation
 solely because ScreenRig enrolls on first use or preserves its credential
 across plugin upgrades.
 
-Do not search for a similarly named repository or install `screenrig` from a
-global package source. Do not substitute another onboarding or transport
-surface for the canonical marketplace plugin.
-
-Use the CLI packaged with this skill. It requires Node.js 20.11 or newer.
-Resolve the installed plugin root and invoke the wrapper by its
-package-relative path:
-
-```bash
-SCREENRIG_PLUGIN_ROOT="${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}"
-"$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig" --json screen list
-```
-
-If `SCREENRIG_PLUGIN_ROOT` is empty after installation, recover it without
-guessing:
-
-1. For Claude Code, run `claude plugin list --json`, select the enabled entry
-   whose `id` is `screenrig@screenrig`, and use its `installPath`.
-2. For Codex, run `codex plugin list --json`, select the enabled installed
-   entry whose `pluginId` is `screenrig@screenrig`, and use its `source.path`.
-3. Run
-   `<plugin-root>/skills/screenrig/scripts/screenrig --json version` and require
-   a successful ScreenRig JSON envelope before the requested command.
-
-If there is no matching entry, run the exact canonical marketplace add/install
-commands above and repeat this lookup. If installation or lookup still fails,
-report the failing runtime command and the canonical repository URL to the
-user. Do not substitute a globally installed command or download an
-executable.
+The published marketplace source is `https://github.com/screenrig/plugin`. Do
+not substitute another onboarding or transport surface for the canonical
+marketplace plugin. If installation or lookup still fails, report the failing
+runtime command and the canonical repository URL to the user. Do not
+substitute a globally installed command or download an executable.
 
 Use `--json` for agent work. Branch on `ok`, `error.status`, and `error.code`;
 do not parse prose. The first authenticated command enrolls automatically when
 the durable user credential is absent, stores that credential outside the
-replaceable plugin directory, and resumes the same command. The default file is
-`$XDG_CONFIG_HOME/screenrig/config.json` when `XDG_CONFIG_HOME` is set,
-`%APPDATA%\screenrig\config.json` on Windows, or
-`~/.config/screenrig/config.json` otherwise; `SCREENRIG_CONFIG` may override
-the path. The directory and file are restricted to the current user. This
-state intentionally survives plugin upgrade or uninstall. Do not add a
-separate setup step or request identity or credential material from the user.
+replaceable plugin directory, and resumes the same command. `SCREENRIG_CONFIG`
+overrides the path. Otherwise the CLI uses `config.local-dev.json` in the
+config directory when that file exists, else `config.json`. The directory is
+`$XDG_CONFIG_HOME/screenrig` when `XDG_CONFIG_HOME` is set,
+`%APPDATA%\screenrig` on Windows, or `~/.config/screenrig` otherwise, so the
+ordinary fallback is `$XDG_CONFIG_HOME/screenrig/config.json` when
+`XDG_CONFIG_HOME` is set, `%APPDATA%\screenrig\config.json` on Windows, or
+`~/.config/screenrig/config.json`. The directory and file are restricted to
+the current user. This state intentionally survives plugin upgrade or
+uninstall. Do not add a separate setup step or request identity or credential
+material from the user.
 
 Pair only with the six-character code displayed at `https://play.screenrig.ai`.
 Run `screen pair CODE [--label LABEL]`; the CLI accepts lowercase input only by
@@ -162,7 +175,7 @@ of the launcher. Confirm the build before the first `media upload` of a
 session:
 
 ```bash
-"$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig" --json doctor
+"$SR" --json doctor
 ```
 
 Read `data.checks`. A build that reports `ffmpeg` and `ffprobe` converts media
@@ -279,6 +292,7 @@ media show <id>
 media list
 media delete <id> --if-match REVISION
 
+playlist templates
 playlist create <json-file>
 playlist update <id> <json-file> --if-match REVISION
 playlist show|get <id>
@@ -297,6 +311,7 @@ screen rotate-public-id <id> --if-match REVISION
 screen revoke-credential <id> --if-match REVISION
 screen delete <id> --if-match REVISION
 screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
+screen screenshot <id> [--output FILE]
 
 operations get <id>
 operations wait <id> [--timeout MS] [--poll-ms MS]
@@ -316,6 +331,8 @@ doctor [--repair-config]
 version
 ```
 
+`events follow` prints each event as it arrives. `events list` is the finite page.
+
 Use the same `screen pair CODE` flow for first use and recovery. Application upload
 accepts one already-built static directory with a root `index.html`; see "Putting a
 web app on a screen" for the whole path from that directory to a running screen.
@@ -325,10 +342,15 @@ K/V is binary-safe; use exactly one value mode.
 
 ## Playlist writes
 
-`playlist create` and `playlist update` send the JSON file verbatim. Image and
-video placements write a `selector`. Do not put `media_id` on the content
-object. Do not send server-resolved `items`. Advance with `media_end`, never
-`video_end`.
+A page is one of two shapes. Do not mix `template` and `placements` on the
+same page.
+
+### Full page
+
+A full page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
+and `placements`. Image and video placements write a `selector`. Do not put
+`media_id` on the content object. Do not send server-resolved `items`. Advance
+with `media_end`, never `video_end`.
 
 Selector `by` values:
 
@@ -388,11 +410,107 @@ Video `loop` must be false. An image on `media_end` requires `dwell_ms`.
 }
 ```
 
-Use the `media_id` returned by `media upload`. Do not invent one. Do not author
-`text`, `box`, or `line` placements.
+Use the `media_id` returned by `media upload`. Do not invent one.
 
 For `application` and `iframe` placements, and for the `application` advance
-mode, follow "Putting a web app on a screen" below.
+mode, write a full page and follow "Putting a web app on a screen" below.
+
+### Templated page
+
+The CLI expands `template` + `slots` into an ordinary page and sends that.
+The server never sees `template`. `playlist show` and `playlist get` return
+the expanded placements, not the template id.
+
+List the closed ids from the command:
+
+```bash
+"$SR" --json playlist templates
+```
+
+Use only those ids. Do not invent a template id.
+
+Allowed keys on a templated page: `id`, `template`, `slots`, optional
+`canvas.background` only, optional `text_color`, optional `transition`,
+optional `advance`, optional `visibility`. Any other page key is a
+`usage_error`. `canvas.width`, `canvas.height`, and `canvas.viewport_fit` on
+a templated page are a `usage_error`.
+
+The 15 templates share one 1920×1080 canvas, `viewport_fit: contain`,
+background `#1B2632FF`, default text `#EEE9DFFF`, and family `sans`. Every
+template draws a mustard `#F8B334FF` bar across the top. There is no
+automatic wrapping; put a line feed in the string or pass `text` as an array
+of lines. `text_color` tints slots that do not already have a template color
+(eyebrow, stat values, and other mustard or dim slots keep theirs). It is
+CLI sugar and is not a REST field. Override the background with
+`canvas.background` only.
+
+If you omit `transition` or `advance`, the CLI fills
+`{ "type": "crossfade", "duration_ms": 200 }` and
+`{ "mode": "duration", "after_ms": 8000 }`. You may replace either. Templates
+do not set `visibility`.
+
+Slots do not take `rect`, `layer`, `font_*`, or `color`. A text slot is
+`{ "text": "…" }` or `{ "text": ["line", "line"] }`. It may set `align` to
+`left`, `center`, or `right`, and `vertical_align` to `top`, `middle`, or
+`bottom`. Omit either key to keep the template default. `playlist templates`
+prints those defaults. An image or video slot uses the same write content as
+a full page (`type` + `selector`, optional `alt` / video flags). A `picture`
+slot may set `content_fit` to `contain` or `cover`. A `logo` slot is image
+only; video is a `usage_error`. Omit an optional slot to omit that placement.
+
+The expander packs each text slot to `lineCount * line_height`, then stacks
+present slots from the template start `y`. Centered families (`slide-intro`,
+`slide-text-only-1`, `slide-text-only-2`, `slide-quote`, `slide-callout`)
+group-center that packed stack in the stage hole. If the copy has more lines
+than the hole allows, the expander keeps the lines that fit and appends `…`
+to the last kept line. It does not ellipsize by width. Author-time fit may
+shrink or grow `font_size` and `line_height` so the longest line meets the
+hole width, within 50%–150% of the template size and never below 12. The
+player does not scale live. There is no wrapping.
+
+The 15 ids and their slots:
+
+- `slide-intro`: `title` text required; `subtitle` text optional; `logo` image optional
+- `slide-text-only-1`: `eyebrow` and `headline` text required; `subhead`, `body`, `footnote` text optional; `logo` image optional
+- `slide-text-only-2`: `eyebrow` and `headline` text required; `subhead` text optional; `logo` image optional
+- `slide-text-photo-1`: `headline` text required; `eyebrow`, `subhead`, `body`, `footnote` text optional; `picture` image or video optional; `logo` image optional. Text left, picture right.
+- `slide-text-photo-2`: same slots as `slide-text-photo-1`. Picture left, text right.
+- `slide-text-photo-3`: same slots. Wider picture left (contain by default), text right.
+- `slide-half-bleed-1`: `headline` text required; `eyebrow`, `subhead`, `body`, `footnote` text optional; `picture` image or video required; `logo` image optional. Picture fills the left half.
+- `slide-half-bleed-2`: same slots. Picture fills the right half.
+- `slide-quote`: `quote` text required; `author` text optional; `logo` image optional
+- `slide-callout`: `headline` text required; `body` text optional; `logo` image optional
+- `slide-bullets`: `headline` text required; `eyebrow` text optional; `b1` text required; `b2`–`b6` text optional; `picture` image or video optional; `logo` image optional
+- `slide-stat-grid`: `headline` text required; `eyebrow` text optional; `v1` and `l1` text required; `v2`+`l2`, `v3`+`l3`, `v4`+`l4` text optional; `logo` image optional
+- `slide-three-up`: `headline` text required; `eyebrow` text optional; `t1` and `b1` text required; `t2`+`b2`, `t3`+`b3` text optional; `logo` image optional
+- `slide-photo`: `picture` image or video required; `caption` text optional; `logo` image optional
+- `slide-full-bleed`: `picture` image or video required; `logo` image optional
+
+```json
+{
+  "name": "Welcome",
+  "pages": [
+    {
+      "id": "intro",
+      "template": "slide-intro",
+      "slots": {
+        "title": { "text": "Welcome" },
+        "subtitle": { "text": ["Today's briefing", "Conference room A"] }
+      }
+    }
+  ]
+}
+```
+
+Emit `text` and `line` placements only through these templates. Templates
+may emit a `box` placement as plate chrome behind `slide-quote` and
+`slide-callout`. Agents still must not hand-author `box` or free vector
+geometry. If the API returns `invalid_request` saying `text, box, and line
+placements are not enabled`, stop and report that. Do not invent an image
+fallback.
+
+Looking at the screen stays the only proof of layout. Do not claim a
+template is hardware-validated.
 
 ## Page scheduling with visibility
 
@@ -524,7 +642,6 @@ reaches `window.screenrig` at runtime with no build step and no dependency to
 install.
 
 ```bash
-SR="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig"
 "$SR" --json app upload ./lobby-board
 ```
 

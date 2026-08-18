@@ -14,12 +14,22 @@ the request, stores the issued credential in user-private configuration outside
 the replaceable plugin directory, verifies it, and resumes the original
 command.
 
+If the server asks for a beta key, pass `--beta-key` with the key the operator
+gave you, or set `SCREENRIG_BETA_KEY`. The CLI sends that value as `beta_key`
+on `POST /api/v1/enrollments` and omits the field when it is unset.
+
+```sh
+screenrig --json --beta-key screenrig-beta-program account show
+```
+
 `auth revoke --yes` revokes the calling credential on the server before
 removing local credential, enrollment, and transient authenticated-operation
 state. A failed or ambiguous server result retains local state for an exact
 retry.
 
-Playlist create and update send the supplied JSON file verbatim. Image and
+Playlist create and update expand any templated page (`template` + `slots`)
+into an ordinary page and send that. A page without `template` is forwarded
+unchanged. `playlist templates` prints the closed catalog. Image and
 video placements write a `selector` (`by` is `id`, `ids`, `all`, or `tag`).
 Do not put `media_id` on the content object, and do not send server-resolved
 `items`. Page advance uses `duration`, `application`, or `media_end`. There
@@ -47,8 +57,9 @@ Application packing accepts an already-built static directory. It produces
 deterministic bounded archives, injects the pinned browser SDK runtime, and
 never builds or executes uploaded source. Runtime pages use
 `screenrig.canvas/v1`; protected content and `screenrig.webapp-package/v1`
-delivery are backend/player concerns. Screenshotting is not part of v1 and the
-CLI exposes no screenshot command.
+delivery are backend/player concerns. `screen screenshot <id>` requests one
+still WebP of an active screen, waits until it is ready, and writes a file.
+It does not print image bytes.
 
 ## Feedback
 
@@ -91,6 +102,31 @@ next-action guidance naming the wait, rather than as a bare status.
 `screenrig doctor` reports a `feedback` check from the server's advertised
 capability map, so support is probed rather than assumed.
 
+## Page scheduling and the screen timezone
+
+A playlist page may carry an optional `visibility` object that limits when the
+page plays. The rule is civil, so it is read in the screen's own time zone.
+
+```sh
+screenrig --json screen set-timezone scr_01 --timezone America/Los_Angeles --if-match 3
+```
+
+`--timezone` takes an IANA identifier. The server validates it against an
+embedded zone database, so the CLI forwards the value unchanged rather than
+carrying a list that can go stale. A screen has no time zone until one is set,
+and a patch never clears one. `screen update` accepts the same `--timezone`.
+
+Two rules decide whether a playlist is accepted:
+
+- **Every playlist keeps at least one page with no `visibility` field at all.**
+  A page whose only rule is `enabled: false` does not satisfy this, and the
+  server rejects a playlist that fails it. That page is what guarantees a screen
+  always has something eligible to show.
+- **A screen running a scheduled playlist must have a time zone.** `screen
+  assign`, `screen update --playlist-id`, and `playlist update` check this
+  before they send anything, and name the screen and the command that fixes it.
+  Set the zone first, then assign.
+
 ## Screen toast
 
 A toast is transient stage chrome on one screen, not a placement. It occupies
@@ -116,6 +152,27 @@ The accepted envelope is `{ expires_at }` only. The CLI does not scrub toast
 text; the server rejects recognizable ScreenRig credential material and other
 control characters. Do not put credentials, cookies, Authorization headers,
 completion nonces, signed URLs, or object keys in the text.
+
+## Screen screenshot
+
+`screen screenshot <id>` requests one still WebP of an active screen. It
+blocks until the image is on disk. There is no `--no-wait`. Latest-wins: a
+later request replaces the in-flight `capture_id`.
+
+```sh
+screenrig --json screen screenshot scr_01
+screenrig --json screen screenshot scr_01 --output ./lobby.webp
+```
+
+`<id>` must match `scr_` plus URL-safe characters. `--output` is a file path,
+not a directory. The default is `./<id>.webp` in the current working
+directory. An existing file is overwritten without a prompt. `--timeout`
+defaults to 35000 ms and `--poll-ms` defaults to 500 ms.
+
+The success envelope is `screen_id`, `capture_id`, `path`, `bytes`, `sha256`,
+`width`, and `height` only. A matching `timed_out` status or a wait deadline
+is `screenshot_unavailable`. A later `capture_id` is `resource_conflict`. The
+CLI never prints image bytes, hex, or base64.
 
 ## Media transcoding
 

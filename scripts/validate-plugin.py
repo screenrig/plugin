@@ -147,6 +147,24 @@ def check_package() -> None:
         for fact in ("command -v node", "Node.js 20.11 or newer", "major === 20 && minor >= 11"):
             if fact not in wrapper_text:
                 errors.append(f"plugin wrapper is missing the Node.js preflight fact: {fact}")
+    canonical_wrapper = ROOT / "skills" / "screenrig" / "scripts" / "screenrig"
+    if not canonical_wrapper.is_file():
+        errors.append("skills/screenrig/scripts/screenrig: canonical launcher missing")
+    else:
+        canonical_text = canonical_wrapper.read_text(encoding="utf-8")
+        for fact in (
+            "../../../cli/dist/bin.js",
+            "GROK_PLUGIN_ROOT",
+            "SCREENRIG_PLUGIN_ROOT",
+            "CLAUDE_PLUGIN_ROOT",
+            "CODEX_PLUGIN_ROOT",
+            "pwd -P",
+            "source checkout build cli/dist/bin.js",
+        ):
+            if fact not in canonical_text:
+                errors.append(f"canonical launcher is missing resolve fact: {fact}")
+        if "SCREENRIG_CLI" in canonical_text:
+            errors.append("canonical launcher must not add a SCREENRIG_CLI override")
         dirname = shutil.which("dirname")
         if dirname is None:
             errors.append("cannot exercise the wrapper's missing-Node.js preflight: dirname is unavailable")

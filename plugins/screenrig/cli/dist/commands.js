@@ -1,4 +1,5 @@
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { limitsFromCapabilities, TEMPORARY_PROTOCOL_VERSION, } from "./adapters/protocol.js";
 import { SDK_PROTOCOL_VERSION } from "./adapters/sdk-injection.js";
@@ -8,7 +9,7 @@ import { resolveConfig, describeToken, readConfigFile, withConfigLock, writeConf
 import { ensureCredential } from "./enrollment.js";
 import { successEnvelope } from "./envelope.js";
 import { ExitCode } from "./exit-codes.js";
-import { CliError, configError, usageError } from "./problems.js";
+import { CliError, configError, makeProblem, usageError } from "./problems.js";
 import { packDirectory } from "./pack/index.js";
 import { FetchTransport } from "./transport/http.js";
 import { parseSse } from "./sse.js";
@@ -22,6 +23,7 @@ import { clearProvisionRetryState, provisionRetryState } from "./provisioning-st
 import { validateProvisioningUrls } from "./provisioning-url.js";
 import { browserHandoffUrl, browserSetupRetryState, clearBrowserSetupRetryState, normalizeBrowserSetupCode, } from "./browser-setup.js";
 import { redactText } from "./redact.js";
+import { expandPlaylistPages, formatTemplateCatalog, playlistTemplateCatalog, } from "./playlist-templates.js";
 import { ffmpegLookup, resolveFfmpegToolchain } from "./media/ffmpeg.js";
 import { createProgressReporter, silentProgressReporter } from "./media/progress.js";
 import { DEFAULT_CODEC, DEFAULT_MAX_FPS, DEFAULT_WEBP_QUALITY, MAX_EDGE, transcodeForUpload, } from "./media/transcode.js";
@@ -31,6 +33,7 @@ export const USAGE = `screenrig — ScreenRig localhost v1 control-plane CLI
 Usage:
   screenrig [--json] [--api-url URL] [--config PATH]
             [--request-id ID] [--idempotency-key KEY] [--timeout MS]
+            [--beta-key KEY]
             <command> [args]
 
 Commands:
@@ -47,6 +50,7 @@ Commands:
   media show <id>
   media list
   media delete <id> --if-match REVISION
+  playlist templates
   playlist create <file>
   playlist update <id> <file> --if-match REVISION
   playlist show <id>
@@ -55,14 +59,17 @@ Commands:
   screen pair CODE [--label LABEL]
   screen provision (--open | --print-url) [--label LABEL]
   browser setup --code CODE [--open]
-  screen update <id> [--name NAME] [--playlist-id ID] --if-match REVISION
+  screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE]
+                     --if-match REVISION
   screen list
   screen show <id>
   screen assign <id> --playlist-id ID --if-match REVISION
+  screen set-timezone <id> --timezone ZONE --if-match REVISION
   screen delete <id> --if-match REVISION
   screen rotate-public-id <id> --if-match REVISION
   screen revoke-credential <id> --if-match REVISION
   screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
+  screen screenshot <id> [--output FILE]
   kv get --application-id ID <key>
   kv set --application-id ID <key> --json-value JSON [--if-match REVISION]
   kv set --application-id ID <key> --file FILE --content-type TYPE
@@ -82,6 +89,9 @@ Commands:
   doctor [--repair-config]
   version
 `;
+function nonemptyEnv(value) {
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+}
 function transportFor(runtime, apiUrl, token) {
     return runtime.transport ?? new FetchTransport(apiUrl, token);
 }
@@ -125,6 +135,17 @@ export async function dispatch(args, runtime) {
             envelope: successEnvelope({ version: CLI_VERSION, protocol_adapter: TEMPORARY_PROTOCOL_VERSION }),
             exitCode: ExitCode.Success,
             human: `screenrig ${CLI_VERSION}`,
+        };
+    }
+    if (group === "playlist" && action === "templates") {
+        if (args.positionals.length > 2) {
+            throw usageError("playlist templates does not accept positional arguments.");
+        }
+        const catalog = playlistTemplateCatalog();
+        return {
+            envelope: successEnvelope(catalog),
+            exitCode: ExitCode.Success,
+            human: formatTemplateCatalog(catalog),
         };
     }
     const repair = flagBool(args.flags, "repair-config");
@@ -289,7 +310,7 @@ function isAuthenticatedCommand(group, action) {
         app: new Set(["upload", "list", "show"]),
         media: new Set(["upload", "show", "list", "delete"]),
         playlist: new Set(["create", "update", "show", "get", "list", "delete"]),
-        screen: new Set(["pair", "provision", "update", "list", "show", "assign", "delete", "rotate-public-id", "revoke-credential", "toast"]),
+        screen: new Set(["pair", "provision", "update", "list", "show", "assign", "delete", "rotate-public-id", "revoke-credential", "toast", "screenshot"]),
         browser: new Set(["setup"]),
         kv: new Set(["get", "set", "delete", "list"]),
         operations: new Set(["get", "wait", "cancel"]),
@@ -383,7 +404,11 @@ async function enrollForCommand(args, runtime, resolved) {
         },
         enroll: async (state) => {
             const client = clientFor(runtime, args, resolved.apiUrl);
-            const request = { client_id: state.clientId };
+            const betaKey = flagString(args.flags, "beta-key") ?? nonemptyEnv(runtime.env.SCREENRIG_BETA_KEY);
+            const request = {
+                client_id: state.clientId,
+                ...(betaKey !== undefined ? { beta_key: betaKey } : {}),
+            };
             const response = await client.call({
                 method: "POST",
                 path: "/api/v1/enrollments",
@@ -423,6 +448,7 @@ async function accountShow(args, runtime, resolved) {
         human: humanLines("Account", [
             ["id", account.id],
             ["revision", account.revision !== undefined ? String(account.revision) : undefined],
+            ["credit_remaining_mcr", account.credit_remaining_mcr !== undefined ? String(account.credit_remaining_mcr) : undefined],
             ["token", describeToken(token)],
             ["request_id", client.requestId],
         ]),
@@ -495,6 +521,10 @@ async function appUpload(args, runtime, resolved) {
             exitCode: ExitCode.Success,
             human: humanLines("Application uploaded", [
                 ["application_id", body.id],
+                // The release id is the only handle a playlist placement accepts, so
+                // report it here rather than making the caller read the operation
+                // result to find it.
+                ["release_id", body.release_id],
                 ["operation_id", operation.id],
                 ["state", operation.state],
                 ["sha256", packed.sha256],
@@ -506,6 +536,7 @@ async function appUpload(args, runtime, resolved) {
         exitCode: ExitCode.Success,
         human: humanLines("Application upload accepted", [
             ["application_id", body.id],
+            ["release_id", body.release_id],
             ["operation_id", body.operation_id],
             ["sha256", packed.sha256],
         ]),
@@ -712,6 +743,9 @@ const TOAST_TEXT_MAX = 120;
 const TOAST_MAX_LINES = 3;
 const TOAST_DURATION_MIN = 2000;
 const TOAST_DURATION_MAX = 60000;
+const SCREEN_ID_PATTERN = /^scr_[A-Za-z0-9_-]+$/;
+const SCREENSHOT_DEFAULT_WAIT_MS = 35_000;
+const SCREENSHOT_DEFAULT_POLL_MS = 500;
 function isScreenToastLevel(value) {
     return TOAST_LEVELS.has(value);
 }
@@ -894,7 +928,13 @@ async function playlistCommand(args, runtime, resolved, action) {
         if (extra.length > 0) {
             throw usageError(`Playlist JSON contains unsupported fields: ${extra.join(", ")}.`);
         }
-        const body = { name: parsed.name, pages: parsed.pages };
+        const pages = expandPlaylistPages(parsed.pages);
+        const body = { name: parsed.name, pages };
+        // A create has no assigned screen yet, so there is nothing to check. An
+        // update can add a schedule to a playlist screens are already running.
+        if (action === "update" && id) {
+            await assertAssignedScreensHaveZone(client, id, pages);
+        }
         const response = await client.call({
             method: action === "create" ? "POST" : "PUT",
             path: action === "create" ? "/api/v1/playlists" : `/api/v1/playlists/${id}`,
@@ -918,6 +958,64 @@ async function playlistCommand(args, runtime, resolved, action) {
         return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Deleted playlist ${id}` };
     }
     throw usageError("Unknown playlist command.");
+}
+/**
+ * A page schedule is civil, so it means nothing without a zone to read it in.
+ * The server carries that zone on the screen and refuses assignment, playlist
+ * update, and manifest resolution while a scheduled playlist points at a screen
+ * that has none.
+ *
+ * Presence of the `visibility` key is the whole test, exactly as the server
+ * counts it. A page that sets `enabled: false` still counts as scheduled.
+ */
+function usesPageVisibility(playlist) {
+    const pages = playlist?.pages;
+    if (!Array.isArray(pages)) {
+        return false;
+    }
+    return pages.some((page) => typeof page === "object" && page !== null && "visibility" in page);
+}
+function scheduleZoneError(screenId) {
+    return usageError(`Screen ${screenId} has no timezone, and the playlist schedules pages with visibility. Page visibility rules are civil times, so the screen needs an IANA zone before it can run them.`, {
+        command: `screenrig --json screen set-timezone ${screenId} --timezone America/Los_Angeles --if-match REVISION`,
+        reason: "Set the screen timezone first, then assign the playlist. Read the current revision from screen show.",
+    });
+}
+/**
+ * Refuse a scheduled playlist locally before the PATCH goes out. The server
+ * rejects the same pair, but it answers about a body the operator did not
+ * write; naming the screen and the fixing command here is the difference
+ * between a clear message and an opaque rejection.
+ */
+async function assertScheduledPlaylistHasZone(client, screenId, playlistId) {
+    const playlist = await client.call({ method: "GET", path: `/api/v1/playlists/${playlistId}` });
+    if (!usesPageVisibility(playlist.body)) {
+        return;
+    }
+    const screen = await client.call({ method: "GET", path: `/api/v1/screens/${screenId}` });
+    if (screen.body?.timezone) {
+        return;
+    }
+    throw scheduleZoneError(screenId);
+}
+/**
+ * The same rule reached from the playlist side. Adding visibility to a playlist
+ * that screens already run breaks their manifests, so check every screen the
+ * playlist is assigned to rather than waiting for rematerialize to refuse.
+ */
+async function assertAssignedScreensHaveZone(client, playlistId, pages) {
+    if (!usesPageVisibility({ pages })) {
+        return;
+    }
+    const response = await client.call({ method: "GET", path: "/api/v1/screens" });
+    const items = response.body?.items;
+    if (!Array.isArray(items)) {
+        return;
+    }
+    const unzoned = items.find((screen) => screen?.playlist_id === playlistId && !screen?.timezone);
+    if (unzoned) {
+        throw scheduleZoneError(unzoned.id);
+    }
 }
 async function screenCommand(args, runtime, resolved, action) {
     const token = requireToken(resolved.token);
@@ -1028,9 +1126,21 @@ async function screenCommand(args, runtime, resolved, action) {
         const ifMatch = flagString(args.flags, "if-match");
         const name = flagString(args.flags, "name");
         const playlistId = flagString(args.flags, "playlist-id");
-        if (!id || !ifMatch || (!name && !playlistId))
-            throw usageError("screen update requires <id>, --if-match, and --name or --playlist-id.");
-        const body = { ...(name ? { name } : {}), ...(playlistId ? { playlist_id: playlistId } : {}) };
+        const timezone = flagString(args.flags, "timezone");
+        if (!id || !ifMatch || (!name && !playlistId && !timezone)) {
+            throw usageError("screen update requires <id>, --if-match, and --name, --playlist-id, or --timezone.");
+        }
+        // A patch that sets both a playlist and a timezone satisfies the schedule
+        // rule in one request, so only check when the patch leaves the screen
+        // without one.
+        if (playlistId && !timezone) {
+            await assertScheduledPlaylistHasZone(client, id, playlistId);
+        }
+        const body = {
+            ...(name ? { name } : {}),
+            ...(playlistId ? { playlist_id: playlistId } : {}),
+            ...(timezone ? { timezone } : {}),
+        };
         const response = await client.call({ method: "PATCH", path: `/api/v1/screens/${id}`, idempotent: true, headers: { "if-match": quotedRevision(ifMatch) }, body });
         return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Updated screen ${id}` };
     }
@@ -1040,14 +1150,35 @@ async function screenCommand(args, runtime, resolved, action) {
         const ifMatch = flagString(args.flags, "if-match");
         if (!id || !playlistId || !ifMatch)
             throw usageError("screen assign requires <id> --playlist-id --if-match.");
+        await assertScheduledPlaylistHasZone(client, id, playlistId);
+        const body = { playlist_id: playlistId };
         const response = await client.call({
             method: "PATCH",
             path: `/api/v1/screens/${id}`,
             idempotent: true,
             headers: { "if-match": quotedRevision(ifMatch) },
-            body: { playlist_id: playlistId },
+            body,
         });
         return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Assigned playlist ${playlistId} to ${id}` };
+    }
+    if (action === "set-timezone") {
+        const id = args.positionals[2];
+        const timezone = flagString(args.flags, "timezone");
+        const ifMatch = flagString(args.flags, "if-match");
+        if (!id || !timezone || !ifMatch)
+            throw usageError("screen set-timezone requires <id> --timezone --if-match.");
+        // The zone database belongs to the server, which validates the identifier
+        // against it. Sending the value unchanged keeps one authority for what a
+        // real zone is, so the CLI never carries a list that can go stale.
+        const body = { timezone };
+        const response = await client.call({
+            method: "PATCH",
+            path: `/api/v1/screens/${id}`,
+            idempotent: true,
+            headers: { "if-match": quotedRevision(ifMatch) },
+            body,
+        });
+        return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Set timezone ${timezone} on ${id}` };
     }
     if (action === "delete") {
         const id = args.positionals[2];
@@ -1082,6 +1213,9 @@ async function screenCommand(args, runtime, resolved, action) {
     }
     if (action === "toast") {
         return screenToast(args, client);
+    }
+    if (action === "screenshot") {
+        return screenScreenshot(args, runtime, client);
     }
     throw usageError("Unknown screen command.");
 }
@@ -1137,6 +1271,150 @@ async function screenToast(args, client) {
             ["screen_id", id],
             ["level", level],
             ["expires_at", accepted.expires_at],
+        ]),
+    };
+}
+function isScreenId(value) {
+    return SCREEN_ID_PATTERN.test(value);
+}
+function screenshotUnavailable(requestId) {
+    return new CliError(makeProblem("screenshot_unavailable", "Screenshot is not available", 409, "Screenshot is not available.", {
+        request_id: requestId,
+    }));
+}
+async function resolveScreenshotOutput(cwd, id, flags) {
+    if (flags.output === true) {
+        throw usageError("--output requires a file path.");
+    }
+    const specified = flagString(flags, "output");
+    const relative = specified ?? `./${id}.webp`;
+    if (relative.endsWith("/") || relative.endsWith("\\")) {
+        throw usageError("--output must be a file path, not a directory.");
+    }
+    const outputPath = path.resolve(cwd, relative);
+    try {
+        const existing = await stat(outputPath);
+        if (existing.isDirectory()) {
+            throw usageError("--output must be a file path, not a directory.");
+        }
+    }
+    catch (error) {
+        if (error instanceof CliError) {
+            throw error;
+        }
+        if (error.code !== "ENOENT") {
+            throw usageError("--output must be a file path, not a directory.");
+        }
+    }
+    return outputPath;
+}
+async function screenScreenshot(args, runtime, client) {
+    const id = args.positionals[2];
+    if (!id || !isScreenId(id)) {
+        throw usageError("screen screenshot requires <id>.");
+    }
+    const outputPath = await resolveScreenshotOutput(runtime.cwd(), id, args.flags);
+    const timeoutMs = flagNumber(args.flags, "timeout") ?? SCREENSHOT_DEFAULT_WAIT_MS;
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+        throw usageError("--timeout must be a non-negative number of milliseconds.");
+    }
+    if (args.flags["poll-ms"] !== undefined) {
+        const pollMs = flagNumber(args.flags, "poll-ms");
+        if (pollMs === undefined || !Number.isInteger(pollMs) || pollMs < 1) {
+            throw usageError("--poll-ms must be a positive integer.");
+        }
+    }
+    const pollMs = flagNumber(args.flags, "poll-ms") ?? SCREENSHOT_DEFAULT_POLL_MS;
+    const acceptedResponse = await client.call({
+        method: "POST",
+        path: `/api/v1/screens/${id}/screenshot`,
+        idempotent: true,
+    });
+    const accepted = (acceptedResponse.body ?? {});
+    const captureId = accepted.capture_id;
+    if (typeof captureId !== "string" || captureId.length === 0) {
+        throw new CliError(makeProblem("invalid_request", "Request is invalid", 400, "Screenshot request did not return a capture_id.", {
+            request_id: client.requestId,
+        }));
+    }
+    const deadline = Date.now() + timeoutMs;
+    let status;
+    while (true) {
+        const statusResponse = await client.call({
+            method: "GET",
+            path: `/api/v1/screens/${id}/screenshot/status`,
+        });
+        status = (statusResponse.body ?? {});
+        const currentId = status.capture_id;
+        if (typeof currentId === "string" && currentId.length > 0 && currentId !== captureId) {
+            throw new CliError(makeProblem("resource_conflict", "Resource state conflicts with the request", 409, "A later screenshot request replaced this one.", { request_id: client.requestId }));
+        }
+        if (status.state === "ready" && currentId === captureId) {
+            break;
+        }
+        if (status.state === "timed_out" && currentId === captureId) {
+            throw screenshotUnavailable(client.requestId);
+        }
+        if (Date.now() >= deadline) {
+            throw screenshotUnavailable(client.requestId);
+        }
+        await runtime.sleep(pollMs);
+    }
+    const download = await client.call({
+        method: "GET",
+        path: `/api/v1/screens/${id}/screenshot`,
+        query: { capture_id: captureId },
+        headers: { accept: "image/webp" },
+        binary: true,
+    });
+    const bytes = download.body;
+    const contentType = download.headers["content-type"] ?? "";
+    const digest = bytes instanceof Uint8Array ? createHash("sha256").update(bytes).digest("hex") : "";
+    const reportedLength = download.headers["content-length"];
+    const parsedLength = reportedLength !== undefined ? Number(reportedLength) : undefined;
+    const lengthMatches = bytes instanceof Uint8Array
+        && typeof status?.bytes === "number"
+        && bytes.byteLength === status.bytes
+        && (parsedLength === undefined || !Number.isFinite(parsedLength) || parsedLength === bytes.byteLength);
+    const digestMatches = typeof status?.sha256 === "string" && status.sha256 === digest;
+    const typeMatches = contentType.toLowerCase().startsWith("image/webp");
+    if (!(bytes instanceof Uint8Array)
+        || !typeMatches
+        || !lengthMatches
+        || !digestMatches
+        || typeof status?.width !== "number"
+        || typeof status.height !== "number") {
+        throw new CliError(makeProblem("invalid_request", "Request is invalid", 400, "Screenshot download did not match the ready status metadata.", { request_id: client.requestId }));
+    }
+    const tempPath = `${outputPath}.${process.pid}.part`;
+    try {
+        await writeFile(tempPath, bytes);
+        await rename(tempPath, outputPath);
+    }
+    catch {
+        await rm(tempPath, { force: true });
+        throw usageError("Cannot write screenshot to the output path.");
+    }
+    const data = {
+        screen_id: id,
+        capture_id: captureId,
+        path: outputPath,
+        bytes: bytes.byteLength,
+        sha256: digest,
+        width: status.width,
+        height: status.height,
+    };
+    return {
+        envelope: successEnvelope(data, { request_id: client.requestId }),
+        exitCode: ExitCode.Success,
+        human: humanLines("Screenshot saved", [
+            ["screen_id", data.screen_id],
+            ["capture_id", data.capture_id],
+            ["path", data.path],
+            ["bytes", String(data.bytes)],
+            ["sha256", data.sha256],
+            ["width", String(data.width)],
+            ["height", String(data.height)],
         ]),
     };
 }
@@ -1248,6 +1526,41 @@ async function operationsCancel(args, runtime, resolved) {
         human: humanLines("Operation cancelled", [["id", operation.id], ["state", operation.state]]),
     };
 }
+function isEventScalar(value) {
+    return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+/** One human line: at, type, then scalar details. Undefined when there is nothing to print. */
+export function formatEventLine(event) {
+    const parts = [];
+    if (event.at)
+        parts.push(event.at);
+    if (event.type)
+        parts.push(event.type);
+    const details = event.details ?? {};
+    const used = new Set();
+    for (const key of ["code", "placement_id"]) {
+        const value = details[key];
+        if (!isEventScalar(value))
+            continue;
+        parts.push(`${key}=${value}`);
+        used.add(key);
+    }
+    for (const key of Object.keys(details).sort()) {
+        if (used.has(key))
+            continue;
+        const value = details[key];
+        if (!isEventScalar(value))
+            continue;
+        parts.push(`${key}=${value}`);
+    }
+    return parts.length > 0 ? parts.join(" ") : undefined;
+}
+function formatEventLines(events) {
+    return events
+        .map((event) => formatEventLine(event))
+        .filter((line) => line !== undefined)
+        .join("\n");
+}
 async function eventsList(args, runtime, resolved) {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
@@ -1260,21 +1573,36 @@ async function eventsList(args, runtime, resolved) {
         },
     });
     const page = response.body;
+    const human = formatEventLines(page.items ?? []);
     return {
         envelope: jsonBody(response, client.requestId),
         exitCode: ExitCode.Success,
-        human: (page.items ?? []).map((event) => `${event.at} ${event.type} ${event.message}`).join("\n") || "(no events)",
+        // main.ts writes JSON only when human is truthy; a space is a silent JSON gate.
+        human: human || (args.flags.json === true ? " " : ""),
     };
 }
 async function eventsFollow(args, runtime, resolved) {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const transport = transportFor(runtime, resolved.apiUrl, token);
-    const events = [];
+    const json = args.flags.json === true;
+    let printed = 0;
     let buffer = "";
     const controller = new AbortController();
     const timeoutMs = flagNumber(args.flags, "timeout");
     const timer = timeoutMs && timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+    const emit = (event) => {
+        if (json) {
+            printed += 1;
+            runtime.stdout.write(`${JSON.stringify(successEnvelope(event, { request_id: client.requestId }))}\n`);
+            return;
+        }
+        const line = formatEventLine(event);
+        if (!line)
+            return;
+        printed += 1;
+        runtime.stdout.write(`${line}\n`);
+    };
     try {
         const stream = await transport.stream({
             method: "GET",
@@ -1288,20 +1616,13 @@ async function eventsFollow(args, runtime, resolved) {
             const parsed = parseSse(buffer);
             buffer = parsed.rest;
             for (const event of parsed.events) {
-                if (event.data) {
-                    try {
-                        events.push(JSON.parse(event.data));
-                    }
-                    catch {
-                        events.push({
-                            cursor: event.id ?? "",
-                            sequence: 0,
-                            type: event.event ?? "message",
-                            severity: "info",
-                            message: event.data,
-                            at: runtime.now().toISOString(),
-                        });
-                    }
+                if (!event.data)
+                    continue;
+                try {
+                    emit(JSON.parse(event.data));
+                }
+                catch {
+                    // Unstructured frames are not event data.
                 }
             }
         }
@@ -1314,10 +1635,13 @@ async function eventsFollow(args, runtime, resolved) {
         if (timer)
             clearTimeout(timer);
     }
+    if (printed === 0 && json) {
+        runtime.stdout.write(`${JSON.stringify(successEnvelope({ items: [] }, { request_id: client.requestId }))}\n`);
+    }
     return {
-        envelope: successEnvelope({ items: events }, { request_id: client.requestId }),
+        envelope: successEnvelope({ items: [] }, { request_id: client.requestId }),
         exitCode: ExitCode.Success,
-        human: events.map((event) => `${event.at ?? ""} ${event.type} ${event.message}`).join("\n") || "(stream closed)",
+        human: "",
     };
 }
 async function doctor(args, runtime, resolved) {

@@ -6,6 +6,17 @@ function headerMap(headers) {
     });
     return out;
 }
+function decodeTextBody(text, contentType) {
+    if (text && (contentType.includes("json") || text.startsWith("{") || text.startsWith("["))) {
+        try {
+            return JSON.parse(text);
+        }
+        catch {
+            return text;
+        }
+    }
+    return text || undefined;
+}
 function buildUrl(base, path, query) {
     const url = new URL(path, base.endsWith("/") ? base : `${base}/`);
     if (query) {
@@ -28,7 +39,7 @@ export class FetchTransport {
     }
     headers(req) {
         const headers = {
-            accept: req.json === false ? "*/*" : "application/json",
+            accept: req.binary ? "image/webp" : req.json === false ? "*/*" : "application/json",
             ...req.headers,
         };
         if (this.token && !headers.authorization) {
@@ -65,21 +76,16 @@ export class FetchTransport {
                 signal: req.signal ?? controller.signal,
             });
             const headers = headerMap(response.headers);
+            if (req.binary) {
+                const bytes = new Uint8Array(await response.arrayBuffer());
+                if (response.status >= 400) {
+                    const text = new TextDecoder().decode(bytes);
+                    return { status: response.status, headers, body: decodeTextBody(text, headers["content-type"] ?? ""), rawText: text };
+                }
+                return { status: response.status, headers, body: bytes };
+            }
             const text = await response.text();
-            let body = text;
-            const contentType = headers["content-type"] ?? "";
-            if (text && (contentType.includes("json") || text.startsWith("{") || text.startsWith("["))) {
-                try {
-                    body = JSON.parse(text);
-                }
-                catch {
-                    body = text;
-                }
-            }
-            else if (!text) {
-                body = undefined;
-            }
-            return { status: response.status, headers, body, rawText: text };
+            return { status: response.status, headers, body: decodeTextBody(text, headers["content-type"] ?? ""), rawText: text };
         }
         catch (err) {
             if (err.name === "AbortError") {
