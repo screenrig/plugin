@@ -288,8 +288,9 @@ playlist delete <id> --if-match REVISION
 screen pair CODE [--label LABEL]
 screen provision (--open | --print-url) [--label LABEL]
 browser setup --code CODE [--open]
-screen update <id> --if-match REVISION [--name NAME] [--playlist-id ID]
+screen update <id> --if-match REVISION [--name NAME] [--playlist-id ID] [--timezone ZONE]
 screen assign <id> --playlist-id ID --if-match REVISION
+screen set-timezone <id> --timezone ZONE --if-match REVISION
 screen show <id>
 screen list
 screen rotate-public-id <id> --if-match REVISION
@@ -316,10 +317,11 @@ version
 ```
 
 Use the same `screen pair CODE` flow for first use and recovery. Application upload
-accepts one already-built static directory with a root `index.html`. Media upload keeps
-the signed transfer private and returns metadata only; see "Media uploads and the
-ffmpeg toolchain" before the first upload of a session. Application K/V is
-binary-safe; use exactly one value mode.
+accepts one already-built static directory with a root `index.html`; see "Putting a
+web app on a screen" for the whole path from that directory to a running screen.
+Media upload keeps the signed transfer private and returns metadata only; see "Media
+uploads and the ffmpeg toolchain" before the first upload of a session. Application
+K/V is binary-safe; use exactly one value mode.
 
 ## Playlist writes
 
@@ -388,6 +390,311 @@ Video `loop` must be false. An image on `media_end` requires `dwell_ms`.
 
 Use the `media_id` returned by `media upload`. Do not invent one. Do not author
 `text`, `box`, or `line` placements.
+
+For `application` and `iframe` placements, and for the `application` advance
+mode, follow "Putting a web app on a screen" below.
+
+## Page scheduling with visibility
+
+A page may carry an optional `visibility` object that limits when the page
+plays. It is a sibling of `advance`: both describe playback, not geometry.
+Nothing about `visibility` belongs inside `canvas`, `rect`, or a placement.
+
+Read these two rules before authoring any schedule. Breaking either one is
+rejected, and the second rejection is the one that surprises people.
+
+- **Every playlist must keep at least one page with no `visibility` field at
+  all.** That page is what guarantees the screen always has something eligible
+  to show. A page whose only rule is `enabled: false` does **not** satisfy this.
+  Neither does a page whose window happens to be open right now. The server
+  counts pages where the key is absent, so an always-visible page omits
+  `visibility` entirely.
+- **A screen running a scheduled playlist must have a timezone.** See "Screen
+  timezone" below.
+
+### The field
+
+```json
+{
+  "id": "after-hours",
+  "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+  "transition": { "type": "crossfade", "duration_ms": 200 },
+  "advance": { "mode": "duration", "after_ms": 8000 },
+  "visibility": {
+    "enabled": true,
+    "from": "2026-09-01T00:00",
+    "until": "2026-12-31T23:59",
+    "windows": [
+      { "days": ["mon", "tue", "wed", "thu"], "start": "09:00", "end": "17:00" },
+      { "days": ["fri"], "start": "22:00", "end": "02:00" },
+      { "days": ["sun"] }
+    ]
+  },
+  "placements": []
+}
+```
+
+- `enabled` is required and boolean. `false` hides the page unconditionally.
+- `from` and `until` are optional civil bounds, `YYYY-MM-DDTHH:MM`, minute
+  precision, **no offset and no zone suffix**. `from` is inclusive, `until` is
+  exclusive. When both are present, `from` must be strictly earlier than
+  `until`.
+- `windows` is an optional array of 1 to 16 recurring windows.
+- `days` is 1 to 7 unique values from `mon`, `tue`, `wed`, `thu`, `fri`, `sat`,
+  `sun`. The server stores them in mon-to-sun order, so a reordered array is the
+  same set and does not remint the manifest.
+- `start` and `end` are civil `HH:MM`. Set both or omit both. Omitting both
+  selects the **whole day**, as `{"days": ["sun"]}` above does.
+
+### Semantics
+
+A page is eligible when **all** of the following hold:
+
+1. `enabled` is `true`.
+2. The current civil time is inside `[from, until)`. Each bound is optional.
+3. `windows` is absent, **or** at least one window matches.
+
+A window matches when the current civil day of week is in `days` and, if `start`
+and `end` are present, the civil time is in `[start, end)`.
+
+**An overnight window is written `end` at or before `start`, and the start day
+owns it.** `{"days": ["fri"], "start": "22:00", "end": "02:00"}` runs Friday
+22:00 through Saturday 02:00. It does **not** start again on Saturday evening.
+To cover both nights, list both days. Equal edges are the degenerate case: a
+full 24 hours from `start`.
+
+The player evaluates these rules against the screen's timezone; the server never
+does. So a schedule boundary does not remint the manifest and does not restart
+the screen. Scheduling only hides pages, and a broken clock must not hide
+content: `enabled: false` needs no clock and always applies, while every
+clock-dependent rule fails visible.
+
+### Screen timezone
+
+The rules are civil times, so they are meaningless without a zone. The zone
+lives on the screen, not on the playlist.
+
+```bash
+"$SR" --json screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match 3
+```
+
+`--timezone` is an IANA identifier such as `America/Los_Angeles` or
+`Europe/Berlin`. The server validates it against an embedded zone database, so a
+name it does not know is rejected. A screen has no timezone until one is set,
+and a patch never clears one. `screen update` accepts the same `--timezone`, so
+one call can set the zone and assign the playlist together. Changing the zone
+remints the manifest revision. Take `--if-match` from the screen's current
+`revision`.
+
+**Set the timezone before assigning a scheduled playlist.** The CLI checks this
+locally on `screen assign`, `screen update --playlist-id`, and `playlist
+update`, and refuses with a `usage_error` naming the screen and the exact
+`screen set-timezone` command to run. Nothing is sent to the server when it
+refuses, so no revision is consumed. The server enforces the same rule on
+assignment, on playlist update, and when it resolves the manifest.
+
+### When a schedule is rejected
+
+- `invalid_request` naming `pages`, saying at least one page must have no
+  visibility rule: every page carries `visibility`. Remove the field from the
+  page that should always be eligible.
+- `invalid_request` naming `.visibility`, saying it must bound visibility: a
+  page set `enabled: true` and gave no `from`, `until`, or `windows`. That is a
+  no-op. An always-visible page omits `visibility` entirely.
+- `invalid_request` naming `.visibility.until`: `until` is not later than
+  `from`.
+- `invalid_request` naming `.visibility.windows[N]`: `start` and `end` were not
+  set together, or a time is not civil `HH:MM`.
+- `invalid_request` naming `timezone`: the screen has no timezone, or the
+  identifier is not in the zone database. Run `screen set-timezone` with a real
+  IANA name.
+
+## Putting a web app on a screen
+
+This is the whole path from a built static directory to a running interactive
+app. Every step below is a real command against the bundled CLI.
+
+### 1. Upload the app and read its release id
+
+`app upload` takes one already-built static directory with a root `index.html`.
+It packs the directory itself, so run `app pack` only when you want to inspect
+the archive first. The packer injects the ScreenRig browser SDK at
+`_screenrig/runtime.js` and adds its script tag to `index.html`, so the app
+reaches `window.screenrig` at runtime with no build step and no dependency to
+install.
+
+```bash
+SR="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig"
+"$SR" --json app upload ./lobby-board
+```
+
+`app upload` waits for the publication operation by default. Read three fields
+from the envelope:
+
+- `data.operation.state` is `succeeded`.
+- `data.application.release_id` is the `rel_...` release id. This is the only
+  value a playlist placement needs. It is always present, because the upload is
+  attributed to a release the moment it is accepted.
+- `data.application.id` is the `app_...` application id. `kv` commands take this
+  one; a playlist placement never does.
+
+Knowing the release id is not the same as the release being usable. A succeeded
+publication operation is what means the release is ready to reference. Do not
+poll `app list` or `app show` to decide readiness. With `--no-wait` the release
+id is already in the envelope, but the operation has not finished, so run
+`operations wait <operation_id>` before pinning it into a playlist.
+
+An application carries no state of its own; publish state lives on the operation
+and on the release. `app show` reports `latest_ready_release`, which is absent
+until a first publish reaches ready.
+
+Every `app upload` creates a new application and a new release. There is no
+in-place update and no way to add a release to an existing application. A
+re-upload therefore has a different `application_id`, so it does not inherit the
+earlier app's K/V, and a different `release_id`, so a playlist keeps serving the
+release it already pins until you `playlist update` it.
+
+### 2. Write the application placement
+
+An `application` placement pins exactly one release:
+
+```json
+{
+  "id": "board",
+  "content": { "type": "application", "release_id": "rel_01EXAMPLERELEASE00000000" },
+  "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+  "layer": 0,
+  "content_fit": "fill",
+  "controller": true
+}
+```
+
+- `content.release_id` is required and comes from step 1. `content.application_id`
+  is an optional ownership assertion the server checks against the release;
+  omit it.
+- `rect` is in the page's canvas coordinates, not screen pixels and not
+  percentages. The example fills a 1920x1080 canvas. A right-hand half panel on
+  that canvas is `{ "x": 960, "y": 0, "width": 960, "height": 1080 }`.
+- `content_fit` must be `fill` for `application` and `iframe`. Both have no
+  intrinsic size, so the server rejects `contain` and `cover`. Size and place
+  them with `rect` alone.
+- `layer` runs from 0 through 1024, and a higher layer draws on top. Placements
+  sharing a layer tie-break by their order in the `placements` array.
+- `controller` belongs to step 3. Omit it, or set it to `false`, on any page
+  that does not use `application` advance.
+
+`iframe` is the same placement shape for a public HTTPS page you do not own.
+Its `content` is `{ "type": "iframe", "src": "https://...", "title": "..." }`,
+`src` must be a public `https://` URL without credentials, `title` is 1 to 200
+characters, and `content_fit` is `fill`. An `iframe` can never be a controller.
+
+### 3. Choose how the page advances
+
+The app decides which mode fits, not the playlist author.
+
+Use `duration` when the app renders a view and never signals that it is
+finished:
+
+```json
+{ "mode": "duration", "after_ms": 15000 }
+```
+
+Use `application` when the app calls `window.screenrig.nextPage()` to end its
+own turn:
+
+```json
+{ "mode": "application", "max_ms": 60000 }
+```
+
+On an `application` page:
+
+- `max_ms` is required and runs from 1000 through 86400000. It is a backstop,
+  not a duration: the page advances at `max_ms` only if the app never calls
+  `nextPage()`. An app that always calls it never reaches `max_ms`.
+- Exactly one placement must carry `controller: true`, and it must be an
+  `application` placement. The server rejects a page with none and a page with
+  more than one.
+- Only the controller placement receives the `page.advance` capability.
+  `nextPage()` from any other placement rejects with `capability_denied`.
+  Non-controller `application` placements on the same page still render, read
+  and write K/V, and emit events.
+- `nextPage()` is one-shot per activation. A second call in the same activation
+  does nothing.
+- `controller` is forbidden whenever the mode is not `application`.
+
+`media_end` forbids `application` and `iframe` placements on that page outright.
+Do not mix them.
+
+On any `duration` or `application` page, `dwell_ms` is forbidden on image
+placements, and a media selector that resolves more than one object must set
+`one_at_a_time` to `true`.
+
+### 4. Create the playlist and assign it to a screen
+
+```json
+{
+  "name": "Lobby board",
+  "pages": [
+    {
+      "id": "board",
+      "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+      "transition": { "type": "crossfade", "duration_ms": 200 },
+      "advance": { "mode": "application", "max_ms": 60000 },
+      "placements": [
+        {
+          "id": "board",
+          "content": { "type": "application", "release_id": "rel_01EXAMPLERELEASE00000000" },
+          "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "layer": 0,
+          "content_fit": "fill",
+          "controller": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+```bash
+"$SR" --json playlist create ./lobby-board.json
+"$SR" --json screen list
+"$SR" --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match 3
+```
+
+Take `--playlist-id` from `data.id` of the `playlist create` result. Take
+`--if-match` from the screen's current `revision`, which both `screen list` and
+`screen show` return.
+
+### 5. Verify the result
+
+`playlist create` returning `ok` proves the server accepted the page and
+resolved the release. It does not prove the app rendered.
+
+- `screen show <id>` confirms the screen carries the intended `playlist_id`.
+- `events list` reports what the account did and what the fleet did. A published
+  release appends `application.published`. An app that calls
+  `screenrig.emit(code)` appends its own event, which is the most direct
+  evidence that the app ran on a screen.
+- `screen toast <id> --level info --text "..."` puts a visible marker on the
+  stage and confirms the screen is live and reachable.
+- Looking at the screen stays the only proof of layout and rendering. Ask the
+  user to confirm what they see.
+
+### When it is rejected
+
+- `resource_conflict` on `playlist create` or `playlist update`: the
+  `release_id` is not an owned ready release. Re-read
+  `data.application.release_id` and confirm the upload operation succeeded.
+- `invalid_request` naming `.content_fit`: an `application` or `iframe`
+  placement used `contain` or `cover`. Use `fill`.
+- `invalid_request` naming `.placements` or `.controller`: the page's controller
+  count does not match its advance mode. Application advance needs exactly one
+  controller application, and every other mode needs none.
+- `revision_conflict` on `screen assign`: refetch the screen, take the returned
+  `revision`, and retry.
+- `usage_error` on `screen assign` saying the screen has no timezone: the
+  playlist schedules pages. Run the `screen set-timezone` command the error
+  names, then assign. See "Page scheduling with visibility".
 
 `screen toast` posts one transient stage-chrome message to a named screen. It is
 not a placement: it occupies no canvas slot, has no layer, and is not part of
