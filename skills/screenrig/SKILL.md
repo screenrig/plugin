@@ -428,6 +428,13 @@ The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and
 `--poll-ms` defaults to 500 ms. There is no `--no-wait`. Do not print
 pixels.
 
+`screen show <id>` prints the GET screen JSON. After a player reports a
+playback surface, the body may include optional `observation`: `observed_at`
+and `surfaces`. Each surface has `id`, `width`, `height`, `pixel_ratio`, and
+`presentation` (`output` or `windowed`). The field is read-only. `screen
+update` cannot send it. Absence means no player has reported a surface yet.
+Do not treat it as a meter. Do not invent extra surfaces.
+
 `playback list` returns daily playback aggregates for this account. One
 row per screen, media, and UTC day. Newest days first. `--screen-id`,
 `--media-id`, and `--day YYYY-MM-DD` filter the caller's own rows.
@@ -894,6 +901,7 @@ Take `--playlist-id` from `data.id` of the `playlist create` result. Take
 resolved the release. It does not prove the app rendered.
 
 - `screen show <id>` confirms the screen carries the intended `playlist_id`.
+  Optional `observation` is player-reported and read-only when present.
 - `events list` reports what the account did and what the fleet did. A published
   release appends `application.published`. An app that calls
   `screenrig.emit(code)` appends its own event, which is the most direct
