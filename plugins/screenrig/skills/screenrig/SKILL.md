@@ -314,7 +314,6 @@ body under the same key is `idempotency_mismatch`. A 429 surfaces
 
 ```text
 account show
-account accountings
 auth status
 auth revoke --yes
 app pack <directory> [--output FILE]
@@ -387,10 +386,6 @@ non-transient 4xx problems stop the command.
 The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and
 `--poll-ms` defaults to 500 ms. There is no `--no-wait`. Do not print
 pixels.
-
-`account accountings` lists hourly prepaid-credit accountings. The route
-stays available when remaining mcr is zero. Read remaining mcr from
-`account show`.
 
 `playback list` returns daily playback aggregates for this account. One
 row per screen, media, and UTC day. Newest days first. `--screen-id`,

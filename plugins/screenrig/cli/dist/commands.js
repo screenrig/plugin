@@ -38,7 +38,6 @@ Usage:
 
 Commands:
   account show
-  account accountings
   auth status
   auth revoke --yes
   app pack <directory> [--output FILE]
@@ -167,9 +166,6 @@ export async function dispatch(args, runtime) {
     }
     if (group === "account" && action === "show") {
         return accountShow(args, runtime, resolved);
-    }
-    if (group === "account" && action === "accountings") {
-        return accountAccountings(args, runtime, resolved);
     }
     if (group === "auth" && (action === "status" || action === undefined)) {
         return accountShow(args, runtime, resolved);
@@ -314,7 +310,7 @@ async function authRevoke(args, runtime, resolved) {
 }
 function isAuthenticatedCommand(group, action) {
     const actions = {
-        account: new Set(["show", "accountings"]),
+        account: new Set(["show"]),
         auth: new Set([undefined, "status"]),
         app: new Set(["upload", "list", "show"]),
         media: new Set(["upload", "show", "list", "delete", "update"]),
@@ -463,9 +459,6 @@ async function accountShow(args, runtime, resolved) {
             ["request_id", client.requestId],
         ]),
     };
-}
-async function accountAccountings(args, runtime, resolved) {
-    return simpleGet(args, runtime, resolved, "/api/v1/account/accountings", "Account accountings");
 }
 async function appPack(args, runtime) {
     const dir = args.positionals[2];
