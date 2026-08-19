@@ -23,7 +23,10 @@ does not own the CLI source, players, backend, site, or production deployment.
 - Never copy CLI source or a local mutable build into the bundle. Update the
   lock only when intentionally selecting a reviewed CLI CI artifact.
 - Keep Codex and Claude marketplace metadata, generated manifests, public
-  README, and skill behavior aligned.
+  README, and skill behavior aligned **at lock/regeneration time**. Canonical
+  skill source may lead the generated `plugins/screenrig/` copy while the
+  CLI working tree is source-ready and the lock is unchanged. Never
+  hand-edit `plugins/screenrig/` to close that gap.
 - The launcher must preflight Node.js 20.11+ and prefer the package-relative
   bundled `cli/dist/bin.js`. When that file is absent, resolve `cli/dist/bin.js`
   from a plugin-root environment variable or a parent-directory walk so a
@@ -39,9 +42,19 @@ does not own the CLI source, players, backend, site, or production deployment.
 
 ## Product and security boundaries
 
-- Teach only implemented CLI commands. The current `screen pair` parser accepts
-  the canonical undashed six characters; `browser setup` accepts the public
-  dashed/undashed handoff form.
+- Teach only implemented CLI commands. Canonical skill source
+  `skills/screenrig/SKILL.md` teaches the current CLI; its Commands block
+  matches CLI `USAGE`. New consumer commands (`account accountings`,
+  `playback list`, media tags, `app upload --name`) and `events follow`
+  reconnect are **source-ready** in that skill and in the CLI working tree.
+  They are not marketplace and not deployed.
+- The generated `plugins/screenrig/` copy still follows the locked CLI
+  artifact in `components.lock.json`. Do not hand-edit it to teach the new
+  surface. Alignment happens when the lock selects a reviewed CLI CI
+  artifact and the bundle is regenerated.
+- The current `screen pair` parser accepts the canonical undashed six
+  characters; `browser setup` accepts the public dashed/undashed handoff
+  form.
 - Preserve automatic first-use enrollment, machine-readable output, user-private
   configuration outside the plugin directory, and server-first
   `auth revoke --yes`.
@@ -57,6 +70,11 @@ does not own the CLI source, players, backend, site, or production deployment.
   no remaining data is silent. `--json events list` is one JSON page
   envelope. `--json events follow` is a JSON stream. After redaction, `--json`
   may still include a server `message` field when it is data.
+- `events follow` reconnects on disconnect or a transient connect failure,
+  with exponential backoff, and sends the last SSE `id` as `after`.
+  `--timeout` covers the whole follow, including backoff. 401, 403, 404,
+  and other non-transient 4xx problems stop the command. Do not print
+  reconnect chatter on stdout.
 
 ## Verification
 
