@@ -72,8 +72,8 @@ marketplace plugin. If installation or lookup still fails, report the failing
 runtime command and the canonical repository URL to the user. Do not
 substitute a globally installed command or download an executable.
 
-Use `--json` for agent work. Branch on `ok`, `error.status`, and `error.code`;
-do not parse prose. The first authenticated command enrolls automatically when
+Use `--json` for agent work. Branch on `ok`, `error.status`, `error.code`,
+and `warnings[].code`; do not parse prose. The first authenticated command enrolls automatically when
 the durable user credential is absent, stores that credential outside the
 replaceable plugin directory, and resumes the same command. `SCREENRIG_CONFIG`
 overrides the path. Otherwise the CLI uses `config.local-dev.json` in the
@@ -309,6 +309,47 @@ retry returns the original submission for twenty-four hours. A different
 body under the same key is `idempotency_mismatch`. A 429 surfaces
 `Retry-After` as `retry_after_seconds`. Probe support through
 `capabilities.features.feedback`; `doctor` reports that check.
+
+## Credits
+
+The control-plane meter is 1 credit per billed authenticated command and 1
+credit per billed account-stream event. Remaining is a whole integer credit
+count. Read it from `data.credit_remaining` on `account show`, or from the
+warning message. Remaining below 1 credit is `payment_required` (HTTP 402).
+
+Use `--json`. Branch on `ok`, `error.status`, `error.code`, and
+`warnings[].code`.
+
+- `warnings[].code === "credits_low"`: remaining is below 1000 credits. The
+  warning message includes the integer remaining. Surface remaining to the
+  user. Do not retry the same billed command as a fix. Do not invent a pay
+  command.
+- `error.code === "payment_required"` or `error.status === 402`: remaining is
+  below 1 credit. Billed commands are rejected. `error.next` points at
+  `screenrig --json account show`. Stop; do not spin. A 402 envelope may also
+  include `credits_low` in `warnings[]` when remaining is present and below
+  1000.
+
+These commands do not debit the 1-credit API meter, so they still work when
+remaining is 0:
+
+- `account show`
+- `auth revoke --yes`
+- `screen toast`
+- `screen screenshot` (request, status poll, and WebP download)
+
+Exempt listen-stream events (not billed after subscribe): `screen.*`,
+`runtime.*`, `application.event`, and heartbeats.
+
+Billed: other authenticated control-plane commands, including media, playlist,
+app, kv, playback, feedback, operations, screen pair/update/assign, and
+`events list`. Opening `events follow` costs 1 credit as the listen
+subscribe. Later billed events on that stream cost 1 credit each
+(`playlist.*`, `media.*`, `kv.*`, `application.published`, `operation.*`,
+`account.*`, `feedback.*`, `stream.cursor`, `stream.resync_required`).
+Reconnect replay is free.
+
+v1 does not collect money in this CLI. There is no pay command.
 
 ## Commands
 
