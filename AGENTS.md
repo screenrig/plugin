@@ -64,6 +64,10 @@ does not own the CLI source, players, backend, site, or production deployment.
   sources.
 - Screenshotting is in v1. `screen screenshot <id>` blocks on a still WebP and
   writes a file. Do not print pixels.
+- Teach local compose (`compose catalog`, `compose render`) for copy and
+  chrome. Do not teach emitting native `text`, `box`, or `line` through
+  playlist templates. Wire families are static (`image`), motion (`video`),
+  and web (`iframe`, `application`). Compose is local and not billed.
 - Human `events list` and `events follow` print logfmt. Human logfmt omits
   canned server sentences. An `application.event` or `runtime.reported` with
   no remaining data is silent. `--json events list` is one JSON page

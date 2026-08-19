@@ -70,7 +70,18 @@ def check_metadata(errors: list[str]) -> None:
     repository = package.get("repository")
     if not isinstance(repository, dict) or repository.get("url") != CLI_REPOSITORY:
         errors.append(f"{package_path.relative_to(ROOT)} repository.url must be {CLI_REPOSITORY}")
-    for field in ("dependencies", "optionalDependencies", "peerDependencies"):
+    allowed_cli_deps = {"@napi-rs/canvas", "yoga-layout"}
+    deps = package.get("dependencies")
+    if deps:
+        if not isinstance(deps, dict):
+            errors.append(f"{package_path.relative_to(ROOT)} dependencies must be an object")
+        else:
+            extra = sorted(set(deps) - allowed_cli_deps)
+            if extra:
+                errors.append(
+                    f"bundled CLI dependencies must be exactly {sorted(allowed_cli_deps)}; extra {extra}"
+                )
+    for field in ("optionalDependencies", "peerDependencies"):
         if package.get(field):
             errors.append(f"bundled CLI must not require unavailable {field}")
 

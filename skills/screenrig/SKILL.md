@@ -337,6 +337,8 @@ remaining is 0:
 - `auth revoke --yes`
 - `screen toast`
 - `screen screenshot` (request, status poll, and WebP download)
+- `compose catalog`
+- `compose render`
 
 Exempt listen-stream events (not billed after subscribe): `screen.*`,
 `runtime.*`, `application.event`, and heartbeats.
@@ -368,6 +370,8 @@ media show <id>
 media list [--tag TAG] [--kind image|video]
 media update <id> (--tag TAG | --clear-tag) --if-match REVISION
 media delete <id> --if-match REVISION
+compose catalog
+compose render <file> [--output FILE] [--open]
 playlist templates
 playlist create <file>
 playlist update <id> <file> --if-match REVISION
@@ -428,6 +432,9 @@ The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and
 `--poll-ms` defaults to 500 ms. There is no `--no-wait`. Do not print
 pixels.
 
+`compose catalog` and `compose render` run locally. They do not enroll and
+they do not debit. See "Local compose" below.
+
 `screen show <id>` prints the GET screen JSON. After a player reports a
 playback surface, the body may include optional `observation`: `observed_at`
 and `surfaces`. Each surface has `id`, `width`, `height`, `pixel_ratio`, and
@@ -447,10 +454,42 @@ Media upload keeps the signed transfer private and returns metadata only; see "M
 uploads and the ffmpeg toolchain" before the first upload of a session. Application
 K/V is binary-safe; use exactly one value mode.
 
+## Local compose
+
+Write JSON, render a PNG, look at that PNG, iterate. Compose is not billed.
+
+```bash
+"$SR" --json compose catalog
+"$SR" --json compose render ./spec.json --output ./still.png
+# agent reads ./still.png with vision; do not cat pixels into chat
+# iterate the JSON and re-render
+"$SR" --json media upload ./still.png
+# playlist page: one image placement, rect = canvas, content_fit fill
+```
+
+`compose catalog` prints the fail-closed node catalog: types
+`Frame`/`Column`/`Row`/`Box`/`Spacer`/`Text`/`Image`, roles
+`display|title|body|caption|label`, spaces `xs|s|m|l|xl`, pins
+`top|bottom|left|right`. Do not author `x`/`y` except on the Frame canvas.
+Do not author `fontSize`. `Image.src` is a local filesystem path relative to
+the spec file. The CLI does not fetch URLs. The envelope is structured JSON,
+not pixels.
+
+`compose render` writes a PNG and `<output>.layout.json`. Default `--output`
+replaces a `.json` suffix with `.png`, or appends `.png`. Never print PNG
+bytes, pixels, or image data. `--open` opens the local PNG path on this
+computer only when the user asked to view the still here. Agent vision uses
+the file path, not `--open`.
+
 ## Playlist writes
 
 A page is one of two shapes. Do not mix `template` and `placements` on the
 same page.
+
+Wire placement families are three: static (`image`), motion (`video`), and
+web (`iframe`, `application`). Do not author native `text`, `box`, or `line`
+on the wire. Compose copy and chrome locally, upload the still as `image`,
+and place that image.
 
 ### Full page
 
@@ -529,17 +568,21 @@ mode, write a full page and follow "Putting a web app on a screen" below.
 
 ### Templated page
 
-The CLI expands `template` + `slots` into an ordinary page and sends that.
-The server never sees `template`. `playlist show` and `playlist get` return
-the expanded placements, not the template id.
-
-List the closed ids from the command:
+Do not emit native `text`, `box`, or `line` through templates. Slide layouts
+with copy or chrome are composed locally, uploaded as `image`, then placed
+as one image. See "Local compose".
 
 ```bash
+"$SR" --json compose catalog
 "$SR" --json playlist templates
 ```
 
-Use only those ids. Do not invent a template id.
+`playlist templates` is a local catalog of slide ids. Templates that would
+emit vector chrome fail with `usage_error` pointing at `compose catalog`
+and `compose render`. Do not silently rasterize and upload. Picture-only
+templates (`slide-full-bleed`, and `slide-photo` without a caption) still
+expand to image or video placements with selectors. A `logo` slot is image
+only; video is a `usage_error`.
 
 Allowed keys on a templated page: `id`, `template`, `slots`, optional
 `canvas.background` only, optional `text_color`, optional `transition`,
@@ -547,80 +590,11 @@ optional `advance`, optional `visibility`. Any other page key is a
 `usage_error`. `canvas.width`, `canvas.height`, and `canvas.viewport_fit` on
 a templated page are a `usage_error`.
 
-The 15 templates share one 1920×1080 canvas, `viewport_fit: contain`,
-background `#1B2632FF`, default text `#EEE9DFFF`, and family `sans`. Every
-template draws a mustard `#F8B334FF` bar across the top. There is no
-automatic wrapping; put a line feed in the string or pass `text` as an array
-of lines. `text_color` tints slots that do not already have a template color
-(eyebrow, stat values, and other mustard or dim slots keep theirs). It is
-CLI sugar and is not a REST field. Override the background with
-`canvas.background` only, using the same solid-or-linear union as a full
-page. The default template background stays the solid `#1B2632FF`.
+Wire families:
 
-If you omit `transition` or `advance`, the CLI fills
-`{ "type": "crossfade", "duration_ms": 200 }` and
-`{ "mode": "duration", "after_ms": 8000 }`. You may replace either. Templates
-do not set `visibility`.
-
-Slots do not take `rect`, `layer`, `font_*`, or `color`. A text slot is
-`{ "text": "…" }` or `{ "text": ["line", "line"] }`. It may set `align` to
-`left`, `center`, or `right`, and `vertical_align` to `top`, `middle`, or
-`bottom`. Omit either key to keep the template default. `playlist templates`
-prints those defaults. An image or video slot uses the same write content as
-a full page (`type` + `selector`, optional `alt` / video flags). A `picture`
-slot may set `content_fit` to `contain` or `cover`. A `logo` slot is image
-only; video is a `usage_error`. Omit an optional slot to omit that placement.
-
-The expander packs each text slot to `lineCount * line_height`, then stacks
-present slots from the template start `y`. Centered families (`slide-intro`,
-`slide-text-only-1`, `slide-text-only-2`, `slide-quote`, `slide-callout`)
-group-center that packed stack in the stage hole. If the copy has more lines
-than the hole allows, the expander keeps the lines that fit and appends `…`
-to the last kept line. It does not ellipsize by width. Author-time fit may
-shrink or grow `font_size` and `line_height` so the longest line meets the
-hole width, within 50%–150% of the template size and never below 12. The
-player does not scale live. There is no wrapping.
-
-The 15 ids and their slots:
-
-- `slide-intro`: `title` text required; `subtitle` text optional; `logo` image optional
-- `slide-text-only-1`: `eyebrow` and `headline` text required; `subhead`, `body`, `footnote` text optional; `logo` image optional
-- `slide-text-only-2`: `eyebrow` and `headline` text required; `subhead` text optional; `logo` image optional
-- `slide-text-photo-1`: `headline` text required; `eyebrow`, `subhead`, `body`, `footnote` text optional; `picture` image or video optional; `logo` image optional. Text left, picture right.
-- `slide-text-photo-2`: same slots as `slide-text-photo-1`. Picture left, text right.
-- `slide-text-photo-3`: same slots. Wider picture left (contain by default), text right.
-- `slide-half-bleed-1`: `headline` text required; `eyebrow`, `subhead`, `body`, `footnote` text optional; `picture` image or video required; `logo` image optional. Picture fills the left half.
-- `slide-half-bleed-2`: same slots. Picture fills the right half.
-- `slide-quote`: `quote` text required; `author` text optional; `logo` image optional
-- `slide-callout`: `headline` text required; `body` text optional; `logo` image optional
-- `slide-bullets`: `headline` text required; `eyebrow` text optional; `b1` text required; `b2`–`b6` text optional; `picture` image or video optional; `logo` image optional
-- `slide-stat-grid`: `headline` text required; `eyebrow` text optional; `v1` and `l1` text required; `v2`+`l2`, `v3`+`l3`, `v4`+`l4` text optional; `logo` image optional
-- `slide-three-up`: `headline` text required; `eyebrow` text optional; `t1` and `b1` text required; `t2`+`b2`, `t3`+`b3` text optional; `logo` image optional
-- `slide-photo`: `picture` image or video required; `caption` text optional; `logo` image optional
-- `slide-full-bleed`: `picture` image or video required; `logo` image optional
-
-```json
-{
-  "name": "Welcome",
-  "pages": [
-    {
-      "id": "intro",
-      "template": "slide-intro",
-      "slots": {
-        "title": { "text": "Welcome" },
-        "subtitle": { "text": ["Today's briefing", "Conference room A"] }
-      }
-    }
-  ]
-}
-```
-
-Emit `text` and `line` placements only through these templates. Templates
-may emit a `box` placement as plate chrome behind `slide-quote` and
-`slide-callout`. Agents still must not hand-author `box` or free vector
-geometry. If the API returns `invalid_request` saying `text, box, and line
-placements are not enabled`, stop and report that. Do not invent an image
-fallback.
+- static: `image`
+- motion: `video`
+- web: `iframe`, `application`
 
 Looking at the screen stays the only proof of layout. Do not claim a
 template is hardware-validated.
