@@ -52,6 +52,11 @@ does not own the CLI source, players, backend, site, or production deployment.
   sources.
 - Screenshotting is in v1. `screen screenshot <id>` blocks on a still WebP and
   writes a file. Do not print pixels.
+- Human `events list` and `events follow` print logfmt. Human logfmt omits
+  canned server sentences. An `application.event` or `runtime.reported` with
+  no remaining data is silent. `--json events list` is one JSON page
+  envelope. `--json events follow` is a JSON stream. After redaction, `--json`
+  may still include a server `message` field when it is data.
 
 ## Verification
 

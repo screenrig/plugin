@@ -331,7 +331,17 @@ doctor [--repair-config]
 version
 ```
 
-`events follow` prints each event as it arrives. `events list` is the finite page.
+Human `events list` and `events follow` print one logfmt line per event:
+`at=... type=... severity=...` plus scalar `details`. Human logfmt omits
+canned server sentences. An `application.event` or `runtime.reported` with
+no remaining data is silent.
+
+`--json events list` is one JSON page envelope. `--json events follow` is
+a JSON stream of envelopes. After redaction, `--json` may still include a
+server `message` field when it is data.
+
+`screen screenshot <id>` is in v1. It blocks until a still WebP is on disk.
+The default path is `./<id>.webp`. Do not print pixels.
 
 Use the same `screen pair CODE` flow for first use and recovery. Application upload
 accepts one already-built static directory with a root `index.html`; see "Putting a
@@ -351,6 +361,11 @@ A full page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
 and `placements`. Image and video placements write a `selector`. Do not put
 `media_id` on the content object. Do not send server-resolved `items`. Advance
 with `media_end`, never `video_end`.
+
+`canvas.background` is a solid uppercase `#RRGGBBAA` or a top-to-bottom
+linear gradient. The gradient is `{ "type": "linear", "stops": [...] }` with
+2 through 8 stops, strictly increasing `at` in `[0, 1]`, first `at` 0, last
+`at` 1, and no angle field. A solid string stays valid.
 
 Selector `by` values:
 
@@ -442,7 +457,8 @@ automatic wrapping; put a line feed in the string or pass `text` as an array
 of lines. `text_color` tints slots that do not already have a template color
 (eyebrow, stat values, and other mustard or dim slots keep theirs). It is
 CLI sugar and is not a REST field. Override the background with
-`canvas.background` only.
+`canvas.background` only, using the same solid-or-linear union as a full
+page. The default template background stays the solid `#1B2632FF`.
 
 If you omit `transition` or `advance`, the CLI fills
 `{ "type": "crossfade", "duration_ms": 200 }` and

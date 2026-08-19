@@ -75,7 +75,8 @@ players are separate native-first applications that use protected
 `ScreenRig-Pairing`, `ScreenRig-Device`, and `ScreenRig-Session`
 authorization. Runtime pages use `screenrig.canvas/v1`; protected content and
 `screenrig.webapp-package/v1` artifacts remain manifest-bound. Screenshotting
-is not part of v1.
+is in v1. `screen screenshot <id>` blocks on a still WebP and writes a file.
+It does not print image bytes.
 
 ## Media uploads
 
