@@ -22,7 +22,7 @@ import { newIdempotencyKey } from "./ids.js";
 import { clearProvisionRetryState, provisionRetryState } from "./provisioning-state.js";
 import { validateProvisioningUrls } from "./provisioning-url.js";
 import { browserHandoffUrl, browserSetupRetryState, clearBrowserSetupRetryState, normalizeBrowserSetupCode, } from "./browser-setup.js";
-import { redactText } from "./redact.js";
+import { isSensitiveKey, isSensitiveValue, redactEvent, redactText } from "./redact.js";
 import { expandPlaylistPages, formatTemplateCatalog, playlistTemplateCatalog, } from "./playlist-templates.js";
 import { ffmpegLookup, resolveFfmpegToolchain } from "./media/ffmpeg.js";
 import { createProgressReporter, silentProgressReporter } from "./media/progress.js";
@@ -38,17 +38,19 @@ Usage:
 
 Commands:
   account show
+  account accountings
   auth status
   auth revoke --yes
   app pack <directory> [--output FILE]
-  app upload <directory>
+  app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
   app list
   app show <id>
-  media upload <file> [--content-type TYPE] [--no-wait]
+  media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                       [--no-transcode] [--codec h264|hevc] [--max-fps N]
                       [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
   media show <id>
-  media list
+  media list [--tag TAG] [--kind image|video]
+  media update <id> (--tag TAG | --clear-tag) --if-match REVISION
   media delete <id> --if-match REVISION
   playlist templates
   playlist create <file>
@@ -69,18 +71,19 @@ Commands:
   screen rotate-public-id <id> --if-match REVISION
   screen revoke-credential <id> --if-match REVISION
   screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
-  screen screenshot <id> [--output FILE]
+  screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
   kv get --application-id ID <key>
   kv set --application-id ID <key> --json-value JSON [--if-match REVISION]
-  kv set --application-id ID <key> --file FILE --content-type TYPE
-  kv set --application-id ID <key> --value-base64 BASE64 --content-type TYPE
+  kv set --application-id ID <key> --file FILE --content-type TYPE [--if-match REVISION]
+  kv set --application-id ID <key> --value-base64 BASE64 --content-type TYPE [--if-match REVISION]
   kv delete --application-id ID <key> --if-match REVISION
   kv list --application-id ID
   operations get <id>
-  operations wait <id>
+  operations wait <id> [--timeout MS] [--poll-ms MS]
   operations cancel <id>
   events list [--after CURSOR] [--limit N]
-  events follow [--after CURSOR]
+  events follow [--after CURSOR] [--timeout MS]
+  playback list [--screen-id ID] [--media-id ID] [--day YYYY-MM-DD]
   feedback bug <title> (--body TEXT | --body-file FILE)
                        [--command "GROUP ACTION"] [--no-context]
   feedback feature <title> (--body TEXT | --body-file FILE)
@@ -165,6 +168,9 @@ export async function dispatch(args, runtime) {
     if (group === "account" && action === "show") {
         return accountShow(args, runtime, resolved);
     }
+    if (group === "account" && action === "accountings") {
+        return accountAccountings(args, runtime, resolved);
+    }
     if (group === "auth" && (action === "status" || action === undefined)) {
         return accountShow(args, runtime, resolved);
     }
@@ -209,6 +215,9 @@ export async function dispatch(args, runtime) {
     }
     if (group === "events" && action === "follow") {
         return eventsFollow(args, runtime, resolved);
+    }
+    if (group === "playback" && action === "list") {
+        return playbackList(args, runtime, resolved);
     }
     if (group === "feedback") {
         return feedbackCommand(args, runtime, resolved, action);
@@ -305,16 +314,17 @@ async function authRevoke(args, runtime, resolved) {
 }
 function isAuthenticatedCommand(group, action) {
     const actions = {
-        account: new Set(["show"]),
+        account: new Set(["show", "accountings"]),
         auth: new Set([undefined, "status"]),
         app: new Set(["upload", "list", "show"]),
-        media: new Set(["upload", "show", "list", "delete"]),
+        media: new Set(["upload", "show", "list", "delete", "update"]),
         playlist: new Set(["create", "update", "show", "get", "list", "delete"]),
-        screen: new Set(["pair", "provision", "update", "list", "show", "assign", "delete", "rotate-public-id", "revoke-credential", "toast", "screenshot"]),
+        screen: new Set(["pair", "provision", "update", "list", "show", "assign", "set-timezone", "delete", "rotate-public-id", "revoke-credential", "toast", "screenshot"]),
         browser: new Set(["setup"]),
         kv: new Set(["get", "set", "delete", "list"]),
         operations: new Set(["get", "wait", "cancel"]),
         events: new Set(["list", "follow"]),
+        playback: new Set(["list"]),
         feedback: new Set(["bug", "feature", "list"]),
     };
     return actions[group]?.has(action) ?? false;
@@ -454,6 +464,9 @@ async function accountShow(args, runtime, resolved) {
         ]),
     };
 }
+async function accountAccountings(args, runtime, resolved) {
+    return simpleGet(args, runtime, resolved, "/api/v1/account/accountings", "Account accountings");
+}
 async function appPack(args, runtime) {
     const dir = args.positionals[2];
     if (!dir) {
@@ -496,6 +509,7 @@ async function appUpload(args, runtime, resolved) {
     const packed = await packDirectory(path.resolve(runtime.cwd(), dir), {
         limits: limitsFromCapabilities(capabilitiesResponse.body),
     });
+    const name = applicationNameFromArgs(args);
     const response = await client.call({
         method: "POST",
         path: "/api/v1/applications",
@@ -506,6 +520,7 @@ async function appUpload(args, runtime, resolved) {
             "screenrig-expanded-bytes": String(packed.expanded_bytes),
             "screenrig-file-count": String(packed.file_count),
             "screenrig-sdk-version": SDK_PROTOCOL_VERSION,
+            ...(name ? { "screenrig-application-name": name } : {}),
         },
         body: packed.archive,
     });
@@ -542,19 +557,63 @@ async function appUpload(args, runtime, resolved) {
         ]),
     };
 }
-async function simpleGet(args, runtime, resolved, pathName, title) {
+async function simpleGet(args, runtime, resolved, pathName, title, query) {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
-    const response = await client.call({ method: "GET", path: pathName });
+    const response = await client.call({ method: "GET", path: pathName, query });
     return {
         envelope: jsonBody(response, client.requestId),
         exitCode: ExitCode.Success,
         human: `${title}\n${JSON.stringify(response.body, null, 2)}`,
     };
 }
+const MEDIA_TAG_PATTERN = /^[A-Za-z0-9]{1,32}$/;
+const APPLICATION_NAME_MAX = 120;
+const PLAYBACK_DAY_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+function requireFlagValue(args, name, example) {
+    if (args.flags[name] === true) {
+        throw usageError(`--${name} requires a value, such as --${name} ${example}.`);
+    }
+}
+function mediaTagFromArgs(args) {
+    requireFlagValue(args, "tag", "lobby");
+    const tag = flagString(args.flags, "tag");
+    if (tag === undefined) {
+        return undefined;
+    }
+    if (!MEDIA_TAG_PATTERN.test(tag)) {
+        throw usageError("--tag must be 1 to 32 letters or digits.");
+    }
+    return tag;
+}
+function applicationNameFromArgs(args) {
+    requireFlagValue(args, "name", "Lobby board");
+    const name = flagString(args.flags, "name");
+    if (name === undefined) {
+        return undefined;
+    }
+    if (name.length > APPLICATION_NAME_MAX || /[\r\n]/.test(name)) {
+        throw usageError("--name must be at most 120 characters and must not contain a line break.");
+    }
+    return name;
+}
+function mediaKindFromArgs(args) {
+    requireFlagValue(args, "kind", "image");
+    const kind = flagString(args.flags, "kind");
+    if (kind === undefined) {
+        return undefined;
+    }
+    if (kind !== "image" && kind !== "video") {
+        throw usageError("--kind must be image or video.");
+    }
+    return kind;
+}
 async function mediaCommand(args, runtime, resolved, action) {
     if (action === "list") {
-        return simpleGet(args, runtime, resolved, "/api/v1/media", "Media");
+        return simpleGet(args, runtime, resolved, "/api/v1/media", "Media", {
+            tag: mediaTagFromArgs(args),
+            kind: mediaKindFromArgs(args),
+        });
     }
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
@@ -563,6 +622,9 @@ async function mediaCommand(args, runtime, resolved, action) {
         if (!id)
             throw usageError("media show requires an id.");
         return simpleGet(args, runtime, resolved, `/api/v1/media/${id}`, "Media");
+    }
+    if (action === "update") {
+        return mediaUpdate(args, client);
     }
     if (action === "delete") {
         const id = args.positionals[2];
@@ -581,6 +643,53 @@ async function mediaCommand(args, runtime, resolved, action) {
         return mediaUpload(args, runtime, client);
     }
     throw usageError("Unknown media command.");
+}
+async function mediaUpdate(args, client) {
+    const id = args.positionals[2];
+    const revision = flagString(args.flags, "if-match");
+    const clearTag = flagBool(args.flags, "clear-tag");
+    const tag = mediaTagFromArgs(args);
+    if (!id || !revision) {
+        throw usageError("media update requires <id>, --if-match, and --tag TAG or --clear-tag.");
+    }
+    if (clearTag === Boolean(tag)) {
+        throw usageError("media update requires exactly one of --tag TAG or --clear-tag.");
+    }
+    const body = { tag: clearTag ? null : tag ?? null };
+    const response = await client.call({
+        method: "PATCH",
+        path: `/api/v1/media/${id}`,
+        idempotent: true,
+        headers: { "if-match": quotedRevision(revision) },
+        body,
+    });
+    return {
+        envelope: jsonBody(response, client.requestId),
+        exitCode: ExitCode.Success,
+        human: clearTag ? `Cleared tag on media ${id}` : `Set tag ${tag} on media ${id}`,
+    };
+}
+async function playbackList(args, runtime, resolved) {
+    requireFlagValue(args, "screen-id", "scr_01");
+    requireFlagValue(args, "media-id", "med_01");
+    requireFlagValue(args, "day", "2026-08-14");
+    const screenId = flagString(args.flags, "screen-id");
+    const mediaId = flagString(args.flags, "media-id");
+    const day = flagString(args.flags, "day");
+    if (screenId !== undefined && !screenId.startsWith("scr_")) {
+        throw usageError("--screen-id must start with scr_.");
+    }
+    if (mediaId !== undefined && !mediaId.startsWith("med_")) {
+        throw usageError("--media-id must start with med_.");
+    }
+    if (day !== undefined && !PLAYBACK_DAY_PATTERN.test(day)) {
+        throw usageError("--day must be a UTC calendar day as YYYY-MM-DD.");
+    }
+    return simpleGet(args, runtime, resolved, "/api/v1/playback", "Playback", {
+        screen_id: screenId,
+        media_id: mediaId,
+        day,
+    });
 }
 /** Flags that shape the pre-upload transcode. */
 export function transcodeOptionsFromArgs(args) {
@@ -646,6 +755,10 @@ async function mediaUpload(args, runtime, client) {
         const prepared = transcode
             ? await prepareMediaUpload(transcode.filePath, transcode.contentType)
             : await prepareMediaUpload(sourcePath, explicitContentType);
+        const tag = mediaTagFromArgs(args);
+        if (tag !== undefined) {
+            prepared.declaration.tag = tag;
+        }
         const declarationResponse = await client.call({
             method: "POST",
             path: "/api/v1/media/uploads",
@@ -679,6 +792,7 @@ async function mediaUpload(args, runtime, client) {
                 content_type: prepared.declaration.content_type,
                 bytes: prepared.declaration.bytes,
                 sha256: prepared.declaration.sha256,
+                ...(prepared.declaration.tag ? { tag: prepared.declaration.tag } : {}),
             },
             transcode: transcode
                 ? {
@@ -710,6 +824,7 @@ async function mediaUpload(args, runtime, client) {
                 ["state", operation.state],
                 ["filename", prepared.declaration.filename],
                 ["content_type", prepared.declaration.content_type],
+                ["tag", prepared.declaration.tag],
                 ["transcode", transcode ? `${transcode.reason} in ${transcode.durationMs} ms` : "skipped"],
                 ["sha256", prepared.declaration.sha256],
                 ...warnings.map((warning) => ["warning", warning.message]),
@@ -1526,34 +1641,82 @@ async function operationsCancel(args, runtime, resolved) {
         human: humanLines("Operation cancelled", [["id", operation.id], ["state", operation.state]]),
     };
 }
+const CANNED_EVENT_MESSAGES = new Set([
+    "Application emitted an event",
+    "Runtime reported a bounded condition",
+    "Player reported runtime status",
+    "Screen screenshot requested",
+    "Screen screenshot ready",
+    "Screen screenshot failed",
+    "Screenshot requested",
+    "Screenshot ready",
+    "Screenshot failed",
+    "Stream cursor advanced",
+    "Stream replay state is no longer retained",
+]);
+const SILENT_EVENT_TYPES = new Set(["application.event", "runtime.reported"]);
 function isEventScalar(value) {
     return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
-/** One human line: at, type, then scalar details. Undefined when there is nothing to print. */
+function formatLogfmtValue(value) {
+    if (typeof value !== "string")
+        return String(value);
+    if (!/[\s="]/.test(value))
+        return value;
+    return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r/g, "\\r").replace(/\n/g, "\\n")}"`;
+}
+function pushLogfmtField(parts, key, value) {
+    if (!isEventScalar(value))
+        return false;
+    if (isSensitiveKey(key))
+        return false;
+    if (typeof value === "string") {
+        if (value.length === 0 || isSensitiveValue(value))
+            return false;
+    }
+    parts.push(`${key}=${formatLogfmtValue(value)}`);
+    return true;
+}
+/** One logfmt line per event. Undefined when there is nothing to print. */
 export function formatEventLine(event) {
     const parts = [];
-    if (event.at)
-        parts.push(event.at);
-    if (event.type)
-        parts.push(event.type);
+    const hasAt = pushLogfmtField(parts, "at", event.at);
+    const hasType = pushLogfmtField(parts, "type", event.type);
+    pushLogfmtField(parts, "severity", event.severity);
+    let payload = 0;
+    const resource = event.resource;
+    if (resource) {
+        if (pushLogfmtField(parts, "resource_type", resource.type))
+            payload += 1;
+        if (pushLogfmtField(parts, "resource_id", resource.id))
+            payload += 1;
+    }
     const details = event.details ?? {};
     const used = new Set();
     for (const key of ["code", "placement_id"]) {
-        const value = details[key];
-        if (!isEventScalar(value))
+        if (!pushLogfmtField(parts, key, details[key]))
             continue;
-        parts.push(`${key}=${value}`);
         used.add(key);
+        payload += 1;
     }
     for (const key of Object.keys(details).sort()) {
         if (used.has(key))
             continue;
-        const value = details[key];
-        if (!isEventScalar(value))
-            continue;
-        parts.push(`${key}=${value}`);
+        if (pushLogfmtField(parts, key, details[key]))
+            payload += 1;
     }
-    return parts.length > 0 ? parts.join(" ") : undefined;
+    const message = event.message ?? "";
+    const detailCode = details.code;
+    const canned = CANNED_EVENT_MESSAGES.has(message);
+    const duplicate = message === event.type || (typeof detailCode === "string" && message === detailCode);
+    if (message && !canned && !duplicate && pushLogfmtField(parts, "message", message)) {
+        payload += 1;
+    }
+    if (!hasAt && !hasType)
+        return undefined;
+    if (SILENT_EVENT_TYPES.has(event.type) && payload === 0)
+        return undefined;
+    return parts.join(" ");
 }
 function formatEventLines(events) {
     return events
@@ -1573,13 +1736,53 @@ async function eventsList(args, runtime, resolved) {
         },
     });
     const page = response.body;
-    const human = formatEventLines(page.items ?? []);
+    const items = page.items ?? [];
+    const human = formatEventLines(items);
+    const safePage = redactEvent({ ...page, items });
     return {
-        envelope: jsonBody(response, client.requestId),
+        envelope: jsonBody({ ...response, body: safePage }, client.requestId),
         exitCode: ExitCode.Success,
         // main.ts writes JSON only when human is truthy; a space is a silent JSON gate.
         human: human || (args.flags.json === true ? " " : ""),
     };
+}
+/** First reconnect wait after a disconnect. Tests inject `runtime.sleep`. */
+export const EVENT_STREAM_BACKOFF_MS = 250;
+export const EVENT_STREAM_BACKOFF_CAP_MS = 15_000;
+function isAbortError(err) {
+    return err instanceof Error && err.name === "AbortError";
+}
+/** 401/403/404 and other non-transient 4xx. 408/429/5xx/network retry. */
+function isHardFollowError(err) {
+    if (!(err instanceof CliError)) {
+        return false;
+    }
+    if (err.problem.code === "transport_error") {
+        return false;
+    }
+    const status = err.problem.status;
+    if (status === 408 || status === 429 || status >= 500 || status < 400) {
+        return false;
+    }
+    return true;
+}
+async function sleepWhileOpen(ms, signal, sleep) {
+    if (signal.aborted || ms <= 0) {
+        return;
+    }
+    let onAbort;
+    const aborted = new Promise((resolve) => {
+        onAbort = () => resolve();
+        signal.addEventListener("abort", onAbort, { once: true });
+    });
+    try {
+        await Promise.race([sleep(ms), aborted]);
+    }
+    finally {
+        if (onAbort) {
+            signal.removeEventListener("abort", onAbort);
+        }
+    }
 }
 async function eventsFollow(args, runtime, resolved) {
     const token = requireToken(resolved.token);
@@ -1587,14 +1790,15 @@ async function eventsFollow(args, runtime, resolved) {
     const transport = transportFor(runtime, resolved.apiUrl, token);
     const json = args.flags.json === true;
     let printed = 0;
-    let buffer = "";
+    let after = flagString(args.flags, "after") ?? flagString(args.flags, "cursor");
+    let delayMs = EVENT_STREAM_BACKOFF_MS;
     const controller = new AbortController();
     const timeoutMs = flagNumber(args.flags, "timeout");
     const timer = timeoutMs && timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
     const emit = (event) => {
         if (json) {
             printed += 1;
-            runtime.stdout.write(`${JSON.stringify(successEnvelope(event, { request_id: client.requestId }))}\n`);
+            runtime.stdout.write(`${JSON.stringify(successEnvelope(redactEvent(event), { request_id: client.requestId }))}\n`);
             return;
         }
         const line = formatEventLine(event);
@@ -1604,32 +1808,59 @@ async function eventsFollow(args, runtime, resolved) {
         runtime.stdout.write(`${line}\n`);
     };
     try {
-        const stream = await transport.stream({
-            method: "GET",
-            path: "/api/v1/events/stream",
-            query: { after: flagString(args.flags, "after") ?? flagString(args.flags, "cursor") },
-            headers: { "x-request-id": client.requestId, authorization: `Bearer ${token}` },
-            signal: controller.signal,
-        });
-        for await (const chunk of stream) {
-            buffer += chunk;
-            const parsed = parseSse(buffer);
-            buffer = parsed.rest;
-            for (const event of parsed.events) {
-                if (!event.data)
-                    continue;
-                try {
-                    emit(JSON.parse(event.data));
-                }
-                catch {
-                    // Unstructured frames are not event data.
+        while (!controller.signal.aborted) {
+            let buffer = "";
+            let connected = false;
+            try {
+                const stream = await transport.stream({
+                    method: "GET",
+                    path: "/api/v1/events/stream",
+                    query: { after },
+                    headers: { "x-request-id": client.requestId, authorization: `Bearer ${token}` },
+                    signal: controller.signal,
+                });
+                connected = true;
+                for await (const chunk of stream) {
+                    buffer += chunk;
+                    const parsed = parseSse(buffer);
+                    buffer = parsed.rest;
+                    for (const event of parsed.events) {
+                        if (event.id) {
+                            after = event.id;
+                        }
+                        if (!event.data)
+                            continue;
+                        try {
+                            emit(JSON.parse(event.data));
+                        }
+                        catch {
+                            // Unstructured frames are not event data.
+                        }
+                    }
+                    if (controller.signal.aborted) {
+                        break;
+                    }
                 }
             }
+            catch (err) {
+                if (controller.signal.aborted || isAbortError(err)) {
+                    break;
+                }
+                if (isHardFollowError(err)) {
+                    throw err;
+                }
+            }
+            if (controller.signal.aborted) {
+                break;
+            }
+            await sleepWhileOpen(delayMs, controller.signal, runtime.sleep);
+            if (controller.signal.aborted) {
+                break;
+            }
+            delayMs = connected
+                ? EVENT_STREAM_BACKOFF_MS
+                : Math.min(delayMs * 2, EVENT_STREAM_BACKOFF_CAP_MS);
         }
-    }
-    catch (err) {
-        if (!controller.signal.aborted)
-            throw err;
     }
     finally {
         if (timer)

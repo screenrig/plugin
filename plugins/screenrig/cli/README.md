@@ -29,7 +29,11 @@ retry.
 
 Playlist create and update expand any templated page (`template` + `slots`)
 into an ordinary page and send that. A page without `template` is forwarded
-unchanged. `playlist templates` prints the closed catalog. Image and
+unchanged. `playlist templates` prints the closed catalog. `canvas.background`
+is a solid uppercase `#RRGGBBAA` or a top-to-bottom linear gradient (`type`
+`linear`, 2 through 8 strictly increasing stops, first `at` 0, last `at` 1, no
+angle). Templated pages override it on `canvas.background` only. The catalog
+default stays the solid `#1B2632FF`. Image and
 video placements write a `selector` (`by` is `id`, `ids`, `all`, or `tag`).
 Do not put `media_id` on the content object, and do not send server-resolved
 `items`. Page advance uses `duration`, `application`, or `media_end`. There
@@ -55,11 +59,18 @@ device credential, or runtime session.
 
 Application packing accepts an already-built static directory. It produces
 deterministic bounded archives, injects the pinned browser SDK runtime, and
-never builds or executes uploaded source. Runtime pages use
-`screenrig.canvas/v1`; protected content and `screenrig.webapp-package/v1`
-delivery are backend/player concerns. `screen screenshot <id>` requests one
-still WebP of an active screen, waits until it is ready, and writes a file.
-It does not print image bytes.
+never builds or executes uploaded source. `app upload` accepts optional
+`--name` (at most 120 characters) as the application name header. Runtime
+pages use `screenrig.canvas/v1`; protected content and
+`screenrig.webapp-package/v1` delivery are backend/player concerns. `screen
+screenshot <id>` requests one still WebP of an active screen, waits until it
+is ready, and writes a file. It does not print image bytes.
+
+`account accountings` lists hourly prepaid-credit accountings. The route
+stays available when remaining mcr is zero. `playback list` returns daily
+playback aggregates for this account, newest days first. Filter with
+`--screen-id`, `--media-id`, and `--day YYYY-MM-DD`. Those identifiers
+select the caller's own rows and are never a cross-account lookup.
 
 ## Feedback
 
@@ -174,6 +185,33 @@ The success envelope is `screen_id`, `capture_id`, `path`, `bytes`, `sha256`,
 is `screenshot_unavailable`. A later `capture_id` is `resource_conflict`. The
 CLI never prints image bytes, hex, or base64.
 
+## Events
+
+`events list` reads one finite page. `events follow` stays on the stream.
+A disconnect or transient connect failure reconnects with exponential
+backoff and resumes from the last SSE id. `--timeout` covers the whole
+follow, including backoff. Human mode prints one logfmt line per event.
+`--json events list` prints one JSON page envelope. `--json events follow`
+prints one JSON envelope per event as it arrives.
+
+```sh
+screenrig events list
+screenrig --json events list --after ev1_0 --limit 25
+screenrig events follow
+screenrig --json events follow --after ev1_0
+screenrig --json playback list --screen-id scr_01 --day 2026-08-14
+screenrig --json account accountings
+```
+
+A human line looks like
+`at=2026-08-14T17:00:00.000Z type=application.event severity=info code=cta.pressed placement_id=weather`.
+It carries `at`, `type`, `severity`, optional resource fields, scalar
+details, and a non-canned `message`. Canned server sentences are omitted. An
+`application.event` or `runtime.reported` with no remaining data is silent. A
+page or stream with nothing to print writes no human output. `--json` is a
+JSON envelope or stream. After redaction it may still include a server
+`message` field when that field is data.
+
 ## Media transcoding
 
 `media upload` transcodes the source before it declares the upload, so the
@@ -244,12 +282,22 @@ link, but that saving does not outrank playback on the browser path.
 | `--max-edge PIXELS` | Bound on each edge, 16 to 3840. Default 3840. |
 | `--webp-quality 1-100` | WebP quality. Default 90. |
 | `--no-progress` | Emit no progress output. |
+| `--tag TAG` | Optional 1–32 letter-or-digit tag stored on the ready object. |
 
 ```sh
 screenrig --json media upload ./clip.mov
 screenrig --json media upload ./clip.mov --codec hevc
 screenrig --json media upload ./poster.png --no-transcode
+screenrig --json media upload ./lobby-welcome.png --tag lobby
+screenrig --json media list --tag lobby --kind image
+screenrig --json media update med_01 --tag lobby --if-match 1
+screenrig --json media update med_01 --clear-tag --if-match 2
 ```
+
+`media list` forwards `--tag` and `--kind image|video` as query filters.
+Untagged objects are omitted when `--tag` is present. `media update` patches
+the tag only; `--clear-tag` sends `null`. There is no other media metadata
+patch.
 
 ### Progress and the envelope
 

@@ -557,7 +557,55 @@ function readBackground(canvas, label) {
     if (canvas.background === undefined) {
         return SLIDE_BACKGROUND;
     }
-    return canvasColor(canvas.background, `${label} canvas.background`);
+    return canvasBackground(canvas.background, `${label} canvas.background`);
+}
+function canvasBackground(value, name) {
+    if (typeof value === "string") {
+        return canvasColor(value, name);
+    }
+    if (!isRecord(value)) {
+        throw usageError(`${name} must be an 8-digit #RRGGBBAA color or a linear gradient.`);
+    }
+    const extra = Object.keys(value).filter((key) => key !== "type" && key !== "stops").sort();
+    if (extra.length > 0) {
+        throw usageError(`${name} has unsupported fields: ${extra.join(", ")}.`);
+    }
+    if (value.type !== "linear") {
+        throw usageError(`${name}.type must be linear.`);
+    }
+    if (!Array.isArray(value.stops) || value.stops.length < 2 || value.stops.length > 8) {
+        throw usageError(`${name}.stops must contain 2 through 8 stops.`);
+    }
+    const last = value.stops.length - 1;
+    let previousAt = Number.NEGATIVE_INFINITY;
+    const stops = value.stops.map((stop, index) => {
+        const stopName = `${name}.stops[${index}]`;
+        if (!isRecord(stop)) {
+            throw usageError(`${stopName} must be an object.`);
+        }
+        const stopExtra = Object.keys(stop).filter((key) => key !== "at" && key !== "color").sort();
+        if (stopExtra.length > 0) {
+            throw usageError(`${stopName} has unsupported fields: ${stopExtra.join(", ")}.`);
+        }
+        if (typeof stop.at !== "number" || !Number.isFinite(stop.at) || stop.at < 0 || stop.at > 1) {
+            throw usageError(`${stopName}.at must be a finite number from 0 through 1.`);
+        }
+        if (index === 0 && stop.at !== 0) {
+            throw usageError(`${stopName}.at must be 0.`);
+        }
+        if (index === last && stop.at !== 1) {
+            throw usageError(`${stopName}.at must be 1.`);
+        }
+        if (index > 0 && !(stop.at > previousAt)) {
+            throw usageError(`${stopName}.at must be strictly greater than the previous stop.`);
+        }
+        previousAt = stop.at;
+        return {
+            at: stop.at,
+            color: canvasColor(stop.color, `${stopName}.color`),
+        };
+    });
+    return { type: "linear", stops };
 }
 function readTextSlot(slot, value) {
     if (value === undefined) {

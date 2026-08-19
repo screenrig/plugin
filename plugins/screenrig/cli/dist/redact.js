@@ -1,6 +1,8 @@
 const TOKEN_RE = /\bsr_live_[A-Za-z0-9_-]+_[A-Za-z0-9_-]+\b/g;
 const BEARER_RE = /Bearer\s+\S+/gi;
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const SENSITIVE_KEY_RE = /(authorization|access_token|token|password|secret|cookie|object_key|signed_url|completion_nonce|upload_url|image_bytes|pixels)/i;
+const SENSITIVE_VALUE_RE = /(sr_live_|Bearer\s|data:image\/|[?&](X-Amz-Signature|X-Goog-Signature|signature)=)/i;
 export function tokenLookupId(token) {
     const match = /^sr_live_([A-Za-z0-9_-]+)_/.exec(token);
     return match?.[1];
@@ -12,11 +14,23 @@ export function redactToken(token) {
     }
     return `sr_live_${id}_***`;
 }
+export function isSensitiveKey(key) {
+    return SENSITIVE_KEY_RE.test(key);
+}
+export function isSensitiveValue(value) {
+    return SENSITIVE_VALUE_RE.test(value);
+}
 export function redactText(value) {
     return value
         .replace(TOKEN_RE, (token) => redactToken(token))
         .replace(BEARER_RE, "Bearer ***")
         .replace(EMAIL_RE, "[redacted-email]");
+}
+function redactSensitive(nested) {
+    if (typeof nested === "string" && tokenLookupId(nested)) {
+        return redactToken(nested);
+    }
+    return "***";
 }
 export function redactValue(value) {
     if (typeof value === "string") {
@@ -28,11 +42,32 @@ export function redactValue(value) {
     if (value && typeof value === "object") {
         const out = {};
         for (const [key, nested] of Object.entries(value)) {
-            if (/(token|secret|authorization|password|cookie)/i.test(key)) {
-                out[key] = typeof nested === "string" ? redactToken(nested) : "***";
+            if (isSensitiveKey(key)) {
+                out[key] = redactSensitive(nested);
                 continue;
             }
             out[key] = redactValue(nested);
+        }
+        return out;
+    }
+    return value;
+}
+/** Omit sensitive keys and credential-shaped values; redact remaining strings. */
+export function redactEvent(value) {
+    if (typeof value === "string") {
+        return redactText(value);
+    }
+    if (Array.isArray(value)) {
+        return value.map(redactEvent);
+    }
+    if (value && typeof value === "object") {
+        const out = {};
+        for (const [key, nested] of Object.entries(value)) {
+            if (isSensitiveKey(key))
+                continue;
+            if (typeof nested === "string" && isSensitiveValue(nested))
+                continue;
+            out[key] = redactEvent(nested);
         }
         return out;
     }

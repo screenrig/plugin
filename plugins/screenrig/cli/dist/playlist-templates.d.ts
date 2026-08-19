@@ -30,6 +30,21 @@ export declare const SHARED_LOGO_RECT: {
     width: number;
     height: number;
 };
+/** One stop on a top-to-bottom linear canvas background. `at=0` is the top edge. */
+export interface LinearGradientStop {
+    at: number;
+    color: string;
+}
+/**
+ * Top-to-bottom linear fill. There is no angle field. `stops` is 2 through 8
+ * entries, strictly increasing `at` in [0, 1], first at=0, last at=1.
+ */
+export interface LinearGradientBackground {
+    type: "linear";
+    stops: LinearGradientStop[];
+}
+/** Solid canonical `#RRGGBBAA`, or a linear top-to-bottom gradient. */
+export type CanvasBackground = string | LinearGradientBackground;
 interface Rect {
     x: number;
     y: number;

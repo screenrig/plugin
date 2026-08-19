@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate ScreenRig screens, applications, media, playlists, events, and application K/V with the bundled ScreenRig CLI. Use when an agent receives a screenrig.ai browser setup URL or needs to pair or manage digital-signage screens, upload content, or inspect ScreenRig state.
+description: Operate ScreenRig screens, applications, media, playlists, playback, events, feedback, and application K/V with the bundled ScreenRig CLI. Use when an agent receives a screenrig.ai browser setup URL or needs to pair or manage digital-signage screens, upload content, or inspect ScreenRig state.
 ---
 
 # ScreenRig
@@ -186,6 +186,11 @@ On a build that converts:
 
 - `media upload <file>` encodes video to an H.264 (High profile) MP4 by
   default and images to WebP, then uploads the converted bytes.
+- Optional `--tag TAG` stores a 1 to 32 letter-or-digit tag on the ready
+  object. `media list --tag TAG [--kind image|video]` filters by that tag.
+  `media update <id> (--tag TAG | --clear-tag) --if-match REVISION` changes
+  or clears it. Untagged objects are omitted when `--tag` is present on
+  `media list`.
 - The conversion runs `ffmpeg` and `ffprobe`. They must be on `PATH`, or their
   absolute paths must be in `SCREENRIG_FFMPEG` and `SCREENRIG_FFPROBE`.
 - `doctor` reports the `ffmpeg`, `ffprobe`, `encoder_libx264`,
@@ -275,58 +280,91 @@ server-success/local-cleanup interruption can be repaired safely. Do not delete
 the config first, do not add an idempotency key, and do not describe revocation
 as account deletion or credential rotation.
 
+## Feedback
+
+`feedback bug`, `feedback feature`, and `feedback list` record and read this
+account's own submissions. The kind comes from the route. Never put `kind`
+in the request body. Submissions are immutable: do not invent an update or
+delete command. A correction is a new submission.
+
+```bash
+"$SR" --json feedback bug "Playlist stalls after pairing" \
+  --body-file ./report.md --command "screen pair"
+"$SR" --json feedback feature "Add a dry-run flag" --body "Preview a change first."
+"$SR" --json feedback list [--kind bug|feature]
+```
+
+`--body` is inline text. `--body-file` reads a file. A title is at most 120
+characters and a body is at most 4000. `--command` is the command the
+feedback is about. It accepts a command path only, as up to four lowercase
+words such as `media upload`. Validate it exactly as supplied. Never build
+it from raw argv, and never lowercase it first. `--no-context` omits the
+closed diagnostic envelope. That envelope holds only `cli_version`,
+optional `command`, and `platform`. Do not invent a member.
+
+Do not scrub title or body on the client. The server rejects recognizable
+ScreenRig credential material. Render its problem and `errors[]` so the
+operator can rewrite and resend. Writes carry `Idempotency-Key`. An exact
+retry returns the original submission for twenty-four hours. A different
+body under the same key is `idempotency_mismatch`. A 429 surfaces
+`Retry-After` as `retry_after_seconds`. Probe support through
+`capabilities.features.feedback`; `doctor` reports that check.
+
 ## Commands
 
 ```text
 account show
+account accountings
 auth status
 auth revoke --yes
-
 app pack <directory> [--output FILE]
-app upload <directory> [--no-wait] [--poll-ms MS]
+app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
 app list
 app show <id>
-
-media upload <file> [--content-type TYPE] [--no-wait]
+media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
+                    [--no-transcode] [--codec h264|hevc] [--max-fps N]
+                    [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
 media show <id>
-media list
+media list [--tag TAG] [--kind image|video]
+media update <id> (--tag TAG | --clear-tag) --if-match REVISION
 media delete <id> --if-match REVISION
-
 playlist templates
-playlist create <json-file>
-playlist update <id> <json-file> --if-match REVISION
-playlist show|get <id>
+playlist create <file>
+playlist update <id> <file> --if-match REVISION
+playlist show <id>
 playlist list
 playlist delete <id> --if-match REVISION
-
 screen pair CODE [--label LABEL]
 screen provision (--open | --print-url) [--label LABEL]
 browser setup --code CODE [--open]
-screen update <id> --if-match REVISION [--name NAME] [--playlist-id ID] [--timezone ZONE]
+screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE]
+                   --if-match REVISION
+screen list
+screen show <id>
 screen assign <id> --playlist-id ID --if-match REVISION
 screen set-timezone <id> --timezone ZONE --if-match REVISION
-screen show <id>
-screen list
+screen delete <id> --if-match REVISION
 screen rotate-public-id <id> --if-match REVISION
 screen revoke-credential <id> --if-match REVISION
-screen delete <id> --if-match REVISION
 screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
-screen screenshot <id> [--output FILE]
-
-operations get <id>
-operations wait <id> [--timeout MS] [--poll-ms MS]
-operations cancel <id>
-
-events list [--after CURSOR] [--limit N]
-events follow [--after CURSOR] [--timeout MS]
-
-kv list --application-id ID
+screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
 kv get --application-id ID <key>
 kv set --application-id ID <key> --json-value JSON [--if-match REVISION]
 kv set --application-id ID <key> --file FILE --content-type TYPE [--if-match REVISION]
 kv set --application-id ID <key> --value-base64 BASE64 --content-type TYPE [--if-match REVISION]
 kv delete --application-id ID <key> --if-match REVISION
-
+kv list --application-id ID
+operations get <id>
+operations wait <id> [--timeout MS] [--poll-ms MS]
+operations cancel <id>
+events list [--after CURSOR] [--limit N]
+events follow [--after CURSOR] [--timeout MS]
+playback list [--screen-id ID] [--media-id ID] [--day YYYY-MM-DD]
+feedback bug <title> (--body TEXT | --body-file FILE)
+                     [--command "GROUP ACTION"] [--no-context]
+feedback feature <title> (--body TEXT | --body-file FILE)
+                     [--command "GROUP ACTION"] [--no-context]
+feedback list [--kind bug|feature]
 doctor [--repair-config]
 version
 ```
@@ -340,12 +378,28 @@ no remaining data is silent.
 a JSON stream of envelopes. After redaction, `--json` may still include a
 server `message` field when it is data.
 
+`events follow` reconnects on disconnect or a transient failure, with
+backoff, and resumes from the last SSE id via `--after`. `--timeout`
+ends the whole follow, including backoff; 401, 403, 404, and other
+non-transient 4xx problems stop the command.
+
 `screen screenshot <id>` is in v1. It blocks until a still WebP is on disk.
-The default path is `./<id>.webp`. Do not print pixels.
+The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and
+`--poll-ms` defaults to 500 ms. There is no `--no-wait`. Do not print
+pixels.
+
+`account accountings` lists hourly prepaid-credit accountings. The route
+stays available when remaining mcr is zero. Read remaining mcr from
+`account show`.
+
+`playback list` returns daily playback aggregates for this account. One
+row per screen, media, and UTC day. Newest days first. `--screen-id`,
+`--media-id`, and `--day YYYY-MM-DD` filter the caller's own rows.
 
 Use the same `screen pair CODE` flow for first use and recovery. Application upload
 accepts one already-built static directory with a root `index.html`; see "Putting a
 web app on a screen" for the whole path from that directory to a running screen.
+Optional `--name` (at most 120 characters) sets the application name header.
 Media upload keeps the signed transfer private and returns metadata only; see "Media
 uploads and the ffmpeg toolchain" before the first upload of a session. Application
 K/V is binary-safe; use exactly one value mode.
@@ -658,7 +712,7 @@ reaches `window.screenrig` at runtime with no build step and no dependency to
 install.
 
 ```bash
-"$SR" --json app upload ./lobby-board
+"$SR" --json app upload ./lobby-board --name "Lobby board"
 ```
 
 `app upload` waits for the publication operation by default. Read three fields
