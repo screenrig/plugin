@@ -25,8 +25,7 @@ does not own the CLI source, players, backend, site, or production deployment.
 - Keep Codex and Claude marketplace metadata, generated manifests, public
   README, and skill behavior aligned **at lock/regeneration time**. Canonical
   skill source may lead the generated `plugins/screenrig/` copy while the
-  CLI working tree is source-ready and the lock is unchanged. Never
-  hand-edit `plugins/screenrig/` to close that gap.
+  lock is unchanged. Never hand-edit `plugins/screenrig/` to close that gap.
 - The launcher must preflight Node.js 20.11+ and prefer the package-relative
   bundled `cli/dist/bin.js`. When that file is absent, resolve `cli/dist/bin.js`
   from a plugin-root environment variable or a parent-directory walk so a
@@ -44,10 +43,10 @@ does not own the CLI source, players, backend, site, or production deployment.
 
 - Teach only implemented CLI commands. Canonical skill source
   `skills/screenrig/SKILL.md` teaches the current CLI; its Commands block
-  matches CLI `USAGE`. New consumer commands (`account accountings`,
-  `playback list`, media tags, `app upload --name`) and `events follow`
-  reconnect are **source-ready** in that skill and in the CLI working tree.
-  They are not marketplace and not deployed.
+  matches CLI `USAGE`. New consumer commands (`playback list`, media tags,
+  `app upload --name`) and `events follow` reconnect are **repository-ready**
+  on public `main` in that skill and in the CLI. They are not in the locked
+  plugin bundle, not marketplace, and not deployed.
 - The generated `plugins/screenrig/` copy still follows the locked CLI
   artifact in `components.lock.json`. Do not hand-edit it to teach the new
   surface. Alignment happens when the lock selects a reviewed CLI CI
