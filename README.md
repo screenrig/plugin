@@ -74,13 +74,15 @@ the next account-scoped command enrolls a separate new account. Failed or
 ambiguous results preserve local state, and retrying the exact revocation is
 safe.
 
-Browser sessions use server-managed HttpOnly cookies. Native Android and Qt
-players are separate native-first applications that use protected
-`ScreenRig-Pairing`, `ScreenRig-Device`, and `ScreenRig-Session`
-authorization. Runtime pages use `screenrig.canvas/v1`; protected content and
-`screenrig.webapp-package/v1` artifacts remain manifest-bound. Screenshotting
-is in v1. `screen screenshot <id>` blocks on a still WebP and writes a file.
-It does not print image bytes.
+Browser cookie handoff uses server-managed HttpOnly cookies. Native
+players and the installed PWA identity path use generate-once Ed25519
+proofs with `ScreenRig-Pairing` and `ScreenRig-Session`.
+`ScreenRig-Device` is retired. Runtime pages use `screenrig.canvas/v1`;
+protected content and `screenrig.webapp-package/v1` artifacts remain
+manifest-bound. Screenshotting is in v1. `screen screenshot <id>`
+blocks on a still WebP and writes a file. It does not print image
+bytes. Native identity, archive, and reset are source-ready in owning
+repos; they are not a deployed claim.
 
 ## Media uploads
 

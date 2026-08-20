@@ -387,13 +387,14 @@ screen provision (--open | --print-url) [--label LABEL]
 browser setup --code CODE [--open]
 screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE]
                    --if-match REVISION
-screen list
+screen list [--state archived]
 screen show <id>
 screen assign <id> --playlist-id ID --if-match REVISION
 screen set-timezone <id> --timezone ZONE --if-match REVISION
+screen archive <id> --if-match REVISION
+screen unarchive <id> --if-match REVISION
 screen delete <id> --if-match REVISION
 screen rotate-public-id <id> --if-match REVISION
-screen revoke-credential <id> --if-match REVISION
 screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
 screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
 kv get --application-id ID <key>
@@ -430,6 +431,17 @@ server `message` field when it is data.
 backoff, and resumes from the last SSE id via `--after`. `--timeout`
 ends the whole follow, including backoff; 401, 403, 404, and other
 non-transient 4xx problems stop the command.
+
+`screen list` omits archived screens. `screen list --state archived` lists
+archived screens only. `screen show <id>` still returns an archived row.
+`screen archive <id> --if-match REVISION` hides the screen and darkens the
+glass. It does not unbind the player. `screen unarchive` restores it to the
+default list. `screen delete` is not a de-associate; it returns
+`screen_archive_required`. There is no account unbind. Do not call
+`screen revoke-credential`; that path is retired, and the CLI names
+`screen archive` instead. Archive, unarchive, and this list filter are
+**source-ready** working-tree CLI behavior. They are not in the locked
+plugin bundle, not marketplace, and not deployed.
 
 `screen screenshot <id>` is in v1. It blocks until a still WebP is on disk.
 The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and

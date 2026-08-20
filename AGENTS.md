@@ -61,7 +61,13 @@ does not own the CLI source, players, backend, site, or production deployment.
   URLs, customer content, raw headers, or secret-bearing output.
 - The plugin does not implement rendering, native auth, package caching, public
   handoff TTLs, or deployment; describe those only from pinned/current owning
-  sources.
+  sources. Native players and the installed PWA identity path use
+  `ScreenRig-Pairing` and `ScreenRig-Session`. `ScreenRig-Device` is
+  retired. Archive hides a screen; signed on-device reset is the only
+  de-associate. `screen archive` / `screen unarchive` are source-ready in
+  the CLI working tree. They are not in the locked plugin bundle, not
+  marketplace, and not deployed. Do not hand-edit `plugins/screenrig/`
+  to teach them.
 - Screenshotting is in v1. `screen screenshot <id>` blocks on a still WebP and
   writes a file. Do not print pixels.
 - Teach local compose (`compose catalog`, `compose render`) for copy and
