@@ -12,7 +12,7 @@ import stat
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 
@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / "plugins" / "screenrig"
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
+CLI_RUNTIME_LOCK = "runtime-dependencies.lock.json"
 RELEASE_VERSION = "0.1.0"
 CLI_SOURCE_FILES = (
     "src/commands.ts",
@@ -191,14 +192,19 @@ def check_package() -> None:
     if forbidden_packaged:
         errors.append("packaged CLI contains test output")
     if wrapper.is_file():
-        result = subprocess.run(
-            [str(wrapper), "--json", "version"],
-            cwd=ROOT,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
+        with tempfile.TemporaryDirectory(prefix="screenrig-plugin-config-") as temporary:
+            result = subprocess.run(
+                [str(wrapper), "--json", "version"],
+                cwd=ROOT,
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "XDG_CONFIG_HOME": str(Path(temporary) / "config"),
+                },
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
         try:
             envelope = json.loads(result.stdout)
         except json.JSONDecodeError:
@@ -222,12 +228,72 @@ def check_package() -> None:
         or repository.get("url") != CLI_REPOSITORY
     ):
         errors.append("packaged CLI public release metadata drift")
+    dependencies = package.get("dependencies")
+    runtime_path = PLUGIN / "cli" / CLI_RUNTIME_LOCK
+    runtime = load(runtime_path)
+    runtime_packages = runtime.get("packages")
+    if (
+        runtime.get("schema") != "screenrig.cli-runtime-dependencies/v1"
+        or not isinstance(runtime.get("package_lock_sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", str(runtime.get("package_lock_sha256"))) is None
+        or not isinstance(runtime_packages, list)
+        or not runtime_packages
+    ):
+        errors.append(f"{runtime_path.relative_to(ROOT)}: invalid runtime dependency manifest")
+    else:
+        bundled_names: set[str] = set()
+        bundled_paths: set[str] = set()
+        for entry in runtime_packages:
+            if not isinstance(entry, dict):
+                errors.append(f"{runtime_path.relative_to(ROOT)}: invalid package entry")
+                continue
+            relative = entry.get("path")
+            name = entry.get("name")
+            version_value = entry.get("version")
+            resolved = entry.get("resolved")
+            integrity = entry.get("integrity")
+            posix_path = PurePosixPath(relative) if isinstance(relative, str) else None
+            if (
+                not isinstance(relative, str)
+                or posix_path is None
+                or not posix_path.parts
+                or posix_path.parts[0] != "node_modules"
+                or any(part in {"", ".", ".."} for part in posix_path.parts)
+                or posix_path.as_posix() != relative
+                or not isinstance(name, str)
+                or not isinstance(version_value, str)
+                or not isinstance(resolved, str)
+                or not resolved.startswith("https://registry.npmjs.org/")
+                or not isinstance(integrity, str)
+                or not any(value.startswith("sha512-") for value in integrity.split())
+            ):
+                errors.append(f"{runtime_path.relative_to(ROOT)}: unsafe package entry")
+                continue
+            if relative in bundled_paths:
+                errors.append(f"{runtime_path.relative_to(ROOT)}: duplicate package path {relative}")
+                continue
+            bundled_paths.add(relative)
+            metadata = load(PLUGIN / "cli" / relative / "package.json")
+            if metadata.get("name") != name or metadata.get("version") != version_value:
+                errors.append(f"packaged CLI runtime dependency differs from its manifest: {relative}")
+            bundled_names.add(name)
+        if not isinstance(dependencies, dict) or not set(dependencies).issubset(bundled_names):
+            errors.append("packaged CLI is missing a declared production dependency")
     packaged_commands = PLUGIN / "cli" / "dist" / "commands.js"
     if packaged_commands.is_file():
         commands_text = packaged_commands.read_text(encoding="utf-8")
         for fact in ("auth revoke --yes", "/api/v1/account/credential/revoke"):
             if fact not in commands_text:
                 errors.append(f"packaged CLI credential lifecycle missing: {fact}")
+    cli_readme = PLUGIN / "cli" / "README.md"
+    if not cli_readme.is_file():
+        errors.append("packaged CLI README is missing")
+    else:
+        readme_text = cli_readme.read_text(encoding="utf-8")
+        if "[security policy](SECURITY.md)" not in readme_text:
+            errors.append("packaged CLI README does not link its bundled SECURITY.md")
+        if not (PLUGIN / "cli" / "SECURITY.md").is_file():
+            errors.append("packaged CLI SECURITY.md is missing")
 
 
 def check_no_alternate_surfaces(cli_source: Path | None) -> None:

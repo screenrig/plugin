@@ -6,6 +6,8 @@ export interface ApiClientOptions {
     requestId?: string;
     idempotencyKey?: string;
     timeoutMs?: number;
+    /** When set, authenticated remaining credits are observed for the envelope warning. */
+    creditsOwner?: object;
 }
 export declare class ApiClient {
     readonly requestId: string;
@@ -13,6 +15,7 @@ export declare class ApiClient {
     private readonly token?;
     private readonly transport;
     private readonly timeoutMs;
+    private readonly creditsOwner?;
     constructor(options: ApiClientOptions);
     private headers;
     call(req: Omit<TransportRequest, "headers"> & {

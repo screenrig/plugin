@@ -1,3 +1,4 @@
+import { creditsLowWarnings, observeCreditsRemaining, parseCreditsRemainingHeader } from "./credits.js";
 import { ExitCode } from "./exit-codes.js";
 import { isValidIdempotencyKey, isValidRequestId, newIdempotencyKey, newRequestId } from "./ids.js";
 import { CliError, makeProblem, normalizeProblem, parseRetryAfter, timeoutError, usageError, withPaymentGuidance, withQuotaGuidance, withRetryAfter, } from "./problems.js";
@@ -7,10 +8,12 @@ export class ApiClient {
     token;
     transport;
     timeoutMs;
+    creditsOwner;
     constructor(options) {
         this.transport = options.transport;
         this.token = options.token;
         this.timeoutMs = options.timeoutMs ?? 30_000;
+        this.creditsOwner = options.creditsOwner;
         if (options.requestId && !isValidRequestId(options.requestId)) {
             throw usageError("Invalid --request-id; expected req_ plus 16+ URL-safe characters.");
         }
@@ -43,13 +46,17 @@ export class ApiClient {
             timeout_ms: req.timeout_ms ?? this.timeoutMs,
             headers: this.headers(idempotent === true, req.headers, idempotencyKey),
         });
+        const remaining = this.token ? parseCreditsRemainingHeader(response.headers) : undefined;
         if (response.status >= 400) {
             const problem = normalizeProblem(response.body, {
                 status: response.status,
                 request_id: response.headers["x-request-id"] ?? this.requestId,
                 bodyText: typeof response.rawText === "string" ? response.rawText : undefined,
             });
-            throw new CliError(withPaymentGuidance(withQuotaGuidance(withRetryAfter(problem, parseRetryAfter(response.headers["retry-after"], Date.now())))));
+            throw new CliError(withPaymentGuidance(withQuotaGuidance(withRetryAfter(problem, parseRetryAfter(response.headers["retry-after"], Date.now())))), undefined, creditsLowWarnings(remaining));
+        }
+        if (this.creditsOwner) {
+            observeCreditsRemaining(this.creditsOwner, remaining);
         }
         return response;
     }

@@ -31,6 +31,7 @@ export interface SuccessEnvelope<T> {
 export interface ErrorEnvelope {
     ok: false;
     error: NormalizedProblem;
+    warnings?: Warning[];
 }
 export type Envelope<T> = SuccessEnvelope<T> | ErrorEnvelope;
 export declare function successEnvelope<T>(data: T, extras?: {
@@ -38,5 +39,7 @@ export declare function successEnvelope<T>(data: T, extras?: {
     operation_id?: string;
     warnings?: Warning[];
 }): SuccessEnvelope<T>;
-export declare function errorEnvelope(error: NormalizedProblem): ErrorEnvelope;
+export declare function errorEnvelope(error: NormalizedProblem, extras?: {
+    warnings?: Warning[];
+}): ErrorEnvelope;
 //# sourceMappingURL=envelope.d.ts.map

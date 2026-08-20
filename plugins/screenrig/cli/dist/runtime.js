@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { chmod, mkdir, open, rename, rm, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { openExternalUrl } from "./open-url.js";
+import { openExternalUrl, openLocalPath } from "./open-url.js";
 const STDERR_TAIL_LIMIT = 8192;
 export function spawnRunProcess() {
     return (request) => new Promise((resolve) => {
@@ -102,6 +102,7 @@ export function processRuntime() {
         cwd: () => process.cwd(),
         signedRawPut: fetchSignedRawPut(),
         openUrl: openExternalUrl,
+        openPath: openLocalPath,
         runProcess: spawnRunProcess(),
         isStderrTty: () => process.stderr.isTTY === true,
         fs: {

@@ -36,9 +36,11 @@ JSON to read the ScreenRig `installPath` (Claude Code) or `source.path`
 <plugin-root>/skills/screenrig/scripts/screenrig --json version
 ```
 
-Use that same launcher for every ScreenRig command. It resolves only
-`<plugin-root>/cli/dist/bin.js`; it does not use a global executable or fetch a
-mutable command at runtime.
+Use that same launcher for every ScreenRig command. It prefers
+`<plugin-root>/cli/dist/bin.js`. For source-checkout fallbacks it accepts
+`SCREENRIG_PLUGIN_ROOT`, `CLAUDE_PLUGIN_ROOT`, or `CODEX_PLUGIN_ROOT`, then
+walks parent directories to find a plugin root containing `cli/dist/bin.js`.
+It does not use a global ScreenRig executable or fetch mutable code.
 
 ## Pairing and browser setup
 

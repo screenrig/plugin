@@ -1,0 +1,101 @@
+import { PINS, ROLES, SPACES } from "./tokens.js";
+const FRAME_KEYS = new Set(["type", "width", "height", "background", "fontFamily", "direction", "padding", "gap", "align", "justify", "children"]);
+const STACK_KEYS = new Set(["type", "flex", "padding", "gap", "align", "justify", "children", "background", "radius", "pin"]);
+const TEXT_KEYS = new Set(["type", "text", "role", "color", "align", "flex", "textShadow"]);
+const TEXT_SHADOW_KEYS = new Set(["x", "y", "blur", "color"]);
+const IMAGE_KEYS = new Set(["type", "src", "flex", "objectFit", "radius"]);
+const SPACER_KEYS = new Set(["type", "flex"]);
+const LEAVES = new Set(["Text", "Image", "Spacer"]);
+const STACKS = new Set(["Frame", "Column", "Row", "Box"]);
+const FORBIDDEN = ["x", "y", "left", "top", "right", "bottom", "fontSize", "font_size", "lineHeight", "level", "weight", "size"];
+const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+function usage(message) {
+    const err = new Error(message);
+    err.code = "usage_error";
+    return err;
+}
+function isFiniteNumber(value) {
+    return typeof value === "number" && Number.isFinite(value);
+}
+function validateTextShadow(value, path) {
+    if (value == null || typeof value !== "object" || Array.isArray(value)) {
+        throw usage(`${path}.textShadow must be an object { x, y, blur?, color }`);
+    }
+    const shadow = value;
+    const extra = Object.keys(shadow).filter((key) => !TEXT_SHADOW_KEYS.has(key));
+    if (extra.length)
+        throw usage(`${path}.textShadow unknown keys: ${extra.join(", ")}`);
+    if (!isFiniteNumber(shadow.x))
+        throw usage(`${path}.textShadow.x required`);
+    if (!isFiniteNumber(shadow.y))
+        throw usage(`${path}.textShadow.y required`);
+    if ("blur" in shadow && (!isFiniteNumber(shadow.blur) || shadow.blur < 0)) {
+        throw usage(`${path}.textShadow.blur must be a finite number >= 0`);
+    }
+    if (typeof shadow.color !== "string")
+        throw usage(`${path}.textShadow.color required`);
+    if (!HEX_COLOR.test(shadow.color))
+        throw usage(`${path}.textShadow.color is not a hex color`);
+}
+function walk(node, path) {
+    const type = node.type;
+    if (!STACKS.has(type) && !LEAVES.has(type))
+        throw usage(`${path}.type unknown: ${type}`);
+    const allowed = type === "Frame" ? FRAME_KEYS
+        : type === "Text" ? TEXT_KEYS
+            : type === "Image" ? IMAGE_KEYS
+                : type === "Spacer" ? SPACER_KEYS
+                    : STACK_KEYS;
+    for (const key of FORBIDDEN) {
+        if (key in node && !(type === "Frame" && (key === "width" || key === "height"))) {
+            throw usage(`${path} must not set ${key}`);
+        }
+    }
+    const extra = Object.keys(node).filter((key) => !allowed.has(key));
+    if (extra.length)
+        throw usage(`${path} unknown keys: ${extra.join(", ")}`);
+    if (type === "Frame") {
+        if ("width" in node && typeof node.width !== "number")
+            throw usage(`${path}.width required`);
+    }
+    for (const field of ["padding", "gap", "radius"]) {
+        const value = node[field];
+        if (value != null && !SPACES.includes(String(value))) {
+            throw usage(`${path}.${field} must be ${SPACES.join("|")}`);
+        }
+    }
+    if (node.pin != null && !PINS.includes(node.pin)) {
+        throw usage(`${path}.pin must be ${PINS.join("|")}`);
+    }
+    if (type === "Text") {
+        if (typeof node.text !== "string")
+            throw usage(`${path}.text required`);
+        const role = node.role ?? "body";
+        if (!ROLES.includes(role))
+            throw usage(`${path}.role must be ${ROLES.join("|")}`);
+        if ("textShadow" in node)
+            validateTextShadow(node.textShadow, path);
+    }
+    if (type === "Image" && typeof node.src !== "string")
+        throw usage(`${path}.src required`);
+    if (node.children) {
+        if (!STACKS.has(type))
+            throw usage(`${path} cannot have children`);
+        if (!Array.isArray(node.children))
+            throw usage(`${path}.children must be an array`);
+        node.children.forEach((child, i) => walk(child, `${path}.children[${i}]`));
+    }
+}
+export function validateSpec(spec) {
+    if (!spec || typeof spec !== "object" || Array.isArray(spec))
+        throw usage("compose spec must be an object");
+    const frame = spec;
+    if (frame.type !== "Frame")
+        throw usage("root type must be Frame");
+    if (!Number.isFinite(frame.width) || !Number.isFinite(frame.height)) {
+        throw usage("Frame.width and Frame.height required");
+    }
+    walk(frame, "Frame");
+    return frame;
+}
+//# sourceMappingURL=validate.js.map

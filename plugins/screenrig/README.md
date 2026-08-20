@@ -36,9 +36,11 @@ JSON to read the ScreenRig `installPath` (Claude Code) or `source.path`
 <plugin-root>/skills/screenrig/scripts/screenrig --json version
 ```
 
-Use that same launcher for every ScreenRig command. It resolves only
-`<plugin-root>/cli/dist/bin.js`; it does not use a global executable or fetch a
-mutable command at runtime.
+Use that same launcher for every ScreenRig command. It prefers
+`<plugin-root>/cli/dist/bin.js`. For source-checkout fallbacks it accepts
+`SCREENRIG_PLUGIN_ROOT`, `CLAUDE_PLUGIN_ROOT`, or `CODEX_PLUGIN_ROOT`, then
+walks parent directories to find a plugin root containing `cli/dist/bin.js`.
+It does not use a global ScreenRig executable or fetch mutable code.
 
 ## Pairing and browser setup
 
@@ -49,6 +51,10 @@ default pair command requires the canonical six characters:
 ```sh
 <plugin-root>/skills/screenrig/scripts/screenrig --json screen pair ABC234
 ```
+
+Native player pairing codes last 72 hours while unclaimed. A successful
+`screen pair` claim starts a fresh independent 72-hour collection window. The
+CLI claims the code on the control plane; it does not time the code locally.
 
 The public homepage handoff is separate first-use convenience. An unclaimed
 `https://screenrig.ai/ABC-234` locator lasts 30 minutes. `browser setup --code
@@ -70,13 +76,15 @@ the next account-scoped command enrolls a separate new account. Failed or
 ambiguous results preserve local state, and retrying the exact revocation is
 safe.
 
-Browser sessions use server-managed HttpOnly cookies. Native Android and Qt
-players are separate native-first applications that use protected
-`ScreenRig-Pairing`, `ScreenRig-Device`, and `ScreenRig-Session`
-authorization. Runtime pages use `screenrig.canvas/v1`; protected content and
-`screenrig.webapp-package/v1` artifacts remain manifest-bound. Screenshotting
-is in v1. `screen screenshot <id>` blocks on a still WebP and writes a file.
-It does not print image bytes.
+Browser cookie handoff uses server-managed HttpOnly cookies. Native
+players and the installed PWA identity path use generate-once Ed25519
+proofs with `ScreenRig-Pairing` and `ScreenRig-Session`.
+`ScreenRig-Device` is retired. Runtime pages use `screenrig.canvas/v1`;
+protected content and `screenrig.webapp-package/v1` artifacts remain
+manifest-bound. Screenshotting is in v1. `screen screenshot <id>`
+blocks on a still WebP and writes a file. It does not print image
+bytes. Native identity, archive, and reset are source-ready in owning
+repos; they are not a deployed claim.
 
 ## Media uploads
 
@@ -110,8 +118,13 @@ must not be edited independently. CI reproduces the pinned CLI artifact,
 rebuilds/validates the bundle, scans the public boundary, and publishes
 deterministic `screenrig-plugin.tar.gz`.
 
-This repository does not deploy ScreenRig. Production assembly is owned only by
-the backend component lock.
+This repository does not deploy ScreenRig. **Deploys are independent**
+(operating rule): this repository's `main` Action publishes the
+`screenrig-plugin.tar.gz` CI artifact only. No marketplace publish unless
+the user asks later. Do not pack siblings. Do not dispatch backend. Do
+not copy deploy tokens between repos. Coordinated multi-repo deploy is
+rare and only for a breaking contract change. `components.lock.json` pins
+the bundled CLI artifact; it is not a production host lock.
 
 ```sh
 python3 scripts/check-public-repo.py

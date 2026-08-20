@@ -55,6 +55,8 @@ const VALUE_FLAGS = new Set([
     "duration-ms",
     "tag",
     "day",
+    "state",
+    "page",
 ]);
 export function parseArgv(argv) {
     const flags = {};

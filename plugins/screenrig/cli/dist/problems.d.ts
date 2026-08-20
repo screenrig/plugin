@@ -1,9 +1,10 @@
 import { ExitCode } from "./exit-codes.js";
-import type { NormalizedProblem, ProblemNext } from "./envelope.js";
+import type { NormalizedProblem, ProblemNext, Warning } from "./envelope.js";
 export declare class CliError extends Error {
     readonly problem: NormalizedProblem;
     readonly exitCode: ExitCode;
-    constructor(problem: NormalizedProblem, exitCode?: ExitCode);
+    readonly warnings: Warning[];
+    constructor(problem: NormalizedProblem, exitCode?: ExitCode, warnings?: Warning[]);
 }
 export declare function problemType(code: string): string;
 export declare function makeProblem(code: string, title: string, status: number, detail: string, extras?: Partial<NormalizedProblem>): NormalizedProblem;
@@ -31,7 +32,7 @@ export declare function withRetryAfter(problem: NormalizedProblem, retryAfterSec
 export declare function withQuotaGuidance(problem: NormalizedProblem): NormalizedProblem;
 /**
  * Remaining prepaid credit of zero rejects costly operations with
- * `payment_required`. Point at account show for credit_remaining_mcr. Do not
+ * `payment_required`. Point at account show for credit_remaining. Do not
  * invent a pay command; v1 does not collect money here.
  */
 export declare function withPaymentGuidance(problem: NormalizedProblem): NormalizedProblem;

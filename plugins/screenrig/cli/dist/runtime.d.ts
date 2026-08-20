@@ -1,7 +1,7 @@
 import type { Writable } from "node:stream";
 import type { Transport } from "./transport/types.js";
 import type { ConfigFs } from "./config.js";
-import { type OpenUrl } from "./open-url.js";
+import { type OpenPath, type OpenUrl } from "./open-url.js";
 export interface CliRuntime {
     argv: string[];
     env: NodeJS.Dict<string>;
@@ -15,6 +15,7 @@ export interface CliRuntime {
     signedRawPut?: SignedRawPut;
     cwd: () => string;
     openUrl?: OpenUrl;
+    openPath?: OpenPath;
     runProcess?: RunProcess;
     isStderrTty?: () => boolean;
 }

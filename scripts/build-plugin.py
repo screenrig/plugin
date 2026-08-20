@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 
@@ -26,6 +26,7 @@ SKILL = ROOT / "skills" / "screenrig"
 PUBLIC_ROOT = ROOT / "build" / "plugin"
 PLUGINS = ROOT / "plugins"
 PLUGIN_NAME = "screenrig"
+CLI_RUNTIME_LOCK = "runtime-dependencies.lock.json"
 PUBLIC_FILES = (
     ".github/workflows/ci.yml",
     ".gitleaks.toml",
@@ -38,6 +39,71 @@ PUBLIC_FILES = (
 
 class BuildError(RuntimeError):
     pass
+
+
+def verify_cli_runtime_bundle(cli_root: Path) -> None:
+    runtime_lock = cli_root / CLI_RUNTIME_LOCK
+    try:
+        manifest = json.loads(runtime_lock.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BuildError(f"pinned CLI artifact is missing a valid {CLI_RUNTIME_LOCK}") from exc
+    if not isinstance(manifest, dict):
+        raise BuildError(f"pinned CLI artifact has an invalid {CLI_RUNTIME_LOCK}")
+    packages = manifest.get("packages")
+    if manifest.get("schema") != "screenrig.cli-runtime-dependencies/v1" or not isinstance(packages, list) or not packages:
+        raise BuildError(f"pinned CLI artifact has an invalid {CLI_RUNTIME_LOCK}")
+    package_lock_sha256 = manifest.get("package_lock_sha256")
+    if not isinstance(package_lock_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", package_lock_sha256) is None:
+        raise BuildError(f"pinned CLI artifact has an invalid {CLI_RUNTIME_LOCK} package-lock digest")
+    bundled_names: set[str] = set()
+    bundled_paths: set[str] = set()
+    for package in packages:
+        if not isinstance(package, dict):
+            raise BuildError(f"pinned CLI artifact has an invalid {CLI_RUNTIME_LOCK} package entry")
+        relative = package.get("path")
+        name = package.get("name")
+        version_value = package.get("version")
+        resolved = package.get("resolved")
+        integrity = package.get("integrity")
+        posix_path = PurePosixPath(relative) if isinstance(relative, str) else None
+        if (
+            not isinstance(relative, str)
+            or posix_path is None
+            or not posix_path.parts
+            or posix_path.parts[0] != "node_modules"
+            or any(part in {"", ".", ".."} for part in posix_path.parts)
+            or posix_path.as_posix() != relative
+            or not isinstance(name, str)
+            or not isinstance(version_value, str)
+            or not isinstance(resolved, str)
+            or not resolved.startswith("https://registry.npmjs.org/")
+            or not isinstance(integrity, str)
+            or not any(value.startswith("sha512-") for value in integrity.split())
+        ):
+            raise BuildError(f"pinned CLI artifact has an unsafe {CLI_RUNTIME_LOCK} package entry")
+        if relative in bundled_paths:
+            raise BuildError(f"pinned CLI artifact has a duplicate {CLI_RUNTIME_LOCK} package path: {relative}")
+        bundled_paths.add(relative)
+        metadata_path = cli_root / relative / "package.json"
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise BuildError(f"pinned CLI artifact runtime dependency is missing or invalid: {relative}") from exc
+        if metadata.get("name") != name or metadata.get("version") != version_value:
+            raise BuildError(f"pinned CLI artifact runtime dependency differs from its manifest: {relative}")
+        bundled_names.add(name)
+    try:
+        package = json.loads((cli_root / "package.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BuildError(f"pinned CLI artifact package.json is invalid: {exc}") from exc
+    if not isinstance(package, dict):
+        raise BuildError("pinned CLI artifact package.json must contain an object")
+    dependencies = package.get("dependencies") or {}
+    if not isinstance(dependencies, dict) or not set(dependencies).issubset(bundled_names):
+        raise BuildError("pinned CLI artifact does not bundle every declared production dependency")
+    readme = (cli_root / "README.md").read_text(encoding="utf-8")
+    if "[security policy](SECURITY.md)" not in readme:
+        raise BuildError("pinned CLI README does not link its bundled SECURITY.md")
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -64,8 +130,9 @@ def version() -> str:
 def npm_package_files(cli_root: Path, *, build_source: bool) -> list[str]:
     if not build_source:
         paths = sorted(path.relative_to(cli_root).as_posix() for path in cli_root.rglob("*") if path.is_file())
-        if "dist/bin.js" not in paths or "package.json" not in paths:
-            raise BuildError("pinned CLI artifact is missing dist/bin.js or package.json")
+        if not {"dist/bin.js", "package.json", "README.md", "SECURITY.md"}.issubset(paths):
+            raise BuildError("pinned CLI artifact is missing executable, metadata, README, or security policy")
+        verify_cli_runtime_bundle(cli_root)
         return paths
     if not (cli_root / "package.json").is_file():
         raise BuildError("pinned CLI release input is missing at packages/cli/package.json")
@@ -200,6 +267,37 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
         destination.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
+def verify_generated_launcher(plugin_root: Path) -> None:
+    launcher = plugin_root / "skills" / PLUGIN_NAME / "scripts" / "screenrig"
+    with tempfile.TemporaryDirectory(prefix="screenrig-plugin-config-") as temporary:
+        result = subprocess.run(
+            [str(launcher), "--json", "version"],
+            cwd=plugin_root,
+            env={
+                "PATH": os.environ.get("PATH", ""),
+                "XDG_CONFIG_HOME": str(Path(temporary) / "config"),
+            },
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise BuildError("generated plugin launcher did not return JSON offline") from exc
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if (
+        result.returncode != 0
+        or result.stderr
+        or not isinstance(payload, dict)
+        or payload.get("ok") is not True
+        or not isinstance(data, dict)
+        or data.get("version") != version()
+    ):
+        raise BuildError("generated plugin launcher did not run the bundled CLI with clean offline output")
+
+
 def build(output: Path, cli_artifact: Path | None = None) -> Path:
     metadata = load_json(ROOT / "build" / "plugin.json")
     if metadata.get("name") != PLUGIN_NAME:
@@ -228,6 +326,7 @@ def build(output: Path, cli_artifact: Path | None = None) -> Path:
             shutil.copy2(source, destination)
     (cli_root / "dist" / "bin.js").chmod(0o755)
     emit_manifests(plugin_root, metadata, release_version)
+    verify_generated_launcher(plugin_root)
     return plugin_root
 
 

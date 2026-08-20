@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
-from pathlib import Path
+import tempfile
+from pathlib import Path, PurePosixPath
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -84,6 +86,38 @@ def check_metadata(errors: list[str]) -> None:
     for field in ("optionalDependencies", "peerDependencies"):
         if package.get(field):
             errors.append(f"bundled CLI must not require unavailable {field}")
+    runtime_path = BUNDLE / "cli" / "runtime-dependencies.lock.json"
+    runtime = load(runtime_path, errors)
+    runtime_packages = runtime.get("packages")
+    if runtime.get("schema") != "screenrig.cli-runtime-dependencies/v1" or not isinstance(runtime_packages, list) or not runtime_packages:
+        errors.append(f"{runtime_path.relative_to(ROOT)} must contain the resolved CLI runtime dependency closure")
+    else:
+        bundled_names: set[str] = set()
+        for entry in runtime_packages:
+            if not isinstance(entry, dict):
+                errors.append(f"{runtime_path.relative_to(ROOT)} contains an invalid package entry")
+                continue
+            relative = entry.get("path")
+            name = entry.get("name")
+            version = entry.get("version")
+            posix_path = PurePosixPath(relative) if isinstance(relative, str) else None
+            if (
+                not isinstance(relative, str)
+                or posix_path is None
+                or not posix_path.parts
+                or posix_path.parts[0] != "node_modules"
+                or any(part in {"", ".", ".."} for part in posix_path.parts)
+                or posix_path.as_posix() != relative
+            ):
+                errors.append(f"{runtime_path.relative_to(ROOT)} contains an unsafe package path")
+                continue
+            metadata = load(BUNDLE / "cli" / relative / "package.json", errors)
+            if metadata.get("name") != name or metadata.get("version") != version:
+                errors.append(f"bundled CLI runtime dependency differs from its manifest: {relative}")
+            if isinstance(name, str):
+                bundled_names.add(name)
+        if isinstance(deps, dict) and not set(deps).issubset(bundled_names):
+            errors.append("bundled CLI is missing a declared production dependency")
 
 
 def check_public_tree(errors: list[str]) -> None:
@@ -206,14 +240,19 @@ def run_smoke(errors: list[str]) -> None:
         [str((BUNDLE / "skills" / "screenrig" / "scripts" / "screenrig").relative_to(ROOT)), "--json", "version"],
     )
     for command in commands:
-        result = subprocess.run(
-            command,
-            cwd=ROOT,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
+        with tempfile.TemporaryDirectory(prefix="screenrig-public-config-") as temporary:
+            result = subprocess.run(
+                command,
+                cwd=ROOT,
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "XDG_CONFIG_HOME": str(Path(temporary) / "config"),
+                },
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
         try:
             payload = json.loads(result.stdout)
         except json.JSONDecodeError:

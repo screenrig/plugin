@@ -1,4 +1,3 @@
-export { minSansLineHeight, measureSansLineWidth, longestSansLineWidth } from "./sans-advance.js";
 export declare const SLIDE_CANVAS_WIDTH = 1920;
 export declare const SLIDE_CANVAS_HEIGHT = 1080;
 export declare const SLIDE_VIEWPORT_FIT: "contain";
@@ -13,6 +12,10 @@ export declare const SLIDE_DEFAULT_TRANSITION: {
     type: "crossfade";
     duration_ms: number;
 };
+/** Authoring duration when a swipe type is chosen. Not an OpenAPI default. */
+export declare const SLIDE_SWIPE_AUTHORING_DURATION_MS = 600;
+export declare const PLAYLIST_TRANSITION_TYPES: readonly ["crossfade", "swipe-left", "swipe-right", "swipe-up", "swipe-down"];
+export declare const PLACEMENT_ENTER_TYPES: readonly ["fade-up", "fade-down", "fade-left", "fade-right", "fade-in", "zoom-in", "zoom-out"];
 export declare const SLIDE_DEFAULT_ADVANCE: {
     mode: "duration";
     after_ms: number;
@@ -89,32 +92,36 @@ export interface SlideTemplateDef {
     plate: boolean;
 }
 export declare const SLIDE_TEMPLATES: readonly SlideTemplateDef[];
-export type CatalogSlotKind = "text" | "image" | "image_or_video";
+export type CatalogSlotKind = "compose" | "image" | "image_or_video";
 export interface TemplateCatalogSlot {
     id: string;
     kind: CatalogSlotKind;
     required: boolean;
-    align?: Align;
-    vertical_align?: VerticalAlign;
 }
 export interface TemplateCatalogEntry {
     id: string;
+    compose_locally: boolean;
     slots: TemplateCatalogSlot[];
 }
 export interface TemplateCatalog {
+    compose: {
+        catalog_command: string;
+        render_command: string;
+        wire_kinds: readonly string[];
+    };
     canvas: {
         width: number;
         height: number;
         viewport_fit: "contain";
         background: string;
     };
-    text_color: string;
-    font_family: "sans";
-    wrap: false;
     transition: {
         type: "crossfade";
         duration_ms: number;
     };
+    transition_types: readonly typeof PLAYLIST_TRANSITION_TYPES[number][];
+    swipe_duration_ms: number;
+    enter_types: readonly typeof PLACEMENT_ENTER_TYPES[number][];
     advance: {
         mode: "duration";
         after_ms: number;
@@ -125,4 +132,5 @@ export declare function playlistTemplateCatalog(): TemplateCatalog;
 export declare function formatTemplateCatalog(catalog: TemplateCatalog): string;
 export declare function expandPlaylistPages(pages: unknown[]): unknown[];
 export declare function expandPlaylistPage(page: unknown, index?: number): unknown;
+export {};
 //# sourceMappingURL=playlist-templates.d.ts.map

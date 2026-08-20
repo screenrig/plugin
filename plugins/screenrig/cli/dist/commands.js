@@ -7,6 +7,7 @@ import { flagBool, flagNumber, flagString } from "./argv.js";
 import { ApiClient, requireToken } from "./client.js";
 import { resolveConfig, describeToken, readConfigFile, withConfigLock, writeConfigAtomic, } from "./config.js";
 import { ensureCredential } from "./enrollment.js";
+import { headerValue, CREDITS_REMAINING_HEADER, observeCreditsRemaining, parseCreditsInteger, } from "./credits.js";
 import { successEnvelope } from "./envelope.js";
 import { ExitCode } from "./exit-codes.js";
 import { CliError, configError, makeProblem, usageError } from "./problems.js";
@@ -14,6 +15,7 @@ import { packDirectory } from "./pack/index.js";
 import { FetchTransport } from "./transport/http.js";
 import { parseSse } from "./sse.js";
 import { kvWriteFromArgs } from "./kv-write.js";
+import { commentsWriteFromArgs } from "./comments-write.js";
 import { quotedRevision } from "./if-match.js";
 import { lowInformationFilenameWarning } from "./media-filename.js";
 import { deriveCommitIdempotencyKey, performSignedMediaPut, prepareMediaUpload, validateMediaUploadSession, } from "./media-upload.js";
@@ -21,9 +23,12 @@ import { fetchSignedRawPut } from "./runtime.js";
 import { newIdempotencyKey } from "./ids.js";
 import { clearProvisionRetryState, provisionRetryState } from "./provisioning-state.js";
 import { validateProvisioningUrls } from "./provisioning-url.js";
+import { validateDashboardLink } from "./dashboard-link.js";
 import { browserHandoffUrl, browserSetupRetryState, clearBrowserSetupRetryState, normalizeBrowserSetupCode, } from "./browser-setup.js";
 import { isSensitiveKey, isSensitiveValue, redactEvent, redactText } from "./redact.js";
 import { expandPlaylistPages, formatTemplateCatalog, playlistTemplateCatalog, } from "./playlist-templates.js";
+import { composeCatalog, formatComposeCatalog } from "./compose/catalog.js";
+import { composeSpec } from "./compose/compose.js";
 import { ffmpegLookup, resolveFfmpegToolchain } from "./media/ffmpeg.js";
 import { createProgressReporter, silentProgressReporter } from "./media/progress.js";
 import { DEFAULT_CODEC, DEFAULT_MAX_FPS, DEFAULT_WEBP_QUALITY, MAX_EDGE, transcodeForUpload, } from "./media/transcode.js";
@@ -40,6 +45,7 @@ Commands:
   account show
   auth status
   auth revoke --yes
+  dashboard [--print-url]
   app pack <directory> [--output FILE]
   app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
   app list
@@ -51,6 +57,8 @@ Commands:
   media list [--tag TAG] [--kind image|video]
   media update <id> (--tag TAG | --clear-tag) --if-match REVISION
   media delete <id> --if-match REVISION
+  compose catalog
+  compose render <file> [--output FILE] [--open]
   playlist templates
   playlist create <file>
   playlist update <id> <file> --if-match REVISION
@@ -62,13 +70,14 @@ Commands:
   browser setup --code CODE [--open]
   screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE]
                      --if-match REVISION
-  screen list
+  screen list [--state archived]
   screen show <id>
   screen assign <id> --playlist-id ID --if-match REVISION
   screen set-timezone <id> --timezone ZONE --if-match REVISION
+  screen archive <id> --if-match REVISION
+  screen unarchive <id> --if-match REVISION
   screen delete <id> --if-match REVISION
   screen rotate-public-id <id> --if-match REVISION
-  screen revoke-credential <id> --if-match REVISION
   screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
   screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
   kv get --application-id ID <key>
@@ -77,6 +86,12 @@ Commands:
   kv set --application-id ID <key> --value-base64 BASE64 --content-type TYPE [--if-match REVISION]
   kv delete --application-id ID <key> --if-match REVISION
   kv list --application-id ID
+  comment show screen <id>
+  comment show playlist <id> [--page PAGE_ID]
+  comment set screen <id> (--json-value JSON | --file FILE)
+  comment set playlist <id> [--page PAGE_ID] (--json-value JSON | --file FILE)
+  comment delete screen <id>
+  comment delete playlist <id> [--page PAGE_ID]
   operations get <id>
   operations wait <id> [--timeout MS] [--poll-ms MS]
   operations cancel <id>
@@ -94,6 +109,92 @@ Commands:
 function nonemptyEnv(value) {
     return typeof value === "string" && value.length > 0 ? value : undefined;
 }
+function rethrowCompose(err) {
+    if (err instanceof CliError) {
+        throw err;
+    }
+    if (err instanceof Error && err.code === "usage_error") {
+        throw usageError(err.message, {
+            command: "screenrig --json compose catalog",
+            reason: "Inspect the fail-closed compose catalog, then compose render a spec.",
+        });
+    }
+    throw err;
+}
+function defaultComposePngPath(specPath) {
+    return specPath.toLowerCase().endsWith(".json") ? `${specPath.slice(0, -5)}.png` : `${specPath}.png`;
+}
+async function composeRender(args, runtime) {
+    const file = args.positionals[2];
+    if (!file) {
+        throw usageError("compose render requires a spec file.", {
+            command: "screenrig --json compose catalog",
+            reason: "Inspect the fail-closed compose catalog, then compose render a spec.",
+        });
+    }
+    if (args.positionals.length > 3) {
+        throw usageError("compose render accepts one spec file.");
+    }
+    if (file.includes("\0")) {
+        throw usageError("compose render spec path must not contain a NUL byte.");
+    }
+    requireFlagValue(args, "output", "./still.png");
+    const specPath = path.resolve(runtime.cwd(), file);
+    const outputFlag = flagString(args.flags, "output");
+    if (outputFlag?.includes("\0")) {
+        throw usageError("compose render --output must not contain a NUL byte.");
+    }
+    const output = path.resolve(runtime.cwd(), outputFlag ?? defaultComposePngPath(file));
+    if (output.includes("\0")) {
+        throw usageError("compose render --output must not contain a NUL byte.");
+    }
+    const layoutOutput = `${output}.layout.json`;
+    let spec;
+    try {
+        spec = JSON.parse(await readFile(specPath, "utf8"));
+    }
+    catch (err) {
+        throw usageError(`Cannot read compose spec: ${err instanceof Error ? err.message : "invalid JSON"}`);
+    }
+    let result;
+    try {
+        result = await composeSpec(spec, {
+            baseDir: path.dirname(specPath),
+            outPath: output,
+            layoutOutPath: layoutOutput,
+        });
+    }
+    catch (err) {
+        rethrowCompose(err);
+    }
+    const opened = flagBool(args.flags, "open")
+        ? await (runtime.openPath?.(output) ?? Promise.resolve(false))
+        : undefined;
+    const data = {
+        output,
+        layout_output: layoutOutput,
+        width: result.width,
+        height: result.height,
+        font_family: result.font_family,
+        space: result.space,
+        ramp: result.ramp,
+        truncated: result.truncated,
+        ...(opened !== undefined ? { opened } : {}),
+    };
+    return {
+        envelope: successEnvelope(data),
+        exitCode: ExitCode.Success,
+        human: humanLines("Composed still", [
+            ["output", output],
+            ["layout_output", layoutOutput],
+            ["width", String(result.width)],
+            ["height", String(result.height)],
+            ["font_family", result.font_family],
+            ["truncated", result.truncated ? "true" : "false"],
+            ...(opened !== undefined ? [["opened", opened ? "true" : "false"]] : []),
+        ]),
+    };
+}
 function transportFor(runtime, apiUrl, token) {
     return runtime.transport ?? new FetchTransport(apiUrl, token);
 }
@@ -104,6 +205,7 @@ function clientFor(runtime, args, apiUrl, token) {
         requestId: flagString(args.flags, "request-id"),
         idempotencyKey: flagString(args.flags, "idempotency-key"),
         timeoutMs: flagNumber(args.flags, "timeout"),
+        creditsOwner: runtime,
     });
 }
 function jsonBody(response, requestId, extra) {
@@ -139,6 +241,20 @@ export async function dispatch(args, runtime) {
             human: `screenrig ${CLI_VERSION}`,
         };
     }
+    if (group === "compose" && action === "catalog") {
+        if (args.positionals.length > 2) {
+            throw usageError("compose catalog does not accept positional arguments.");
+        }
+        const catalog = composeCatalog();
+        return {
+            envelope: successEnvelope(catalog),
+            exitCode: ExitCode.Success,
+            human: formatComposeCatalog(catalog),
+        };
+    }
+    if (group === "compose" && action === "render") {
+        return composeRender(args, runtime);
+    }
     if (group === "playlist" && action === "templates") {
         if (args.positionals.length > 2) {
             throw usageError("playlist templates does not accept positional arguments.");
@@ -149,6 +265,12 @@ export async function dispatch(args, runtime) {
             exitCode: ExitCode.Success,
             human: formatTemplateCatalog(catalog),
         };
+    }
+    if (group === "compose") {
+        throw usageError("Unknown compose command. Use compose catalog or compose render.", {
+            command: "screenrig --json compose catalog",
+            reason: "List the fail-closed compose catalog.",
+        });
     }
     const repair = flagBool(args.flags, "repair-config");
     let resolved = await resolveConfig({ flags: args.flags, fs: { ...runtime.fs, env: runtime.env, homedir: runtime.homedir }, repair });
@@ -169,6 +291,9 @@ export async function dispatch(args, runtime) {
     }
     if (group === "auth" && (action === "status" || action === undefined)) {
         return accountShow(args, runtime, resolved);
+    }
+    if (group === "dashboard") {
+        return dashboardCommand(args, runtime, resolved);
     }
     if (group === "app" && action === "upload") {
         return appUpload(args, runtime, resolved);
@@ -196,6 +321,9 @@ export async function dispatch(args, runtime) {
     }
     if (group === "kv") {
         return kvCommand(args, runtime, resolved, action);
+    }
+    if (group === "comment") {
+        return commentCommand(args, runtime, resolved, action);
     }
     if (group === "operations" && action === "get") {
         return operationsGet(args, runtime, resolved);
@@ -312,12 +440,14 @@ function isAuthenticatedCommand(group, action) {
     const actions = {
         account: new Set(["show"]),
         auth: new Set([undefined, "status"]),
+        dashboard: new Set([undefined]),
         app: new Set(["upload", "list", "show"]),
         media: new Set(["upload", "show", "list", "delete", "update"]),
         playlist: new Set(["create", "update", "show", "get", "list", "delete"]),
-        screen: new Set(["pair", "provision", "update", "list", "show", "assign", "set-timezone", "delete", "rotate-public-id", "revoke-credential", "toast", "screenshot"]),
+        screen: new Set(["pair", "provision", "update", "list", "show", "assign", "set-timezone", "archive", "unarchive", "delete", "rotate-public-id", "toast", "screenshot"]),
         browser: new Set(["setup"]),
         kv: new Set(["get", "set", "delete", "list"]),
+        comment: new Set(["show", "set", "delete"]),
         operations: new Set(["get", "wait", "cancel"]),
         events: new Set(["list", "follow"]),
         playback: new Set(["list"]),
@@ -354,9 +484,7 @@ async function browserSetupCommand(args, runtime, resolved) {
     requirePrivateNoStore(response.headers, "Browser setup claim response");
     const claim = response.body;
     const screen = claim.screen;
-    if (!hasExactKeys(claim, ["session_id", "status", "screen"])
-        || !hasExactKeys(screen, ["id", "public_id", "state", "public_url"])
-        || !claim.session_id || claim.status !== "claimed" || !screen.id || !screen.public_id || screen.state !== "pairing_pending") {
+    if (!claim.session_id || claim.status !== "claimed" || !screen?.id || !screen.public_id || screen.state !== "pairing_pending" || !screen.public_url) {
         throw usageError("Browser setup response does not match the generated BrowserLinkClaim contract.");
     }
     const apiUrl = new URL(resolved.apiUrl);
@@ -388,12 +516,61 @@ async function browserSetupCommand(args, runtime, resolved) {
         ]),
     };
 }
-function hasExactKeys(value, keys) {
-    if (!value || typeof value !== "object" || Array.isArray(value))
-        return false;
-    const actual = Object.keys(value).sort();
-    const expected = [...keys].sort();
-    return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+/**
+ * Mints one single-use account dashboard link and hands it to the browser.
+ *
+ * The token rides the URL fragment, which no server sees, no access log
+ * records, and no `Referer` header carries, so the whole URL is a credential.
+ * The default path opens it and keeps it out of stdout entirely. The URL
+ * reaches stdout as exactly one line in two cases: the opener could not start a
+ * browser, or the operator asked for it with `--print-url` because the shell is
+ * not on the machine with the browser. It is never written to a file, never
+ * persisted in the config, and never repeated in a later command.
+ */
+async function dashboardCommand(args, runtime, resolved) {
+    if (args.positionals.length > 1) {
+        throw usageError("dashboard does not accept positional arguments.", {
+            command: "screenrig dashboard",
+            reason: "Mint one single-use dashboard link for the enrolled account and open it.",
+        });
+    }
+    const printMode = flagBool(args.flags, "print-url");
+    const token = requireToken(resolved.token);
+    const client = clientFor(runtime, args, resolved.apiUrl, token);
+    const response = await client.call({
+        method: "POST",
+        path: "/api/v1/account/dashboard-links",
+        idempotent: true,
+    });
+    requirePrivateNoStore(response.headers, "Dashboard link response");
+    const link = validateDashboardLink(response.body, resolved.apiUrl);
+    const opened = printMode ? false : await (runtime.openUrl?.(link.url) ?? Promise.resolve(false));
+    // Falling back is the only reason to print an unasked-for URL: the link
+    // expires in ten minutes, and a link nobody can reach is worse than one line
+    // of sensitive output the operator already chose to produce.
+    const printed = printMode || !opened;
+    const data = {
+        expires_at: link.expiresAt,
+        single_use: true,
+        ...(printed ? { url: link.url } : {}),
+        ...(printMode ? {} : { opened }),
+    };
+    const title = printMode
+        ? "Single-use dashboard link"
+        : opened
+            ? "Dashboard link opened"
+            : "Single-use dashboard link; no browser could be opened";
+    return {
+        envelope: successEnvelope(data, { request_id: client.requestId }),
+        exitCode: ExitCode.Success,
+        human: humanLines(title, [
+            ...(printed ? [["url", link.url]] : []),
+            ["expires_at", link.expiresAt],
+            ["validity", "single use, ten minutes from mint"],
+            ["reissue", "run screenrig dashboard again for a fresh link"],
+            ...(printMode ? [] : [["opened", opened ? "true" : "false"]]),
+        ]),
+    };
 }
 function requirePrivateNoStore(headers, context) {
     if (headers["cache-control"] !== "private, no-store") {
@@ -448,13 +625,16 @@ async function accountShow(args, runtime, resolved) {
     const response = await client.call({ method: "GET", path: "/api/v1/account" });
     const envelope = jsonBody(response, client.requestId, { token_lookup: describeToken(token) });
     const account = response.body;
+    if (headerValue(response.headers, CREDITS_REMAINING_HEADER) === undefined) {
+        observeCreditsRemaining(runtime, parseCreditsInteger(account.credit_remaining));
+    }
     return {
         envelope,
         exitCode: ExitCode.Success,
         human: humanLines("Account", [
             ["id", account.id],
             ["revision", account.revision !== undefined ? String(account.revision) : undefined],
-            ["credit_remaining_mcr", account.credit_remaining_mcr !== undefined ? String(account.credit_remaining_mcr) : undefined],
+            ["credit_remaining", account.credit_remaining !== undefined ? String(account.credit_remaining) : undefined],
             ["token", describeToken(token)],
             ["request_id", client.requestId],
         ]),
@@ -601,6 +781,17 @@ function mediaKindFromArgs(args) {
     }
     return kind;
 }
+function screenListStateFromArgs(args) {
+    requireFlagValue(args, "state", "archived");
+    const state = flagString(args.flags, "state");
+    if (state === undefined) {
+        return undefined;
+    }
+    if (state !== "archived") {
+        throw usageError("--state must be archived.");
+    }
+    return state;
+}
 async function mediaCommand(args, runtime, resolved, action) {
     if (action === "list") {
         return simpleGet(args, runtime, resolved, "/api/v1/media", "Media", {
@@ -683,6 +874,10 @@ async function playbackList(args, runtime, resolved) {
         media_id: mediaId,
         day,
     });
+}
+function readyMediaId(operation) {
+    const mediaId = operation.result?.media_id;
+    return typeof mediaId === "string" && mediaId.length > 0 ? mediaId : undefined;
 }
 /** Flags that shape the pre-upload transcode. */
 export function transcodeOptionsFromArgs(args) {
@@ -778,7 +973,9 @@ async function mediaUpload(args, runtime, client) {
                 sleep: runtime.sleep,
             });
         }
+        const mediaId = readyMediaId(operation);
         const data = {
+            ...(mediaId ? { media_id: mediaId, id: mediaId } : {}),
             operation,
             upload: {
                 filename: prepared.declaration.filename,
@@ -813,6 +1010,7 @@ async function mediaUpload(args, runtime, client) {
             }),
             exitCode: ExitCode.Success,
             human: humanLines(flagBool(args.flags, "no-wait") ? "Media upload committed" : "Media uploaded", [
+                ["media_id", mediaId],
                 ["operation_id", operation.id],
                 ["state", operation.state],
                 ["filename", prepared.declaration.filename],
@@ -852,6 +1050,7 @@ const TOAST_MAX_LINES = 3;
 const TOAST_DURATION_MIN = 2000;
 const TOAST_DURATION_MAX = 60000;
 const SCREEN_ID_PATTERN = /^scr_[A-Za-z0-9_-]+$/;
+const PLAYLIST_PAGE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 const SCREENSHOT_DEFAULT_WAIT_MS = 35_000;
 const SCREENSHOT_DEFAULT_POLL_MS = 500;
 function isScreenToastLevel(value) {
@@ -1126,10 +1325,19 @@ async function assertAssignedScreensHaveZone(client, playlistId, pages) {
     }
 }
 async function screenCommand(args, runtime, resolved, action) {
+    if (action === "revoke-credential") {
+        throw usageError("screen revoke-credential is retired. Archive the screen instead.", {
+            command: "screenrig --json screen archive <id> --if-match REVISION",
+            reason: "Archive hides the screen. It does not unbind the player. There is no account unbind.",
+        });
+    }
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
-    if (action === "list")
-        return simpleGet(args, runtime, resolved, "/api/v1/screens", "Screens");
+    if (action === "list") {
+        return simpleGet(args, runtime, resolved, "/api/v1/screens", "Screens", {
+            state: screenListStateFromArgs(args),
+        });
+    }
     if (action === "provision") {
         const openMode = flagBool(args.flags, "open");
         const printMode = flagBool(args.flags, "print-url");
@@ -1288,6 +1496,23 @@ async function screenCommand(args, runtime, resolved, action) {
         });
         return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Set timezone ${timezone} on ${id}` };
     }
+    if (action === "archive" || action === "unarchive") {
+        const id = args.positionals[2];
+        const revision = flagString(args.flags, "if-match");
+        if (!id || !revision)
+            throw usageError(`screen ${action} requires <id> and --if-match.`);
+        const response = await client.call({
+            method: "POST",
+            path: `/api/v1/screens/${id}/${action}`,
+            idempotent: true,
+            headers: { "if-match": quotedRevision(revision) },
+        });
+        return {
+            envelope: jsonBody(response, client.requestId),
+            exitCode: ExitCode.Success,
+            human: action === "archive" ? `Archived screen ${id}` : `Unarchived screen ${id}`,
+        };
+    }
     if (action === "delete") {
         const id = args.positionals[2];
         const ifMatch = flagString(args.flags, "if-match");
@@ -1301,22 +1526,21 @@ async function screenCommand(args, runtime, resolved, action) {
         });
         return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Deleted screen ${id}` };
     }
-    if (action === "rotate-public-id" || action === "revoke-credential") {
+    if (action === "rotate-public-id") {
         const id = args.positionals[2];
         const revision = flagString(args.flags, "if-match");
         if (!id || !revision)
-            throw usageError(`screen ${action} requires <id> and --if-match.`);
-        const suffix = action === "rotate-public-id" ? "public-id/rotate" : "credential/revoke";
+            throw usageError("screen rotate-public-id requires <id> and --if-match.");
         const response = await client.call({
             method: "POST",
-            path: `/api/v1/screens/${id}/${suffix}`,
+            path: `/api/v1/screens/${id}/public-id/rotate`,
             idempotent: true,
             headers: { "if-match": quotedRevision(revision) },
         });
         return {
             envelope: jsonBody(response, client.requestId),
             exitCode: ExitCode.Success,
-            human: action === "rotate-public-id" ? `Rotated public id for ${id}` : `Revoked device credential for ${id}`,
+            human: `Rotated public id for ${id}`,
         };
     }
     if (action === "toast") {
@@ -1581,6 +1805,77 @@ async function kvCommand(args, runtime, resolved, action) {
         return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Deleted ${key}` };
     }
     throw usageError("Unknown kv command.");
+}
+function commentPath(target, id, pageId) {
+    if (target === "screen") {
+        return `/api/v1/comment/screen/${encodeURIComponent(id)}`;
+    }
+    if (pageId) {
+        return `/api/v1/comment/playlist/${encodeURIComponent(id)}/page/${encodeURIComponent(pageId)}`;
+    }
+    return `/api/v1/comment/playlist/${encodeURIComponent(id)}`;
+}
+async function commentCommand(args, runtime, resolved, action) {
+    if (action !== "show" && action !== "set" && action !== "delete") {
+        throw usageError("Unknown comment command.");
+    }
+    const target = args.positionals[2];
+    const id = args.positionals[3];
+    if (target !== "screen" && target !== "playlist") {
+        throw usageError("comment commands require screen <id> or playlist <id>.");
+    }
+    if (!id || (target === "screen" && !isScreenId(id))) {
+        throw usageError(`comment ${action} ${target} requires <id>.`);
+    }
+    if (args.positionals.length > 4) {
+        throw usageError(`comment ${action} ${target} does not accept extra arguments.`);
+    }
+    if (Object.hasOwn(args.flags, "if-match")) {
+        throw usageError("comment commands do not take --if-match; last write wins and does not bump revision.");
+    }
+    requireFlagValue(args, "page", "poster");
+    const pageId = flagString(args.flags, "page");
+    if (target === "screen" && pageId !== undefined) {
+        throw usageError("comment screen commands do not take --page; use comment playlist <id> --page PAGE_ID.");
+    }
+    if (pageId !== undefined && !PLAYLIST_PAGE_ID_PATTERN.test(pageId)) {
+        throw usageError("--page must be a playlist page id: a letter, then up to 63 letters, digits, underscores, or hyphens.");
+    }
+    const pathName = commentPath(target, id, pageId);
+    if (action === "show") {
+        return simpleGet(args, runtime, resolved, pathName, "Comments");
+    }
+    const token = requireToken(resolved.token);
+    const client = clientFor(runtime, args, resolved.apiUrl, token);
+    if (action === "set") {
+        const body = await commentsWriteFromArgs(args, runtime.cwd());
+        const response = await client.call({
+            method: "PUT",
+            path: pathName,
+            idempotent: true,
+            body,
+        });
+        return {
+            envelope: jsonBody(response, client.requestId),
+            exitCode: ExitCode.Success,
+            human: humanLines("Comments set", [
+                [target, id],
+                ["page", pageId],
+            ]),
+        };
+    }
+    const response = await client.call({
+        method: "DELETE",
+        path: pathName,
+        idempotent: true,
+    });
+    return {
+        envelope: jsonBody(response, client.requestId),
+        exitCode: ExitCode.Success,
+        human: pageId
+            ? `Deleted comments on playlist ${id} page ${pageId}`
+            : `Deleted comments on ${target} ${id}`,
+    };
 }
 async function operationsGet(args, runtime, resolved) {
     const id = args.positionals[2];

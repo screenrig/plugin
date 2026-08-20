@@ -7,7 +7,8 @@ export function successEnvelope(data, extras) {
         warnings: extras?.warnings ?? [],
     };
 }
-export function errorEnvelope(error) {
-    return { ok: false, error };
+export function errorEnvelope(error, extras) {
+    const warnings = extras?.warnings ?? [];
+    return warnings.length > 0 ? { ok: false, error, warnings } : { ok: false, error };
 }
 //# sourceMappingURL=envelope.js.map

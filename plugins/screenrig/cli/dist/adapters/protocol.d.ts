@@ -11,7 +11,7 @@ export type OperationState = "queued" | "running" | "succeeded" | "failed" | "ca
 export interface Account {
     content_limit_bytes: number;
     created_at: string;
-    credit_remaining_mcr: number;
+    credit_remaining: number;
     id: string;
     reserved_bytes: number;
     revision: number;
@@ -57,6 +57,14 @@ export interface OperationAccepted {
 export interface EventResource {
     [key: string]: unknown;
 }
+/**
+ * Dashboard user that caused one mutation. Descriptive attribution only; it is
+ * never authorization.
+ */
+export interface EventActor {
+    user_id: string;
+    display_name: string;
+}
 export interface AccountEvent {
     cursor: string;
     sequence: number;
@@ -67,6 +75,12 @@ export interface AccountEvent {
     operation_id?: string;
     message: string;
     details?: Record<string, unknown>;
+    /**
+     * Absent on every event an agent, the CLI, a player, or a worker produced, so
+     * its presence distinguishes a dashboard mutation rather than labelling all
+     * traffic.
+     */
+    actor?: EventActor;
     at: string;
 }
 export interface EventPage {
@@ -84,6 +98,8 @@ export interface Capabilities {
     application_path_bytes: 255;
     application_path_depth: 16;
     features: Record<string, unknown>;
+    /** Maximum declared byte size of one image upload, 20 MiB. */
+    media_image_bytes: 20971520;
     playlist_max_items_per_page: 24;
     playlist_max_media_per_selector: 32;
     playlist_max_pages: 100;
@@ -103,27 +119,67 @@ export declare const DEFAULT_ARCHIVE_LIMITS: ArchiveLimits;
 export declare function limitsFromCapabilities(capabilities: Capabilities): ArchiveLimits;
 /**
  * Full playlist pages stay opaque: the CLI forwards author-supplied playlist
- * JSON unchanged. Templated pages are the exception — the CLI expands
+ * JSON unchanged, including `transition.type` swipe variants and optional
+ * placement `enter`. Templated pages are the exception — the CLI expands
  * `template` + `slots` into an ordinary write page in `playlist-templates.ts`
- * and never sends `template` to the server. The contract's page, placement,
- * and content schemas are still not mirrored here except for the fields that
- * expander writes. Mirror a schema only when the CLI builds or reads its
- * fields.
+ * and never sends `template` to the server. Omitted templated transitions stay
+ * `{ type: "crossfade", duration_ms: 200 }` with no `enter`. The contract's
+ * page, placement, and content schemas are still not mirrored here except for
+ * the fields that expander writes. Mirror a schema only when the CLI builds or
+ * reads its fields.
  *
  * Page `visibility` is inspected only for key presence. That is exactly what
  * decides whether a playlist needs the target screen to carry a timezone, so
  * no member of the schedule object is mirrored either.
  */
+export type ScreenObservationPresentation = "output" | "windowed";
+export interface ScreenObservationSurface {
+    height: number;
+    id: string;
+    pixel_ratio: number;
+    presentation: ScreenObservationPresentation;
+    width: number;
+}
+/**
+ * Player-reported playback surface. Absent until the first accepted player
+ * report. Read-only on the account API; ScreenPatch cannot write it.
+ */
+export interface ScreenObservation {
+    observed_at: string;
+    surfaces: ScreenObservationSurface[];
+}
 export interface Screen {
     content_access_generation: number;
     created_at: string;
     id: string;
     label: string;
+    /**
+     * Last client IP at a paired runtime events connect. Absent until the first
+     * connect. Operational metadata; IDs and IPs are never authorization.
+     */
+    last_ip?: string;
+    /**
+     * Instant a paired runtime events stream last became connected. Present
+     * after the first connect. When offline, last time the screen was online.
+     */
+    last_online_at?: string;
     manifest_revision: number;
+    observation?: ScreenObservation;
+    /**
+     * True while at least one paired runtime events stream is connected,
+     * including a short reconnect window. Always present; false until first
+     * connect. Read-only; not a player heartbeat.
+     */
+    online: boolean;
     playlist_id?: string;
+    /**
+     * Opaque agent JSON object. Absent when unset. ScreenRig never reads or uses
+     * it. Not on the runtime manifest and never authorization.
+     */
+    comments?: Record<string, unknown>;
     public_id: string;
     revision: number;
-    state: "pairing_pending" | "active";
+    state: "pairing_pending" | "active" | "archived";
     /**
      * IANA time zone identifier. Absent until it is set. Page visibility rules
      * are civil, so they are evaluated in this zone.
@@ -134,12 +190,21 @@ export interface Screen {
 /**
  * The screen patch body. Every member is optional and the server requires at
  * least one, which is why each command builds only the members it was asked
- * for rather than sending undefined placeholders.
+ * for rather than sending undefined placeholders. Observation, online,
+ * last_online_at, last_ip, and comments are not patchable fields.
  */
 export interface ScreenPatch {
     name?: string;
     playlist_id?: string;
     timezone?: string;
+}
+/** PUT /api/v1/comment/... body. Compact UTF-8 JSON of comments must be ≤ 1024 bytes. */
+export interface CommentsWrite {
+    comments: Record<string, unknown>;
+}
+/** GET/PUT /api/v1/comment/... body. Null when the target exists and comments are unset. */
+export interface Comments {
+    comments: Record<string, unknown> | null;
 }
 export interface PairScreen {
     code: string;
@@ -204,6 +269,17 @@ export interface BrowserLinkClaim {
     session_id: string;
     status: "claimed";
     screen: BrowserLinkClaimScreen;
+}
+/**
+ * Response of POST /api/v1/account/dashboard-links.
+ *
+ * The single-use token rides the fragment of `url`, so the whole string is a
+ * credential: open it, never print it except as the one documented fallback,
+ * and never store it.
+ */
+export interface DashboardLink {
+    url: string;
+    expires_at: string;
 }
 export interface MediaCommit {
     bytes: number;

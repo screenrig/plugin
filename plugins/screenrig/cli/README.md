@@ -1,8 +1,8 @@
 # ScreenRig CLI
 
 This repository implements the noninteractive ScreenRig control-plane CLI and
-deterministic static-application packer. The supported customer distribution is
-the exact CI artifact pinned and bundled by
+deterministic web-application package packer. The supported customer
+distribution is the exact CI artifact pinned and bundled by
 [`screenrig/plugin`](https://github.com/screenrig/plugin); the plugin invokes it
 through a package-relative launcher.
 
@@ -27,23 +27,64 @@ removing local credential, enrollment, and transient authenticated-operation
 state. A failed or ambiguous server result retains local state for an exact
 retry.
 
-Playlist create and update expand any templated page (`template` + `slots`)
-into an ordinary page and send that. A page without `template` is forwarded
-unchanged. `playlist templates` prints the closed catalog. `canvas.background`
-is a solid uppercase `#RRGGBBAA` or a top-to-bottom linear gradient (`type`
-`linear`, 2 through 8 strictly increasing stops, first `at` 0, last `at` 1, no
-angle). Templated pages override it on `canvas.background` only. The catalog
-default stays the solid `#1B2632FF`. Image and
-video placements write a `selector` (`by` is `id`, `ids`, `all`, or `tag`).
-Do not put `media_id` on the content object, and do not send server-resolved
-`items`. Page advance uses `duration`, `application`, or `media_end`. There
-is no `video_end` mode.
+`compose catalog` and `compose render` run locally. They do not enroll. They
+do not debit credits. `compose render` reads a JSON spec, writes a PNG, and
+writes `<output>.layout.json` next to it. The envelope carries paths, canvas
+size, the resolved font family, space tokens, the type ramp, and whether any
+text was truncated. It never prints image bytes. `--open` opens the local PNG
+with the OS opener when the user asked to view the still on this computer.
+
+ScreenRig content has three families: static images, including stills produced
+by local compose; motion video; and web content delivered as an `iframe` or
+`application`.
+
+Playlist pages on the wire use `image`, `video`, `iframe`, and `application`
+only. Copy and chrome are composed locally, uploaded as `image`, then placed
+as one image. `playlist templates` is a local catalog of slide ids; templates
+that would emit native `text`, `box`, or `line` fail with a pointer at
+`compose catalog` and `compose render`. Picture-only templates still expand
+to image or video placements with selectors. A page without `template` is
+forwarded unchanged when its placements are those wire kinds.
+`canvas.background` is a solid uppercase `#RRGGBBAA` or a top-to-bottom
+linear gradient (`type` `linear`, 2 through 8 strictly increasing stops,
+first `at` 0, last `at` 1, no angle). Image and video placements write a
+`selector` (`by` is `id`, `ids`, `all`, or `tag`). Do not put `media_id` on
+the content object, and do not send server-resolved `items`. Page advance
+uses `duration`, `application`, or `media_end`. There is no `video_end`
+mode.
+
+Default pages use `{ "type": "crossfade", "duration_ms": 200 }` and put no
+`enter` on placements. `transition.type` may also be `swipe-left`,
+`swipe-right`, `swipe-up`, or `swipe-down`. `duration_ms` is required and
+runs from 0 through 60000. When a swipe type is chosen, write
+`duration_ms: 600`. That is the authoring default for swipe, not a schema
+default, and it does not change the template default. Swipe is the incoming
+page's type. The outgoing page follows so the edges stay touching. The name
+is motion direction: `swipe-left` moves content left.
+
+Optional placement `enter` is `{ "type": "..." }` with that same object
+name on playlist JSON. There is no snake_case rename inside it. Types are
+`fade-up`, `fade-down`, `fade-left`, `fade-right`, `fade-in`, `zoom-in`,
+and `zoom-out`. Absent means no object animation. Use swipe and `enter`
+sparingly, for emphasis or a particular style, not on every page. If you
+want object animation, layer the content and put the motion on the
+top-layer text or images. Do not animate every placement. Object enter
+starts invisible. It runs 500 ms after the page occupies the full
+viewport, for 400 ms. Those delays are contract constants, not author
+fields and not CLI flags. These are playlist document fields the CLI
+sends. The control plane accepts swipe types and placement `enter`.
+Canonical CLI source on public `main` is repository-ready. They are not
+in the locked plugin bundle.
 
 The ordinary pair command currently accepts six canonical characters:
 
 ```sh
 screenrig --json screen pair ABC234
 ```
+
+Native player pairing codes last 72 hours while unclaimed. A successful claim
+starts a fresh independent 72-hour collection window. `screen pair` claims the
+code on the control plane; the CLI does not time the code locally.
 
 The separate homepage handoff command accepts either `ABC-234` or `ABC234`,
 normalizes it, and returns only safe status fields:
@@ -55,7 +96,20 @@ screenrig --json browser setup --code ABC-234
 Browser handoff has a backend-owned 30-minute unclaimed window and a fresh
 10-minute protected delivery window after claim. The CLI never receives or
 prints the browser cookie, provisioning token, continuation redirect, native
-device credential, or runtime session.
+pairing or session credentials, or identity material.
+
+`screen archive` hides a screen and darkens live glass. It does not unbind
+the player. `screen list` omits archived rows; `screen list --state archived`
+lists them. `screen show` still returns an archived row. `screen unarchive`
+restores the screen if admission passes. `screen delete` is not a
+de-associate; the server returns `screen_archive_required`.
+`screen revoke-credential` is retired. Native players use generate-once
+Ed25519 identity with `ScreenRig-Pairing` and `ScreenRig-Session`;
+`ScreenRig-Device` is retired. Signed on-device reset is the only
+de-associate. The CLI is not a screen and holds no player keypair. `screen
+archive` and `screen unarchive` are repository-ready on public `main`. They are
+absent from the locked plugin bundle. Native identity remains an owning-player
+claim; none of this is a marketplace, deployed, or hardware-validated claim.
 
 Application packing accepts an already-built static directory. It produces
 deterministic bounded archives, injects the pinned browser SDK runtime, and
@@ -66,10 +120,72 @@ pages use `screenrig.canvas/v1`; protected content and
 screenshot <id>` requests one still WebP of an active screen, waits until it
 is ready, and writes a file. It does not print image bytes.
 
+`comment show`, `comment set`, and `comment delete` store an opaque JSON
+object on a screen, a playlist, or one playlist page. Compact UTF-8 of that
+object is at most 1 KiB. ScreenRig does not read or use it, does not send it
+to players, and does not treat it as authorization. Set takes `--json-value`
+or `--file`. Last write wins; there is no `--if-match`. These commands are
+repository-ready on public `main`. They are absent from the locked plugin
+bundle and are not a marketplace or deployed claim.
+
 `playback list` returns daily playback aggregates for this account, newest
 days first. Filter with `--screen-id`, `--media-id`, and `--day YYYY-MM-DD`.
 Those identifiers select the caller's own rows and are never a cross-account
 lookup.
+
+Authenticated responses may carry remaining prepaid credits as an integer.
+Remaining below 1000 credits adds a `credits_low` warning to the envelope
+`warnings[]` array; the message includes the integer remaining. A 402
+`payment_required` problem means remaining is below 1 credit and billed
+control-plane commands are rejected. Both signals can appear together on a
+402 envelope. `account show`, `auth revoke --yes`, `screen toast`,
+`screen screenshot`, `compose catalog`, and `compose render` do not debit
+that meter. Opening `events follow` costs 1 credit. There is no pay command.
+
+## Account dashboard
+
+`dashboard` mints one single-use link to the account dashboard and hands it to
+the browser:
+
+```sh
+screenrig dashboard
+```
+
+The link is single use and stops being claimable ten minutes after it is
+minted. That clock belongs to the dashboard link alone: it is not the
+30-minute public handoff locator, not the 10-minute protected provisioning
+delivery window, and not the 72-hour native pairing clocks. A fresh link is one
+more `screenrig dashboard` away, so let one expire rather than keeping it.
+
+The token rides the URL fragment. No server sees a fragment, no access log
+records one, and no `Referer` header carries one, so **the whole URL is a
+credential**. The CLI opens it and prints nothing. The URL reaches stdout as
+one line in exactly two cases: the opener could not start a browser, or you
+asked for it with `--print-url` because your shell is not on the machine with
+the browser. Treat that line the way you would treat a password. The CLI never
+writes the link to a file, never keeps it in configuration, and cannot show it
+again.
+
+```sh
+screenrig --json dashboard --print-url
+```
+
+The command mints; it never claims. Claiming happens in the browser on the
+dashboard origin, so the CLI never presents a link token and never sees
+`dashboard_link_expired` or `dashboard_link_consumed`. What the mint call can
+return is `invalid_request`, `unauthorized`, `payment_required`,
+`rate_limited`, and `not_ready`; the CLI renders each with the server's own
+detail and guidance.
+
+Minting is an authenticated control-plane request and debits 1 credit. Retrying
+is safe: the request carries `Idempotency-Key`, and an exact retry returns the
+original link and expiry for twenty-four hours instead of minting a second live
+link.
+
+This command is **repository-ready on public `main`**. It is absent from the
+locked plugin bundle. The dashboard origin is not deployed: no request has
+been served there, so a minted link does not resolve yet. Do not read this
+section as a working dashboard.
 
 ## Feedback
 
@@ -79,7 +195,7 @@ Bug reports and feature requests are account-scoped and immutable:
 screenrig --json feedback bug "Playlist stalls after pairing" \
   --body-file ./report.md --command "screen pair"
 screenrig --json feedback feature "Add a dry-run flag" --body "Preview a change first."
-screenrig --json feedback list [--kind bug|feature]
+screenrig --json feedback list --kind bug
 ```
 
 The kind comes from the CLI action, which selects the route; nothing in the
@@ -184,6 +300,38 @@ The success envelope is `screen_id`, `capture_id`, `path`, `bytes`, `sha256`,
 is `screenshot_unavailable`. A later `capture_id` is `resource_conflict`. The
 CLI never prints image bytes, hex, or base64.
 
+## Local compose
+
+Compose a still on this machine, look at the PNG, then upload it as media.
+
+```sh
+screenrig --json compose catalog
+screenrig --json compose render ./spec.json --output ./still.png
+screenrig --json media upload ./still.png
+```
+
+The spec is a fail-closed tree of `Frame`, `Column`, `Row`, `Box`, `Spacer`,
+`Text`, and `Image`. Roles are `display`, `title`, `body`, `caption`, and
+`label`. Spacing tokens are `xs`, `s`, `m`, `l`, and `xl`. Pins are `top`,
+`bottom`, `left`, and `right`. Do not author `x` or `y` on any node. The root
+`Frame` defines the canvas through required `width` and `height`. Do not author
+`fontSize`. In the current dirty working tree only, `Image`, `Box`, `Row`,
+`Column`, and `Spacer` accept positive `width` and `height` values in px. That
+child-sizing support is source-ready, not on public `main` or in the locked
+plugin bundle. Keep `flex` for remaining space.
+`pin` `top` or `bottom` stretches the full width; `left` or `right` stretches
+the full height. Size a wordmark with `width` and `height`, not `pin`.
+Optional Text `textShadow` is
+`{ "x": 2, "y": 2, "blur": 4, "color": "#00000080" }`; omit it to paint
+without a shadow. `Image.src` is a local filesystem path
+relative to the spec file. The CLI does not fetch URLs.
+
+`--open` is only for viewing the still on this computer. Agent vision reads
+the file path. Do not cat pixels into chat.
+
+A playlist page for that still is one `image` placement whose `rect` is the
+canvas and whose `content_fit` is `fill`.
+
 ## Events
 
 `events list` reads one finite page. `events follow` stays on the stream.
@@ -212,10 +360,11 @@ JSON envelope or stream. After redaction it may still include a server
 
 ## Media transcoding
 
-`media upload` transcodes the source before it declares the upload, so the
-control plane only ever receives delivery-ready bytes. This makes **ffmpeg and
-ffprobe a required external dependency** of that one command. The CLI does not
-bundle them. It runs `ffmpeg` and `ffprobe` from `PATH`, or from the absolute
+`media upload` transcodes the source by default before it declares the upload,
+so the control plane receives delivery-ready bytes on that path. **ffmpeg and
+ffprobe are external dependencies only for default transcoding.**
+`--no-transcode` uploads the source unchanged and bypasses both tools. The CLI
+does not bundle them. It runs `ffmpeg` and `ffprobe` from `PATH`, or from the absolute
 paths in `SCREENRIG_FFMPEG` and `SCREENRIG_FFPROBE` when those variables are
 set. The install hint asks for ffmpeg 6.0 or newer; the CLI reports the resolved
 version but does not enforce a minimum. What it does enforce is the presence of
@@ -256,7 +405,8 @@ than the bound is never upscaled.
 ScreenRig stores exactly one rendition per media object, and the layout contract
 carries no codec parameter. There is no per-client fallback: whatever the CLI
 uploads is what every player has to decode. H.264 High profile level 4.2 is the
-default because current browsers play it universally.
+default because it has broad decode support across current browser and platform
+combinations.
 
 H.265 support is not universal:
 
@@ -274,7 +424,7 @@ link, but that saving does not outrank playback on the browser path.
 
 | Flag | Effect |
 | --- | --- |
-| `--no-transcode` | Upload the source bytes unchanged. ffmpeg is never run. |
+| `--no-transcode` | Upload the source bytes unchanged. Neither ffmpeg nor ffprobe is run. |
 | `--codec h264\|hevc` | Video codec. Default `h264`. `avc` and `h265` are accepted as aliases. |
 | `--max-fps N` | Frame-rate cap, greater than 0 and at most 240. Default 30. |
 | `--max-edge PIXELS` | Bound on each edge, 16 to 3840. Default 3840. |
@@ -317,10 +467,19 @@ of presenting an estimate as a measurement.
 and `reason`. Warnings such as a missing tone mapping filter appear as
 `transcode_warning` entries in the envelope warnings.
 
+When the upload operation succeeds, the same envelope also carries `media_id`,
+and `id` with the same value. That is the ready object id for playlist
+selectors. It is also at `operation.result.media_id`. Do not guess a different
+path. After a tagged upload, `media list --tag TAG` is the filename-to-id map.
+
 ## Development and provenance
 
-Node.js 20.11 or newer is required by the package. `media upload` additionally
-requires ffmpeg and ffprobe on the host; no other command runs them.
+Node.js 20.11 or newer is required by the package. The commands below are
+source-checkout development gates, not installed-plugin commands; run them from
+this repository checkout. Default `media upload` transcoding additionally
+requires ffmpeg and ffprobe on the host. `--no-transcode` bypasses both. No
+other command requires them; `screenrig doctor` only probes and reports the
+optional toolchain.
 
 ```sh
 npm ci
@@ -360,8 +519,19 @@ never a pass. Run it whenever the backend contract may have changed; a snapshot
 that passes `vendor:check` can still be superseded.
 
 CI publishes deterministic `screenrig-cli.tgz`. The plugin repository pins that
-artifact by CLI commit and SHA-256, and the backend production lock separately
-selects it for release assembly. This repository does not deploy ScreenRig.
+artifact by CLI commit and SHA-256. **Deploys are independent** (operating
+rule): this repository's `main` Action publishes that CI artifact only. No
+npm or marketplace publish unless the user asks later. Do not pack siblings.
+Do not dispatch backend. Do not copy deploy tokens between repos.
+Coordinated multi-repo deploy is rare and only for a breaking contract
+change. This repository does not deploy ScreenRig.
+
+The release archive vendors the complete production dependency closure from
+`package-lock.json`, including every locked native canvas target. Packaging
+verifies each registry tarball against its locked SHA-512 integrity and then
+runs `version` and `compose catalog` from the extracted offline archive. The
+installed plugin never runs `npm install` and does not fetch mutable runtime
+dependencies.
 
 Source/package tests do not prove installed-plugin loading, live enrollment or
 pairing, public browser handoff, Player rendering, native hardware, or
@@ -369,7 +539,7 @@ production deployment. The transcode profiles above are asserted by unit tests
 that drive a fake process runner; they are not validated by playback on player
 hardware or in any browser.
 
-Security reports belong in
+See the repository [security policy](SECURITY.md). Security reports belong in
 [GitHub Private Vulnerability Reporting](https://github.com/screenrig/cli/security/advisories/new).
-See [SECURITY.md](SECURITY.md). The Apache-2.0 license covers this public CLI,
+The Apache-2.0 license covers this public CLI,
 not other ScreenRig services or repositories.

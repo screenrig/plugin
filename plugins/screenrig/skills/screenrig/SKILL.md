@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate ScreenRig screens, applications, media, playlists, playback, events, feedback, and application K/V with the bundled ScreenRig CLI. Use when an agent receives a screenrig.ai browser setup URL or needs to pair or manage digital-signage screens, upload content, or inspect ScreenRig state.
+description: Operate ScreenRig screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled ScreenRig CLI. Use when an agent receives a screenrig.ai browser setup URL or needs to pair or manage digital-signage screens, upload content, or inspect ScreenRig state.
 ---
 
 # ScreenRig
@@ -92,8 +92,11 @@ Run `screen pair CODE [--label LABEL]`; the CLI accepts lowercase input only by
 normalizing it to canonical uppercase. A middle dash is presentation-only, so
 both `ABC234` and `ABC-234` identify the same canonical code. Reject characters
 outside `23456789ABCDEFGHJKMNPQRSTUVWXYZ`. Report the paired screen returned by
-the command. Do not invent a URL-transfer, token-copy, browser-consent,
-account, email, or other default onboarding branch.
+the command. Native player pairing codes last 72 hours while unclaimed. A
+successful claim starts a fresh independent 72-hour collection window. The CLI
+claims the code on the control plane; it does not time the code locally. Do not
+invent a URL-transfer, token-copy, browser-consent, account, email, or other
+default onboarding branch.
 
 ## Homepage browser handoff
 
@@ -115,8 +118,9 @@ For stable failures, branch on `error.code`:
 
 - `browser_already_paired`: treat the browser as already connected, report
   success, and do not pair it again.
-- `handoff_code_invalid` or `handoff_code_expired`: ask the user to open
-  ScreenRig and copy a fresh setup instruction.
+- `handoff_code_invalid` or `handoff_code_expired`: the public locator lasts
+  30 minutes unclaimed. Ask the user to open ScreenRig and copy a fresh setup
+  instruction.
 - `browser_link_not_claimed`: claim the supplied code with the same `browser
   setup` command, then let the browser continue; do not invent a provisioning
   path.
@@ -344,7 +348,7 @@ Exempt listen-stream events (not billed after subscribe): `screen.*`,
 `runtime.*`, `application.event`, and heartbeats.
 
 Billed: other authenticated control-plane commands, including media, playlist,
-app, kv, playback, feedback, operations, screen pair/update/assign, and
+app, kv, comment, playback, feedback, operations, screen pair/update/assign, and
 `events list`. Opening `events follow` costs 1 credit as the listen
 subscribe. Later billed events on that stream cost 1 credit each
 (`playlist.*`, `media.*`, `kv.*`, `application.published`, `operation.*`,
@@ -383,13 +387,14 @@ screen provision (--open | --print-url) [--label LABEL]
 browser setup --code CODE [--open]
 screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE]
                    --if-match REVISION
-screen list
+screen list [--state archived]
 screen show <id>
 screen assign <id> --playlist-id ID --if-match REVISION
 screen set-timezone <id> --timezone ZONE --if-match REVISION
+screen archive <id> --if-match REVISION
+screen unarchive <id> --if-match REVISION
 screen delete <id> --if-match REVISION
 screen rotate-public-id <id> --if-match REVISION
-screen revoke-credential <id> --if-match REVISION
 screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
 screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
 kv get --application-id ID <key>
@@ -398,6 +403,12 @@ kv set --application-id ID <key> --file FILE --content-type TYPE [--if-match REV
 kv set --application-id ID <key> --value-base64 BASE64 --content-type TYPE [--if-match REVISION]
 kv delete --application-id ID <key> --if-match REVISION
 kv list --application-id ID
+comment show screen <id>
+comment show playlist <id> [--page PAGE_ID]
+comment set screen <id> (--json-value JSON | --file FILE)
+comment set playlist <id> [--page PAGE_ID] (--json-value JSON | --file FILE)
+comment delete screen <id>
+comment delete playlist <id> [--page PAGE_ID]
 operations get <id>
 operations wait <id> [--timeout MS] [--poll-ms MS]
 operations cancel <id>
@@ -427,6 +438,40 @@ backoff, and resumes from the last SSE id via `--after`. `--timeout`
 ends the whole follow, including backoff; 401, 403, 404, and other
 non-transient 4xx problems stop the command.
 
+`screen list` omits archived screens. `screen list --state archived` lists
+archived screens only. `screen show <id>` still returns an archived row.
+`screen archive <id> --if-match REVISION` hides the screen and darkens the
+glass. It does not unbind the player. `screen unarchive` restores it to the
+default list. `screen delete` is not a de-associate; it returns
+`screen_archive_required`. There is no account unbind. Do not call
+`screen revoke-credential`; that path is retired, and the CLI names
+`screen archive` instead. Archive, unarchive, and this list filter are
+**source-ready** working-tree CLI behavior. They are not in the locked
+plugin bundle, not marketplace, and not deployed.
+
+Comments are the agent's own structured JSON object on a screen, a playlist,
+or one playlist page. Compact UTF-8 of that object is at most 1 KiB. The
+value must be an object, not an array or scalar. ScreenRig does not read or
+use it, never sends it to players, and never treats it as authorization. It
+is not on the runtime manifest and does not bump revision.
+
+```bash
+"$SR" --json comment set screen scr_EXAMPLE --json-value '{"note":"lobby hours"}'
+"$SR" --json comment show screen scr_EXAMPLE
+"$SR" --json comment set playlist pl_EXAMPLE --page poster --file ./note.json
+"$SR" --json comment delete screen scr_EXAMPLE
+```
+
+`--json-value` is a JSON object. `--file` reads a JSON object from disk.
+Exactly one of those on set. Last write wins; do not send `--if-match`.
+Unset show is `{ "comments": null }`. `screen show` and `playlist show`
+include `comments` when the server sends it; do not strip it. Do not put
+comments on playlist create/update JSON; those writes cannot set it. Human
+HTTP paths such as `comment/screen/:id` are not CLI commands. Comment
+commands are **source-ready** working-tree CLI behavior. They are not in
+the locked plugin bundle, not marketplace, and not deployed. Do not
+hand-edit `plugins/screenrig/` to teach them.
+
 `screen screenshot <id>` is in v1. It blocks until a still WebP is on disk.
 The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and
 `--poll-ms` defaults to 500 ms. There is no `--no-wait`. Do not print
@@ -441,6 +486,14 @@ and `surfaces`. Each surface has `id`, `width`, `height`, `pixel_ratio`, and
 `presentation` (`output` or `windowed`). The field is read-only. `screen
 update` cannot send it. Absence means no player has reported a surface yet.
 Do not treat it as a meter. Do not invent extra surfaces.
+
+The same GET always includes `online`. It is true while a paired player is
+connected, including a short reconnect window, and false until the first
+connect. Optional `last_online_at` and `last_ip` appear after that first
+connect. When the screen is offline, `last_online_at` is the last time it was
+online. Absence of those two fields means the player has never connected.
+They are read-only. `screen update` cannot send them. Do not treat them as a
+meter. Do not invent a heartbeat.
 
 `playback list` returns daily playback aggregates for this account. One
 row per screen, media, and UTC day. Newest days first. `--screen-id`,
@@ -471,9 +524,10 @@ Write JSON, render a PNG, look at that PNG, iterate. Compose is not billed.
 `Frame`/`Column`/`Row`/`Box`/`Spacer`/`Text`/`Image`, roles
 `display|title|body|caption|label`, spaces `xs|s|m|l|xl`, pins
 `top|bottom|left|right`. Do not author `x`/`y` except on the Frame canvas.
-Do not author `fontSize`. `Image.src` is a local filesystem path relative to
-the spec file. The CLI does not fetch URLs. The envelope is structured JSON,
-not pixels.
+Do not author `fontSize`. Optional Text `textShadow` is `{ x, y, blur?, color }`
+in px; omit it to paint without a shadow. `Image.src` is a local filesystem
+path relative to the spec file. The CLI does not fetch URLs. The envelope is
+structured JSON, not pixels.
 
 `compose render` writes a PNG and `<output>.layout.json`. Default `--output`
 replaces a `.json` suffix with `.png`, or appends `.png`. Never print PNG
@@ -565,6 +619,43 @@ Use the `media_id` returned by `media upload`. Do not invent one.
 
 For `application` and `iframe` placements, and for the `application` advance
 mode, write a full page and follow "Putting a web app on a screen" below.
+
+### Page motion
+
+These are playlist document fields the CLI sends. Do not claim they are
+already live on production.
+
+Default pages: `transition` is `{ "type": "crossfade", "duration_ms": 200 }`.
+Do not put `enter` on placements.
+
+Use swipe types and placement `enter` sparingly, for emphasis or a particular
+style, not on every page.
+
+`transition.type` is `crossfade`, `swipe-left`, `swipe-right`, `swipe-up`, or
+`swipe-down`. `duration_ms` is required and runs from 0 through 60000. When
+you choose a swipe type, write `duration_ms: 600`. That is the authoring
+default for swipe, not a schema default. Template expansion still fills an
+omitted transition with crossfade 200 ms.
+
+Swipe is the incoming page's type. The outgoing page follows so the edges
+stay touching. The name is motion direction: `swipe-left` moves content
+left.
+
+Optional placement `enter` is `{ "type": "..." }` with that same object name
+on playlist JSON. There is no snake_case rename inside it. Types: `fade-up`,
+`fade-down`, `fade-left`, `fade-right`, `fade-in`, `zoom-in`, `zoom-out`.
+Absent means no object animation.
+
+If you want object animation, layer the content. Put the motion on the
+top-layer text or images. Do not animate every placement.
+
+Object enter starts invisible. It runs 500 ms after the page occupies the
+full viewport, for 400 ms. Those delays are contract constants, not author
+fields and not CLI flags. Do not send duration or delay inside `enter`.
+
+Swipe types and placement `enter` are **source-ready** working-tree CLI
+behavior. They are not in the locked plugin bundle, not marketplace, and not
+deployed. Do not hand-edit `plugins/screenrig/` to teach them.
 
 ### Templated page
 
