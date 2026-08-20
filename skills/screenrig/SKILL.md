@@ -620,6 +620,43 @@ Use the `media_id` returned by `media upload`. Do not invent one.
 For `application` and `iframe` placements, and for the `application` advance
 mode, write a full page and follow "Putting a web app on a screen" below.
 
+### Page motion
+
+These are playlist document fields the CLI sends. Do not claim they are
+already live on production.
+
+Default pages: `transition` is `{ "type": "crossfade", "duration_ms": 200 }`.
+Do not put `enter` on placements.
+
+Use swipe types and placement `enter` sparingly, for emphasis or a particular
+style, not on every page.
+
+`transition.type` is `crossfade`, `swipe-left`, `swipe-right`, `swipe-up`, or
+`swipe-down`. `duration_ms` is required and runs from 0 through 60000. When
+you choose a swipe type, write `duration_ms: 600`. That is the authoring
+default for swipe, not a schema default. Template expansion still fills an
+omitted transition with crossfade 200 ms.
+
+Swipe is the incoming page's type. The outgoing page follows so the edges
+stay touching. The name is motion direction: `swipe-left` moves content
+left.
+
+Optional placement `enter` is `{ "type": "..." }` with that same object name
+on playlist JSON. There is no snake_case rename inside it. Types: `fade-up`,
+`fade-down`, `fade-left`, `fade-right`, `fade-in`, `zoom-in`, `zoom-out`.
+Absent means no object animation.
+
+If you want object animation, layer the content. Put the motion on the
+top-layer text or images. Do not animate every placement.
+
+Object enter starts invisible. It runs 500 ms after the page occupies the
+full viewport, for 400 ms. Those delays are contract constants, not author
+fields and not CLI flags. Do not send duration or delay inside `enter`.
+
+Swipe types and placement `enter` are **source-ready** working-tree CLI
+behavior. They are not in the locked plugin bundle, not marketplace, and not
+deployed. Do not hand-edit `plugins/screenrig/` to teach them.
+
 ### Templated page
 
 Do not emit native `text`, `box`, or `line` through templates. Slide layouts

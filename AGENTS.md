@@ -56,6 +56,11 @@ does not own the CLI source, players, backend, site, or production deployment.
   show/set/delete is **source-ready** in the CLI working tree and in this
   canonical skill. It is not in the locked plugin bundle, not marketplace,
   and not deployed. Do not hand-edit `plugins/screenrig/` to teach it.
+  Playlist swipe `transition.type` values and optional placement `enter` are
+  **source-ready** in the CLI working tree and in this canonical skill.
+  Default pages stay `crossfade` with no `enter`. They are not in the locked
+  plugin bundle, not marketplace, and not deployed. Do not hand-edit
+  `plugins/screenrig/` to teach them.
 - The generated `plugins/screenrig/` copy still follows the locked CLI
   artifact in `components.lock.json`. Do not hand-edit it to teach the new
   surface. Alignment happens when the lock selects a reviewed CLI CI
