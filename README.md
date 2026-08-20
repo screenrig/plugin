@@ -50,6 +50,10 @@ default pair command requires the canonical six characters:
 <plugin-root>/skills/screenrig/scripts/screenrig --json screen pair ABC234
 ```
 
+Native player pairing codes last 72 hours while unclaimed. A successful
+`screen pair` claim starts a fresh independent 72-hour collection window. The
+CLI claims the code on the control plane; it does not time the code locally.
+
 The public homepage handoff is separate first-use convenience. An unclaimed
 `https://screenrig.ai/ABC-234` locator lasts 30 minutes. `browser setup --code
 ABC-234` accepts the dashed display form (or `ABC234`), and a successful claim

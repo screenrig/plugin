@@ -92,8 +92,11 @@ Run `screen pair CODE [--label LABEL]`; the CLI accepts lowercase input only by
 normalizing it to canonical uppercase. A middle dash is presentation-only, so
 both `ABC234` and `ABC-234` identify the same canonical code. Reject characters
 outside `23456789ABCDEFGHJKMNPQRSTUVWXYZ`. Report the paired screen returned by
-the command. Do not invent a URL-transfer, token-copy, browser-consent,
-account, email, or other default onboarding branch.
+the command. Native player pairing codes last 72 hours while unclaimed. A
+successful claim starts a fresh independent 72-hour collection window. The CLI
+claims the code on the control plane; it does not time the code locally. Do not
+invent a URL-transfer, token-copy, browser-consent, account, email, or other
+default onboarding branch.
 
 ## Homepage browser handoff
 
@@ -115,8 +118,9 @@ For stable failures, branch on `error.code`:
 
 - `browser_already_paired`: treat the browser as already connected, report
   success, and do not pair it again.
-- `handoff_code_invalid` or `handoff_code_expired`: ask the user to open
-  ScreenRig and copy a fresh setup instruction.
+- `handoff_code_invalid` or `handoff_code_expired`: the public locator lasts
+  30 minutes unclaimed. Ask the user to open ScreenRig and copy a fresh setup
+  instruction.
 - `browser_link_not_claimed`: claim the supplied code with the same `browser
   setup` command, then let the browser continue; do not invent a provisioning
   path.
@@ -442,6 +446,14 @@ and `surfaces`. Each surface has `id`, `width`, `height`, `pixel_ratio`, and
 update` cannot send it. Absence means no player has reported a surface yet.
 Do not treat it as a meter. Do not invent extra surfaces.
 
+The same GET always includes `online`. It is true while a paired player is
+connected, including a short reconnect window, and false until the first
+connect. Optional `last_online_at` and `last_ip` appear after that first
+connect. When the screen is offline, `last_online_at` is the last time it was
+online. Absence of those two fields means the player has never connected.
+They are read-only. `screen update` cannot send them. Do not treat them as a
+meter. Do not invent a heartbeat.
+
 `playback list` returns daily playback aggregates for this account. One
 row per screen, media, and UTC day. Newest days first. `--screen-id`,
 `--media-id`, and `--day YYYY-MM-DD` filter the caller's own rows.
@@ -471,9 +483,10 @@ Write JSON, render a PNG, look at that PNG, iterate. Compose is not billed.
 `Frame`/`Column`/`Row`/`Box`/`Spacer`/`Text`/`Image`, roles
 `display|title|body|caption|label`, spaces `xs|s|m|l|xl`, pins
 `top|bottom|left|right`. Do not author `x`/`y` except on the Frame canvas.
-Do not author `fontSize`. `Image.src` is a local filesystem path relative to
-the spec file. The CLI does not fetch URLs. The envelope is structured JSON,
-not pixels.
+Do not author `fontSize`. Optional Text `textShadow` is `{ x, y, blur?, color }`
+in px; omit it to paint without a shadow. `Image.src` is a local filesystem
+path relative to the spec file. The CLI does not fetch URLs. The envelope is
+structured JSON, not pixels.
 
 `compose render` writes a PNG and `<output>.layout.json`. Default `--output`
 replaces a `.json` suffix with `.png`, or appends `.png`. Never print PNG

@@ -68,6 +68,12 @@ does not own the CLI source, players, backend, site, or production deployment.
   chrome. Do not teach emitting native `text`, `box`, or `line` through
   playlist templates. Wire families are static (`image`), motion (`video`),
   and web (`iframe`, `application`). Compose is local and not billed.
+  Optional Text `textShadow` is `{ x, y, blur?, color }` in px on Text
+  only; omit it to paint without a shadow. It is not `screenrig.canvas/v1`
+  and not a player feature. Canonical skill source may teach it as
+  **source-ready** working-tree CLI behavior. It is not in the locked
+  plugin bundle, not marketplace, and not deployed. Do not hand-edit
+  `plugins/screenrig/` to teach it.
 - Human `events list` and `events follow` print logfmt. Human logfmt omits
   canned server sentences. An `application.event` or `runtime.reported` with
   no remaining data is silent. `--json events list` is one JSON page
