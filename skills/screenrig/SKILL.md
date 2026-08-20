@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate ScreenRig screens, applications, media, playlists, playback, events, feedback, and application K/V with the bundled ScreenRig CLI. Use when an agent receives a screenrig.ai browser setup URL or needs to pair or manage digital-signage screens, upload content, or inspect ScreenRig state.
+description: Operate ScreenRig screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled ScreenRig CLI. Use when an agent receives a screenrig.ai browser setup URL or needs to pair or manage digital-signage screens, upload content, or inspect ScreenRig state.
 ---
 
 # ScreenRig
@@ -348,7 +348,7 @@ Exempt listen-stream events (not billed after subscribe): `screen.*`,
 `runtime.*`, `application.event`, and heartbeats.
 
 Billed: other authenticated control-plane commands, including media, playlist,
-app, kv, playback, feedback, operations, screen pair/update/assign, and
+app, kv, comment, playback, feedback, operations, screen pair/update/assign, and
 `events list`. Opening `events follow` costs 1 credit as the listen
 subscribe. Later billed events on that stream cost 1 credit each
 (`playlist.*`, `media.*`, `kv.*`, `application.published`, `operation.*`,
@@ -403,6 +403,12 @@ kv set --application-id ID <key> --file FILE --content-type TYPE [--if-match REV
 kv set --application-id ID <key> --value-base64 BASE64 --content-type TYPE [--if-match REVISION]
 kv delete --application-id ID <key> --if-match REVISION
 kv list --application-id ID
+comment show screen <id>
+comment show playlist <id> [--page PAGE_ID]
+comment set screen <id> (--json-value JSON | --file FILE)
+comment set playlist <id> [--page PAGE_ID] (--json-value JSON | --file FILE)
+comment delete screen <id>
+comment delete playlist <id> [--page PAGE_ID]
 operations get <id>
 operations wait <id> [--timeout MS] [--poll-ms MS]
 operations cancel <id>
@@ -442,6 +448,29 @@ default list. `screen delete` is not a de-associate; it returns
 `screen archive` instead. Archive, unarchive, and this list filter are
 **source-ready** working-tree CLI behavior. They are not in the locked
 plugin bundle, not marketplace, and not deployed.
+
+Comments are the agent's own structured JSON object on a screen, a playlist,
+or one playlist page. Compact UTF-8 of that object is at most 1 KiB. The
+value must be an object, not an array or scalar. ScreenRig does not read or
+use it, never sends it to players, and never treats it as authorization. It
+is not on the runtime manifest and does not bump revision.
+
+```bash
+"$SR" --json comment set screen scr_EXAMPLE --json-value '{"note":"lobby hours"}'
+"$SR" --json comment show screen scr_EXAMPLE
+"$SR" --json comment set playlist pl_EXAMPLE --page poster --file ./note.json
+"$SR" --json comment delete screen scr_EXAMPLE
+```
+
+`--json-value` is a JSON object. `--file` reads a JSON object from disk.
+Exactly one of those on set. Last write wins; do not send `--if-match`.
+Unset show is `{ "comments": null }`. `screen show` and `playlist show`
+include `comments` when the server sends it; do not strip it. Do not put
+comments on playlist create/update JSON; those writes cannot set it. Human
+HTTP paths such as `comment/screen/:id` are not CLI commands. Comment
+commands are **source-ready** working-tree CLI behavior. They are not in
+the locked plugin bundle, not marketplace, and not deployed. Do not
+hand-edit `plugins/screenrig/` to teach them.
 
 `screen screenshot <id>` is in v1. It blocks until a still WebP is on disk.
 The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and
