@@ -116,8 +116,10 @@ must not be edited independently. CI reproduces the pinned CLI artifact,
 rebuilds/validates the bundle, scans the public boundary, and publishes
 deterministic `screenrig-plugin.tar.gz`.
 
-This repository does not deploy ScreenRig. Production assembly is owned only by
-the backend component lock.
+This repository does not deploy ScreenRig. Backend assemble is the only
+production droplet ingest. While backend component pinning is off (the
+default), assemble selects the latest successful consumer `ci.yml` on `main`.
+Backend `components.lock.json` is the pin-on input.
 
 ```sh
 python3 scripts/check-public-repo.py
