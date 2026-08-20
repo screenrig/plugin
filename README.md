@@ -116,8 +116,13 @@ must not be edited independently. CI reproduces the pinned CLI artifact,
 rebuilds/validates the bundle, scans the public boundary, and publishes
 deterministic `screenrig-plugin.tar.gz`.
 
-This repository does not deploy ScreenRig. Backend `main` is the only
-production droplet ingest.
+This repository does not deploy ScreenRig. **Deploys are independent**
+(operating rule): this repository's `main` Action publishes the
+`screenrig-plugin.tar.gz` CI artifact only. No marketplace publish unless
+the user asks later. Do not pack siblings. Do not dispatch backend. Do
+not copy deploy tokens between repos. Coordinated multi-repo deploy is
+rare and only for a breaking contract change. `components.lock.json` pins
+the bundled CLI artifact; it is not a production host lock.
 
 ```sh
 python3 scripts/check-public-repo.py

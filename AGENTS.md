@@ -13,9 +13,14 @@ does not own the CLI source, players, backend, site, or production deployment.
 - `scripts/build-plugin.py` defines generation of `plugins/screenrig/`.
 - `scripts/validate-plugin.py` and `scripts/check-public-repo.py` define the
   public/reproducibility boundary.
-- This repository publishes an artifact and never deploys ScreenRig. It does
-  not SSH the production host. Backend `main` is the only production droplet
-  ingest.
+- This repository publishes an artifact and never deploys ScreenRig.
+  **Deploys are independent** (operating rule): this repository's `main`
+  Action publishes the `screenrig-plugin.tar.gz` CI artifact only. No
+  marketplace publish unless the user asks later. Do not pack siblings.
+  Do not dispatch backend. Do not copy deploy tokens between repos.
+  Coordinated multi-repo deploy is rare and only for a breaking contract
+  change. `components.lock.json` pins the bundled CLI artifact; it is not
+  a production host lock.
 
 ## Edit and generation rules
 
