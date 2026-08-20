@@ -14,11 +14,8 @@ does not own the CLI source, players, backend, site, or production deployment.
 - `scripts/validate-plugin.py` and `scripts/check-public-repo.py` define the
   public/reproducibility boundary.
 - This repository publishes an artifact and never deploys ScreenRig. It does
-  not SSH the production host. After a successful `push` to `main`, CI may
-  `workflow_dispatch` backend `deploy-test.yml`. While backend component
-  pinning is off (the default), assemble selects the latest successful
-  consumer `ci.yml` on `main`. Backend `components.lock.json` is the pin-on
-  input.
+  not SSH the production host. Backend `main` is the only production droplet
+  ingest.
 
 ## Edit and generation rules
 
