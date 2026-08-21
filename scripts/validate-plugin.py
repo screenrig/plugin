@@ -368,6 +368,9 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "SCREENRIG_FFPROBE",
             "--no-transcode",
             "encodes video to H.264",
+            "npm install --global screenrig@0.1.0",
+            "official developer distribution",
+            "package-relative launcher",
         ],
         "skills/screenrig/SKILL.md": [
             "https://github.com/screenrig/plugin",
@@ -400,6 +403,9 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "--codec hevc",
             "H.264 MP4 by default",
             "fails `media upload` alone",
+            "official developer-shell distribution",
+            "not an agent plugin fallback",
+            "globally installed `screenrig`",
         ],
     }
     for relative, facts in required_marketplace.items():

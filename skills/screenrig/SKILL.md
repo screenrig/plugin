@@ -10,9 +10,10 @@ description: Operate ScreenRig screens, applications, media, playlists, playback
 Use the CLI through the `scripts/screenrig` launcher that ships next to this
 SKILL.md. That adjacent file is the default for a marketplace install, a
 project skill, and a project plugin. It requires Node.js 20.11 or newer. Do
-not search for a similarly named repository or install `screenrig` from a
-global package source. Do not substitute a globally installed `screenrig`
-binary.
+not search for a similarly named repository. ScreenRig's exact-version npm
+package is an official developer-shell distribution, but it is not an agent
+plugin fallback. Do not install or substitute a globally installed `screenrig`
+binary when this skill and its pinned launcher are available.
 
 ```bash
 SR="<directory-of-this-SKILL.md>/scripts/screenrig"
@@ -70,7 +71,7 @@ The published marketplace source is `https://github.com/screenrig/plugin`. Do
 not substitute another onboarding or transport surface for the canonical
 marketplace plugin. If installation or lookup still fails, report the failing
 runtime command and the canonical repository URL to the user. Do not
-substitute a globally installed command or download an executable.
+substitute the separate npm developer distribution or download an executable.
 
 Use `--json` for agent work. Branch on `ok`, `error.status`, `error.code`,
 and `warnings[].code`; do not parse prose. The first authenticated command enrolls automatically when

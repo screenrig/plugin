@@ -42,6 +42,21 @@ Use that same launcher for every ScreenRig command. It prefers
 walks parent directories to find a plugin root containing `cli/dist/bin.js`.
 It does not use a global ScreenRig executable or fetch mutable code.
 
+## Official npm CLI for developer shells
+
+The official npm distribution provides the same command-line product for direct
+developer shell use. For an exact version that is present on npm, install:
+
+```sh
+npm install --global screenrig@0.1.0
+screenrig --json version
+```
+
+The npm package is an official developer distribution, but it is not an agent
+plugin fallback. When an agent has loaded this plugin, it must use the adjacent
+package-relative launcher above. That launcher preserves the plugin's reviewed
+CLI pin and deliberately ignores a global `screenrig` on `PATH`.
+
 ## Pairing and browser setup
 
 Open `https://play.screenrig.ai` and ask the agent to pair the six-character

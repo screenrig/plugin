@@ -3,6 +3,9 @@
 This repository owns the public ScreenRig Codex/Claude marketplace, canonical
 skill source, plugin metadata, and generated bundle containing a pinned CLI. It
 does not own the CLI source, players, backend, site, or production deployment.
+The separately published `screenrig` npm package is the official developer-shell
+distribution. It is never a substitute for this plugin's pinned launcher in an
+agent workflow.
 
 ## Sources of truth
 
@@ -36,6 +39,9 @@ does not own the CLI source, players, backend, site, or production deployment.
   bundled `cli/dist/bin.js`. When that file is absent, resolve `cli/dist/bin.js`
   from a plugin-root environment variable or a parent-directory walk so a
   source checkout works without a marketplace install.
+- Do not add global npm resolution to the launcher. The npm package is for an
+  operator's developer shell; a loaded agent uses the reviewed CLI bundled with
+  its installed plugin.
 - The launcher preflights Node.js and nothing else. It must stay silent on
   success: `scripts/check-public-repo.py` and `scripts/validate-plugin.py` both
   require clean JSON on stdout and empty stderr. A dependency that only one
