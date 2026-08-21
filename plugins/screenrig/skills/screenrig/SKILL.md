@@ -189,18 +189,27 @@ and needs no external tool; skip the rest of this section.
 On a build that converts:
 
 - `media upload <file>` encodes video to an H.264 (High profile) MP4 by
-  default and images to WebP, then uploads the converted bytes.
+  default and images to lossy WebP, then uploads the converted bytes.
+  Stills are quality 90, keep alpha (`yuva` / `-alpha_q 100`), bound each
+  edge to 3840 px, never upscale, and never write lossless VP8L.
 - Optional `--tag TAG` stores a 1 to 32 letter-or-digit tag on the ready
-  object. `media list --tag TAG [--kind image|video]` filters by that tag.
+  object. Hyphens are rejected; `ExecIntro2026` is valid and `exec-intro`
+  is not. `media list --tag TAG [--kind image|video]` filters by that tag
+  and is the reliable filename → id map after upload.
   `media update <id> (--tag TAG | --clear-tag) --if-match REVISION` changes
   or clears it. Untagged objects are omitted when `--tag` is present on
   `media list`.
 - The conversion runs `ffmpeg` and `ffprobe`. They must be on `PATH`, or their
   absolute paths must be in `SCREENRIG_FFMPEG` and `SCREENRIG_FFPROBE`.
+- Image encode prefers ffmpeg `libwebp` / `libwebp_anim`. If those encoders
+  are missing, the CLI falls back to `cwebp` on `PATH`, or `SCREENRIG_CWEBP`.
+  Do not convert the still yourself.
 - `doctor` reports the `ffmpeg`, `ffprobe`, `encoder_libx264`,
-  `encoder_libx265`, `encoder_libwebp`, and `filter_hdr_tonemap` checks. Use it
-  to name the missing part before you ask the user for anything. The default
-  encode path needs `libx264`.
+  `encoder_libx265`, `encoder_libwebp`, `cwebp`, and `filter_hdr_tonemap`
+  checks. Use it to name the missing part before you ask the user for anything.
+  The default video path needs `libx264`. Image transcode works when
+  `encoder_libwebp` or `cwebp` passes. `encoder_libwebp` reports the ffmpeg
+  encoder only; a fail there does not mean stills cannot convert.
 
 A missing or unusable toolchain fails `media upload` alone. It returns a usage
 error, not a plugin installation failure. `screen pair`, `browser setup`,
@@ -212,11 +221,18 @@ call the installation unhealthy.
 When the toolchain is missing, tell the user which check failed and ask them to
 install ffmpeg 6.0 or newer, with `ffmpeg` and `ffprobe` reachable on `PATH`.
 Point them at their platform package manager or `https://ffmpeg.org/download.html`.
-An `encoder_libx264`, `encoder_libx265`, or `encoder_libwebp` failure means the
-installed ffmpeg build lacks that encoder, so the user needs a build that
-includes it. Do not install software on the user's computer without their
-explicit request. `--no-transcode` is the escape hatch: it skips conversion
-entirely and uploads the source file unchanged.
+An `encoder_libx264` or `encoder_libx265` failure means the installed ffmpeg
+build lacks that encoder, so the user needs a build that includes it for that
+video codec. `doctor` can pass `ffmpeg` and still fail `encoder_libwebp`. Name
+that check. If `cwebp` passes, stills still convert; do not ask the user to
+rebuild ffmpeg for images and do not use `--no-transcode` as the recovery.
+`--no-transcode` is only for a source that is already accepted delivery WebP;
+it is not a fallback for another image format when both encoders fail. Do not
+upload lossless WebP (`cwebp -lossless` / VP8L): the CLI rejects it before
+declaration. Players expect WebP. A PNG `--no-transcode` may not decode; do not
+assume it. If `doctor` `ready` fails, stop. A 503 / `transport_error` on
+`media upload` means the service is not ready, not a bad PNG. Do not install
+software on the user's computer without their explicit request.
 
 ### Codec choice
 
@@ -257,7 +273,8 @@ not rename the user's file on disk, and do not silently substitute a different
 name in the upload.
 
 Ask once per file. Do not re-prompt or re-upload to fix a name the user
-already accepted.
+already accepted. Stem the file before upload. The CLI only warns
+(`generic_filename`); it will not rename.
 
 The CLI is a backstop, not the prompt. It cannot ask anything, because it is
 noninteractive. When a low-information name reaches it, it adds an advisory
@@ -265,6 +282,11 @@ warning with code `generic_filename` to the envelope `warnings[]` array and
 still completes the upload successfully. Seeing that warning in a result means
 the asking step was missed; surface it to the user rather than retrying the
 upload.
+
+When `media upload` succeeds, the ready id is `data.media_id`. The same value
+is `data.id` and `data.operation.result.media_id`. Use that id in playlist
+selectors. Do not guess another path. After a tagged upload,
+`media list --tag TAG` is the filename → id map.
 
 ## Credential removal
 
@@ -395,7 +417,7 @@ screen archive <id> --if-match REVISION
 screen unarchive <id> --if-match REVISION
 screen delete <id> --if-match REVISION
 screen rotate-public-id <id> --if-match REVISION
-screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
+screen toast <id> --text TEXT [--level info] [--duration-ms MS]
 screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
 kv get --application-id ID <key>
 kv set --application-id ID <key> --json-value JSON [--if-match REVISION]
@@ -477,6 +499,12 @@ The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and
 `--poll-ms` defaults to 500 ms. There is no `--no-wait`. Do not print
 pixels.
 
+`screen toast` is the agent mark on a live wall. Use `--level info`. Info
+stream toasts are admitted in production. Omitted `--level` defaults to
+`info`. `error` and `alert` remain accepted. Do not toast player HTTP errors
+or other player-local faults through this command. Player-local faults are a
+different path: error always; alert and info only off production.
+
 `compose catalog` and `compose render` run locally. They do not enroll and
 they do not debit. See "Local compose" below.
 
@@ -510,30 +538,140 @@ K/V is binary-safe; use exactly one value mode.
 ## Local compose
 
 Write JSON, render a PNG, look at that PNG, iterate. Compose is not billed.
+Uploads and playlist writes are billed (one credit per authenticated mutating
+command). Iterate `compose render` and read `<output>.layout.json` before any
+`media upload`.
+
+Stem `--output` before `compose render` so the PNG name is the human handle
+(`exec-intro-overlay-native-video.png`, not `12-video-lower.png` or
+`still.png`). Default `--output` follows the spec filename. The CLI
+`generic_filename` warning will not rename on upload.
 
 ```bash
 "$SR" --json compose catalog
-"$SR" --json compose render ./spec.json --output ./still.png
-# agent reads ./still.png with vision; do not cat pixels into chat
+"$SR" --json compose render ./exec-intro-overlay-native-video.json \
+  --output ./exec-intro-overlay-native-video.png
+# read ./exec-intro-overlay-native-video.png.layout.json
+# (truncated, fitted fontSize, box)
+# agent reads the PNG with vision; do not cat pixels into chat
 # iterate the JSON and re-render
-"$SR" --json media upload ./still.png
+"$SR" --json media upload ./exec-intro-overlay-native-video.png --tag TAG
+"$SR" --json media list --tag TAG --kind image
 # playlist page: one image placement, rect = canvas, content_fit fill
 ```
 
 `compose catalog` prints the fail-closed node catalog: types
 `Frame`/`Column`/`Row`/`Box`/`Spacer`/`Text`/`Image`, roles
 `display|title|body|caption|label`, spaces `xs|s|m|l|xl`, pins
-`top|bottom|left|right`. Do not author `x`/`y` except on the Frame canvas.
-Do not author `fontSize`. Optional Text `textShadow` is `{ x, y, blur?, color }`
-in px; omit it to paint without a shadow. `Image.src` is a local filesystem
-path relative to the spec file. The CLI does not fetch URLs. The envelope is
-structured JSON, not pixels.
+`top|bottom|left|right`. Author only catalog fields. Unknown keys fail the
+whole spec. Do not author `x`/`y` except on the Frame canvas. Do not author
+`fontSize`. Roles pick the type ramp. On 1920×1080, `display` wishes 130 px,
+`title` 86, `body` 45, `caption`/`label` 32. Budget copy for that scale.
+The type ramp uses `min(Frame width, height)`. A 1920×400 strip Frame makes
+`title` wish 48 px, not 86. Overlay Frames stay 1920×1080. Never size the
+Frame to the plate. Read `layout.json` `ramp` vs `ramp_at_1080` (and
+`ramp_root`) after `compose render`. If `ramp.title.wish` is not 86 on a
+slide overlay, the Frame is the wrong size.
+`Image`, `Box`, `Row`, `Column`, and `Spacer` honor `width` and `height` in
+px. Keep `flex` for remaining space. An `Image` without `height` or `flex`
+in a Column has no main-axis size and paints nothing useful. `pin` `top` or
+`bottom` stretches the full width; `left` or `right` stretches the full
+height. Do not pin a wordmark. Optional Text
+`textShadow` is `{ x, y, blur?, color }` in px; omit it to paint without a
+shadow. `Image.src` is a local filesystem path relative to the spec file, never
+a URL. The CLI does not fetch. The envelope is structured JSON, not pixels.
+
+Omitted `Frame.background` fills `#1B2632`. Set `background` when you want a
+different ground. Default text fill is `#EEE9DF`; set `color` when you need
+another. Omit `fontFamily` to walk `Helvetica Neue` and the catalog fallbacks.
+A missing name is `usage_error`, not a silent fallback.
 
 `compose render` writes a PNG and `<output>.layout.json`. Default `--output`
-replaces a `.json` suffix with `.png`, or appends `.png`. Never print PNG
-bytes, pixels, or image data. `--open` opens the local PNG path on this
-computer only when the user asked to view the still here. Agent vision uses
-the file path, not `--open`.
+replaces a `.json` suffix with `.png`, or appends `.png`. Read that layout
+dump for `truncated`, fitted `fontSize`, and `box` before you upload. Never
+print PNG bytes, pixels, or image data. `--open` opens the local PNG path on
+this computer only when the user asked to view the still here. Agent vision
+uses the file path, not `--open`. Raster a diagram to PNG or WebP at canvas
+size, upload it, and place it as `image`. HTML is not a placement.
+
+### Slide, overlay, and wordmark
+
+`justify: "end"` is not the bottom of the slide unless the `Column` has
+`flex: 1`, or the copy lives in a `Box` with `pin: "bottom"`. A `Column`
+without `flex: 1` shrinks to its text and sits at the top of the Frame.
+
+Overlay still (transparent Frame, lower-third plate):
+
+```json
+{
+  "type": "Frame",
+  "width": 1920,
+  "height": 1080,
+  "background": "#00000000",
+  "children": [
+    {
+      "type": "Box",
+      "pin": "bottom",
+      "padding": "l",
+      "background": "#000000E8",
+      "children": [
+        { "type": "Text", "text": "Lower third", "role": "title", "color": "#FFFFFF" }
+      ]
+    }
+  ]
+}
+```
+
+Do not copy a short strip Frame from an older deck. Author the overlay at
+1920×1080 with `pin: "bottom"`. Leave a right pocket for the playlist
+wordmark: shrink-wrap `Column` plus `Spacer`. The 5% wordmark rect
+`{ x: 1424, y: 946, width: 400, height: 80 }` sits on bottom-plate body
+copy. A tighter corner that clears copy is
+`{ x: 1544, y: 996, width: 352, height: 68 }`.
+
+Side rail: shrink-wrap `Box` plus `Spacer`, not `pin: "left"` or `"right"`.
+A `Row` with `{ Box, Spacer flex: 1 }` is a left rail. Reverse the children
+for a right rail. Do not put `flex` on the copy `Box` or Yoga grows it
+across the canvas. Force newlines in title and body so min-width lands
+around 740–900 px; one long line almost fills the frame. Mix left, right,
+and bottom across a photo sequence. Bottom stays right for a lower-third.
+
+```json
+{
+  "type": "Frame",
+  "width": 1920,
+  "height": 1080,
+  "background": "#00000000",
+  "children": [
+    {
+      "type": "Row",
+      "children": [
+        {
+          "type": "Box",
+          "padding": "l",
+          "background": "#000000E8",
+          "children": [
+            { "type": "Text", "text": "Side title", "role": "title", "color": "#FFFFFF" }
+          ]
+        },
+        { "type": "Spacer", "flex": 1 }
+      ]
+    }
+  ]
+}
+```
+
+Playlist: photo `layer` 0 + overlay `layer` 1, both `content_fit: "fill"` on a
+1920×1080 canvas. Eight-digit hex is how the Frame stays transparent and the
+plate keeps alpha.
+
+Wordmark: playlist `image` placement with a `rect`. Soft-open: omit that
+placement until a named page. Do not pin a logo in compose; `pin` stretches
+the cross axis. Bottom-right on 1920×1080 with a 5% safe area is
+`{ "x": 1424, "y": 946, "width": 400, "height": 80 }` for a 400×80 contain
+box. That rect is one worked example, not the only size. If you raster the
+mark into the still instead, set `Image` `width` and `height` (or `flex` in a
+sized parent) so it is not 0×0.
 
 ## Playlist writes
 
@@ -566,7 +704,14 @@ Selector `by` values:
 
 `media_end` is valid only on a page with exactly one image or video placement.
 Video `loop` must be false. An image on `media_end` requires `dwell_ms`.
-`dwell_ms` is rejected on duration and application pages.
+`dwell_ms` is rejected on duration and application pages. A video plus a
+lower-third image is two placements: that page must use `advance.mode`
+`duration`, not `media_end`. Set `after_ms` longer than the clip, or set
+`loop: true`. If `after_ms` equals the clip length, the page cuts when the
+film ends.
+
+Default `transition` is `{ "type": "crossfade", "duration_ms": 200 }`. Use
+swipe types and placement `enter` sparingly. See "Page motion".
 
 ```json
 {
@@ -615,18 +760,96 @@ Video `loop` must be false. An image on `media_end` requires `dwell_ms`.
 }
 ```
 
-Use the `media_id` returned by `media upload`. Do not invent one.
+Use `data.media_id` from `media upload` (same value as `data.id`). Do not
+invent one. After a tagged upload, `media list --tag TAG` is the filename →
+id map.
+
+Photo plus overlay still:
+
+```json
+{
+  "id": "hero",
+  "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+  "transition": { "type": "crossfade", "duration_ms": 200 },
+  "advance": { "mode": "duration", "after_ms": 8000 },
+  "placements": [
+    {
+      "id": "photo",
+      "content": {
+        "type": "image",
+        "selector": { "by": "id", "media_id": "med_01EXAMPLEPHOTO0000000000" },
+        "alt": "Hero photo"
+      },
+      "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+      "layer": 0,
+      "content_fit": "fill"
+    },
+    {
+      "id": "overlay",
+      "content": {
+        "type": "image",
+        "selector": { "by": "id", "media_id": "med_01EXAMPLEOVERLAY000000000" },
+        "alt": "Lower third"
+      },
+      "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+      "layer": 1,
+      "content_fit": "fill"
+    }
+  ]
+}
+```
+
+Video plus a lower-third image uses the same two-layer shape with
+`advance.mode` `duration`. Do not use `media_end` there.
+
+```json
+{
+  "id": "clip",
+  "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+  "transition": { "type": "crossfade", "duration_ms": 200 },
+  "advance": { "mode": "duration", "after_ms": 20000 },
+  "placements": [
+    {
+      "id": "feature",
+      "content": {
+        "type": "video",
+        "selector": { "by": "id", "media_id": "med_01EXAMPLEVIDEO0000000000" },
+        "muted": true,
+        "loop": false
+      },
+      "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+      "layer": 0,
+      "content_fit": "fill"
+    },
+    {
+      "id": "overlay",
+      "content": {
+        "type": "image",
+        "selector": { "by": "id", "media_id": "med_01EXAMPLEOVERLAY000000000" },
+        "alt": "Lower third"
+      },
+      "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+      "layer": 1,
+      "content_fit": "fill"
+    }
+  ]
+}
+```
+
+A wordmark on this page is a third placement; it still forbids `media_end`.
 
 For `application` and `iframe` placements, and for the `application` advance
 mode, write a full page and follow "Putting a web app on a screen" below.
 
 ### Page motion
 
-These are playlist document fields the CLI sends. Do not claim they are
-already live on production.
+These are playlist document fields the CLI sends. The control plane accepts
+swipe types and placement `enter`.
 
 Default pages: `transition` is `{ "type": "crossfade", "duration_ms": 200 }`.
-Do not put `enter` on placements.
+Author crossfade unless swipe or `enter` is the intended emphasis. One overlay
+`enter` is enough; do not put `enter` on every placement, including the
+wordmark.
 
 Use swipe types and placement `enter` sparingly, for emphasis or a particular
 style, not on every page.
@@ -653,9 +876,10 @@ Object enter starts invisible. It runs 500 ms after the page occupies the
 full viewport, for 400 ms. Those delays are contract constants, not author
 fields and not CLI flags. Do not send duration or delay inside `enter`.
 
-Swipe types and placement `enter` are **source-ready** working-tree CLI
-behavior. They are not in the locked plugin bundle, not marketplace, and not
-deployed. Do not hand-edit `plugins/screenrig/` to teach them.
+Swipe types and placement `enter` are **repository-ready** on public `main`
+in this canonical skill and in the CLI. They are not in the locked plugin
+bundle and not marketplace. Do not hand-edit `plugins/screenrig/` to teach
+them.
 
 ### Templated page
 
@@ -958,7 +1182,12 @@ placements, and a media selector that resolves more than one object must set
 
 Take `--playlist-id` from `data.id` of the `playlist create` result. Take
 `--if-match` from the screen's current `revision`, which both `screen list` and
-`screen show` return.
+`screen show` return. `revision_conflict` means refetch and retry. Do not
+invent the revision.
+
+Looking at the screen stays the only proof of layout. `playlist create` `ok`
+means the server accepted selectors. `screen screenshot <id>` is in v1 and
+blocks on a WebP. Do not print pixels.
 
 ### 5. Verify the result
 
@@ -971,8 +1200,8 @@ resolved the release. It does not prove the app rendered.
   release appends `application.published`. An app that calls
   `screenrig.emit(code)` appends its own event, which is the most direct
   evidence that the app ran on a screen.
-- `screen toast <id> --level info --text "..."` puts a visible marker on the
-  stage and confirms the screen is live and reachable.
+- `screen toast <id> --level info --text "..."` is the agent mark on a live
+  wall. Use `--level info`. Info stream toasts are admitted in production.
 - Looking at the screen stays the only proof of layout and rendering. Ask the
   user to confirm what they see.
 
@@ -992,15 +1221,22 @@ resolved the release. It does not prove the app rendered.
   playlist schedules pages. Run the `screen set-timezone` command the error
   names, then assign. See "Page scheduling with visibility".
 
-`screen toast` posts one transient stage-chrome message to a named screen. It is
-not a placement: it occupies no canvas slot, has no layer, and is not part of
-readiness or crossfade. `--level` is `error`, `alert`, or `info`. `--text` is 1
-to 120 characters, line feed only, and at most three lines. `--duration-ms` is
-optional and must be between 2000 and 60000 when supplied; omitted values
-default to 10000 on the server. Latest-wins: there is no queue and no cancel
-command. The accepted envelope is `{ expires_at }` only; do not expect the text
-back, and do not put credentials or other secret material in the text. Level
-colours are player chrome and are not API fields.
+`screen toast` is the agent mark on a live wall. It posts one transient
+stage-chrome message to a named screen. It is not a placement: it occupies no
+canvas slot, has no layer, and is not part of readiness or crossfade.
+
+Use `--level info`. Info stream toasts are admitted in production. Omitted
+`--level` defaults to `info`. `error` and `alert` remain accepted. Do not
+toast player HTTP errors or other player-local faults through this command.
+Player-local faults are a different path: error always; alert and info only
+off production.
+
+`--text` is 1 to 120 characters, line feed only, and at most three lines.
+`--duration-ms` is optional and must be between 2000 and 60000 when supplied;
+omitted values default to 10000 on the server. Latest-wins: there is no queue
+and no cancel command. The accepted envelope is `{ expires_at }` only; do not
+expect the text back, and do not put credentials or other secret material in
+the text. Level colours are player chrome and are not API fields.
 
 On `revision_conflict`, fetch the resource, reapply the intended change, and
 retry with the returned revision. On an ambiguous transport failure, reuse the

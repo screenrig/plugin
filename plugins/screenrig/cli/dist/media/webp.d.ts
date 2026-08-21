@@ -11,6 +11,8 @@ export interface WebpContainer {
     /** Zero when the chunk that carries the canvas size is absent. */
     width: number;
     height: number;
+    /** True when a VP8L chunk is present (lossless still, alone or after VP8X). */
+    lossless: boolean;
 }
 export declare function readWebpContainer(bytes: Buffer): WebpContainer | undefined;
 //# sourceMappingURL=webp.d.ts.map

@@ -14,8 +14,22 @@ export interface FfmpegLookup {
     ffmpegFromEnv: boolean;
     ffprobeFromEnv: boolean;
 }
+/** Resolved `cwebp` binary used when ffmpeg has no libwebp encoder. */
+export interface CwebpToolchain {
+    cwebp: string;
+    version: string;
+    fromEnv: boolean;
+}
+export interface CwebpLookup {
+    cwebp: string;
+    cwebpFromEnv: boolean;
+}
 /** Where the CLI will look for the toolchain, without running anything. */
 export declare function ffmpegLookup(env: NodeJS.Dict<string>): FfmpegLookup;
+/** Where the CLI will look for `cwebp`, without running anything. */
+export declare function cwebpLookup(env: NodeJS.Dict<string>): CwebpLookup;
+/** First dotted version token in `cwebp -version` output, else `unknown`. */
+export declare function parseCwebpVersion(output: string): string;
 export declare function runProcessFor(runtime: CliRuntime): RunProcess;
 /** Rows look like " V....D libx265   libx265 H.265 / HEVC (codec hevc)". */
 export declare function parseEncoderNames(output: string): Set<string>;
@@ -25,9 +39,14 @@ export declare function parseEncoderNames(output: string): Set<string>;
  * signature rather than a fixed number of leading flag characters.
  */
 export declare function parseFilterNames(output: string): Set<string>;
-/** Test seam: forget the memoized toolchain probe. */
+/** Test seam: forget the memoized ffmpeg and cwebp probes. */
 export declare function resetFfmpegToolchainCache(): void;
 export declare function resolveFfmpegToolchain(runtime: CliRuntime): Promise<FfmpegToolchain>;
+/**
+ * Probe `cwebp` the same way ffmpeg is probed. A missing binary is `undefined`,
+ * not an exception, so the image planner can name both missing pieces together.
+ */
+export declare function resolveCwebpToolchain(runtime: CliRuntime): Promise<CwebpToolchain | undefined>;
 /** The single video stream and container facts the transcode planner uses. */
 export interface MediaProbe {
     hasVideo: boolean;

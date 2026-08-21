@@ -4,7 +4,7 @@ import { createCanvas, GlobalFonts, loadImage } from "@napi-rs/canvas";
 import Yoga, { Align as YogaAlign, Direction, Edge, FlexDirection, Gutter, Justify as YogaJustify, MeasureMode, PositionType, } from "yoga-layout";
 import { FONT_FALLBACKS } from "./catalog.js";
 import { fitType } from "./fit-text.js";
-import { resolveSpace, spaceScale, typeRamp } from "./tokens.js";
+import { REFERENCE_CANVAS, rampRoot, resolveSpace, spaceScale, typeRamp } from "./tokens.js";
 import { validateSpec } from "./validate.js";
 const ALIGN = {
     start: YogaAlign.FlexStart,
@@ -83,6 +83,12 @@ function buildTree(node, ctx, family, ramp, space) {
         yoga.setJustifyContent(JUSTIFY[node.justify] ?? YogaJustify.FlexStart);
     if (node.pin)
         applyPin(yoga, node.pin);
+    if (node.type !== "Frame") {
+        if (typeof node.width === "number")
+            yoga.setWidth(node.width);
+        if (typeof node.height === "number")
+            yoga.setHeight(node.height);
+    }
     if (node.type === "Frame") {
         yoga.setWidth(node.width ?? 0);
         yoga.setHeight(node.height ?? 0);
@@ -95,7 +101,9 @@ function buildTree(node, ctx, family, ramp, space) {
         yoga.setFlexDirection(FlexDirection.Column);
     }
     else if (node.type === "Spacer") {
-        yoga.setFlexGrow(node.flex ?? 1);
+        if (typeof node.flex !== "number" && node.width == null && node.height == null) {
+            yoga.setFlexGrow(1);
+        }
     }
     else if (node.type === "Text") {
         const role = node.role ?? "body";
@@ -291,6 +299,8 @@ export async function composeSpec(spec, options) {
     const height = tree.height ?? 0;
     const space = spaceScale(width, height);
     const ramp = typeRamp(width, height);
+    const ramp_root = rampRoot(width, height);
+    const ramp_at_1080 = typeRamp(REFERENCE_CANVAS.width, REFERENCE_CANVAS.height);
     const scratch = createCanvas(8, 8);
     const measureCtx = scratch.getContext("2d");
     const root = buildTree(tree, measureCtx, family, ramp, space);
@@ -310,13 +320,15 @@ export async function composeSpec(spec, options) {
         }
         if (options.layoutOutPath) {
             await mkdir(dirname(options.layoutOutPath), { recursive: true });
-            await writeFile(options.layoutOutPath, `${JSON.stringify({ space, ramp, tree: layout }, null, 2)}\n`);
+            await writeFile(options.layoutOutPath, `${JSON.stringify({ space, ramp, ramp_root, ramp_at_1080, tree: layout }, null, 2)}\n`);
         }
         return {
             png,
             layout,
             space,
             ramp,
+            ramp_root,
+            ramp_at_1080,
             font_family: family,
             truncated: anyTruncated(layout),
             width,

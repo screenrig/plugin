@@ -14,9 +14,22 @@ export function ffmpegLookup(env) {
         ffprobeFromEnv: ffprobeEnv !== undefined,
     };
 }
+/** Where the CLI will look for `cwebp`, without running anything. */
+export function cwebpLookup(env) {
+    const cwebpEnv = trimmed(env.SCREENRIG_CWEBP);
+    return {
+        cwebp: cwebpEnv ?? "cwebp",
+        cwebpFromEnv: cwebpEnv !== undefined,
+    };
+}
 function trimmed(value) {
     const text = value?.trim();
     return text && text.length > 0 ? text : undefined;
+}
+/** First dotted version token in `cwebp -version` output, else `unknown`. */
+export function parseCwebpVersion(output) {
+    const match = /(\d+\.\d+(?:\.\d+)?)/.exec(output);
+    return match?.[1] ?? "unknown";
 }
 export function runProcessFor(runtime) {
     const run = runtime.runProcess;
@@ -69,9 +82,11 @@ export function parseFilterNames(output) {
     return names;
 }
 let cached;
-/** Test seam: forget the memoized toolchain probe. */
+let cwebpCached;
+/** Test seam: forget the memoized ffmpeg and cwebp probes. */
 export function resetFfmpegToolchainCache() {
     cached = undefined;
+    cwebpCached = undefined;
 }
 export async function resolveFfmpegToolchain(runtime) {
     cached ??= probeToolchain(runtime);
@@ -128,6 +143,38 @@ async function probeToolchain(runtime) {
         ffprobeVersion: parseVersion(ffprobeVersionResult.stdout),
         encoders: parseEncoderNames(encodersResult.stdout),
         filters: parseFilterNames(filtersResult.stdout),
+    };
+}
+/**
+ * Probe `cwebp` the same way ffmpeg is probed. A missing binary is `undefined`,
+ * not an exception, so the image planner can name both missing pieces together.
+ */
+export async function resolveCwebpToolchain(runtime) {
+    cwebpCached ??= probeCwebp(runtime);
+    try {
+        return await cwebpCached;
+    }
+    catch (error) {
+        cwebpCached = undefined;
+        throw error;
+    }
+}
+async function probeCwebp(runtime) {
+    const run = runProcessFor(runtime);
+    const lookup = cwebpLookup(runtime.env);
+    const result = await run({
+        command: lookup.cwebp,
+        args: ["-version"],
+        timeoutMs: VERSION_TIMEOUT_MS,
+    });
+    if (result.spawnError || result.code !== 0 || result.timedOut) {
+        return undefined;
+    }
+    const version = parseCwebpVersion(`${result.stdout}\n${result.stderrTail}`);
+    return {
+        cwebp: lookup.cwebp,
+        version,
+        fromEnv: lookup.cwebpFromEnv,
     };
 }
 const ALPHA_PIXEL_MARKERS = ["rgba", "bgra", "argb", "abgr", "yuva", "gbrap", "pal8"];

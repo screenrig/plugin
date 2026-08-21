@@ -22,6 +22,8 @@ export interface ComposeResult {
     layout: LayoutDump;
     space: SpaceScale;
     ramp: TypeRamp;
+    ramp_root: number;
+    ramp_at_1080: TypeRamp;
     font_family: string;
     truncated: boolean;
     width: number;

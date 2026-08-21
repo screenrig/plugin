@@ -29,7 +29,7 @@ import { isSensitiveKey, isSensitiveValue, redactEvent, redactText } from "./red
 import { expandPlaylistPages, formatTemplateCatalog, playlistTemplateCatalog, } from "./playlist-templates.js";
 import { composeCatalog, formatComposeCatalog } from "./compose/catalog.js";
 import { composeSpec } from "./compose/compose.js";
-import { ffmpegLookup, resolveFfmpegToolchain } from "./media/ffmpeg.js";
+import { cwebpLookup, ffmpegLookup, resolveCwebpToolchain, resolveFfmpegToolchain } from "./media/ffmpeg.js";
 import { createProgressReporter, silentProgressReporter } from "./media/progress.js";
 import { DEFAULT_CODEC, DEFAULT_MAX_FPS, DEFAULT_WEBP_QUALITY, MAX_EDGE, transcodeForUpload, } from "./media/transcode.js";
 export const CLI_VERSION = "0.1.0";
@@ -78,7 +78,7 @@ Commands:
   screen unarchive <id> --if-match REVISION
   screen delete <id> --if-match REVISION
   screen rotate-public-id <id> --if-match REVISION
-  screen toast <id> --level error|alert|info --text TEXT [--duration-ms MS]
+  screen toast <id> --text TEXT [--level info] [--duration-ms MS]
   screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
   kv get --application-id ID <key>
   kv set --application-id ID <key> --json-value JSON [--if-match REVISION]
@@ -178,6 +178,8 @@ async function composeRender(args, runtime) {
         font_family: result.font_family,
         space: result.space,
         ramp: result.ramp,
+        ramp_root: result.ramp_root,
+        ramp_at_1080: result.ramp_at_1080,
         truncated: result.truncated,
         ...(opened !== undefined ? { opened } : {}),
     };
@@ -1045,6 +1047,7 @@ const FEEDBACK_COMMAND_PATTERN = /^[a-z][a-z0-9-]{0,31}( [a-z][a-z0-9-]{0,31}){0
 const FEEDBACK_TITLE_MAX = 120;
 const FEEDBACK_BODY_MAX = 4000;
 const TOAST_LEVELS = new Set(["error", "alert", "info"]);
+const TOAST_DEFAULT_LEVEL = "info";
 const TOAST_TEXT_MAX = 120;
 const TOAST_MAX_LINES = 3;
 const TOAST_DURATION_MIN = 2000;
@@ -1562,13 +1565,14 @@ async function screenToast(args, client) {
     if (args.flags["duration-ms"] === true) {
         throw usageError("--duration-ms requires a value.");
     }
-    const level = flagString(args.flags, "level");
+    const rawLevel = flagString(args.flags, "level");
     const rawText = flagString(args.flags, "text");
-    if (!id || !level || rawText === undefined) {
-        throw usageError("screen toast requires <id>, --level error|alert|info, and --text TEXT.");
+    if (!id || rawText === undefined) {
+        throw usageError("screen toast requires <id> and --text TEXT.");
     }
+    const level = rawLevel ?? TOAST_DEFAULT_LEVEL;
     if (!isScreenToastLevel(level)) {
-        throw usageError("--level must be error, alert, or info.");
+        throw usageError("--level must be error, alert, or info. Agent toasts use --level info.");
     }
     const text = trimToastText(rawText);
     const textLength = [...text].length;
@@ -2235,6 +2239,28 @@ async function doctor(args, runtime, resolved) {
     catch (err) {
         const detail = err instanceof CliError ? err.problem.detail : err instanceof Error ? redactText(err.message) : "ffmpeg probe failed";
         checks.push({ name: "ffmpeg", status: "fail", detail });
+    }
+    const webpLookup = cwebpLookup(runtime.env);
+    try {
+        const cwebp = await resolveCwebpToolchain(runtime);
+        if (cwebp) {
+            checks.push({
+                name: "cwebp",
+                status: "pass",
+                detail: `${cwebp.cwebp} ${cwebp.version}${cwebp.fromEnv ? " (SCREENRIG_CWEBP)" : ""}`,
+            });
+        }
+        else {
+            checks.push({
+                name: "cwebp",
+                status: "fail",
+                detail: `${webpLookup.cwebp} not available${webpLookup.cwebpFromEnv ? " (SCREENRIG_CWEBP)" : ""}`,
+            });
+        }
+    }
+    catch (err) {
+        const detail = err instanceof CliError ? err.problem.detail : err instanceof Error ? redactText(err.message) : "cwebp probe failed";
+        checks.push({ name: "cwebp", status: "fail", detail });
     }
     const client = clientFor(runtime, args, resolved.apiUrl, resolved.token);
     for (const route of ["/.health", "/.ready", "/.version", "/api/v1/capabilities"]) {

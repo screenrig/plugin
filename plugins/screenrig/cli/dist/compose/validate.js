@@ -1,10 +1,10 @@
 import { PINS, ROLES, SPACES } from "./tokens.js";
 const FRAME_KEYS = new Set(["type", "width", "height", "background", "fontFamily", "direction", "padding", "gap", "align", "justify", "children"]);
-const STACK_KEYS = new Set(["type", "flex", "padding", "gap", "align", "justify", "children", "background", "radius", "pin"]);
+const STACK_KEYS = new Set(["type", "width", "height", "flex", "padding", "gap", "align", "justify", "children", "background", "radius", "pin"]);
 const TEXT_KEYS = new Set(["type", "text", "role", "color", "align", "flex", "textShadow"]);
 const TEXT_SHADOW_KEYS = new Set(["x", "y", "blur", "color"]);
-const IMAGE_KEYS = new Set(["type", "src", "flex", "objectFit", "radius"]);
-const SPACER_KEYS = new Set(["type", "flex"]);
+const IMAGE_KEYS = new Set(["type", "src", "width", "height", "flex", "objectFit", "radius"]);
+const SPACER_KEYS = new Set(["type", "width", "height", "flex"]);
 const LEAVES = new Set(["Text", "Image", "Spacer"]);
 const STACKS = new Set(["Frame", "Column", "Row", "Box"]);
 const FORBIDDEN = ["x", "y", "left", "top", "right", "bottom", "fontSize", "font_size", "lineHeight", "level", "weight", "size"];
@@ -57,6 +57,16 @@ function walk(node, path) {
     if (type === "Frame") {
         if ("width" in node && typeof node.width !== "number")
             throw usage(`${path}.width required`);
+    }
+    else {
+        for (const field of ["width", "height"]) {
+            if (!(field in node))
+                continue;
+            const value = node[field];
+            if (!isFiniteNumber(value) || value <= 0) {
+                throw usage(`${path}.${field} must be a finite number greater than 0`);
+            }
+        }
     }
     for (const field of ["padding", "gap", "radius"]) {
         const value = node[field];

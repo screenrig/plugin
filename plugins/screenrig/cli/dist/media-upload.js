@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { isValidIdempotencyKey } from "./ids.js";
+import { readWebpContainer } from "./media/webp.js";
 import { networkError, usageError } from "./problems.js";
+const MEDIA_PUT_NOT_READY = "Private media upload did not complete because the service is not ready. Run screenrig --json doctor and check the ready result before retrying.";
 export const SUPPORTED_MEDIA_CONTENT_TYPES = [
     "image/png",
     "image/jpeg",
@@ -40,6 +42,9 @@ export async function prepareMediaUpload(filePath, explicitContentType) {
     }
     if (bytes.length < 1)
         throw usageError("Media file must not be empty.");
+    if (contentType === "image/webp" && readWebpContainer(bytes)?.lossless) {
+        throw usageError("Lossless WebP (VP8L) is not accepted. Encode lossy WebP that keeps alpha, then upload with --no-transcode.");
+    }
     // 1 GiB is a plan-independent transport ceiling. The default plan has no
     // product storage cap. A custom ceiling, when present, is checked first and
     // rejected with quota_exceeded. Remaining prepaid credit of zero rejects
@@ -97,9 +102,12 @@ export async function performSignedMediaPut(prepared, session, signedRawPut) {
         });
     }
     catch {
-        throw networkError("Private media upload failed before the server accepted it.");
+        throw networkError(MEDIA_PUT_NOT_READY);
     }
     if (response.status < 200 || response.status >= 300) {
+        if (response.status === 503) {
+            throw networkError(MEDIA_PUT_NOT_READY);
+        }
         throw networkError(`Private media upload returned HTTP ${response.status}.`);
     }
 }

@@ -63,6 +63,15 @@ export declare function boundedSize(width: number, height: number, maxEdge: numb
     width: number;
     height: number;
 };
+/**
+ * Image bound used when cwebp is given exact pixel sizes. Unlike `boundedSize`,
+ * this does not snap to even values: stills have no 4:2:0 chroma constraint.
+ */
+export declare function boundedImageSize(width: number, height: number, maxEdge: number): {
+    width: number;
+    height: number;
+};
+export declare function hasWebpEncoder(toolchain: FfmpegToolchain, animated: boolean): boolean;
 export declare function boundedScaleFilter(maxEdge: number): string;
 export declare function isHdr(probe: MediaProbe): boolean;
 /**

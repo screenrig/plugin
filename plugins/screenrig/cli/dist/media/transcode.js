@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { usageError } from "../problems.js";
 import { redactText } from "../redact.js";
-import { probeMedia, resolveFfmpegToolchain, runProcessFor, } from "./ffmpeg.js";
+import { probeMedia, resolveCwebpToolchain, resolveFfmpegToolchain, runProcessFor, } from "./ffmpeg.js";
 import { silentProgressReporter } from "./progress.js";
 import { readWebpContainer } from "./webp.js";
 /**
@@ -59,12 +59,15 @@ export async function transcodeForUpload(request) {
     const toolchain = await resolveFfmpegToolchain(runtime);
     const probe = await probeMedia(runtime, toolchain, filePath);
     const sourceBytes = (await stat(filePath)).size;
+    const sourceWebp = kind === "image" &&
+        (probe.codec === "webp" || path.extname(filePath).toLowerCase() === ".webp" || request.explicitContentType === "image/webp")
+        ? readWebpContainer(await readFile(filePath, { flag: "r" }))
+        : undefined;
     if (!probe.hasVideo) {
         // ffmpeg has no animated-WebP demuxer, so a valid animated WebP probes empty.
-        const container = kind === "image" ? readWebpContainer(await readFile(filePath, { flag: "r" })) : undefined;
-        if (container?.animated) {
-            if (container.width > options.maxEdge || container.height > options.maxEdge) {
-                throw usageError(`${path.basename(filePath)} is an animated WebP of ${container.width}x${container.height}, ` +
+        if (sourceWebp?.animated) {
+            if (sourceWebp.width > options.maxEdge || sourceWebp.height > options.maxEdge) {
+                throw usageError(`${path.basename(filePath)} is an animated WebP of ${sourceWebp.width}x${sourceWebp.height}, ` +
                     `which exceeds the ${options.maxEdge}px bound, and ffmpeg cannot decode animated WebP to resize it. ` +
                     "Supply the original source, or pass --no-transcode to upload it unchanged.");
             }
@@ -78,8 +81,8 @@ export async function transcodeForUpload(request) {
                 sourceBytes,
                 outputBytes: sourceBytes,
                 durationMs: 0,
-                width: container.width,
-                height: container.height,
+                width: sourceWebp.width,
+                height: sourceWebp.height,
                 // Read from the RIFF header of the exact bytes being uploaded.
                 dimensionsMeasured: true,
                 warnings: [],
@@ -88,7 +91,7 @@ export async function transcodeForUpload(request) {
         throw usageError(`ffprobe found no decodable ${kind} stream in ${path.basename(filePath)}. ` +
             "Pass --no-transcode to upload the bytes unchanged.");
     }
-    const passthrough = passthroughReason(kind, probe, options);
+    const passthrough = passthroughReason(kind, probe, options, sourceWebp);
     if (passthrough) {
         return {
             filePath,
@@ -117,7 +120,7 @@ export async function transcodeForUpload(request) {
     try {
         const plan = kind === "video"
             ? planVideo(toolchain, probe, options, filePath, outputPath)
-            : planImage(toolchain, probe, options, filePath, outputPath);
+            : await planImage(runtime, toolchain, probe, options, filePath, outputPath);
         reporter.start({
             stage: kind,
             target: plan.target,
@@ -127,19 +130,23 @@ export async function transcodeForUpload(request) {
             height: probe.displayHeight,
         });
         const startedAt = runtime.now().getTime();
-        await runEncode(runtime, toolchain, plan.args, plan.progressDurationSeconds, reporter);
+        const tool = path.basename(plan.command) || plan.command;
+        await runEncode(runtime, plan.command, plan.args, plan.progressDurationSeconds, reporter);
         let outputBytes;
         try {
             outputBytes = (await stat(outputPath)).size;
         }
         catch {
-            throw usageError("ffmpeg reported success but wrote no output file.");
+            throw usageError(`${tool} reported success but wrote no output file.`);
         }
         if (outputBytes < 1) {
-            throw usageError("ffmpeg wrote an empty output file.");
+            throw usageError(`${tool} wrote an empty output file.`);
         }
         const durationMs = runtime.now().getTime() - startedAt;
         reporter.finish({ outputBytes, elapsedMs: durationMs });
+        if (kind === "image") {
+            await requireLossyDeliveryWebp(outputPath);
+        }
         const measured = await measureOutput(runtime, toolchain, outputPath, kind);
         const warnings = [...plan.warnings];
         if (!measured) {
@@ -167,6 +174,26 @@ export async function transcodeForUpload(request) {
         reporter.failed();
         await rm(cleanupDir, { recursive: true, force: true });
         throw error;
+    }
+}
+/**
+ * Delivery stills must be lossy WebP. Reject VP8L and unreadable output here
+ * so a bad encoder result never becomes a declared `image/webp` upload.
+ */
+async function requireLossyDeliveryWebp(outputPath) {
+    let bytes;
+    try {
+        bytes = await readFile(outputPath, { flag: "r" });
+    }
+    catch {
+        throw usageError("The image encoder reported success but the WebP output could not be read.");
+    }
+    const container = readWebpContainer(bytes);
+    if (!container || container.width < 1 || container.height < 1) {
+        throw usageError("The image encoder did not write a WebP file the CLI can read.");
+    }
+    if (container.lossless) {
+        throw usageError("The image encoder wrote lossless WebP (VP8L). Encode lossy WebP that keeps alpha.");
     }
 }
 /**
@@ -209,11 +236,16 @@ async function measureOutput(runtime, toolchain, outputPath, kind) {
  * space. Only an already-conforming WebP still is passed through, because
  * re-encoding it would lose quality for no delivery benefit.
  */
-function passthroughReason(kind, probe, options) {
+function passthroughReason(kind, probe, options, sourceWebp) {
     if (kind !== "image") {
         return undefined;
     }
     if (probe.codec !== "webp") {
+        return undefined;
+    }
+    // ScreenRig's delivery profile is lossy WebP. A lossless source must take
+    // the encode path instead of passing through and being rejected at upload.
+    if (sourceWebp?.lossless) {
         return undefined;
     }
     if (probe.displayWidth > options.maxEdge || probe.displayHeight > options.maxEdge) {
@@ -232,6 +264,26 @@ export function boundedSize(width, height, maxEdge) {
     }
     const even = (value) => Math.max(2, Math.round(value / 2) * 2);
     return { width: even(width * scale), height: even(height * scale) };
+}
+/**
+ * Image bound used when cwebp is given exact pixel sizes. Unlike `boundedSize`,
+ * this does not snap to even values: stills have no 4:2:0 chroma constraint.
+ */
+export function boundedImageSize(width, height, maxEdge) {
+    if (width <= 0 || height <= 0) {
+        return { width, height };
+    }
+    const scale = Math.min(1, maxEdge / width, maxEdge / height);
+    if (scale >= 1) {
+        return { width, height };
+    }
+    return {
+        width: Math.max(1, Math.round(width * scale)),
+        height: Math.max(1, Math.round(height * scale)),
+    };
+}
+export function hasWebpEncoder(toolchain, animated) {
+    return toolchain.encoders.has("libwebp") || (animated && toolchain.encoders.has("libwebp_anim"));
 }
 export function boundedScaleFilter(maxEdge) {
     return (`scale=w='min(${maxEdge},iw)':h='min(${maxEdge},ih)'` +
@@ -350,6 +402,7 @@ function planVideo(toolchain, probe, options, input, output) {
     // Players play a complete cached file, so a faststart remux is wasted work.
     args.push("-avoid_negative_ts", "make_zero", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", "-write_tmcd", "0", "-threads", "0", "-progress", "pipe:1", "-nostdin", "-y", output);
     return {
+        command: toolchain.ffmpeg,
         args,
         target: options.codec === "hevc" ? "H.265 MP4" : "H.264 MP4",
         reason: `re-encoded to ${options.codec === "hevc" ? "H.265" : "H.264"} MP4, bounded to ${options.maxEdge}px ` +
@@ -367,15 +420,31 @@ export function isAnimated(probe) {
     }
     return probe.frameCount === 0 && probe.durationSeconds > 0 && probe.fps > 0 && probe.durationSeconds * probe.fps > 1.5;
 }
-function planImage(toolchain, probe, options, input, output) {
-    if (!toolchain.encoders.has("libwebp") && !toolchain.encoders.has("libwebp_anim")) {
-        throw usageError("This ffmpeg build has no libwebp encoder, so it cannot produce WebP. " +
-            "Install an ffmpeg built with libwebp, or pass --no-transcode to upload the source unchanged.", {
+async function planImage(runtime, toolchain, probe, options, input, output) {
+    const animated = isAnimated(probe);
+    if (hasWebpEncoder(toolchain, animated)) {
+        return planImageFfmpeg(toolchain, probe, options, input, output, animated);
+    }
+    if (animated) {
+        throw usageError("This ffmpeg build has no libwebp encoder, so it cannot produce animated WebP. " +
+            "cwebp encodes stills only. Install an ffmpeg built with libwebp, or pass --no-transcode " +
+            "to upload the source unchanged.", {
             command: "screenrig doctor",
-            reason: "Report which encoders the resolved ffmpeg build provides.",
+            reason: "Report which image encoders the resolved toolchain provides.",
         });
     }
-    const animated = isAnimated(probe);
+    const cwebp = await resolveCwebpToolchain(runtime);
+    if (!cwebp) {
+        throw usageError("This ffmpeg build has no libwebp encoder, and cwebp is not available, so the CLI cannot produce WebP. " +
+            "Install an ffmpeg built with libwebp, or install cwebp on PATH (or set SCREENRIG_CWEBP). " +
+            "Pass --no-transcode only when the source is already delivery WebP.", {
+            command: "screenrig doctor",
+            reason: "Report which image encoders the resolved toolchain provides.",
+        });
+    }
+    return planImageCwebp(cwebp, probe, options, input, output);
+}
+function planImageFfmpeg(toolchain, probe, options, input, output, animated) {
     const size = boundedSize(probe.displayWidth, probe.displayHeight, options.maxEdge);
     const scale = `scale=w='min(${options.maxEdge},iw)':h='min(${options.maxEdge},ih)'` +
         ":force_original_aspect_ratio=decrease";
@@ -391,6 +460,7 @@ function planImage(toolchain, probe, options, input, output) {
     }
     args.push("-c:v", encoder, "-pix_fmt", probe.hasAlpha ? "yuva420p" : "yuv420p", "-quality", String(options.webpQuality), "-preset", "picture", "-compression_level", "6", "-progress", "pipe:1", "-nostdin", "-y", output);
     return {
+        command: toolchain.ffmpeg,
         args,
         target: animated ? "animated WebP" : "WebP",
         reason: `converted to ${animated ? "animated " : ""}WebP quality ${options.webpQuality}, bounded to ${options.maxEdge}px on both edges`,
@@ -400,41 +470,68 @@ function planImage(toolchain, probe, options, input, output) {
         warnings: [],
     };
 }
+function planImageCwebp(cwebp, probe, options, input, output) {
+    const size = boundedImageSize(probe.displayWidth, probe.displayHeight, options.maxEdge);
+    const needsResize = size.width !== probe.displayWidth || size.height !== probe.displayHeight;
+    // Match `cwebp -q N -alpha_q 100 INPUT -o OUTPUT`. Never `-lossless`.
+    const args = ["-q", String(options.webpQuality), "-alpha_q", "100"];
+    if (needsResize) {
+        args.push("-resize", String(size.width), String(size.height));
+    }
+    args.push(input, "-o", output);
+    return {
+        command: cwebp.cwebp,
+        args,
+        target: "WebP",
+        reason: `converted to WebP quality ${options.webpQuality} with cwebp, bounded to ${options.maxEdge}px on both edges`,
+        progressDurationSeconds: 0,
+        outputWidth: size.width,
+        outputHeight: size.height,
+        warnings: [],
+    };
+}
 /**
  * ffmpeg writes `-progress pipe:1` records as key=value lines. `out_time_ms` is
  * historically microseconds, matching `out_time_us`; both are read that way.
  */
-async function runEncode(runtime, toolchain, args, durationSeconds, reporter) {
+async function runEncode(runtime, command, args, durationSeconds, reporter) {
     const run = runProcessFor(runtime);
+    const tool = path.basename(command) || command;
     let sawEnd = false;
     const result = await run({
-        command: toolchain.ffmpeg,
+        command,
         args,
-        onStdoutLine: (line) => {
-            const separator = line.indexOf("=");
-            if (separator < 0) {
-                return;
+        // ffmpeg `-progress pipe:1` is line-oriented. cwebp is not; streaming its
+        // stdout as UTF-8 progress records would misread a still encode.
+        ...(args.includes("-progress")
+            ? {
+                onStdoutLine: (line) => {
+                    const separator = line.indexOf("=");
+                    if (separator < 0) {
+                        return;
+                    }
+                    const key = line.slice(0, separator).trim();
+                    const value = line.slice(separator + 1).trim();
+                    if (key === "out_time_ms" || key === "out_time_us") {
+                        const micros = Number.parseFloat(value);
+                        if (durationSeconds > 0 && Number.isFinite(micros) && micros > 0) {
+                            reporter.update(micros / 1_000_000 / durationSeconds);
+                        }
+                        return;
+                    }
+                    if (key === "progress" && value === "end") {
+                        sawEnd = true;
+                        reporter.update(1);
+                    }
+                },
             }
-            const key = line.slice(0, separator).trim();
-            const value = line.slice(separator + 1).trim();
-            if (key === "out_time_ms" || key === "out_time_us") {
-                const micros = Number.parseFloat(value);
-                if (durationSeconds > 0 && Number.isFinite(micros) && micros > 0) {
-                    reporter.update(micros / 1_000_000 / durationSeconds);
-                }
-                return;
-            }
-            if (key === "progress" && value === "end") {
-                sawEnd = true;
-                reporter.update(1);
-            }
-        },
+            : {}),
     });
     if (result.spawnError) {
-        throw usageError(`ffmpeg could not start: ${redactText(result.spawnError)}.`);
+        throw usageError(`${tool} could not start: ${redactText(result.spawnError)}.`);
     }
     if (result.code !== 0) {
-        throw usageError(`ffmpeg exited with status ${result.code ?? "unknown"}: ${summarizeFfmpegError(result.stderrTail)}`);
+        throw usageError(`${tool} exited with status ${result.code ?? "unknown"}: ${summarizeFfmpegError(result.stderrTail)}`);
     }
     if (!sawEnd) {
         reporter.update(1);

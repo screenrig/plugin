@@ -9,6 +9,8 @@ export interface ComposeCatalog {
     pins: typeof PINS[number][];
     rules: {
         authoring_xy: string;
+        child_size: string;
+        pin_stretch: string;
         fontSize: false;
         image_src: string;
         envelope: string;
