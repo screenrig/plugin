@@ -96,18 +96,23 @@ of the pinned CLI build, so read it from the tool itself:
 ```
 
 A build whose `checks` include `ffmpeg` and `ffprobe` encodes video to H.264
-(High profile) MP4 and images to WebP before upload. That build needs ffmpeg 6.0 or
+(High profile) MP4 and images to lossy WebP before upload. That build needs ffmpeg 6.0 or
 newer, with `ffmpeg` and `ffprobe` on `PATH` or their absolute paths in
-`SCREENRIG_FFMPEG` and `SCREENRIG_FFPROBE`. `doctor` also reports the
-`encoder_libx264`, `encoder_libx265`, `encoder_libwebp`, and
-`filter_hdr_tonemap` checks. A build that reports none of these uploads the
-source bytes unchanged.
+`SCREENRIG_FFMPEG` and `SCREENRIG_FFPROBE`. Image encode prefers ffmpeg
+`libwebp`; if that encoder is missing, the CLI falls back to `cwebp` on `PATH`
+or `SCREENRIG_CWEBP`. `doctor` also reports the
+`encoder_libx264`, `encoder_libx265`, `encoder_libwebp`, `cwebp`, and
+`filter_hdr_tonemap` checks. `encoder_libwebp` is the ffmpeg encoder only.
+This pinned build never silently falls back to uploading an unconverted source
+when its required toolchain is missing.
 
 A missing toolchain fails `media upload` alone; pairing, playlists, and
-application K/V are unaffected. `--no-transcode` uploads the source file
-unchanged. `--codec hevc` opts in to H.265 for a smaller file at the same
-quality; use it only when every screen that will play the media is a native
-player (Qt/GStreamer or Android/MediaCodec).
+application K/V are unaffected. `--no-transcode` uploads accepted delivery
+bytes unchanged; lossless WebP is still rejected. It is the escape hatch for
+already-correct delivery WebP, not the recovery for a missing libwebp encoder.
+`--codec hevc` opts in to H.265 for a smaller file at the same quality; use it
+only when every screen that will play the media is a native player
+(Qt/GStreamer or Android/MediaCodec).
 
 ## Artifact provenance and validation
 
