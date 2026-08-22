@@ -469,8 +469,8 @@ default list. `screen delete` is not a de-associate; it returns
 `screen_archive_required`. There is no account unbind. Do not call
 `screen revoke-credential`; that path is retired, and the CLI names
 `screen archive` instead. Archive, unarchive, and this list filter are
-**source-ready** working-tree CLI behavior. They are not in the locked
-plugin bundle, not marketplace, and not deployed.
+implemented by the pinned CLI. This source tree is not evidence of
+marketplace availability or deployment.
 
 Comments are the agent's own structured JSON object on a screen, a playlist,
 or one playlist page. Compact UTF-8 of that object is at most 1 KiB. The
@@ -491,9 +491,8 @@ Unset show is `{ "comments": null }`. `screen show` and `playlist show`
 include `comments` when the server sends it; do not strip it. Do not put
 comments on playlist create/update JSON; those writes cannot set it. Human
 HTTP paths such as `comment/screen/:id` are not CLI commands. Comment
-commands are **source-ready** working-tree CLI behavior. They are not in
-the locked plugin bundle, not marketplace, and not deployed. Do not
-hand-edit `plugins/screenrig/` to teach them.
+commands are implemented by the pinned CLI. This source tree is not evidence
+of marketplace availability or deployment.
 
 `screen screenshot <id>` is in v1. It blocks until a still WebP is on disk.
 The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and
@@ -877,10 +876,9 @@ Object enter starts invisible. It runs 500 ms after the page occupies the
 full viewport, for 400 ms. Those delays are contract constants, not author
 fields and not CLI flags. Do not send duration or delay inside `enter`.
 
-Swipe types and placement `enter` are **repository-ready** on public `main`
-in this canonical skill and in the CLI. They are not in the locked plugin
-bundle and not marketplace. Do not hand-edit `plugins/screenrig/` to teach
-them.
+Swipe types and placement `enter` are implemented by the pinned CLI and taught
+by this canonical skill. Marketplace availability is separate and must not be
+inferred from this source tree.
 
 ### Templated page
 

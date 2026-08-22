@@ -6,6 +6,25 @@ distribution is the exact CI artifact pinned and bundled by
 [`screenrig/plugin`](https://github.com/screenrig/plugin); the plugin invokes it
 through a package-relative launcher.
 
+## Official npm installation for developer shells
+
+The public npm package is `screenrig`. Install an exact published version rather
+than a mutable range:
+
+```sh
+npm install --global screenrig@0.1.0
+screenrig --json version
+```
+
+Node.js 20.11 or newer is required. `media upload` additionally requires ffmpeg
+and ffprobe 6.0 or newer; the other commands do not. Run `screenrig --json doctor`
+to inspect the optional media toolchain before an upload.
+
+This global package is the official developer-shell distribution. Agent workflows
+that load the ScreenRig plugin must keep using the plugin-relative launcher. The
+plugin pins and bundles an exact reviewed CLI artifact, so it never resolves a
+global `screenrig` from `PATH` and never substitutes the npm package at run time.
+
 ## Implemented behavior
 
 The CLI emits machine-readable envelopes and automatically enrolls on the first
@@ -71,10 +90,9 @@ want object animation, layer the content and put the motion on the
 top-layer text or images. Do not animate every placement. Object enter
 starts invisible. It runs 500 ms after the page occupies the full
 viewport, for 400 ms. Those delays are contract constants, not author
-fields and not CLI flags. These are playlist document fields the CLI
-sends. The control plane accepts swipe types and placement `enter`.
-Canonical CLI source on public `main` is repository-ready. They are not
-in the locked plugin bundle.
+fields and not CLI flags. The pinned CLI implements these playlist document
+fields, and the control plane accepts swipe types and placement `enter`. This
+does not establish marketplace availability or deployment.
 
 The ordinary pair command currently accepts six canonical characters:
 
@@ -107,9 +125,9 @@ de-associate; the server returns `screen_archive_required`.
 Ed25519 identity with `ScreenRig-Pairing` and `ScreenRig-Session`;
 `ScreenRig-Device` is retired. Signed on-device reset is the only
 de-associate. The CLI is not a screen and holds no player keypair. `screen
-archive` and `screen unarchive` are repository-ready on public `main`. They are
-absent from the locked plugin bundle. Native identity remains an owning-player
-claim; none of this is a marketplace, deployed, or hardware-validated claim.
+archive` and `screen unarchive` are implemented by the pinned CLI. Native
+identity remains an owning-player claim; none of this establishes marketplace
+availability, deployment, or hardware validation.
 
 Application packing accepts an already-built static directory. It produces
 deterministic bounded archives, injects the pinned browser SDK runtime, and
@@ -125,8 +143,8 @@ object on a screen, a playlist, or one playlist page. Compact UTF-8 of that
 object is at most 1 KiB. ScreenRig does not read or use it, does not send it
 to players, and does not treat it as authorization. Set takes `--json-value`
 or `--file`. Last write wins; there is no `--if-match`. These commands are
-repository-ready on public `main`. They are absent from the locked plugin
-bundle and are not a marketplace or deployed claim.
+implemented by the pinned CLI. Their inclusion does not establish marketplace
+availability or deployment.
 
 `playback list` returns daily playback aggregates for this account, newest
 days first. Filter with `--screen-id`, `--media-id`, and `--day YYYY-MM-DD`.
@@ -182,10 +200,9 @@ is safe: the request carries `Idempotency-Key`, and an exact retry returns the
 original link and expiry for twenty-four hours instead of minting a second live
 link.
 
-This command is **repository-ready on public `main`**. It is absent from the
-locked plugin bundle. The dashboard origin is not deployed: no request has
-been served there, so a minted link does not resolve yet. Do not read this
-section as a working dashboard.
+This command is implemented by the pinned CLI. The dashboard origin is not
+deployed: no request has been served there, so a minted link does not resolve
+yet. Do not read this section as a working dashboard.
 
 ## Feedback
 
@@ -317,9 +334,8 @@ The spec is a fail-closed tree of `Frame`, `Column`, `Row`, `Box`, `Spacer`,
 `label`. Spacing tokens are `xs`, `s`, `m`, `l`, and `xl`. Pins are `top`,
 `bottom`, `left`, and `right`. Do not author `x` or `y` on any node. The root
 `Frame` defines the canvas through required `width` and `height`. Do not author
-`fontSize`. The current source accepts positive `width` and `height` values in
-px on `Image`, `Box`, `Row`, `Column`, and `Spacer`. This implemented behavior
-is not in the locked plugin bundle. Keep `flex` for remaining space.
+`fontSize`. The pinned CLI accepts positive `width` and `height` values in px on
+`Image`, `Box`, `Row`, `Column`, and `Spacer`. Keep `flex` for remaining space.
 `pin` `top` or `bottom` stretches the full width; `left` or `right` stretches
 the full height. Size a wordmark with `width` and `height`, not `pin`.
 Optional Text `textShadow` is
@@ -526,13 +542,17 @@ is absent, valueless, not a directory, or missing a canonical input is an error,
 never a pass. Run it whenever the backend contract may have changed; a snapshot
 that passes `vendor:check` can still be superseded.
 
-CI publishes deterministic `screenrig-cli.tgz`. The plugin repository pins that
-artifact by CLI commit and SHA-256. **Deploys are independent** (operating
-rule): this repository's `main` Action publishes that CI artifact only. No
-npm or marketplace publish unless the user asks later. Do not pack siblings.
-Do not dispatch backend. Do not copy deploy tokens between repos.
-Coordinated multi-repo deploy is rare and only for a breaking contract
-change. This repository does not deploy ScreenRig.
+The ordinary `main` workflow publishes deterministic `screenrig-cli.tgz` as a
+short-lived CI artifact. The plugin repository pins that artifact by CLI commit
+and SHA-256. A separate protected workflow publishes npm only after a
+non-prerelease GitHub release is published with a tag matching the package version.
+It uses npm trusted publishing through GitHub OIDC, includes provenance, performs
+exact-version clean-install tests on Linux, macOS, and Windows, and attaches the
+offline archive plus its checksum to the stable GitHub release. See the
+[release procedure](https://github.com/screenrig/cli/blob/main/RELEASING.md).
+
+The plugin marketplace is a separate distribution. This repository does not
+deploy ScreenRig, publish Homebrew formulae, or publish to PyPI.
 
 The release archive vendors the complete production dependency closure from
 `package-lock.json`, including every locked native canvas target. Packaging

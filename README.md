@@ -98,8 +98,8 @@ proofs with `ScreenRig-Pairing` and `ScreenRig-Session`.
 protected content and `screenrig.webapp-package/v1` artifacts remain
 manifest-bound. Screenshotting is in v1. `screen screenshot <id>`
 blocks on a still WebP and writes a file. It does not print image
-bytes. Native identity, archive, and reset are source-ready in owning
-repos; they are not a deployed claim.
+bytes. Native identity, archive, and reset exist in their owning repositories;
+this documentation does not claim deployment.
 
 ## Media uploads
 

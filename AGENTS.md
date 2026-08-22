@@ -54,23 +54,19 @@ agent workflow.
 ## Product and security boundaries
 
 - Teach only implemented CLI commands. Canonical skill source
-  `skills/screenrig/SKILL.md` teaches the current CLI; its Commands block
-  matches CLI `USAGE`. New consumer commands (`playback list`, media tags,
-  `app upload --name`) and `events follow` reconnect are **repository-ready**
-  on public `main` in that skill and in the CLI. They are not in the locked
-  plugin bundle, not marketplace, and not deployed. Agent `comment`
-  show/set/delete is **source-ready** in the CLI working tree and in this
-  canonical skill. It is not in the locked plugin bundle, not marketplace,
-  and not deployed. Do not hand-edit `plugins/screenrig/` to teach it.
-  Playlist swipe `transition.type` values and optional placement `enter` are
-  **repository-ready** on public `main` in this canonical skill and in the
-  CLI. The control plane accepts them. Default pages stay `crossfade` with
-  no `enter`. They are not in the locked plugin bundle and not marketplace.
-  Do not hand-edit `plugins/screenrig/` to teach them.
-- The generated `plugins/screenrig/` copy still follows the locked CLI
-  artifact in `components.lock.json`. Do not hand-edit it to teach the new
-  surface. Alignment happens when the lock selects a reviewed CLI CI
-  artifact and the bundle is regenerated.
+  `skills/screenrig/SKILL.md` teaches the CLI selected by
+  `components.lock.json`; its Commands block matches CLI `USAGE`. The selected
+  CLI implements the consumer commands, reconnecting event stream, agent
+  comments, archive lifecycle, local compose, and playlist animation described
+  by the canonical skill. A generated source bundle is not evidence of
+  marketplace availability or deployment. Do not hand-edit
+  `plugins/screenrig/` to teach a command. Playlist swipe `transition.type`
+  values and optional placement `enter` are in the selected CLI and canonical
+  skill. The control plane accepts them. Default pages stay `crossfade` with
+  no `enter`.
+- The generated `plugins/screenrig/` copy follows the locked CLI artifact in
+  `components.lock.json`. Do not hand-edit it. Alignment happens when the lock
+  selects a reviewed CLI CI artifact and the bundle is regenerated.
 - The current `screen pair` parser accepts the canonical undashed six
   characters; `browser setup` accepts the public dashed/undashed handoff
   form.
@@ -84,10 +80,9 @@ agent workflow.
   sources. Native players and the installed PWA identity path use
   `ScreenRig-Pairing` and `ScreenRig-Session`. `ScreenRig-Device` is
   retired. Archive hides a screen; signed on-device reset is the only
-  de-associate. `screen archive` / `screen unarchive` are source-ready in
-  the CLI working tree. They are not in the locked plugin bundle, not
-  marketplace, and not deployed. Do not hand-edit `plugins/screenrig/`
-  to teach them.
+  de-associate. The selected CLI implements `screen archive` and
+  `screen unarchive`. Do not infer marketplace availability or deployment
+  from the generated bundle.
 - Screenshotting is in v1. `screen screenshot <id>` blocks on a still WebP and
   writes a file. Do not print pixels.
 - Teach local compose (`compose catalog`, `compose render`) for copy and
@@ -96,10 +91,8 @@ agent workflow.
   and web (`iframe`, `application`). Compose is local and not billed.
   Optional Text `textShadow` is `{ x, y, blur?, color }` in px on Text
   only; omit it to paint without a shadow. It is not `screenrig.canvas/v1`
-  and not a player feature. Canonical skill source may teach it as
-  **source-ready** working-tree CLI behavior. It is not in the locked
-  plugin bundle, not marketplace, and not deployed. Do not hand-edit
-  `plugins/screenrig/` to teach it.
+  and not a player feature. The selected CLI implements it locally. Do not
+  infer marketplace availability or deployment from the generated bundle.
 - Human `events list` and `events follow` print logfmt. Human logfmt omits
   canned server sentences. An `application.event` or `runtime.reported` with
   no remaining data is silent. `--json events list` is one JSON page
