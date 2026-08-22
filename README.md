@@ -77,19 +77,56 @@ ABC-234` accepts the dashed display form (or `ABC234`), and a successful claim
 creates a fresh independent 10-minute protected delivery window. CLI output is
 limited to the normalized code, claim status, and fragment-free Player URL.
 
-The first authenticated operation enrolls automatically, stores its credential
-with user-only permissions outside the replaceable plugin directory, verifies
-it, and resumes the original request. The default configuration is
+Enrollment is explicit and mandatory. Nothing enrolls as a side effect of
+another command. Until this installation holds a credential, every
+authenticated command fails with `error.code` `not_enrolled` and an
+`error.next.command` naming what to run, and sends no authenticated request.
+
+```sh
+screenrig --json agent enroll --email you@example.com --name "NAME THE AGENT CHOOSES"
+```
+
+`--email` is required. The agent supplies an address it already knows for the
+user, and asks the user when it does not know one. The server stores the
+trimmed address as unverified contact metadata: ScreenRig sends no mail, the
+address is never a login identifier, and it does not recover an account.
+Dashboard sign-in stays passkey-only. One account per address; a `409`
+`email_conflict` means the address is already enrolled, and the remedy is
+`agent connect`, never a second address. `--name` is optional in the contract,
+but the agent should choose one, because that name is how the human recognizes
+this installation in the dashboard Agents view.
+
+Enrollment stores its credential with user-only permissions outside the
+replaceable plugin directory and verifies it. The default configuration is
 `$XDG_CONFIG_HOME/screenrig/config.json` when `XDG_CONFIG_HOME` is set,
 `%APPDATA%\screenrig\config.json` on Windows, or
 `~/.config/screenrig/config.json`; `SCREENRIG_CONFIG` may override it.
 
-`auth revoke --yes` revokes the calling credential on the server before local
-credential and retry state are removed. Success requires an empty `204`
-response and issues no replacement. The account, screens, and content remain;
-the next account-scoped command enrolls a separate new account. Failed or
-ambiguous results preserve local state, and retrying the exact revocation is
-safe.
+`agent connect [--name NAME]` connects this installation to an existing
+account after a fresh dashboard passkey assertion. The status SSE carries state only; the distinct agent
+credential is recipient-encrypted and collected separately. Cancelled and
+expired connections are terminal. Definitive rejection or revocation of a
+pending bearer clears unusable local connection state; ambiguous failures retain
+it for exact retry. `agent status` never enrolls.
+For an active agent it reports `connection_ready` only when a persisted
+dashboard passkey can approve another agent.
+`agent disconnect --yes` revokes only this installation and preserves the
+account, screens, content, and other agents. The last-agent safety check needs
+`--allow-lockout` as a separate explicit choice. `auth status` and `auth revoke
+--yes [--allow-lockout]` remain deprecated aliases; revoke has the same
+last-agent guard and cleanup behavior as disconnect. Failed or ambiguous
+disconnects preserve local state for an exact retry.
+
+These agent identity commands are included in the reviewed CLI artifact pinned
+by `components.lock.json` and in the generated plugin bundle. That is source
+and artifact evidence only; it does not establish marketplace publication,
+installation, or public-origin availability.
+
+The dashboard Agents view lists agent state, last use, direct request and
+credit usage, and recent resource events. A fresh passkey assertion can
+disconnect one selected agent without deleting the account or its content.
+Authenticated request counts are best-effort diagnostics, not exact billing or
+audit totals.
 
 Browser cookie handoff uses server-managed HttpOnly cookies. Native
 players and the installed PWA identity path use generate-once Ed25519
@@ -153,8 +190,8 @@ skills/screenrig/scripts/screenrig --json version
 
 Full regeneration additionally requires the exact CLI artifact selected by
 `components.lock.json`. Source validation does not prove marketplace
-installation, automatic enrollment against the live API, pairing, public
-browser handoff, native hardware, or production deployment.
+installation, enrollment against the live API, pairing, public browser
+handoff, native hardware, or production deployment.
 
 Security reports belong in
 [GitHub Private Vulnerability Reporting](https://github.com/screenrig/plugin/security/advisories/new).

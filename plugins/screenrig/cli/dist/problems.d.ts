@@ -37,6 +37,13 @@ export declare function withQuotaGuidance(problem: NormalizedProblem): Normalize
  */
 export declare function withPaymentGuidance(problem: NormalizedProblem): NormalizedProblem;
 export declare function usageError(detail: string, next?: ProblemNext): CliError;
+/**
+ * This installation holds no usable agent credential. Enrollment is explicit and
+ * is never a side effect of another command, so every authenticated command
+ * fails with this stable code and a `next.command` an agent can run directly.
+ * `not_enrolled` is the same machine token `agent status` reports.
+ */
+export declare function notEnrolledError(detail: string, next?: ProblemNext): CliError;
 export declare function configError(detail: string, next?: ProblemNext): CliError;
 export declare function networkError(detail: string, request_id?: string): CliError;
 export declare function timeoutError(detail: string, request_id?: string): CliError;

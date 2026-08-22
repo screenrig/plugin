@@ -111,10 +111,10 @@ export class ApiClient {
 }
 export function requireToken(token) {
     if (!token) {
-        throw new CliError(makeProblem("unauthenticated", "Credential unavailable", 401, "Automatic enrollment did not produce a durable credential.", {
+        throw new CliError(makeProblem("unauthenticated", "Credential unavailable", 401, "This installation has no durable agent credential.", {
             next: {
-                command: "screenrig doctor --json",
-                reason: "Inspect the local credential state, then retry the original command.",
+                command: "screenrig agent enroll --email ADDRESS",
+                reason: "Enrollment is explicit. Create the first agent, then retry the original command.",
             },
         }), ExitCode.Auth);
     }

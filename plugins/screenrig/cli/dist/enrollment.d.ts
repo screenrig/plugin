@@ -2,10 +2,12 @@ import { type ConfigFs, type ResolvedConfig } from "./config.js";
 export interface EnrollmentCredential {
     token: string;
     accountId?: string;
+    agentId?: string;
 }
 export interface EnrollmentState {
     clientId: string;
     idempotencyKey: string;
+    email: string;
 }
 export interface EnrollmentRuntime {
     fs: ConfigFs;
@@ -21,6 +23,8 @@ export declare function ensureCredential(options: {
     runtime: EnrollmentRuntime;
     enroll: (state: EnrollmentState) => Promise<EnrollmentCredential>;
     verify: (token: string, accountId?: string) => Promise<void>;
+    /** Exact validated, trimmed contact address for a new or legacy pending enrollment. */
+    enrollmentEmail?: string;
     generateClientId?: () => string;
     generateIdempotencyKey?: () => string;
 }): Promise<ResolvedConfig>;

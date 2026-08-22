@@ -54,25 +54,51 @@ agent workflow.
 ## Product and security boundaries
 
 - Teach only implemented CLI commands. Canonical skill source
-  `skills/screenrig/SKILL.md` teaches the CLI selected by
-  `components.lock.json`; its Commands block matches CLI `USAGE`. The selected
-  CLI implements the consumer commands, reconnecting event stream, agent
-  comments, archive lifecycle, local compose, and playlist animation described
-  by the canonical skill. A generated source bundle is not evidence of
-  marketplace availability or deployment. Do not hand-edit
-  `plugins/screenrig/` to teach a command. Playlist swipe `transition.type`
-  values and optional placement `enter` are in the selected CLI and canonical
-  skill. The control plane accepts them. Default pages stay `crossfade` with
-  no `enter`.
+  `skills/screenrig/SKILL.md` normally teaches the CLI selected by
+  `components.lock.json`. It may lead that lock while a reviewed replacement CLI
+  artifact is pending, but must label the gap and match current verified CLI
+  source rather than pretending the generated bundle already contains it. At
+  lock/regeneration time its Commands block must match the selected CLI `USAGE`.
+  A generated source bundle is not evidence of marketplace availability or
+  deployment. Do not hand-edit `plugins/screenrig/` to teach a command.
+  Playlist swipe `transition.type` values and optional placement `enter` are in
+  the selected CLI and canonical skill. The control plane accepts them. Default
+  pages stay `crossfade` with no `enter`.
 - The generated `plugins/screenrig/` copy follows the locked CLI artifact in
   `components.lock.json`. Do not hand-edit it. Alignment happens when the lock
   selects a reviewed CLI CI artifact and the bundle is regenerated.
+- The locked and generated bundle includes explicit enrollment,
+  `not_enrolled`, and the agent identity commands. Any later CLI change that
+  alters the packaged artifact requires another reviewed CI artifact, lock
+  update, and regeneration before the bundle can be described as current.
 - The current `screen pair` parser accepts the canonical undashed six
   characters; `browser setup` accepts the public dashed/undashed handoff
   form.
-- Preserve automatic first-use enrollment, machine-readable output, user-private
-  configuration outside the plugin directory, and server-first
-  `auth revoke --yes`.
+- **Require explicit enrollment. There is no automatic enrollment.** The
+  canonical skill must state, early and unmissably, that
+  `agent enroll --email ADDRESS [--name NAME]` is the mandatory first command,
+  and that every other authenticated command fails with `error.code`
+  `not_enrolled` until it succeeds. Never restore or document first-use,
+  side-effect, or implicit enrollment.
+- The contact address must be one the agent already knows for the user. Teach
+  the agent to ask the user and wait when it does not know one, and never to
+  invent, substitute, placeholder, or infer an address from `git config`,
+  commit history, or any file. Every example address must use an RFC 2606
+  reserved domain. The address is stored unverified, is never a login
+  identifier, and never recovers an account; dashboard sign-in stays
+  passkey-only. One account per address: `email_conflict` is terminal and
+  routes to `agent connect`, never to a second address.
+- Teach the agent to name itself with `--name`. The agent chooses the name, a
+  name with personality is welcome, and the name is how the human recognizes
+  that installation in the dashboard Agents view.
+- Preserve additional-agent connection after a fresh passkey assertion,
+  machine-readable output, user-private configuration outside the plugin
+  directory, and server-first per-agent disconnect. Cancelled and expired
+  connections are terminal; a definitive pending-bearer rejection clears
+  unusable local connection state, while an ambiguous failure retains it for
+  exact retry. Keep `auth status` and `auth revoke --yes [--allow-lockout]`
+  only as deprecated compatibility aliases with the same last-agent guard and
+  cleanup semantics.
 - Never expose account credentials, cookies, provisioning fragments, signed
   URLs, customer content, raw headers, or secret-bearing output.
 - The plugin does not implement rendering, native auth, package caching, public

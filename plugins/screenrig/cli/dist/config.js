@@ -131,7 +131,7 @@ export async function writeConfigAtomic(configPath, config, fsLike) {
     }
 }
 /**
- * Serialize first-use enrollment across CLI processes. The lock lives beside
+ * Serialize explicit enrollment across CLI processes. The lock lives beside
  * the durable config, never in a replaceable plugin/cache directory.
  */
 export async function withConfigLock(configPath, fsLike, options, callback) {
@@ -197,7 +197,7 @@ export async function resolveConfig(options) {
     const flagToken = options.flags.token;
     const envToken = options.fs.env.SCREENRIG_TOKEN;
     if (flagToken !== undefined || envToken) {
-        throw configError("Token flags and SCREENRIG_TOKEN are not supported. ScreenRig enrolls automatically and stores its credential in the user config.");
+        throw configError("Token flags and SCREENRIG_TOKEN are not supported. ScreenRig enrollment or passkey-approved agent connection stores a distinct credential in the user config.");
     }
     let apiUrl = DEFAULT_API_URL;
     let apiSource = "default";
@@ -223,7 +223,10 @@ export async function resolveConfig(options) {
         apiUrl: apiUrl.replace(/\/+$/, ""),
         token,
         accountId: file?.account_id,
+        agentId: file?.agent_id,
         enrollment: file?.enrollment,
+        agentConnection: file?.agent_connection,
+        lastAgent: file?.last_agent,
         configPath,
         source: { apiUrl: apiSource, token: tokenSource },
     };

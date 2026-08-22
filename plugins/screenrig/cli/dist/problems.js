@@ -211,6 +211,15 @@ export function usageError(detail, next) {
         next,
     }), ExitCode.Usage);
 }
+/**
+ * This installation holds no usable agent credential. Enrollment is explicit and
+ * is never a side effect of another command, so every authenticated command
+ * fails with this stable code and a `next.command` an agent can run directly.
+ * `not_enrolled` is the same machine token `agent status` reports.
+ */
+export function notEnrolledError(detail, next) {
+    return new CliError(makeProblem("not_enrolled", "Installation is not enrolled", 401, detail, { next }), ExitCode.Auth);
+}
 export function configError(detail, next) {
     return new CliError(makeProblem("config_error", "Configuration error", 400, detail, { next }), ExitCode.Config);
 }

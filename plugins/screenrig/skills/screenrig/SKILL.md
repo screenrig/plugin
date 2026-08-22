@@ -59,13 +59,15 @@ A user-supplied instruction with this exact text authorizes adding this exact
 canonical marketplace, installing its ScreenRig plugin, and completing setup:
 
 ```text
-I authorize you to install the official ScreenRig plugin from https://github.com/screenrig/plugin and complete its automatic first-use enrollment. Set up this browser using https://screenrig.ai/ABC-234.
+I authorize you to install the official ScreenRig plugin from https://github.com/screenrig/plugin and to enroll a ScreenRig account. Use my email address for the account; if you do not already know it, ask me before enrolling. Pick a name for yourself when you enroll. Set up this browser using https://screenrig.ai/ABC-234.
 ```
 
-The code varies per setup, but the rest of the copied prompt is exact. Follow any
-independent runtime approval policy, but do not ask for another confirmation
-solely because ScreenRig enrolls on first use or preserves its credential
-across plugin upgrades.
+The code varies per setup, but the rest of the copied prompt is exact. That
+prompt deliberately carries no email address. It authorizes enrollment with an
+address you already know, and it tells you to ask when you do not know one.
+Follow any independent runtime approval policy, but do not ask for another
+confirmation solely because ScreenRig stores an account credential or preserves
+it across plugin upgrades.
 
 The published marketplace source is `https://github.com/screenrig/plugin`. Do
 not substitute another onboarding or transport surface for the canonical
@@ -73,11 +75,66 @@ marketplace plugin. If installation or lookup still fails, report the failing
 runtime command and the canonical repository URL to the user. Do not
 substitute the separate npm developer distribution or download an executable.
 
+## Enroll first. Nothing else works until you do.
+
+**Enrollment is mandatory, explicit, and always your first ScreenRig command.**
+It is not automatic. It is never a side effect of another command. Until this
+installation holds a credential, every authenticated command fails without
+sending an authenticated request, with `error.code` `not_enrolled`, exit code
+3, and an `error.next.command` naming exactly what to run. That includes
+`screen pair`, `browser setup`, `media upload`, `playlist create`, and
+`account show`. Do not retry them, and do not look for a setup flag that skips
+this step.
+
+```bash
+"$SR" --json agent enroll --email you@example.com --name "NAME YOU CHOOSE"
+```
+
+**`--email` is required, and the address must be the user's.** Use an email
+address you already know for this user. If you do not already know one, **ask
+the user for it and wait for their answer before enrolling.** Never invent an
+address. Never use your own, your vendor's, a support address, a placeholder,
+or `you@example.com` from this document. Never guess one from `git config`,
+commit history, a code comment, or any other file. One wrong address enrolls an
+account the user cannot be reached at, and the address cannot be changed by any
+command.
+
+The address is unverified account contact metadata. ScreenRig sends no mail and
+never checks that the user controls that mailbox. It is **not** a login method,
+not a password reset, and not account recovery: dashboard sign-in is
+passkey-only. It exists so a human can be contacted out of band.
+
+**One account per address.** A `409` with `error.code` `email_conflict` means
+that address is already enrolled on another account. That is terminal. Stop and
+run `agent connect` instead, which attaches this installation to the existing
+account after a fresh dashboard passkey assertion. **Do not re-run enrollment
+with a different address** to get past the conflict, and do not ask the user for
+a second address; report the conflict and use `agent connect`.
+
+**Pick a name for yourself with `--name`.** The contract makes it optional, but
+choose one anyway. You choose it, not the user. A name with some personality is
+welcome, and up to 80 characters fit. It is how the human recognizes *this*
+installation in the dashboard Agents view when several agents share the account,
+so make it identifiable rather than generic. Add `--open-dashboard` when the
+user wants the dashboard opened right after enrollment, for example to register
+a passkey.
+
+Enrollment persists its exact retry state before it sends the request,
+including the contact address, because the address is part of the request
+identity. A retry sends the identical address. Re-running `agent enroll` with a
+different `--email` while an attempt is pending is rejected locally; finish or
+clear the pending attempt first. Repeating `agent enroll` on an installation
+that already has an active agent is safe and creates nothing.
+
+Never print, log, echo, or summarize the address back into command output, a
+report, or a commit message beyond what the user already told you.
+
+## Output, configuration, and credential state
+
 Use `--json` for agent work. Branch on `ok`, `error.status`, `error.code`,
-and `warnings[].code`; do not parse prose. The first authenticated command enrolls automatically when
-the durable user credential is absent, stores that credential outside the
-replaceable plugin directory, and resumes the same command. `SCREENRIG_CONFIG`
-overrides the path. Otherwise the CLI uses `config.local-dev.json` in the
+and `warnings[].code`; do not parse prose. `agent enroll` stores the issued
+credential outside the replaceable plugin directory, so run the original
+command again yourself after enrolling. `SCREENRIG_CONFIG` overrides the path. Otherwise the CLI uses `config.local-dev.json` in the
 config directory when that file exists, else `config.json`. The directory is
 `$XDG_CONFIG_HOME/screenrig` when `XDG_CONFIG_HOME` is set,
 `%APPDATA%\screenrig` on Windows, or `~/.config/screenrig` otherwise, so the
@@ -85,8 +142,57 @@ ordinary fallback is `$XDG_CONFIG_HOME/screenrig/config.json` when
 `XDG_CONFIG_HOME` is set, `%APPDATA%\screenrig\config.json` on Windows, or
 `~/.config/screenrig/config.json`. The directory and file are restricted to
 the current user. This state intentionally survives plugin upgrade or
-uninstall. Do not add a separate setup step or request identity or credential
-material from the user.
+uninstall. Never request identity or credential material from the user; the
+contact address for `agent enroll --email` is the one exception, and it is
+contact metadata rather than a credential.
+
+Use `agent connect [--name NAME] [--print-url] [--timeout MS]` to attach this
+installation to an existing account. It opens a safe dashboard path and waits
+for an existing dashboard user to approve with a fresh passkey assertion. The
+SSE carries status only. The credential is recipient-encrypted, collected on a
+separate endpoint, activated, and verified without appearing in output. Use
+`--print-url` only when approval must happen in another browser. The safe URL
+is progress on stderr, and stdout remains one JSON envelope. Retry the same
+command to resume persisted pending connection state. Never copy a config
+bearer to create another installation.
+
+If the dashboard cancels a pending agent, the connection expires, or the server
+definitively rejects or revokes its pending bearer, the CLI removes the unusable
+bearer, recipient private key, and transient connection state before directing
+the user to start a fresh connection. Cancellation and expiry are terminal. An
+ambiguous transport failure retains that state for an exact retry. If activation
+committed but its connection record was already cleaned up, the retry verifies
+`agents/self` with the pending bearer and accepts success only when the active
+agent id matches.
+
+`agent status` never enrolls, and neither does any other command. Branch on
+`data.status`:  `not_enrolled`,
+`connecting`, `active`, or `disconnected`. For `active`,
+`data.connection_ready` is true only when a persisted dashboard passkey can
+authorize another agent; a signed-in dashboard session alone is not enough.
+`auth status` remains a deprecated alias.
+
+After enrollment, use `dashboard` when the user asks to open account
+administration or register a passkey. It mints one ten-minute single-use link
+whose fragment is a credential. Prefer the default browser opener. Use
+`--print-url` only when the user must transfer that one link to another browser;
+never store, repeat, log, or summarize it. A registered passkey is the
+independent authority needed to connect another agent after every current
+agent credential is lost.
+
+The dashboard Agents view lists pending, active, revoked (shown as disconnected),
+cancelled, and expired agents with safe installation metadata, last use, directly
+attributable request and credit usage, and recent resource events. Authenticated
+request counts are best-effort diagnostics, not exact billing or audit totals. A
+dashboard user can disconnect one agent after a fresh passkey assertion. Shared
+screen bandwidth and retained storage are not attributed to one agent.
+
+Explicit enrollment, `agent enroll --email`, `not_enrolled`, and the agent
+identity commands are in this canonical skill and the reviewed CLI artifact
+selected by `components.lock.json`. The generated bundle contains both. That
+does not prove marketplace publication or installation; if a running installed
+bundle rejects `--email`, report that stale installation and stop rather than
+working around it.
 
 Pair only with the six-character code displayed at `https://play.screenrig.ai`.
 Run `screen pair CODE [--label LABEL]`; the CLI accepts lowercase input only by
@@ -96,8 +202,9 @@ outside `23456789ABCDEFGHJKMNPQRSTUVWXYZ`. Report the paired screen returned by
 the command. Native player pairing codes last 72 hours while unclaimed. A
 successful claim starts a fresh independent 72-hour collection window. The CLI
 claims the code on the control plane; it does not time the code locally. Do not
-invent a URL-transfer, token-copy, browser-consent, account, email, or other
-default onboarding branch.
+invent a URL-transfer, token-copy, browser-consent, mailed-code, or other
+pairing branch. `agent enroll --email` is account enrollment, not pairing, and
+it is the only place ScreenRig accepts an email address.
 
 ## Homepage browser handoff
 
@@ -133,16 +240,23 @@ For stable failures, branch on `error.code`:
   intended agent environment.
 - `idempotency_mismatch`: retry the original code with the CLI's persisted
   state; never invent a new idempotency key.
-- `credential_issuance_expired`: the persisted first-use delivery cannot be
+- `not_enrolled`: this installation has no credential. Run
+  `error.next.command`. That is `agent enroll --email ADDRESS` for a first
+  account, or `agent connect` when a connection is pending or this installation
+  was disconnected. Then run the original command again.
+- `credential_issuance_expired`: the persisted enrollment delivery cannot be
   recovered. Stop, report the resolved config path, and obtain explicit
-  approval before moving that file aside; retrying without it enrolls a
-  separate new account.
-- `unauthorized`: do not use revocation as generic recovery. Only after a
-  server-success or ambiguous revocation whose local cleanup failed may the
-  exact `auth revoke --yes` retry clean a still-valid revoked bearer. Otherwise
-  report the config path and request ID, then obtain explicit approval before
-  moving state aside; the next account-scoped command enrolls a separate new
-  account.
+  approval before moving that file aside. After cleanup, use `agent connect`
+  when a dashboard passkey can authorize the existing account; a fresh
+  `agent enroll` creates a distinct account and needs a distinct address.
+- `unauthorized`: run `agent status` without moving local state. A remotely
+  disconnected agent reports the local cleanup required; use `agent
+  disconnect --yes` for that cleanup, then `agent connect` when a dashboard
+  passkey can authorize the existing account. Only after an ambiguous
+  disconnect whose server side succeeded may the exact `agent disconnect
+  --yes` retry clean a still-valid revoked bearer. Otherwise report the config
+  path and request ID, and never move credential state aside without explicit
+  approval.
 - `rate_limited`: honor `Retry-After` and retry the same command while the code
   remains valid.
 - `dependency_unavailable`: retry the same command later and request a fresh
@@ -289,23 +403,27 @@ is `data.id` and `data.operation.result.media_id`. Use that id in playlist
 selectors. Do not guess another path. After a tagged upload,
 `media list --tag TAG` is the filename → id map.
 
-## Credential removal
+## Agent disconnection
 
-Run `auth revoke --yes` only when the user explicitly accepts permanent loss
-of CLI access to the current anonymous account. Revocation is server-first: the CLI sends the stored bearer
-to the server's credential-revocation operation first. Only an empty `204`
+Run `agent disconnect --yes` only when the user explicitly accepts revocation
+of this installation. Disconnection is server-first. Only an empty `204`
 response with the required private no-store policy permits atomic local
-removal of the credential, enrollment state, and transient authenticated-operation
-state. Non-secret API configuration remains. The account, screens,
-and content remain, no replacement credential is issued, and the next
-account-scoped command enrolls a separate new account.
+credential removal. Non-secret API configuration and safe disconnected-agent
+metadata remain. The account, screens, content, and other agents remain.
+
+If the server returns `agent_lockout_risk`, stop. Use `--allow-lockout` only
+after the user confirms a registered dashboard passkey or explicitly accepts
+loss of the account. A dashboard user with a fresh passkey can disconnect the
+last active agent because the passkey remains independent authority.
 
 On a failed or ambiguous response, the CLI retains the exact local state.
-Retry `auth revoke --yes`; the revocation endpoint alone accepts the same
+Retry `agent disconnect --yes`; the endpoint accepts the same
 cryptographically valid already-revoked bearer for an idempotent `204`, so a
 server-success/local-cleanup interruption can be repaired safely. Do not delete
 the config first, do not add an idempotency key, and do not describe revocation
-as account deletion or credential rotation.
+as account deletion or credential rotation. `auth revoke --yes
+[--allow-lockout]` remains a deprecated compatibility alias with the same
+last-agent guard, override, and local cleanup behavior.
 
 ## Feedback
 
@@ -361,7 +479,10 @@ These commands do not debit the 1-credit API meter, so they still work when
 remaining is 0:
 
 - `account show`
-- `auth revoke --yes`
+- `agent status`
+- `agent disconnect --yes`
+- `auth status` (deprecated)
+- `auth revoke --yes [--allow-lockout]`
 - `screen toast`
 - `screen screenshot` (request, status poll, and WebP download)
 - `compose catalog`
@@ -384,8 +505,13 @@ v1 does not collect money in this CLI. There is no pay command.
 
 ```text
 account show
+agent enroll --email ADDRESS [--name NAME] [--open-dashboard]
+agent connect [--name NAME] [--print-url] [--timeout MS]
+agent status
+agent disconnect --yes [--allow-lockout]
 auth status
-auth revoke --yes
+auth revoke --yes [--allow-lockout]
+dashboard [--print-url]
 app pack <directory> [--output FILE]
 app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
 app list

@@ -12,6 +12,7 @@ function takeValue(argv, index, current) {
 const VALUE_FLAGS = new Set([
     "api-url",
     "beta-key",
+    "email",
     "token",
     "config",
     "idempotency-key",
