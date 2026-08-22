@@ -1,4 +1,4 @@
-import type { Writable } from "node:stream";
+import { type Writable } from "node:stream";
 import type { Transport } from "./transport/types.js";
 import type { ConfigFs } from "./config.js";
 import { type OpenPath, type OpenUrl } from "./open-url.js";
@@ -23,7 +23,7 @@ export interface SignedRawPutRequest {
     url: string;
     method: "PUT";
     headers: Record<string, string>;
-    body: Uint8Array;
+    body: Uint8Array | AsyncIterable<Uint8Array>;
     credentials: "omit";
     redirect: "error";
 }

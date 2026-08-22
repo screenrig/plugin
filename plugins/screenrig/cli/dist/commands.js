@@ -32,6 +32,7 @@ import { composeSpec } from "./compose/compose.js";
 import { cwebpLookup, ffmpegLookup, resolveCwebpToolchain, resolveFfmpegToolchain } from "./media/ffmpeg.js";
 import { createProgressReporter, silentProgressReporter } from "./media/progress.js";
 import { DEFAULT_CODEC, DEFAULT_MAX_FPS, DEFAULT_WEBP_QUALITY, MAX_EDGE, transcodeForUpload, } from "./media/transcode.js";
+import { exportPlaylistBundle, importPlaylistBundle } from "./playlist-bundle.js";
 export const CLI_VERSION = "0.1.0";
 export const USAGE = `screenrig — ScreenRig localhost v1 control-plane CLI
 
@@ -62,6 +63,8 @@ Commands:
   playlist templates
   playlist create <file>
   playlist update <id> <file> --if-match REVISION
+  playlist export <id> --output DIRECTORY
+  playlist import <directory> [--update ID --if-match REVISION]
   playlist show <id>
   playlist list
   playlist delete <id> --if-match REVISION
@@ -445,7 +448,7 @@ function isAuthenticatedCommand(group, action) {
         dashboard: new Set([undefined]),
         app: new Set(["upload", "list", "show"]),
         media: new Set(["upload", "show", "list", "delete", "update"]),
-        playlist: new Set(["create", "update", "show", "get", "list", "delete"]),
+        playlist: new Set(["create", "update", "export", "import", "show", "get", "list", "delete"]),
         screen: new Set(["pair", "provision", "update", "list", "show", "assign", "set-timezone", "archive", "unarchive", "delete", "rotate-public-id", "toast", "screenshot"]),
         browser: new Set(["setup"]),
         kv: new Set(["get", "set", "delete", "list"]),
@@ -1216,6 +1219,57 @@ async function playlistCommand(args, runtime, resolved, action) {
         if (!id)
             throw usageError("playlist get requires an id.");
         return simpleGet(args, runtime, resolved, `/api/v1/playlists/${id}`, "Playlist");
+    }
+    if (action === "export") {
+        requireFlagValue(args, "output", "./playlist-bundle");
+        const id = args.positionals[2];
+        const output = flagString(args.flags, "output");
+        if (!id || !output || args.positionals.length !== 3) {
+            throw usageError("playlist export requires <id> --output <directory>.");
+        }
+        const result = await exportPlaylistBundle({ playlistId: id, outputDirectory: path.resolve(runtime.cwd(), output), client });
+        return {
+            envelope: successEnvelope(result, { request_id: client.requestId }),
+            exitCode: ExitCode.Success,
+            human: humanLines("Playlist exported", [
+                ["playlist_id", result.playlist_id],
+                ["directory", result.directory],
+                ["media_count", String(result.media_count)],
+                ["media_bytes", String(result.media_bytes)],
+            ]),
+        };
+    }
+    if (action === "import") {
+        requireFlagValue(args, "update", "pl_01");
+        requireFlagValue(args, "if-match", "1");
+        const directory = args.positionals[2];
+        if (!directory || args.positionals.length !== 3)
+            throw usageError("playlist import requires one <directory>.");
+        const updateId = flagString(args.flags, "update");
+        const ifMatch = flagString(args.flags, "if-match");
+        const result = await importPlaylistBundle({
+            directory: path.resolve(runtime.cwd(), directory),
+            client,
+            runtime,
+            updateId,
+            ifMatch,
+            timeoutMs: flagNumber(args.flags, "timeout"),
+            pollMs: flagNumber(args.flags, "poll-ms"),
+            beforePlaylistWrite: async (playlist, targetId) => {
+                if (targetId)
+                    await assertAssignedScreensHaveZone(client, targetId, playlist.pages);
+            },
+        });
+        return {
+            envelope: successEnvelope(result, { request_id: client.requestId }),
+            exitCode: ExitCode.Success,
+            human: humanLines(`Playlist ${result.mode === "create" ? "imported" : "updated from bundle"}`, [
+                ["source_playlist_id", result.source_playlist_id],
+                ["directory", result.directory],
+                ["media_reused", String(result.media.reused)],
+                ["media_uploaded", String(result.media.uploaded)],
+            ]),
+        };
     }
     if (action === "create" || action === "update") {
         const id = action === "update" ? args.positionals[2] : undefined;

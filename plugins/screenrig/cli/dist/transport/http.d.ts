@@ -1,4 +1,4 @@
-import type { Transport, TransportRequest, TransportResponse, TransportStream } from "./types.js";
+import type { Transport, TransportDownloadResponse, TransportRequest, TransportResponse, TransportStream } from "./types.js";
 export declare class FetchTransport implements Transport {
     private readonly apiUrl;
     private readonly token;
@@ -8,5 +8,6 @@ export declare class FetchTransport implements Transport {
     private serialize;
     request(req: TransportRequest): Promise<TransportResponse>;
     stream(req: TransportRequest): Promise<TransportStream>;
+    download(req: TransportRequest): Promise<TransportDownloadResponse>;
 }
 //# sourceMappingURL=http.d.ts.map

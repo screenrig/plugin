@@ -57,6 +57,7 @@ const VALUE_FLAGS = new Set([
     "day",
     "state",
     "page",
+    "update",
 ]);
 export function parseArgv(argv) {
     const flags = {};

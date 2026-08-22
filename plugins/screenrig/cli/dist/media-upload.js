@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { isValidIdempotencyKey } from "./ids.js";
@@ -90,13 +91,22 @@ export function validateMediaUploadSession(input, nowMs = Date.now()) {
     return { id: input.id, operationId: input.operation.id, uploadUrl: input.upload_url, headers, expiresAt };
 }
 export async function performSignedMediaPut(prepared, session, signedRawPut) {
+    return performSignedMediaBodyPut(prepared.bytes, session, signedRawPut);
+}
+export async function performSignedMediaFilePut(filePath, session, signedRawPut) {
+    return performSignedMediaBodyPut(createReadStream(filePath), session, signedRawPut);
+}
+export async function performSignedMediaStreamPut(body, session, signedRawPut) {
+    return performSignedMediaBodyPut(body, session, signedRawPut);
+}
+async function performSignedMediaBodyPut(body, session, signedRawPut) {
     let response;
     try {
         response = await signedRawPut({
             url: session.uploadUrl,
             method: "PUT",
             headers: session.headers,
-            body: prepared.bytes,
+            body,
             credentials: "omit",
             redirect: "error",
         });

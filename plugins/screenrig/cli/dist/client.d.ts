@@ -1,4 +1,4 @@
-import type { Transport, TransportRequest, TransportResponse } from "./transport/types.js";
+import type { Transport, TransportDownloadResponse, TransportRequest, TransportResponse } from "./transport/types.js";
 import type { Operation } from "./adapters/protocol.js";
 export interface ApiClientOptions {
     transport: Transport;
@@ -23,6 +23,9 @@ export declare class ApiClient {
         idempotent?: boolean;
         idempotencyKey?: string;
     }): Promise<TransportResponse>;
+    download(req: Omit<TransportRequest, "headers"> & {
+        headers?: Record<string, string>;
+    }): Promise<TransportDownloadResponse>;
     getOperation(id: string): Promise<Operation>;
     waitForOperation(id: string, options: {
         timeoutMs: number;

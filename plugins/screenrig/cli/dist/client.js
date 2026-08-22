@@ -60,6 +60,25 @@ export class ApiClient {
         }
         return response;
     }
+    async download(req) {
+        const response = await this.transport.download({
+            ...req,
+            timeout_ms: req.timeout_ms ?? this.timeoutMs,
+            headers: this.headers(false, req.headers),
+        });
+        const remaining = this.token ? parseCreditsRemainingHeader(response.headers) : undefined;
+        if (response.status >= 400) {
+            const problem = normalizeProblem(response.problem, {
+                status: response.status,
+                request_id: response.headers["x-request-id"] ?? this.requestId,
+                bodyText: response.rawText,
+            });
+            throw new CliError(withPaymentGuidance(withQuotaGuidance(withRetryAfter(problem, parseRetryAfter(response.headers["retry-after"], Date.now())))), undefined, creditsLowWarnings(remaining));
+        }
+        if (this.creditsOwner)
+            observeCreditsRemaining(this.creditsOwner, remaining);
+        return response;
+    }
     async getOperation(id) {
         const response = await this.call({ method: "GET", path: `/api/v1/operations/${id}` });
         return response.body;

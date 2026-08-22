@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { chmod, mkdir, open, rename, rm, stat } from "node:fs/promises";
 import { homedir } from "node:os";
+import { Readable } from "node:stream";
 import { openExternalUrl, openLocalPath } from "./open-url.js";
 const STDERR_TAIL_LIMIT = 8192;
 export function spawnRunProcess() {
@@ -80,13 +81,19 @@ export function spawnRunProcess() {
 }
 export function fetchSignedRawPut(fetchImpl = fetch) {
     return async (request) => {
-        const response = await fetchImpl(request.url, {
+        const streaming = !(request.body instanceof Uint8Array);
+        const body = request.body instanceof Uint8Array
+            ? Buffer.from(request.body)
+            : Readable.from(request.body);
+        const init = {
             method: request.method,
             headers: request.headers,
-            body: Buffer.from(request.body),
+            body,
             credentials: request.credentials,
             redirect: request.redirect,
-        });
+            ...(streaming ? { duplex: "half" } : {}),
+        };
+        const response = await fetchImpl(request.url, init);
         return { status: response.status, bodyText: await response.text() };
     };
 }

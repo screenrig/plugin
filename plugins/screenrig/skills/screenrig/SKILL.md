@@ -402,6 +402,8 @@ compose render <file> [--output FILE] [--open]
 playlist templates
 playlist create <file>
 playlist update <id> <file> --if-match REVISION
+playlist export <id> --output DIRECTORY
+playlist import <directory> [--update ID --if-match REVISION]
 playlist show <id>
 playlist list
 playlist delete <id> --if-match REVISION
@@ -672,6 +674,52 @@ the cross axis. Bottom-right on 1920×1080 with a 5% safe area is
 box. That rect is one worked example, not the only size. If you raster the
 mark into the still instead, set `Image` `width` and `height` (or `flex` in a
 sized parent) so it is not 0×0.
+
+## Playlist bundle export and import
+
+Use a `screenrig.playlist-bundle/v1` directory to move one playlist and every
+referenced image or video rendition together. Export requires the deployed
+account-owner media-content route (`GET /api/v1/media/{id}/content` and
+`HEAD /api/v1/media/{id}/content`); inclusion in this CLI and plugin does not
+prove that backend route is deployed.
+
+```bash
+"$SR" --json playlist export pl_EXAMPLE --output ./lobby-bundle
+"$SR" --json playlist import ./lobby-bundle
+"$SR" --json playlist import ./lobby-bundle --update pl_TARGET --if-match REVISION
+```
+
+The export destination must not exist. The bundle contains
+`screenrig-bundle.json`, `playlist.json`, and content-addressed
+`media/<sha256>.<canonical-ext>` files. Export snapshots dynamic `all` and `tag`
+selectors to exact `id` or `ids` selectors and records
+`selector_policy: "snapshot"`. It records `comments_policy: "excluded"` and
+does not export playlist or page comments. Iframe URLs are preserved.
+Application placements are unsupported and stop export before any media
+download.
+
+Export streams each original rendition without buffering the whole object and
+checks content type, length, SHA-256, and strong ETag. It writes private files
+through a private temporary sibling and atomically renames the completed
+bundle. Import fully validates the manifest, playlist, paths, media kinds,
+lengths, and hashes before remote mutation. It rejects traversal, backslashes,
+absolute or control-character paths, symlinked ancestors or files, hardlinks,
+sparse files, and special files, and uploads from the already verified file
+handle so replacing a path after preflight does not change uploaded bytes.
+
+Import creates a new playlist by default. Updating is deliberately separate:
+provide both `--update` and the current `--if-match` revision. Target identity,
+revision, and required screen timezones are checked before uploads. Existing
+media are reused only on an exact filename, MIME type, byte length, SHA-256,
+and tag match, with one destination object per source object. Missing media are
+uploaded serially without transcoding, selectors are rewritten to the exact
+destination IDs, and the playlist is written only after all media are ready.
+
+Import never deletes or prunes remote media. If a later step fails after an
+upload starts, the structured error lists media IDs confirmed ready, says
+whether the playlist write started, and leaves those objects in place. Retry
+the same bundle, and use the same explicit idempotency key when one was
+supplied; exact ready media are deduplicated and reused.
 
 ## Playlist writes
 
