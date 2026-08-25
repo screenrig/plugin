@@ -130,6 +130,23 @@ agent workflow.
   and other non-transient 4xx problems stop the command. Do not print
   reconnect chatter on stdout.
 
+## Follow operation logs
+
+This plugin does not emit the operation log. The CLI does, through optional
+`log_socket` in the same user config as the token. Canonical skill source
+teaches that field in `skills/screenrig/SKILL.md` under Output,
+configuration, and credential state. The follow recipe is `cli/AGENTS.md`.
+
+Current CLI source implements `log_socket`. `components.lock.json` still
+pins `screenrig/cli` `9eb41197089e3fcacd08684458633c57d3dc0df7`, which
+predates that field. Canonical skill source already leads the lock. The
+generated `plugins/screenrig/` copy does not contain `log_socket`. Do not
+describe the locked bundle as writing operation logs.
+
+Do not document a host listener, a private origin, or an unreleased claim.
+Never print credentials, cookies, `Authorization` headers, signed URLs,
+object keys, or pixels.
+
 ## Verification
 
 ```sh
