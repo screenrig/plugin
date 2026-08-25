@@ -142,9 +142,12 @@ ordinary fallback is `$XDG_CONFIG_HOME/screenrig/config.json` when
 `XDG_CONFIG_HOME` is set, `%APPDATA%\screenrig\config.json` on Windows, or
 `~/.config/screenrig/config.json`. The directory and file are restricted to
 the current user. This state intentionally survives plugin upgrade or
-uninstall. Never request identity or credential material from the user; the
-contact address for `agent enroll --email` is the one exception, and it is
-contact metadata rather than a credential.
+uninstall. Optional `log_socket` in that same user config, when set to a
+filesystem path, makes the CLI connect as a client to an already-listening
+Unix socket and write one NDJSON operation-log object per line. There is no
+`--log-socket` flag. Never request identity or credential material from the
+user; the contact address for `agent enroll --email` is the one exception, and
+it is contact metadata rather than a credential.
 
 Use `agent connect [--name NAME] [--print-url] [--timeout MS]` to attach this
 installation to an existing account. It opens a safe dashboard path and waits
