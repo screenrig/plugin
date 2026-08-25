@@ -292,6 +292,8 @@ export function validatePlaylistWrite(value, mediaKinds) {
             }
             mediaPlacements.push({ type: kind, content, selector });
         }
+        if (iframeCount > 2)
+            throw usageError(`${pageName}.placements must contain at most 2 iframe placements.`);
         if (advance === "application")
             throw usageError(`${pageName} application advance is unsupported because bundles exclude applications.`);
         if (advance === "media_end") {
