@@ -3,6 +3,7 @@ import path from "node:path";
 import { configError } from "./problems.js";
 import { redactToken, tokenLookupId } from "./redact.js";
 export const DEFAULT_API_URL = "https://api.screenrig.ai";
+export const LOCAL_DEV_API_URL = "http://api.screenrig.localhost:8088";
 const DEFAULT_CONFIG_NAME = "config.json";
 const LOCAL_DEV_CONFIG_NAME = "config.local-dev.json";
 function defaultConfigDir(fsLike) {
@@ -199,10 +200,12 @@ export async function resolveConfig(options) {
     if (flagToken !== undefined || envToken) {
         throw configError("Token flags and SCREENRIG_TOKEN are not supported. ScreenRig enrollment or passkey-approved agent connection stores a distinct credential in the user config.");
     }
-    let apiUrl = DEFAULT_API_URL;
-    let apiSource = "default";
-    if (file?.api_url) {
-        apiUrl = file.api_url;
+    const localDevProfile = path.basename(configPath) === LOCAL_DEV_CONFIG_NAME;
+    let apiUrl = localDevProfile ? LOCAL_DEV_API_URL : DEFAULT_API_URL;
+    let apiSource = localDevProfile ? "local-dev" : "default";
+    const storedApiUrl = file?.api_url?.replace(/\/+$/, "");
+    if (storedApiUrl && (!localDevProfile || storedApiUrl !== DEFAULT_API_URL)) {
+        apiUrl = storedApiUrl;
         apiSource = "config";
     }
     if (envApi) {

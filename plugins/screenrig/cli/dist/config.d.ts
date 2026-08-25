@@ -42,6 +42,7 @@ export interface ScreenRigConfig {
     updated_at?: string;
 }
 export declare const DEFAULT_API_URL = "https://api.screenrig.ai";
+export declare const LOCAL_DEV_API_URL = "http://api.screenrig.localhost:8088";
 export interface ConfigFs {
     mkdir: typeof mkdir;
     open: typeof open;
@@ -80,7 +81,7 @@ export interface ResolvedConfig {
     lastAgent?: ScreenRigConfig["last_agent"];
     configPath: string;
     source: {
-        apiUrl: "flag" | "env" | "config" | "default";
+        apiUrl: "flag" | "env" | "config" | "local-dev" | "default";
         token: "config" | "none";
     };
 }
