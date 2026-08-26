@@ -627,11 +627,11 @@ The default path is `./<id>.webp`. `--timeout` defaults to 35000 ms and
 `--poll-ms` defaults to 500 ms. There is no `--no-wait`. Do not print
 pixels.
 
-`screen toast` is the agent mark on a live wall. Use `--level info`. Info
-stream toasts are admitted in production. Omitted `--level` defaults to
-`info`. `error` and `alert` remain accepted. Do not toast player HTTP errors
-or other player-local faults through this command. Player-local faults are a
-different path: error always; alert and info only off production.
+`screen toast` is the agent mark on a live wall. `--level` is `info`,
+`alert`, or `error`. Omitted `--level` defaults to `info`. The CLI accepts
+all three. Production glass shows error toasts only; alert and info only off
+production. Status chips show in every environment. Do not toast player HTTP
+errors or other player-local faults through this command.
 
 `compose catalog` and `compose render` run locally. They do not enroll and
 they do not debit. See "Local compose" below.
@@ -1373,8 +1373,10 @@ resolved the release. It does not prove the app rendered.
   release appends `application.published`. An app that calls
   `screenrig.emit(code)` appends its own event, which is the most direct
   evidence that the app ran on a screen.
-- `screen toast <id> --level info --text "..."` is the agent mark on a live
-  wall. Use `--level info`. Info stream toasts are admitted in production.
+- `screen toast <id> --level info --text "..."` posts an agent mark. The CLI
+  accepts `--level info|alert|error`. Production glass shows error toasts
+  only; alert and info only off production. Status chips show in every
+  environment.
 - Looking at the screen stays the only proof of layout and rendering. Ask the
   user to confirm what they see.
 
@@ -1398,11 +1400,11 @@ resolved the release. It does not prove the app rendered.
 stage-chrome message to a named screen. It is not a placement: it occupies no
 canvas slot, has no layer, and is not part of readiness or crossfade.
 
-Use `--level info`. Info stream toasts are admitted in production. Omitted
-`--level` defaults to `info`. `error` and `alert` remain accepted. Do not
-toast player HTTP errors or other player-local faults through this command.
-Player-local faults are a different path: error always; alert and info only
-off production.
+`--level` is `info`, `alert`, or `error`. Omitted `--level` defaults to
+`info`. The CLI accepts all three. Production glass shows error toasts only;
+alert and info only off production. Status chips show in every environment.
+Do not toast player HTTP errors or other player-local faults through this
+command.
 
 `--text` is 1 to 120 characters, line feed only, and at most three lines.
 `--duration-ms` is optional and must be between 2000 and 60000 when supplied;
