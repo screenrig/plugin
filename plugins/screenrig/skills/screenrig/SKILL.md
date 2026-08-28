@@ -25,7 +25,7 @@ codex plugin add screenrig@screenrig --json
 
 # Grok
 grok plugin marketplace add https://github.com/screenrig/plugin.git
-grok plugin install screenrig@screenrig --trust
+grok plugin install screenrig --trust
 ```
 
 Grok install requires `--trust` by name. Do not omit it.

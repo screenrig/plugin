@@ -341,7 +341,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main --json",
             "codex plugin add screenrig@screenrig --json",
             "grok plugin marketplace add https://github.com/screenrig/plugin.git",
-            "grok plugin install screenrig@screenrig --trust",
+            "grok plugin install screenrig --trust",
             "--trust",
             "GROK_PLUGIN_ROOT",
             "claude plugin list --json",
