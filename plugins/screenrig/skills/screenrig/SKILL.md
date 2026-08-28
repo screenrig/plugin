@@ -5,8 +5,9 @@ description: Operate ScreenRig screens, applications, media, playlists, playback
 
 # ScreenRig
 
-ScreenRig is the agent-first digital-signage product. This skill is the
-operative contract. Use the bundled CLI. Do not invent commands, flags, or
+Signage and Kiosk infrastructure for AI Agents
+
+This skill is the operative contract. Use the bundled CLI. Do not invent commands, flags, or
 onboarding surfaces.
 
 ## Canonical marketplace

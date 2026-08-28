@@ -335,6 +335,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "Native Players, not a browser in a box",
         ],
         "skills/screenrig/SKILL.md": [
+            "Signage and Kiosk infrastructure for AI Agents",
             "https://github.com/screenrig/plugin",
             "claude plugin marketplace add https://github.com/screenrig/plugin.git --scope user",
             "claude plugin install screenrig@screenrig --scope user",
