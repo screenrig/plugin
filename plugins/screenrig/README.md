@@ -53,7 +53,8 @@ grok plugin install screenrig --trust
 
 Node.js 20.11 or newer must be active. Read the ScreenRig package root from your
 agent's plugin list (`claude plugin list --json`, `codex plugin list --json`) or
-from its plugin-root environment variable, then confirm the bundled CLI:
+from `GROK_PLUGIN_ROOT`, `CLAUDE_PLUGIN_ROOT`, or `CODEX_PLUGIN_ROOT`, then
+confirm the bundled CLI:
 
 ```sh
 <plugin-root>/skills/screenrig/scripts/screenrig --json version

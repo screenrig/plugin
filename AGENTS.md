@@ -53,97 +53,39 @@ agent workflow.
 
 ## Product and security boundaries
 
-- Teach only implemented CLI commands. Canonical skill source
-  `skills/screenrig/SKILL.md` normally teaches the CLI selected by
-  `components.lock.json`. It may lead that lock while a reviewed replacement CLI
-  artifact is pending, but must label the gap and match current verified CLI
-  source rather than pretending the generated bundle already contains it. At
-  lock/regeneration time its Commands block must match the selected CLI `USAGE`.
-  A generated source bundle is not evidence of marketplace availability or
-  deployment. Do not hand-edit `plugins/screenrig/` to teach a command.
-  Playlist swipe `transition.type` values and optional placement `enter` are in
-  the selected CLI and canonical skill. The control plane accepts them. Default
-  pages stay `crossfade` with no `enter`.
-- The generated `plugins/screenrig/` copy follows the locked CLI artifact in
-  `components.lock.json`. Do not hand-edit it. Alignment happens when the lock
-  selects a reviewed CLI CI artifact and the bundle is regenerated.
-- The locked and generated bundle includes explicit enrollment,
-  `not_enrolled`, and the agent identity commands. Any later CLI change that
-  alters the packaged artifact requires another reviewed CI artifact, lock
-  update, and regeneration before the bundle can be described as current.
-- The current `screen pair` parser accepts the canonical undashed six
-  characters; `browser setup` accepts the public dashed/undashed handoff
-  form.
-- **Require explicit enrollment. There is no automatic enrollment.** The
-  canonical skill must state, early and unmissably, that
-  `agent enroll --email ADDRESS [--name NAME]` is the mandatory first command,
-  and that every other authenticated command fails with `error.code`
-  `not_enrolled` until it succeeds. Never restore or document first-use,
-  side-effect, or implicit enrollment.
-- The contact address must be one the agent already knows for the user. Teach
-  the agent to ask the user and wait when it does not know one, and never to
-  invent, substitute, placeholder, or infer an address from `git config`,
-  commit history, or any file. Every example address must use an RFC 2606
-  reserved domain. The address is stored unverified, is never a login
-  identifier, and never recovers an account; dashboard sign-in stays
-  passkey-only. One account per address: `email_conflict` is terminal and
-  routes to `agent connect`, never to a second address.
-- Teach the agent to name itself with `--name`. The agent chooses the name, a
-  name with personality is welcome, and the name is how the human recognizes
-  that installation in the dashboard Agents view.
-- Preserve additional-agent connection after a fresh passkey assertion,
-  machine-readable output, user-private configuration outside the plugin
-  directory, and server-first per-agent disconnect. Cancelled and expired
-  connections are terminal; a definitive pending-bearer rejection clears
-  unusable local connection state, while an ambiguous failure retains it for
-  exact retry. Keep `auth status` and `auth revoke --yes [--allow-lockout]`
-  only as deprecated compatibility aliases with the same last-agent guard and
-  cleanup semantics.
-- Never expose account credentials, cookies, provisioning fragments, signed
-  URLs, customer content, raw headers, or secret-bearing output.
-- The plugin does not implement rendering, native auth, package caching, public
-  handoff TTLs, or deployment; describe those only from pinned/current owning
-  sources. Native players and the installed PWA identity path use
-  `ScreenRig-Pairing` and `ScreenRig-Session`. `ScreenRig-Device` is
-  retired. Archive hides a screen; signed on-device reset is the only
-  de-associate. The selected CLI implements `screen archive` and
-  `screen unarchive`. Do not infer marketplace availability or deployment
-  from the generated bundle.
+- Teach only implemented product commands. Canonical skill source
+  `skills/screenrig/SKILL.md` is the operative marketplace skill. Official
+  install is this plugin: Claude, Codex, and Grok marketplace commands, with
+  Grok `--trust` named and `GROK_PLUGIN_ROOT` lookup. After install, resolve
+  `$SR`, run `--json version`, `doctor`, local `compose catalog`/`compose
+  render`, media, playlist, and `screen assign`. Compose is local stills.
+  Do not teach `agent enroll`, `screen pair`, `browser setup`, `screen
+  provision`, `ABC-234`, or playlist text-slot template tutorials.
+- Keep `--json` envelopes. Never teach a token flag or pasted bearer. The
+  credential is a user-private file.
+- Meter usage in credits. Standard is prepaid. HTTP 402 / `payment_required`
+  means do not retry billed commands; point money at
+  https://screenrig.ai/pricing/. Write in a feature-complete voice.
+- Teach local compose (`compose catalog`, `compose render`) for copy and
+  chrome. Do not teach emitting native `text`, `box`, or `line` on the
+  playlist wire. Wire families are static (`image`), motion (`video`),
+  and web (`iframe`, `application`). Compose is local and not billed.
 - Screenshotting is in v1. `screen screenshot <id>` blocks on a still WebP and
   writes a file. Do not print pixels.
-- Teach local compose (`compose catalog`, `compose render`) for copy and
-  chrome. Do not teach emitting native `text`, `box`, or `line` through
-  playlist templates. Wire families are static (`image`), motion (`video`),
-  and web (`iframe`, `application`). Compose is local and not billed.
-  Optional Text `textShadow` is `{ x, y, blur?, color }` in px on Text
-  only; omit it to paint without a shadow. It is not `screenrig.canvas/v1`
-  and not a player feature. The selected CLI implements it locally. Do not
-  infer marketplace availability or deployment from the generated bundle.
-- Human `events list` and `events follow` print logfmt. Human logfmt omits
-  canned server sentences. An `application.event` or `runtime.reported` with
-  no remaining data is silent. `--json events list` is one JSON page
-  envelope. `--json events follow` is a JSON stream. After redaction, `--json`
-  may still include a server `message` field when it is data.
+- Human `events list` and `events follow` print logfmt. `--json events list`
+  is one JSON page envelope. `--json events follow` is a JSON stream.
 - `events follow` reconnects on disconnect or a transient connect failure,
   with exponential backoff, and sends the last SSE `id` as `after`.
   `--timeout` covers the whole follow, including backoff. 401, 403, 404,
-  and other non-transient 4xx problems stop the command. Do not print
-  reconnect chatter on stdout.
+  and other non-transient 4xx problems stop the command.
 
 ## Follow operation logs
 
 This plugin does not emit the operation log. The CLI does, through optional
 `log_socket` in the same user config as the token. Canonical skill source
-teaches that field in `skills/screenrig/SKILL.md` under Output,
-configuration, and credential state. The follow recipe is `cli/AGENTS.md`.
+teaches credential state in `skills/screenrig/SKILL.md` under Output,
+configuration, and credential state.
 
-Current CLI source implements `log_socket`. `components.lock.json` still
-pins `screenrig/cli` `9eb41197089e3fcacd08684458633c57d3dc0df7`, which
-predates that field. Canonical skill source already leads the lock. The
-generated `plugins/screenrig/` copy does not contain `log_socket`. Do not
-describe the locked bundle as writing operation logs.
-
-Do not document a host listener, a private origin, or an unreleased claim.
 Never print credentials, cookies, `Authorization` headers, signed URLs,
 object keys, or pixels.
 
@@ -162,8 +104,8 @@ python3 scripts/validate-plugin.py --cli-artifact <locked-cli-artifact>
 ```
 
 Verify the artifact SHA-256 against `components.lock.json` first. These gates
-do not prove marketplace installation/loading, live enrollment, pairing, public
-handoff, native hardware, or production deployment.
+do not prove marketplace installation/loading, live API use, native hardware,
+or production deployment.
 
 ## Completion evidence
 

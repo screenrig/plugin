@@ -8,7 +8,7 @@
     {
       "name": "screenrig",
       "source": "./plugins/screenrig",
-      "description": "Pair and operate ScreenRig screens with the pinned, bundled CLI.",
+      "description": "Operate ScreenRig screens, media, and playlists with the pinned, bundled CLI.",
       "version": "0.1.0",
       "author": {
         "name": "ScreenRig"

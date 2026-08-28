@@ -47,7 +47,7 @@ def require_cli_source(explicit: str | None) -> Path | None:
     path, origin = requested_cli_source(explicit)
     if path is None:
         errors.append(
-            "CLI source is required for pairing facts and the stale-language audit; "
+            "CLI source is required for the stale-language audit; "
             "pass --cli-source, set SCREENRIG_CLI_SOURCE, or check out screenrig/cli "
             "as a sibling directory"
         )
@@ -308,47 +308,6 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
     audit_paths = [ROOT / "skills" / "screenrig" / "SKILL.md"]
     if cli_source is not None:
         audit_paths.extend(cli_source / relative for relative in CLI_SOURCE_FILES)
-    required_pairing = {
-        "skills/screenrig/SKILL.md": [
-            "screen pair CODE",
-            "23456789ABCDEFGHJKMNPQRSTUVWXYZ",
-            "screen provision --open",
-            "screen provision --print-url",
-            "browser setup --code ABC-234",
-            "fragment-free Player public URL",
-        ],
-    }
-    required_cli_pairing = {
-        "src/commands.ts": [
-            "screen pair CODE [--label LABEL]",
-            "/api/v1/screens/pair",
-            "screen provision (--open | --print-url)",
-            "/api/v1/screens/provision",
-            "browser setup --code CODE [--open]",
-            "/api/v1/account/browser-links/claim",
-        ],
-    }
-    for relative, facts in required_pairing.items():
-        path = ROOT / relative
-        if not path.is_file():
-            errors.append(f"{relative}: required pairing file missing")
-            continue
-        text = path.read_text(encoding="utf-8")
-        for fact in facts:
-            if fact not in text:
-                errors.append(f"{relative}: required pairing fact missing: {fact}")
-    if cli_source is not None:
-        for relative, facts in required_cli_pairing.items():
-            path = cli_source / relative
-            label = f"cli/{relative}"
-            if not path.is_file():
-                errors.append(f"{label}: required pairing file missing")
-                continue
-            text = path.read_text(encoding="utf-8")
-            for fact in facts:
-                if fact not in text:
-                    errors.append(f"{label}: required pairing fact missing: {fact}")
-
     required_marketplace = {
         # README.md is the public marketing face of the marketplace, not the agent
         # contract. It asserts the product line, the meter, and the official install
@@ -366,6 +325,8 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "codex plugin add screenrig@screenrig --json",
             "grok plugin marketplace add https://github.com/screenrig/plugin.git",
             "grok plugin install screenrig --trust",
+            "--trust",
+            "GROK_PLUGIN_ROOT",
             "claude plugin list --json",
             "codex plugin list --json",
             "Node.js 20.11 or newer",
@@ -379,46 +340,31 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "claude plugin install screenrig@screenrig --scope user",
             "codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main --json",
             "codex plugin add screenrig@screenrig --json",
+            "grok plugin marketplace add https://github.com/screenrig/plugin.git",
+            "grok plugin install screenrig@screenrig --trust",
+            "--trust",
+            "GROK_PLUGIN_ROOT",
             "claude plugin list --json",
             "codex plugin list --json",
             "Node.js 20.11 or newer",
             "authorizes adding",
-            "presentation-only",
-            "what content",
             "$XDG_CONFIG_HOME/screenrig/config.json",
             "%APPDATA%\\screenrig\\config.json",
-            "I authorize you to install the official ScreenRig plugin from https://github.com/screenrig/plugin and to enroll a ScreenRig account.",
-            "Use my email address for the account; if you do not already know it, ask me before enrolling.",
-            "Pick a name for yourself when you enroll.",
-            "Enrollment is mandatory, explicit, and always your first ScreenRig command.",
-            "agent enroll --email ADDRESS [--name NAME] [--open-dashboard]",
-            "`not_enrolled`",
-            "ask the user for it and wait for their answer before enrolling",
-            "Never invent an address.",
-            "Never guess one from `git config`",
-            "unverified account contact metadata",
-            "passkey-only",
-            "One account per address.",
-            "`email_conflict`",
-            "Do not re-run enrollment",
-            "Pick a name for yourself with `--name`",
-            "dashboard Agents view",
-            "auth revoke --yes",
-            "server-first",
-            "On a failed or ambiguous response",
-            "Do not claim that `doctor` repairs",
-            "browser_already_paired",
-            "browser_link_not_claimed",
-            "handoff_session_rate_limited",
+            "I authorize you to install the official ScreenRig plugin from https://github.com/screenrig/plugin.",
+            "https://screenrig.ai/pricing/",
+            "payment_required",
+            "error.status === 402",
+            "Standard is prepaid",
+            "compose catalog",
+            "compose render",
+            "screen assign",
             "SCREENRIG_FFMPEG",
             "SCREENRIG_FFPROBE",
             "--no-transcode",
             "--codec hevc",
             "H.264 MP4 by default",
             "fails `media upload` alone",
-            "official developer-shell distribution",
-            "not an agent plugin fallback",
-            "globally installed `screenrig`",
+            "globally installed command",
         ],
     }
     for relative, facts in required_marketplace.items():
@@ -465,6 +411,15 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             re.IGNORECASE,
         ),
     }
+    skill_forbidden = {
+        "agent enroll": re.compile(r"\bagent\s+enroll\b", re.IGNORECASE),
+        "screen pair": re.compile(r"\bscreen\s+pair\b", re.IGNORECASE),
+        "browser setup": re.compile(r"\bbrowser\s+setup\b", re.IGNORECASE),
+        "screen provision": re.compile(r"\bscreen\s+provision\b", re.IGNORECASE),
+        "handoff code": re.compile(r"\bABC-234\b|\bABC234\b"),
+        "playlist templates": re.compile(r"\bplaylist\s+templates\b", re.IGNORECASE),
+        "coming soon": re.compile(r"coming[- ]soon", re.IGNORECASE),
+    }
     for root in audit_paths:
         if not root.is_file():
             errors.append(f"{display_path(root, cli_source)}: required stale-language audit file missing")
@@ -473,6 +428,11 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         for label, pattern in forbidden.items():
             if pattern.search(text):
                 errors.append(f"{display_path(root, cli_source)}: stale {label} language")
+    skill_path = ROOT / "skills" / "screenrig" / "SKILL.md"
+    skill_text = skill_path.read_text(encoding="utf-8") if skill_path.is_file() else ""
+    for label, pattern in skill_forbidden.items():
+        if pattern.search(skill_text):
+            errors.append(f"skills/screenrig/SKILL.md: stale {label} language")
 
 
 def main() -> int:
