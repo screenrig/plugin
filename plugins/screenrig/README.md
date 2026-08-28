@@ -1,199 +1,123 @@
-# ScreenRig agent plugin
+# ScreenRig
 
-ScreenRig is an agent-first digital-signage workflow. This public repository is
-the canonical marketplace source and distributes one generated plugin containing
-the ScreenRig skill plus a pinned CLI artifact.
+**Signage and Kiosk infrastructure for AI Agents**
+
+## NEARLY FREE: PAY PER BYTE NOT PER SCREEN
+
+Pretty much all the digital signage and kiosk vendors out there are clunky
+human-oriented SaaS that charge you per screen. We don't. We want you to use it
+and pay for what you use. Start for free.
+
+$0.09/GB bandwidth, $0.14/GB-month storage. Pennies a month per screen. No
+per-device price.
+
+## Start
+
+Paste this to your agent, then go install a Player on a device.
+
+```text
+Read https://screenrig.ai/skill/SKILL.md and follow the instructions.
+
+I authorize you to install the official ScreenRig plugin from https://github.com/screenrig/plugin.
+```
+
+Your agent takes it from there. Ask for the video, dashboard, menu board, or web
+app you want, and it goes on the Player.
 
 ## Install
 
+The official install is this plugin. Do not install a global `screenrig` from a
+package registry and do not expect one on `PATH`: "CLI" names the product
+category, and the bundled CLI runs from the plugin's package-relative launcher.
+
 Claude Code:
 
-```sh
+```console
 claude plugin marketplace add https://github.com/screenrig/plugin.git --scope user
 claude plugin install screenrig@screenrig --scope user
 ```
 
 Codex:
 
-```sh
+```console
 codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main --json
 codex plugin add screenrig@screenrig --json
 ```
 
-Confirm the installed entry and read its package root:
+Grok (Grok Build), where `--trust` is required:
 
-```sh
-claude plugin list --json
-codex plugin list --json
+```console
+grok plugin marketplace add https://github.com/screenrig/plugin.git
+grok plugin install screenrig --trust
 ```
 
-Run `node --version` first. The package-relative launcher fails closed unless
-Node.js 20.11 or newer is active. After installation, use the agent's plugin list
-JSON to read the ScreenRig `installPath` (Claude Code) or `source.path`
-(Codex), then verify the installed bundle:
+Node.js 20.11 or newer must be active. Read the ScreenRig package root from your
+agent's plugin list (`claude plugin list --json`, `codex plugin list --json`) or
+from its plugin-root environment variable, then confirm the bundled CLI:
 
 ```sh
 <plugin-root>/skills/screenrig/scripts/screenrig --json version
 ```
 
-Use that same launcher for every ScreenRig command. It prefers
-`<plugin-root>/cli/dist/bin.js`. For source-checkout fallbacks it accepts
-`SCREENRIG_PLUGIN_ROOT`, `CLAUDE_PLUGIN_ROOT`, or `CODEX_PLUGIN_ROOT`, then
-walks parent directories to find a plugin root containing `cli/dist/bin.js`.
-It does not use a global ScreenRig executable or fetch mutable code.
+That launcher is the entry point for every ScreenRig command. It runs the
+reviewed CLI pinned by this repository and never fetches mutable code.
 
-## Official npm CLI for developer shells
+## Four primitives
 
-The official npm distribution provides the same command-line product for direct
-developer shell use. For an exact version that is present on npm, install:
+Four wire kinds: `image`, `video`, `iframe`, and `application`.
 
-```sh
-npm install --global screenrig@0.1.0
-screenrig --json version
-```
+- `image` — a still the native Player paints on the glass.
+- `video` — H.264, native decode. No codec fallback.
+- `iframe` — a page already on the web.
+- `application` — a static directory packed by the CLI. Players sync, then
+  paint from disk.
 
-The npm package is an official developer distribution, but it is not an agent
-plugin fallback. When an agent has loaded this plugin, it must use the adjacent
-package-relative launcher above. That launcher preserves the plugin's reviewed
-CLI pin and deliberately ignores a global `screenrig` on `PATH`.
+A scene places these four on one canvas. Copy and chrome compose locally on the
+agent machine with `compose catalog` and `compose render`: the agent renders a
+PNG, looks at it, iterates, then publishes the still. Local compose is not
+billed. The agent can also screenshot a live screen to check its own work.
 
-## Pairing and browser setup
+## Players
 
-Open `https://play.screenrig.ai` and ask the agent to pair the six-character
-code. The browser Player displays a middle dash such as `ABC-234`; the current
-default pair command requires the canonical six characters:
+Native Players, not a browser in a box. Install one on the device, then your
+agent puts the screen on the glass.
 
-```sh
-<plugin-root>/skills/screenrig/scripts/screenrig --json screen pair ABC234
-```
+Amazon Signage Stick, Google Play, AppleTV, macOS, Windows, Raspberry Pi,
+Linux, and PWA.
 
-Native player pairing codes last 72 hours while unclaimed. A successful
-`screen pair` claim starts a fresh independent 72-hour collection window. The
-CLI claims the code on the control plane; it does not time the code locally.
+Sized for 1–2 GB glass. ESP32 and e-ink are fine.
 
-The public homepage handoff is separate first-use convenience. An unclaimed
-`https://screenrig.ai/ABC-234` locator lasts 30 minutes. `browser setup --code
-ABC-234` accepts the dashed display form (or `ABC234`), and a successful claim
-creates a fresh independent 10-minute protected delivery window. CLI output is
-limited to the normalized code, claim status, and fragment-free Player URL.
+## Don't build a player
 
-Enrollment is explicit and mandatory. Nothing enrolls as a side effect of
-another command. Until this installation holds a credential, every
-authenticated command fails with `error.code` `not_enrolled` and an
-`error.next.command` naming what to run, and sends no authenticated request.
+Isolated origins and H.264 are the product.
 
-```sh
-screenrig --json agent enroll --email you@example.com --name "NAME THE AGENT CHOOSES"
-```
+## This repository
 
-`--email` is required. The agent supplies an address it already knows for the
-user, and asks the user when it does not know one. The server stores the
-trimmed address as unverified contact metadata: ScreenRig sends no mail, the
-address is never a login identifier, and it does not recover an account.
-Dashboard sign-in stays passkey-only. One account per address; a `409`
-`email_conflict` means the address is already enrolled, and the remedy is
-`agent connect`, never a second address. `--name` is optional in the contract,
-but the agent should choose one, because that name is how the human recognizes
-this installation in the dashboard Agents view.
+This is the canonical public marketplace source. It carries the ScreenRig skill
+and one generated plugin containing an exact, reviewed CLI artifact.
 
-Enrollment stores its credential with user-only permissions outside the
-replaceable plugin directory and verifies it. The default configuration is
-`$XDG_CONFIG_HOME/screenrig/config.json` when `XDG_CONFIG_HOME` is set,
-`%APPDATA%\screenrig\config.json` on Windows, or
-`~/.config/screenrig/config.json`; `SCREENRIG_CONFIG` may override it.
-
-`agent connect [--name NAME]` connects this installation to an existing
-account after a fresh dashboard passkey assertion. The status SSE carries state only; the distinct agent
-credential is recipient-encrypted and collected separately. Cancelled and
-expired connections are terminal. Definitive rejection or revocation of a
-pending bearer clears unusable local connection state; ambiguous failures retain
-it for exact retry. `agent status` never enrolls.
-For an active agent it reports `connection_ready` only when a persisted
-dashboard passkey can approve another agent.
-`agent disconnect --yes` revokes only this installation and preserves the
-account, screens, content, and other agents. The last-agent safety check needs
-`--allow-lockout` as a separate explicit choice. `auth status` and `auth revoke
---yes [--allow-lockout]` remain deprecated aliases; revoke has the same
-last-agent guard and cleanup behavior as disconnect. Failed or ambiguous
-disconnects preserve local state for an exact retry.
-
-These agent identity commands are included in the reviewed CLI artifact pinned
-by `components.lock.json` and in the generated plugin bundle. That is source
-and artifact evidence only; it does not establish marketplace publication,
-installation, or public-origin availability.
-
-The dashboard Agents view lists agent state, last use, direct request and
-credit usage, and recent resource events. A fresh passkey assertion can
-disconnect one selected agent without deleting the account or its content.
-Authenticated request counts are best-effort diagnostics, not exact billing or
-audit totals.
-
-Browser cookie handoff uses server-managed HttpOnly cookies. Native
-players and the installed PWA identity path use generate-once Ed25519
-proofs with `ScreenRig-Pairing` and `ScreenRig-Session`.
-`ScreenRig-Device` is retired. Runtime pages use `screenrig.canvas/v1`;
-protected content and `screenrig.webapp-package/v1` artifacts remain
-manifest-bound. Screenshotting is in v1. `screen screenshot <id>`
-blocks on a still WebP and writes a file. It does not print image
-bytes. Native identity, archive, and reset exist in their owning repositories;
-this documentation does not claim deployment.
-
-## Media uploads
-
-The launcher preflights Node.js only. Pre-upload media conversion is a property
-of the pinned CLI build, so read it from the tool itself:
-
-```sh
-<plugin-root>/skills/screenrig/scripts/screenrig --json doctor
-```
-
-A build whose `checks` include `ffmpeg` and `ffprobe` encodes video to H.264
-(High profile) MP4 and images to lossy WebP before upload. That build needs ffmpeg 6.0 or
-newer, with `ffmpeg` and `ffprobe` on `PATH` or their absolute paths in
-`SCREENRIG_FFMPEG` and `SCREENRIG_FFPROBE`. Image encode prefers ffmpeg
-`libwebp`; if that encoder is missing, the CLI falls back to `cwebp` on `PATH`
-or `SCREENRIG_CWEBP`. `doctor` also reports the
-`encoder_libx264`, `encoder_libx265`, `encoder_libwebp`, `cwebp`, and
-`filter_hdr_tonemap` checks. `encoder_libwebp` is the ffmpeg encoder only.
-This pinned build never silently falls back to uploading an unconverted source
-when its required toolchain is missing.
-
-A missing toolchain fails `media upload` alone; pairing, playlists, and
-application K/V are unaffected. `--no-transcode` uploads accepted delivery
-bytes unchanged; lossless WebP is still rejected. It is the escape hatch for
-already-correct delivery WebP, not the recovery for a missing libwebp encoder.
-`--codec hevc` opts in to H.265 for a smaller file at the same quality; use it
-only when every screen that will play the media is a native player
-(Qt/GStreamer or Android/MediaCodec).
-
-## Artifact provenance and validation
-
-`components.lock.json` pins the exact `screenrig/cli` commit, artifact
-filename, and SHA-256 used to generate `plugins/screenrig`. Root skill and
-metadata files are canonical; the committed plugin directory is generated and
-must not be edited independently. CI reproduces the pinned CLI artifact,
-rebuilds/validates the bundle, scans the public boundary, and publishes
-deterministic `screenrig-plugin.tar.gz`.
-
-This repository does not deploy ScreenRig. **Deploys are independent**
-(operating rule): this repository's `main` Action publishes the
-`screenrig-plugin.tar.gz` CI artifact only. No marketplace publish unless
-the user asks later. Do not pack siblings. Do not dispatch backend. Do
-not copy deploy tokens between repos. Coordinated multi-repo deploy is
-rare and only for a breaking contract change. `components.lock.json` pins
-the bundled CLI artifact; it is not a production host lock.
+- `skills/screenrig/` and the root marketplace manifests are canonical.
+- `components.lock.json` pins the `screenrig/cli` commit, artifact filename, and
+  SHA-256 that produced `plugins/screenrig/`.
+- `plugins/screenrig/` is generated. Change canonical inputs and rebuild; do not
+  edit it directly.
+- CI reproduces the pinned CLI artifact, rebuilds and validates the bundle,
+  scans the public boundary, and publishes `screenrig-plugin.tar.gz`.
 
 ```sh
 python3 scripts/check-public-repo.py
-skills/screenrig/scripts/screenrig --json version
 ```
 
-Full regeneration additionally requires the exact CLI artifact selected by
-`components.lock.json`. Source validation does not prove marketplace
-installation, enrollment against the live API, pairing, public browser
-handoff, native hardware, or production deployment.
+## More
 
-Security reports belong in
-[GitHub Private Vulnerability Reporting](https://github.com/screenrig/plugin/security/advisories/new).
-See [SECURITY.md](SECURITY.md). The Apache-2.0 license covers this public plugin
-and its bundled CLI, not other ScreenRig services or repositories.
+- [screenrig.ai](https://screenrig.ai/)
+- [Features](https://screenrig.ai/features/)
+- [Compare](https://screenrig.ai/compare/)
+- [Docs](https://screenrig.ai/docs/)
+- [Pricing](https://screenrig.ai/pricing/)
+
+Report security issues through
+[GitHub Private Vulnerability Reporting](https://github.com/screenrig/plugin/security/advisories/new);
+see [SECURITY.md](SECURITY.md). The Apache-2.0 [LICENSE](LICENSE) covers this
+public plugin and its bundled CLI, not other ScreenRig services or
+repositories.

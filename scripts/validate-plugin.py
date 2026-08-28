@@ -350,31 +350,28 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
                     errors.append(f"{label}: required pairing fact missing: {fact}")
 
     required_marketplace = {
+        # README.md is the public marketing face of the marketplace, not the agent
+        # contract. It asserts the product line, the meter, and the official install
+        # only; the operative behavior facts live in skills/screenrig/SKILL.md below.
         "README.md": [
+            "Signage and Kiosk infrastructure for AI Agents",
+            "NEARLY FREE: PAY PER BYTE NOT PER SCREEN",
+            "$0.09/GB bandwidth, $0.14/GB-month storage",
+            "No per-device price",
+            "https://screenrig.ai/skill/SKILL.md",
             "https://github.com/screenrig/plugin",
             "claude plugin marketplace add https://github.com/screenrig/plugin.git --scope user",
             "claude plugin install screenrig@screenrig --scope user",
             "codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main --json",
             "codex plugin add screenrig@screenrig --json",
+            "grok plugin marketplace add https://github.com/screenrig/plugin.git",
+            "grok plugin install screenrig --trust",
             "claude plugin list --json",
             "codex plugin list --json",
             "Node.js 20.11 or newer",
-            "$XDG_CONFIG_HOME/screenrig/config.json",
-            "%APPDATA%\\screenrig\\config.json",
-            "auth revoke --yes",
-            "agent enroll --email",
-            "`not_enrolled`",
-            "Enrollment is explicit and mandatory",
-            "asks the user when it does not know one",
-            "unverified contact metadata",
-            "`email_conflict`",
-            "passkey-only",
-            "SCREENRIG_FFPROBE",
-            "--no-transcode",
-            "encodes video to H.264",
-            "npm install --global screenrig@0.1.0",
-            "official developer distribution",
             "package-relative launcher",
+            "No codec fallback",
+            "Native Players, not a browser in a box",
         ],
         "skills/screenrig/SKILL.md": [
             "https://github.com/screenrig/plugin",
@@ -414,6 +411,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "browser_link_not_claimed",
             "handoff_session_rate_limited",
             "SCREENRIG_FFMPEG",
+            "SCREENRIG_FFPROBE",
             "--no-transcode",
             "--codec hevc",
             "H.264 MP4 by default",
@@ -430,6 +428,21 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
                 errors.append(f"{relative}: required marketplace fact missing: {fact}")
     if "request ID for support" in (ROOT / "skills/screenrig/SKILL.md").read_text(encoding="utf-8"):
         errors.append("skills/screenrig/SKILL.md: nonexistent support recovery path remains")
+
+    readme_forbidden = {
+        "credential-flow prose": re.compile(r"\benroll(?:s|ed|ing|ment)?\b", re.IGNORECASE),
+        "pairing prose": re.compile(r"\bpair(?:s|ed|ing)?\b|\bABC-?234\b", re.IGNORECASE),
+        "unsupported server surface": re.compile(r"\bMCP\b"),
+        "global npm install": re.compile(r"npm install --global screenrig", re.IGNORECASE),
+        "unshipped framing": re.compile(r"\bcoming soon\b|\broadmap\b|\bbeta\b", re.IGNORECASE),
+    }
+    for readme in (ROOT / "README.md", PLUGIN / "README.md"):
+        if not readme.is_file():
+            continue
+        readme_text = readme.read_text(encoding="utf-8")
+        for label, pattern in readme_forbidden.items():
+            if pattern.search(readme_text):
+                errors.append(f"{readme.relative_to(ROOT)}: {label} belongs in the skill, not the README")
     forbidden = {
         "account create": re.compile(r"\baccount create\b", re.IGNORECASE),
         "automatic enrollment": re.compile(
