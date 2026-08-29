@@ -27,8 +27,10 @@ app you want, and it goes on the Player.
 ## Install
 
 The official install is this plugin. Do not install a global `screenrig` from a
-package registry and do not expect one on `PATH`: "CLI" names the product
-category, and the bundled CLI runs from the plugin's package-relative launcher.
+package registry. After install, prepend `$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts`
+(or the runtime plugin root) to `PATH` once, then invoke `screenrig`. Do not
+export `SR`. "CLI" names the product category, and the bundled CLI is the
+plugin wrapper, not a global package.
 
 Claude Code:
 
@@ -53,11 +55,13 @@ grok plugin install screenrig --trust
 
 Node.js 20.11 or newer must be active. Read the ScreenRig package root from your
 agent's plugin list (`claude plugin list --json`, `codex plugin list --json`) or
-from `GROK_PLUGIN_ROOT`, `CLAUDE_PLUGIN_ROOT`, or `CODEX_PLUGIN_ROOT`, then
-confirm the bundled CLI:
+from `GROK_PLUGIN_ROOT`, `CLAUDE_PLUGIN_ROOT`, or `CODEX_PLUGIN_ROOT`, prepend
+`$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts` to `PATH` once, then confirm:
 
 ```sh
-<plugin-root>/skills/screenrig/scripts/screenrig --json version
+SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
+PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
+screenrig --json version
 ```
 
 That launcher is the entry point for every ScreenRig command. It runs the

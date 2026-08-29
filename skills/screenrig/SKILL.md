@@ -48,14 +48,14 @@ substitute another onboarding or transport surface for the canonical
 marketplace plugin.
 
 Use the CLI packaged with this skill. It requires Node.js 20.11 or newer.
-Resolve the installed plugin root and invoke the wrapper by its
-package-relative path. Assign that path to `SR` and keep using `$SR` for the
-rest of the session:
+Resolve the installed plugin root, prepend its scripts directory to `PATH`
+once, then invoke `screenrig`. Do not export `SR`. Do not install a global
+package.
 
 ```bash
 SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
-SR="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig"
-"$SR" --json version
+PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
+screenrig --json version
 ```
 
 Require a successful screenRIG JSON envelope from `--json version` before any
@@ -71,10 +71,9 @@ whose `id` is `screenrig@screenrig`, and use its `installPath`.
 entry whose `pluginId` is `screenrig@screenrig`, and use its `source.path`.
 4. For Grok, run `grok plugin list` and use the installed screenRIG plugin
 path, then export it as `GROK_PLUGIN_ROOT` for this session.
-5. Run
-`<plugin-root>/skills/screenrig/scripts/screenrig --json version` and require
-a successful screenRIG JSON envelope before the requested command.
-Assign that path to `SR`.
+5. Prepend `<plugin-root>/skills/screenrig/scripts` to `PATH` and run
+`screenrig --json version`. Require a successful screenRIG JSON envelope
+before the requested command. Do not export `SR`.
 
 If there is no matching entry, run the exact canonical marketplace add/install
 commands above and repeat this lookup. If installation or lookup still fails,
@@ -90,17 +89,17 @@ do not parse prose.
 Work in this order. Do not skip `version` or `doctor`.
 
 ```bash
-"$SR" --json version
-"$SR" --json doctor
-"$SR" --json compose catalog
-"$SR" --json compose render ./example.json --output ./example.png
-"$SR" --json media upload ./example.png --tag ExampleStill
-"$SR" --json playlist create ./playlist.json
-"$SR" --json screen list
-"$SR" --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match REVISION
+screenrig --json version
+screenrig --json doctor
+screenrig --json compose catalog
+screenrig --json compose render ./example.json --output ./example.png
+screenrig --json media upload ./example.png --tag ExampleStill
+screenrig --json playlist create ./playlist.json
+screenrig --json screen list
+screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match REVISION
 ```
 
-1. Resolve `$SR` and require `--json version`.
+1. Prepend the plugin scripts directory to `PATH` and require `screenrig --json version`.
 2. Run `doctor`. Read `data.checks`. Name missing toolchain parts before the
    first `media upload`.
 3. Compose locally. `compose catalog` and `compose render` write stills on
@@ -166,7 +165,7 @@ Bandwidth is $0.09/GB. Storage is $0.14/GB-month. Same rates on every tier.
 ## Doctor
 
 ```bash
-"$SR" --json doctor
+screenrig --json doctor
 ```
 
 Read `data.checks`. A build that reports `ffmpeg` and `ffprobe` converts media
@@ -242,14 +241,14 @@ Default `--output` follows the spec filename. The CLI `generic_filename`
 warning will not rename on upload.
 
 ```bash
-"$SR" --json compose catalog
-"$SR" --json compose render ./exec-intro-overlay-native-video.json \
+screenrig --json compose catalog
+screenrig --json compose render ./exec-intro-overlay-native-video.json \
   --output ./exec-intro-overlay-native-video.png
 # read ./exec-intro-overlay-native-video.png.layout.json
 # agent reads the PNG with vision; do not cat pixels into chat
 # iterate the JSON and re-render
-"$SR" --json media upload ./exec-intro-overlay-native-video.png --tag TAG
-"$SR" --json media list --tag TAG --kind image
+screenrig --json media upload ./exec-intro-overlay-native-video.png --tag TAG
+screenrig --json media list --tag TAG --kind image
 # playlist page: one image placement, rect = canvas, content_fit fill
 ```
 
@@ -563,7 +562,7 @@ owns it. `{"days": ["fri"], "start": "22:00", "end": "02:00"}` runs Friday
 22:00 through Saturday 02:00.
 
 ```bash
-"$SR" --json screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match 3
+screenrig --json screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match 3
 ```
 
 `--timezone` is an IANA identifier such as `America/Los_Angeles` or
@@ -576,9 +575,9 @@ Use a `screenrig.playlist-bundle/v1` directory to move one playlist and every
 referenced image or video rendition together.
 
 ```bash
-"$SR" --json playlist export pl_EXAMPLE --output ./lobby-bundle
-"$SR" --json playlist import ./lobby-bundle
-"$SR" --json playlist import ./lobby-bundle --update pl_TARGET --if-match REVISION
+screenrig --json playlist export pl_EXAMPLE --output ./lobby-bundle
+screenrig --json playlist import ./lobby-bundle
+screenrig --json playlist import ./lobby-bundle --update pl_TARGET --if-match REVISION
 ```
 
 The export destination must not exist. The bundle contains
@@ -600,7 +599,7 @@ reaches `window.screenrig` at runtime with no build step and no dependency to
 install.
 
 ```bash
-"$SR" --json app upload ./lobby-board --name "Lobby board"
+screenrig --json app upload ./lobby-board --name "Lobby board"
 ```
 
 `app upload` waits for the publication operation by default. Read three fields
@@ -657,9 +656,9 @@ and `iframe` placements on that page.
 ### 4. Create the playlist and assign it to a screen
 
 ```bash
-"$SR" --json playlist create ./lobby-board.json
-"$SR" --json screen list
-"$SR" --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match 3
+screenrig --json playlist create ./lobby-board.json
+screenrig --json screen list
+screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match 3
 ```
 
 Take `--playlist-id` from `data.id` of the `playlist create` result. Take
@@ -673,15 +672,15 @@ blocks on a WebP. Do not print pixels.
 ## Screens
 
 ```bash
-"$SR" --json screen list
-"$SR" --json screen show scr_EXAMPLE
-"$SR" --json screen update scr_EXAMPLE --name "Lobby" --playlist-id pl_EXAMPLE --if-match REVISION
-"$SR" --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match REVISION
-"$SR" --json screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match REVISION
-"$SR" --json screen archive scr_EXAMPLE --if-match REVISION
-"$SR" --json screen unarchive scr_EXAMPLE --if-match REVISION
-"$SR" --json screen toast scr_EXAMPLE --text "Updated lobby loop" --level info
-"$SR" --json screen screenshot scr_EXAMPLE --output ./lobby.webp
+screenrig --json screen list
+screenrig --json screen show scr_EXAMPLE
+screenrig --json screen update scr_EXAMPLE --name "Lobby" --playlist-id pl_EXAMPLE --if-match REVISION
+screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match REVISION
+screenrig --json screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match REVISION
+screenrig --json screen archive scr_EXAMPLE --if-match REVISION
+screenrig --json screen unarchive scr_EXAMPLE --if-match REVISION
+screenrig --json screen toast scr_EXAMPLE --text "Updated lobby loop" --level info
+screenrig --json screen screenshot scr_EXAMPLE --output ./lobby.webp
 ```
 
 `screen list` omits archived screens. `screen list --state archived` lists
@@ -717,10 +716,10 @@ value must be an object. screenRIG does not read or use it and never sends it
 to players.
 
 ```bash
-"$SR" --json comment set screen scr_EXAMPLE --json-value '{"note":"lobby hours"}'
-"$SR" --json comment show screen scr_EXAMPLE
-"$SR" --json comment set playlist pl_EXAMPLE --page poster --file ./note.json
-"$SR" --json comment delete screen scr_EXAMPLE
+screenrig --json comment set screen scr_EXAMPLE --json-value '{"note":"lobby hours"}'
+screenrig --json comment show screen scr_EXAMPLE
+screenrig --json comment set playlist pl_EXAMPLE --page poster --file ./note.json
+screenrig --json comment delete screen scr_EXAMPLE
 ```
 
 `--json-value` is a JSON object. `--file` reads a JSON object from disk.
@@ -732,10 +731,10 @@ Unset show is `{ "comments": null }`.
 Application K/V is binary-safe. Use exactly one value mode.
 
 ```bash
-"$SR" --json kv set --application-id app_EXAMPLE lobby --json-value '{"open":true}'
-"$SR" --json kv get --application-id app_EXAMPLE lobby
-"$SR" --json kv list --application-id app_EXAMPLE
-"$SR" --json kv delete --application-id app_EXAMPLE lobby --if-match REVISION
+screenrig --json kv set --application-id app_EXAMPLE lobby --json-value '{"open":true}'
+screenrig --json kv get --application-id app_EXAMPLE lobby
+screenrig --json kv list --application-id app_EXAMPLE
+screenrig --json kv delete --application-id app_EXAMPLE lobby --if-match REVISION
 ```
 
 ## Events
@@ -760,10 +759,10 @@ supplied cursor.
 ## Feedback
 
 ```bash
-"$SR" --json feedback bug "Playlist stalls after assign" \
+screenrig --json feedback bug "Playlist stalls after assign" \
   --body-file ./report.md --command "screen assign"
-"$SR" --json feedback feature "Add a dry-run flag" --body "Preview a change first."
-"$SR" --json feedback list [--kind bug|feature]
+screenrig --json feedback feature "Add a dry-run flag" --body "Preview a change first."
+screenrig --json feedback list [--kind bug|feature]
 ```
 
 `--body` is inline text. `--body-file` reads a file. A title is at most 120

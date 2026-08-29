@@ -56,9 +56,10 @@ agent workflow.
 - Teach only implemented product commands. Canonical skill source
   `skills/screenrig/SKILL.md` is the operative marketplace skill. Official
   install is this plugin: Claude, Codex, and Grok marketplace commands, with
-  Grok `--trust` named and `GROK_PLUGIN_ROOT` lookup. After install, resolve
-  `$SR`, run `--json version`, `doctor`, local `compose catalog`/`compose
-  render`, media, playlist, and `screen assign`. Compose is local stills.
+  Grok `--trust` named and `GROK_PLUGIN_ROOT` lookup. After install, prepend
+  `$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts` to `PATH` once, then run
+  `screenrig --json version`, `doctor`, local `compose catalog`/`compose
+  render`, media, playlist, and `screen assign`. Do not export `SR`. Compose is local stills.
   Do not teach `agent enroll`, `screen pair`, `browser setup`, `screen
   provision`, `ABC-234`, or playlist text-slot template tutorials.
 - Keep `--json` envelopes. Never teach a token flag or pasted bearer. The
