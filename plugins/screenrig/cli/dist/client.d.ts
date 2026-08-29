@@ -1,5 +1,6 @@
 import type { Transport, TransportDownloadResponse, TransportRequest, TransportResponse } from "./transport/types.js";
 import type { Operation } from "./adapters/protocol.js";
+import type { OperationLogger } from "./log/types.js";
 export interface ApiClientOptions {
     transport: Transport;
     token?: string;
@@ -8,6 +9,7 @@ export interface ApiClientOptions {
     timeoutMs?: number;
     /** When set, authenticated remaining credits are observed for the envelope warning. */
     creditsOwner?: object;
+    logger?: OperationLogger;
 }
 export declare class ApiClient {
     readonly requestId: string;
@@ -16,6 +18,7 @@ export declare class ApiClient {
     private readonly transport;
     private readonly timeoutMs;
     private readonly creditsOwner?;
+    private readonly logger;
     constructor(options: ApiClientOptions);
     private headers;
     call(req: Omit<TransportRequest, "headers"> & {

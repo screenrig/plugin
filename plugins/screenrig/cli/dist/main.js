@@ -8,6 +8,7 @@ import { redactText } from "./redact.js";
 import { processRuntime } from "./runtime.js";
 export async function run(runtime = processRuntime()) {
     const json = runtime.argv.includes("--json");
+    let failure;
     try {
         const args = parseArgv(runtime.argv);
         const result = applyCreditsLowToSuccess(await dispatch(args, runtime), observedCreditsRemaining(runtime));
@@ -22,6 +23,7 @@ export async function run(runtime = processRuntime()) {
         return result.exitCode;
     }
     catch (err) {
+        failure = err;
         const problem = err instanceof CliError
             ? err.problem
             : makeProblem("unexpected_error", "Unexpected error", 500, redactText(err instanceof Error ? err.message : "unknown error"));
@@ -37,6 +39,18 @@ export async function run(runtime = processRuntime()) {
             }
         }
         return exitCode;
+    }
+    finally {
+        const logger = runtime.logger;
+        if (logger) {
+            try {
+                logger.endRun(failure);
+                await logger.close();
+            }
+            catch {
+                // Socket close is best-effort after the command envelope is written.
+            }
+        }
     }
 }
 export { processRuntime };

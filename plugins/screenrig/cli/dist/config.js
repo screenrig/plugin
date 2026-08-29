@@ -62,132 +62,198 @@ async function fsyncDir(dir, fsLike) {
     }
 }
 export async function readConfigFile(configPath, fsLike, options = {}) {
-    let info;
-    try {
-        info = await fsLike.stat(configPath);
-    }
-    catch (err) {
-        const code = err.code;
-        if (code === "ENOENT") {
-            return undefined;
-        }
-        throw err;
-    }
-    if (isWorldOrGroupReadable(modeOf(info))) {
-        if (!options.repair) {
-            throw configError(`Refusing to read group/world-readable config at ${configPath}`, {
-                command: `screenrig doctor --repair-config --config ${configPath}`,
-                reason: "Repair permissions to user-only (0600) before reading the token file.",
-            });
-        }
-        await fsLike.chmod(configPath, 0o600);
-    }
-    const handle = await fsLike.open(configPath, "r");
-    try {
-        const raw = await handle.readFile("utf8");
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== "object") {
-            throw configError("Config file is not a JSON object.");
-        }
-        return parsed;
-    }
-    catch (err) {
-        if (err instanceof SyntaxError) {
-            throw configError(`Config file is not valid JSON: ${configPath}`);
-        }
-        throw err;
-    }
-    finally {
-        await handle.close();
-    }
-}
-export async function writeConfigAtomic(configPath, config, fsLike) {
-    const dir = path.dirname(configPath);
-    await fsLike.mkdir(dir, { recursive: true, mode: 0o700 });
-    try {
-        await fsLike.chmod(dir, 0o700);
-    }
-    catch {
-        // chmod after mkdir is best-effort when umask already produced 0700.
-    }
-    const tmp = `${configPath}.${process.pid}.${Date.now()}.tmp`;
-    const body = `${JSON.stringify(config, null, 2)}\n`;
-    try {
-        const handle = await fsLike.open(tmp, "w", 0o600);
+    return withConfigLog(fsLike, "config.read", configPath, async () => {
+        let info;
         try {
-            await handle.writeFile(body, "utf8");
-            await handle.sync();
+            info = await fsLike.stat(configPath);
+        }
+        catch (err) {
+            const code = err.code;
+            if (code === "ENOENT") {
+                return undefined;
+            }
+            throw err;
+        }
+        if (isWorldOrGroupReadable(modeOf(info))) {
+            if (!options.repair) {
+                throw configError(`Refusing to read group/world-readable config at ${configPath}`, {
+                    command: `screenrig doctor --repair-config --config ${configPath}`,
+                    reason: "Repair permissions to user-only (0600) before reading the token file.",
+                });
+            }
+            await fsLike.chmod(configPath, 0o600);
+        }
+        const handle = await fsLike.open(configPath, "r");
+        try {
+            const raw = await handle.readFile("utf8");
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== "object") {
+                throw configError("Config file is not a JSON object.");
+            }
+            return parsed;
+        }
+        catch (err) {
+            if (err instanceof SyntaxError) {
+                throw configError(`Config file is not valid JSON: ${configPath}`);
+            }
+            throw err;
         }
         finally {
             await handle.close();
         }
-        await fsLike.chmod(tmp, 0o600);
-        await fsLike.rename(tmp, configPath);
-        await fsLike.chmod(configPath, 0o600);
-        await fsyncDir(dir, fsLike);
+    });
+}
+/**
+ * Keep `log_socket` across rewrites that build a fresh object. Spread
+ * `current` first when the rest of the file should survive; use this when
+ * the write is intentionally sparse (enrollment pending, disconnect).
+ */
+export function preserveLogSocket(current, next) {
+    const fromNext = typeof next.log_socket === "string" ? next.log_socket.trim() : "";
+    const fromCurrent = typeof current?.log_socket === "string" ? current.log_socket.trim() : "";
+    const logSocket = fromNext || fromCurrent;
+    if (logSocket) {
+        return { ...next, log_socket: logSocket };
     }
-    catch (err) {
-        await fsLike.rm(tmp, { force: true }).catch(() => undefined);
-        throw err;
+    if ("log_socket" in next) {
+        const { log_socket: _omit, ...rest } = next;
+        return rest;
     }
+    return next;
+}
+async function withConfigLog(fsLike, op, configPath, work) {
+    const logger = fsLike.logger;
+    if (!logger?.enabled) {
+        return work();
+    }
+    return logger.withLocal({ op, message: op, config_path: configPath }, async (span) => {
+        try {
+            const result = await work();
+            span.finish({ outcome: "ok", config_path: configPath });
+            return result;
+        }
+        catch (err) {
+            span.error(err, { config_path: configPath });
+            throw err;
+        }
+    });
+}
+export async function writeConfigAtomic(configPath, config, fsLike) {
+    return withConfigLog(fsLike, "config.write", configPath, async () => {
+        const dir = path.dirname(configPath);
+        await fsLike.mkdir(dir, { recursive: true, mode: 0o700 });
+        try {
+            await fsLike.chmod(dir, 0o700);
+        }
+        catch {
+            // chmod after mkdir is best-effort when umask already produced 0700.
+        }
+        const tmp = `${configPath}.${process.pid}.${Date.now()}.tmp`;
+        const body = `${JSON.stringify(config, null, 2)}\n`;
+        try {
+            const handle = await fsLike.open(tmp, "w", 0o600);
+            try {
+                await handle.writeFile(body, "utf8");
+                await handle.sync();
+            }
+            finally {
+                await handle.close();
+            }
+            await fsLike.chmod(tmp, 0o600);
+            await fsLike.rename(tmp, configPath);
+            await fsLike.chmod(configPath, 0o600);
+            await fsyncDir(dir, fsLike);
+        }
+        catch (err) {
+            await fsLike.rm(tmp, { force: true }).catch(() => undefined);
+            throw err;
+        }
+    });
 }
 /**
  * Serialize explicit enrollment across CLI processes. The lock lives beside
  * the durable config, never in a replaceable plugin/cache directory.
  */
 export async function withConfigLock(configPath, fsLike, options, callback) {
-    const dir = path.dirname(configPath);
-    const lockPath = `${configPath}.lock`;
-    const retryMs = options.retryMs ?? 50;
-    const staleMs = options.staleMs ?? 30_000;
-    const maxWaitMs = options.maxWaitMs ?? 10_000;
-    const started = options.now();
-    await fsLike.mkdir(dir, { recursive: true, mode: 0o700 });
-    await fsLike.chmod(dir, 0o700).catch(() => undefined);
-    while (true) {
-        try {
-            await fsLike.mkdir(lockPath, { mode: 0o700 });
-            break;
-        }
-        catch (err) {
-            if (err.code !== "EEXIST") {
-                throw err;
-            }
+    return withConfigLog(fsLike, "config.lock", configPath, async () => {
+        const dir = path.dirname(configPath);
+        const lockPath = `${configPath}.lock`;
+        const retryMs = options.retryMs ?? 50;
+        const staleMs = options.staleMs ?? 30_000;
+        const maxWaitMs = options.maxWaitMs ?? 10_000;
+        const started = options.now();
+        await fsLike.mkdir(dir, { recursive: true, mode: 0o700 });
+        await fsLike.chmod(dir, 0o700).catch(() => undefined);
+        while (true) {
             try {
-                const info = await fsLike.stat(lockPath);
-                if (options.now() - info.mtimeMs > staleMs) {
-                    const abandoned = `${lockPath}.stale.${process.pid}.${options.now()}`;
-                    try {
-                        await fsLike.rename(lockPath, abandoned);
-                        await fsLike.rm(abandoned, { recursive: true, force: true });
-                    }
-                    catch (reclaimError) {
-                        const code = reclaimError.code;
-                        if (code !== "ENOENT" && code !== "EEXIST") {
-                            throw reclaimError;
+                await fsLike.mkdir(lockPath, { mode: 0o700 });
+                break;
+            }
+            catch (err) {
+                if (err.code !== "EEXIST") {
+                    throw err;
+                }
+                try {
+                    const info = await fsLike.stat(lockPath);
+                    if (options.now() - info.mtimeMs > staleMs) {
+                        const abandoned = `${lockPath}.stale.${process.pid}.${options.now()}`;
+                        try {
+                            await fsLike.rename(lockPath, abandoned);
+                            await fsLike.rm(abandoned, { recursive: true, force: true });
                         }
+                        catch (reclaimError) {
+                            const code = reclaimError.code;
+                            if (code !== "ENOENT" && code !== "EEXIST") {
+                                throw reclaimError;
+                            }
+                        }
+                        continue;
+                    }
+                }
+                catch (statError) {
+                    if (statError.code !== "ENOENT") {
+                        throw statError;
                     }
                     continue;
                 }
-            }
-            catch (statError) {
-                if (statError.code !== "ENOENT") {
-                    throw statError;
+                if (options.now() - started >= maxWaitMs) {
+                    throw configError(`Timed out waiting for the credential lock at ${lockPath}.`);
                 }
-                continue;
+                await options.sleep(retryMs);
             }
-            if (options.now() - started >= maxWaitMs) {
-                throw configError(`Timed out waiting for the credential lock at ${lockPath}.`);
-            }
-            await options.sleep(retryMs);
         }
+        try {
+            return await callback();
+        }
+        finally {
+            await fsLike.rm(lockPath, { recursive: true, force: true });
+        }
+    });
+}
+export async function validateLogSocketPath(value, fsLike) {
+    if (value === undefined || value === null) {
+        return undefined;
+    }
+    if (typeof value !== "string") {
+        throw configError("log_socket must be a string path to an already-listening Unix socket.");
+    }
+    const socketPath = value.trim();
+    if (socketPath.length === 0) {
+        return undefined;
     }
     try {
-        return await callback();
+        const info = await fsLike.stat(socketPath);
+        if (info.isDirectory()) {
+            throw configError(`log_socket is a directory: ${socketPath}. Set it to a Unix socket path whose consumer is already listening.`);
+        }
     }
-    finally {
-        await fsLike.rm(lockPath, { recursive: true, force: true });
+    catch (err) {
+        if (err.code === "ENOENT") {
+            return socketPath;
+        }
+        throw err;
     }
+    return socketPath;
 }
 export async function resolveConfig(options) {
     const configPath = (typeof options.flags.config === "string" && options.flags.config) ||
@@ -222,6 +288,7 @@ export async function resolveConfig(options) {
         token = file.token;
         tokenSource = "config";
     }
+    const logSocket = await validateLogSocketPath(file?.log_socket, options.fs);
     return {
         apiUrl: apiUrl.replace(/\/+$/, ""),
         token,
@@ -231,6 +298,7 @@ export async function resolveConfig(options) {
         agentConnection: file?.agent_connection,
         lastAgent: file?.last_agent,
         configPath,
+        logSocket,
         source: { apiUrl: apiSource, token: tokenSource },
     };
 }

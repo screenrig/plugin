@@ -1,4 +1,4 @@
-import { readConfigFile, withConfigLock, writeConfigAtomic, } from "./config.js";
+import { preserveLogSocket, readConfigFile, withConfigLock, writeConfigAtomic, } from "./config.js";
 import { isValidIdempotencyKey, newIdempotencyKey, randomPrefixedId } from "./ids.js";
 import { configError } from "./problems.js";
 /**
@@ -48,11 +48,11 @@ export async function ensureCredential(options) {
         if (!isValidIdempotencyKey(enrollment.idempotency_key)) {
             throw configError("Enrollment idempotency state is invalid.");
         }
-        const pending = {
+        const pending = preserveLogSocket(current, {
             api_url: resolved.apiUrl,
             enrollment,
             updated_at: runtime.now().toISOString(),
-        };
+        });
         await writeConfigAtomic(resolved.configPath, pending, runtime.fs);
         const credential = await options.enroll({
             clientId: enrollment.client_id,
@@ -62,14 +62,14 @@ export async function ensureCredential(options) {
         if (!credential.token || credential.token.trim() !== credential.token) {
             throw configError("Enrollment returned an invalid credential.");
         }
-        const config = {
+        const config = preserveLogSocket(current, {
             api_url: resolved.apiUrl,
             token: credential.token,
             ...(credential.accountId ? { account_id: credential.accountId } : {}),
             ...(credential.agentId ? { agent_id: credential.agentId } : {}),
             enrollment,
             updated_at: runtime.now().toISOString(),
-        };
+        });
         await writeConfigAtomic(resolved.configPath, config, runtime.fs);
         return {
             ...resolved,

@@ -5,7 +5,8 @@ import { limitsFromCapabilities, TEMPORARY_PROTOCOL_VERSION, } from "./adapters/
 import { SDK_PROTOCOL_VERSION } from "./adapters/sdk-injection.js";
 import { flagBool, flagNumber, flagString } from "./argv.js";
 import { ApiClient, requireToken } from "./client.js";
-import { resolveConfig, describeToken, readConfigFile, withConfigLock, writeConfigAtomic, } from "./config.js";
+import { preserveLogSocket, resolveConfig, describeToken, readConfigFile, withConfigLock, writeConfigAtomic, } from "./config.js";
+import { attachOperationLogger, loggerOf, loggingTransport } from "./log/index.js";
 import { ensureCredential } from "./enrollment.js";
 import { headerValue, CREDITS_REMAINING_HEADER, observeCreditsRemaining, parseCreditsInteger, } from "./credits.js";
 import { successEnvelope } from "./envelope.js";
@@ -29,7 +30,7 @@ import { isSensitiveKey, isSensitiveValue, redactEvent, redactText } from "./red
 import { expandPlaylistPages, formatTemplateCatalog, playlistTemplateCatalog, } from "./playlist-templates.js";
 import { composeCatalog, formatComposeCatalog } from "./compose/catalog.js";
 import { composeSpec } from "./compose/compose.js";
-import { cwebpLookup, ffmpegLookup, resolveCwebpToolchain, resolveFfmpegToolchain } from "./media/ffmpeg.js";
+import { cwebpLookup, ffmpegLookup, resolveCwebpToolchain, resolveFfmpegToolchain, } from "./media/ffmpeg.js";
 import { createProgressReporter, silentProgressReporter } from "./media/progress.js";
 import { DEFAULT_CODEC, DEFAULT_MAX_FPS, DEFAULT_WEBP_QUALITY, MAX_EDGE, transcodeForUpload, } from "./media/transcode.js";
 import { exportPlaylistBundle, importPlaylistBundle } from "./playlist-bundle.js";
@@ -42,6 +43,12 @@ Usage:
             [--request-id ID] [--idempotency-key KEY] [--timeout MS]
             [--beta-key KEY]
             <command> [args]
+
+Configuration (user config JSON, not flags):
+  log_socket   optional path to an already-listening Unix socket. The CLI
+               connects as a client and writes one NDJSON operation-log
+               object per line. Absent or empty keeps current behavior.
+               This is a config field only, not a command-line switch.
 
 Commands:
   account show
@@ -183,12 +190,22 @@ async function composeRender(args, runtime) {
     catch (err) {
         throw usageError(`Cannot read compose spec: ${err instanceof Error ? err.message : "invalid JSON"}`);
     }
+    const logger = loggerOf(runtime);
     let result;
     try {
-        result = await composeSpec(spec, {
-            baseDir: path.dirname(specPath),
-            outPath: output,
-            layoutOutPath: layoutOutput,
+        result = await logger.withLocal({ op: "compose.render", message: `render ${path.basename(specPath)}` }, async (span) => {
+            const rendered = await composeSpec(spec, {
+                baseDir: path.dirname(specPath),
+                outPath: output,
+                layoutOutPath: layoutOutput,
+            });
+            span.finish({
+                output,
+                width: rendered.width,
+                height: rendered.height,
+                truncated: rendered.truncated,
+            });
+            return rendered;
         });
     }
     catch (err) {
@@ -225,7 +242,8 @@ async function composeRender(args, runtime) {
     };
 }
 function transportFor(runtime, apiUrl, token) {
-    return runtime.transport ?? new FetchTransport(apiUrl, token);
+    const base = runtime.transport ?? new FetchTransport(apiUrl, token);
+    return loggingTransport(base, loggerOf(runtime));
 }
 function clientFor(runtime, args, apiUrl, token) {
     return new ApiClient({
@@ -235,6 +253,7 @@ function clientFor(runtime, args, apiUrl, token) {
         idempotencyKey: flagString(args.flags, "idempotency-key"),
         timeoutMs: flagNumber(args.flags, "timeout"),
         creditsOwner: runtime,
+        logger: loggerOf(runtime),
     });
 }
 function jsonBody(response, requestId, extra) {
@@ -270,16 +289,21 @@ export async function dispatch(args, runtime) {
             human: `screenrig ${CLI_VERSION}`,
         };
     }
+    const repair = flagBool(args.flags, "repair-config");
+    let resolved = await resolveConfig({ flags: args.flags, fs: { ...runtime.fs, env: runtime.env, homedir: runtime.homedir }, repair });
+    await attachOperationLogger(runtime, args, resolved);
     if (group === "compose" && action === "catalog") {
         if (args.positionals.length > 2) {
             throw usageError("compose catalog does not accept positional arguments.");
         }
-        const catalog = composeCatalog();
-        return {
-            envelope: successEnvelope(catalog),
-            exitCode: ExitCode.Success,
-            human: formatComposeCatalog(catalog),
-        };
+        return loggerOf(runtime).withLocal({ op: "compose.catalog", message: "compose catalog" }, async () => {
+            const catalog = composeCatalog();
+            return {
+                envelope: successEnvelope(catalog),
+                exitCode: ExitCode.Success,
+                human: formatComposeCatalog(catalog),
+            };
+        });
     }
     if (group === "compose" && action === "render") {
         return composeRender(args, runtime);
@@ -301,8 +325,6 @@ export async function dispatch(args, runtime) {
             reason: "List the fail-closed compose catalog.",
         });
     }
-    const repair = flagBool(args.flags, "repair-config");
-    let resolved = await resolveConfig({ flags: args.flags, fs: { ...runtime.fs, env: runtime.env, homedir: runtime.homedir }, repair });
     if (group === "doctor") {
         return doctor(args, runtime, resolved);
     }
@@ -316,10 +338,10 @@ export async function dispatch(args, runtime) {
         return agentStatus(args, runtime, resolved, true);
     }
     if (group === "agent" && action === "connect") {
-        return agentConnect(args, runtime, resolved);
+        return loggerOf(runtime).withLocal({ op: "agent.connect", message: "agent connect" }, () => agentConnect(args, runtime, resolved));
     }
     if (group === "agent" && action === "enroll") {
-        return agentEnroll(args, runtime, resolved);
+        return loggerOf(runtime).withLocal({ op: "agent.enroll", message: "agent enroll" }, () => agentEnroll(args, runtime, resolved));
     }
     if (group === "agent" && action === "disconnect") {
         return agentDisconnect(args, runtime, resolved, false);
@@ -356,7 +378,7 @@ export async function dispatch(args, runtime) {
         return dashboardCommand(args, runtime, resolved);
     }
     if (group === "app" && action === "upload") {
-        return appUpload(args, runtime, resolved);
+        return loggerOf(runtime).withLocal({ op: "app.upload", message: "app upload" }, () => appUpload(args, runtime, resolved));
     }
     if (group === "app" && action === "list") {
         return simpleGet(args, runtime, resolved, "/api/v1/applications", "Applications");
@@ -398,7 +420,7 @@ export async function dispatch(args, runtime) {
         return eventsList(args, runtime, resolved);
     }
     if (group === "events" && action === "follow") {
-        return eventsFollow(args, runtime, resolved);
+        return loggerOf(runtime).withLocal({ op: "events.follow", message: "events follow" }, () => eventsFollow(args, runtime, resolved));
     }
     if (group === "playback" && action === "list") {
         return playbackList(args, runtime, resolved);
@@ -1014,11 +1036,11 @@ async function agentDisconnect(args, runtime, resolved, deprecated) {
                 state: "revoked",
                 revoked_at: runtime.now().toISOString(),
             } : current.last_agent;
-            await writeConfigAtomic(resolved.configPath, {
+            await writeConfigAtomic(resolved.configPath, preserveLogSocket(current, {
                 api_url: current.api_url,
                 ...(lastAgent ? { last_agent: lastAgent } : {}),
                 updated_at: runtime.now().toISOString(),
-            }, fsLike);
+            }), fsLike);
         });
     }
     catch (err) {
@@ -1309,7 +1331,7 @@ async function appPack(args, runtime) {
     if (!dir) {
         throw usageError("app pack requires a directory.");
     }
-    const result = await packDirectory(path.resolve(runtime.cwd(), dir));
+    const result = await packDirectory(path.resolve(runtime.cwd(), dir), { logger: loggerOf(runtime) });
     const output = flagString(args.flags, "output");
     if (output) {
         await writeFile(path.resolve(runtime.cwd(), output), result.archive);
@@ -1345,6 +1367,7 @@ async function appUpload(args, runtime, resolved) {
     const capabilitiesResponse = await client.call({ method: "GET", path: "/api/v1/capabilities" });
     const packed = await packDirectory(path.resolve(runtime.cwd(), dir), {
         limits: limitsFromCapabilities(capabilitiesResponse.body),
+        logger: loggerOf(runtime),
     });
     const name = applicationNameFromArgs(args);
     const response = await client.call({
@@ -1488,7 +1511,7 @@ async function mediaCommand(args, runtime, resolved, action) {
         return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Deleted media ${id}` };
     }
     if (action === "upload") {
-        return mediaUpload(args, runtime, client);
+        return loggerOf(runtime).withLocal({ op: "media.upload", message: "media upload" }, () => mediaUpload(args, runtime, client));
     }
     throw usageError("Unknown media command.");
 }
@@ -2263,7 +2286,7 @@ async function screenCommand(args, runtime, resolved, action) {
         return screenToast(args, client);
     }
     if (action === "screenshot") {
-        return screenScreenshot(args, runtime, client);
+        return loggerOf(runtime).withLocal({ op: "screenshot.capture", message: "screen screenshot" }, () => screenScreenshot(args, runtime, client));
     }
     throw usageError("Unknown screen command.");
 }
@@ -2388,27 +2411,31 @@ async function screenScreenshot(args, runtime, client) {
     }
     const deadline = Date.now() + timeoutMs;
     let status;
-    while (true) {
-        const statusResponse = await client.call({
-            method: "GET",
-            path: `/api/v1/screens/${id}/screenshot/status`,
-        });
-        status = (statusResponse.body ?? {});
-        const currentId = status.capture_id;
-        if (typeof currentId === "string" && currentId.length > 0 && currentId !== captureId) {
-            throw new CliError(makeProblem("resource_conflict", "Resource state conflicts with the request", 409, "A later screenshot request replaced this one.", { request_id: client.requestId }));
+    await loggerOf(runtime).withLocal({ op: "screenshot.wait", message: `wait for screenshot ${id}` }, async (span) => {
+        while (true) {
+            const statusResponse = await client.call({
+                method: "GET",
+                path: `/api/v1/screens/${id}/screenshot/status`,
+            });
+            status = (statusResponse.body ?? {});
+            const currentId = status.capture_id;
+            span.progress({ capture_id: currentId, state: status.state });
+            if (typeof currentId === "string" && currentId.length > 0 && currentId !== captureId) {
+                throw new CliError(makeProblem("resource_conflict", "Resource state conflicts with the request", 409, "A later screenshot request replaced this one.", { request_id: client.requestId }));
+            }
+            if (status.state === "ready" && currentId === captureId) {
+                span.finish({ capture_id: captureId, state: status.state });
+                return;
+            }
+            if (status.state === "timed_out" && currentId === captureId) {
+                throw screenshotUnavailable(client.requestId);
+            }
+            if (Date.now() >= deadline) {
+                throw screenshotUnavailable(client.requestId);
+            }
+            await runtime.sleep(pollMs);
         }
-        if (status.state === "ready" && currentId === captureId) {
-            break;
-        }
-        if (status.state === "timed_out" && currentId === captureId) {
-            throw screenshotUnavailable(client.requestId);
-        }
-        if (Date.now() >= deadline) {
-            throw screenshotUnavailable(client.requestId);
-        }
-        await runtime.sleep(pollMs);
-    }
+    });
     const download = await client.call({
         method: "GET",
         path: `/api/v1/screens/${id}/screenshot`,
@@ -2880,6 +2907,12 @@ async function eventsFollow(args, runtime, resolved) {
         human: "",
     };
 }
+function probeFailureDetail(err, fallback) {
+    if (err instanceof CliError) {
+        return err.problem.detail;
+    }
+    return err instanceof Error ? redactText(err.message) : fallback;
+}
 async function doctor(args, runtime, resolved) {
     const checks = [];
     const nodeMajor = Number(process.versions.node.split(".")[0]);
@@ -2916,9 +2949,37 @@ async function doctor(args, runtime, resolved) {
         status: resolved.apiUrl.startsWith("https://") || resolved.apiUrl.startsWith("http://127.") || resolved.apiUrl.includes("localhost") ? "pass" : "fail",
         detail: resolved.apiUrl,
     });
+    checks.push({
+        name: "log_socket",
+        status: "pass",
+        detail: resolved.logSocket ?? "(none)",
+    });
     const lookup = ffmpegLookup(runtime.env);
+    const webpLookup = cwebpLookup(runtime.env);
+    let toolchain;
+    let toolchainDetail;
     try {
-        const toolchain = await resolveFfmpegToolchain(runtime);
+        toolchain = await resolveFfmpegToolchain(runtime);
+    }
+    catch (err) {
+        toolchainDetail = probeFailureDetail(err, "ffmpeg probe failed");
+    }
+    let cwebp;
+    let cwebpDetail;
+    try {
+        cwebp = await resolveCwebpToolchain(runtime);
+    }
+    catch (err) {
+        cwebpDetail = probeFailureDetail(err, "cwebp probe failed");
+    }
+    // WebP stills have two independent encoders: ffmpeg's libwebp, and the
+    // `cwebp` binary the image planner falls back to. Neither is required on its
+    // own, so each is a warning while the other is usable, and the pair fails
+    // only when the CLI has no way to produce WebP at all. `undefined` means the
+    // ffmpeg probe never answered, which the ffmpeg check already reports.
+    const libwebp = toolchain?.encoders.has("libwebp");
+    const webpEncodable = libwebp === true || cwebp !== undefined;
+    if (toolchain) {
         checks.push({
             name: "ffmpeg",
             status: "pass",
@@ -2929,51 +2990,71 @@ async function doctor(args, runtime, resolved) {
             status: "pass",
             detail: `${toolchain.ffprobe} ${toolchain.ffprobeVersion}${lookup.ffprobeFromEnv ? " (SCREENRIG_FFPROBE)" : ""}`,
         });
-        for (const [name, encoder] of [
-            ["encoder_libx265", "libx265"],
-            ["encoder_libx264", "libx264"],
-            ["encoder_libwebp", "libwebp"],
-        ]) {
-            checks.push({
-                name,
-                status: toolchain.encoders.has(encoder) ? "pass" : "fail",
-                detail: toolchain.encoders.has(encoder) ? `${encoder} available` : `${encoder} missing from this ffmpeg build`,
-            });
-        }
+        const encoders = toolchain.encoders;
+        checks.push({
+            name: "encoder_libx264",
+            status: encoders.has("libx264") ? "pass" : "fail",
+            detail: encoders.has("libx264")
+                ? "libx264 available"
+                : "libx264 missing from this ffmpeg build; the default video profile cannot encode",
+        });
+        checks.push({
+            name: "encoder_libx265",
+            status: encoders.has("libx265") ? "pass" : "warn",
+            detail: encoders.has("libx265")
+                ? "libx265 available"
+                : "libx265 missing from this ffmpeg build; --codec hevc is unavailable",
+        });
+        checks.push({
+            name: "encoder_libwebp",
+            status: encoders.has("libwebp") ? "pass" : webpEncodable ? "warn" : "fail",
+            detail: encoders.has("libwebp")
+                ? "libwebp available"
+                : "libwebp missing from this ffmpeg build; animation cannot be encoded",
+        });
         const tonemap = toolchain.filters.has("zscale") && toolchain.filters.has("tonemap");
         checks.push({
             name: "filter_hdr_tonemap",
-            status: tonemap ? "pass" : "fail",
+            status: tonemap ? "pass" : "warn",
             detail: tonemap
                 ? "zscale and tonemap available"
                 : "zscale or tonemap missing; HDR sources convert without tone mapping",
         });
     }
-    catch (err) {
-        const detail = err instanceof CliError ? err.problem.detail : err instanceof Error ? redactText(err.message) : "ffmpeg probe failed";
-        checks.push({ name: "ffmpeg", status: "fail", detail });
+    else {
+        checks.push({ name: "ffmpeg", status: "fail", detail: toolchainDetail ?? "ffmpeg probe failed" });
     }
-    const webpLookup = cwebpLookup(runtime.env);
-    try {
-        const cwebp = await resolveCwebpToolchain(runtime);
-        if (cwebp) {
+    if (cwebp) {
+        checks.push({
+            name: "cwebp",
+            status: "pass",
+            detail: `${cwebp.cwebp} ${cwebp.version}${cwebp.fromEnv ? " (SCREENRIG_CWEBP)" : ""}`,
+        });
+    }
+    else {
+        const missing = cwebpDetail ?? `${webpLookup.cwebp} not available${webpLookup.cwebpFromEnv ? " (SCREENRIG_CWEBP)" : ""}`;
+        if (libwebp === true) {
             checks.push({
                 name: "cwebp",
-                status: "pass",
-                detail: `${cwebp.cwebp} ${cwebp.version}${cwebp.fromEnv ? " (SCREENRIG_CWEBP)" : ""}`,
+                status: "warn",
+                detail: `${missing}; not required because this ffmpeg build has the libwebp encoder`,
+            });
+        }
+        else if (libwebp === false) {
+            checks.push({
+                name: "cwebp",
+                status: "fail",
+                detail: `${missing}; this ffmpeg build has no libwebp encoder either, so image transcode cannot produce WebP. ` +
+                    "Install an ffmpeg built with libwebp, or install cwebp on PATH (or set SCREENRIG_CWEBP).",
             });
         }
         else {
             checks.push({
                 name: "cwebp",
-                status: "fail",
-                detail: `${webpLookup.cwebp} not available${webpLookup.cwebpFromEnv ? " (SCREENRIG_CWEBP)" : ""}`,
+                status: "warn",
+                detail: `${missing}; it is the fallback for an ffmpeg build without libwebp, so fix ffmpeg first`,
             });
         }
-    }
-    catch (err) {
-        const detail = err instanceof CliError ? err.problem.detail : err instanceof Error ? redactText(err.message) : "cwebp probe failed";
-        checks.push({ name: "cwebp", status: "fail", detail });
     }
     const client = clientFor(runtime, args, resolved.apiUrl, resolved.token);
     for (const route of ["/.health", "/.ready", "/.version", "/api/v1/capabilities"]) {
@@ -2988,7 +3069,8 @@ async function doctor(args, runtime, resolved) {
                 const supported = features.feedback === true;
                 checks.push({
                     name: "feedback",
-                    status: supported ? "pass" : "fail",
+                    // An optional server feature, so its absence is not a local defect.
+                    status: supported ? "pass" : "warn",
                     detail: supported
                         ? "server advertises feedback support"
                         : "server does not advertise feedback support; feedback commands are unavailable",
@@ -3002,8 +3084,10 @@ async function doctor(args, runtime, resolved) {
         }
     }
     const failed = checks.some((check) => check.status === "fail");
+    const warned = checks.some((check) => check.status === "warn");
+    const status = failed ? "fail" : warned ? "warn" : "pass";
     return {
-        envelope: successEnvelope({ checks, version: CLI_VERSION }),
+        envelope: successEnvelope({ status, checks, version: CLI_VERSION }),
         exitCode: failed ? ExitCode.Unexpected : ExitCode.Success,
         human: checks.map((check) => `${check.status.toUpperCase()} ${check.name}: ${check.detail}`).join("\n"),
     };

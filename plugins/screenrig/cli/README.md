@@ -18,7 +18,8 @@ screenrig --json version
 
 Node.js 20.11 or newer is required. `media upload` additionally requires ffmpeg
 and ffprobe 6.0 or newer; the other commands do not. Run `screenrig --json doctor`
-to inspect the optional media toolchain before an upload.
+to inspect the optional media toolchain before an upload. It exits 0 on a host
+that is missing nothing required and reports the rest as warnings.
 
 This global package is the official developer-shell distribution. Agent workflows
 that load the ScreenRig plugin must keep using the plugin-relative launcher. The
@@ -44,6 +45,40 @@ default `https://api.screenrig.ai`. `SCREENRIG_API_URL` and `--api-url` remain
 explicit overrides. A stored production default in `config.local-dev.json` is
 treated as stale profile state; a different stored URL remains an explicit
 configuration override.
+
+Optional `log_socket` in that same user config enables a side-channel NDJSON
+operation log. The CLI connects as a **client** to an already-listening Unix
+domain socket at that path and writes one JSON object per line. Stdout stays
+the single command envelope; `--json` and stderr progress are unchanged. There
+is no `--log-socket` flag and no `SCREENRIG_LOG_SOCKET` override. If the field
+is absent or empty, behavior is unchanged. If it is set and connect or write
+fails, the command fails: the consumer must already be listening.
+
+```json
+{
+  "api_url": "https://api.screenrig.ai",
+  "token": "sr_live_…",
+  "log_socket": "/tmp/screenrig.sock"
+}
+```
+
+Each line is a v1 event. Every event includes `v` (`1`), `ts` (ISO-8601 UTC),
+`event_id` (UUID of this line), `correlation_id` (UUID pairing a request with
+its response, or a local start with its finish), `run_id` (UUID shared by the
+CLI process), `command` (parsed command words), `kind` (`http` or `local`),
+`phase` (`request` / `response` for HTTP; `start` / `progress` / `finish` /
+`error` for local), `op` (short stable name), and `tag` (compact snake_case
+display key, for example `get_screens` or `media_transcode`). Nested work also
+carries `parent_correlation_id`. When there is an associated resource,
+`id` is that identifier (`scr_…`, `pl_…`, `med_…`, application or operation
+id). It is not `event_id` or `correlation_id`. HTTP events derive it from the
+first path segment that is not a kept route token. Optional `params` is an
+object of small scalars (`string`, `number`, or `boolean`) and is omitted
+when empty. HTTP lines add method, path, query keys, status, a redacted
+request or response summary, and `x-request-id` when present. Finish,
+response, and error phases include `duration_ms`. Binary bodies log
+`content_type` and `byte_length` only. Tokens, `Authorization` headers,
+signed URLs, pairing material, and image bytes are never written.
 
 Enrollment creates the account's first independently revocable agent. Run it
 before the first screen is available when account setup and content preparation
@@ -410,8 +445,9 @@ screenrig --json screen toast scr_01 --level info --text "Lobby closed"
 screenrig --json screen toast scr_01 --level alert --text "Doors locked" --duration-ms 5000
 ```
 
-`--level` defaults to `info` when omitted. Agent toasts are info. Info stream
-toasts are admitted in production. `error` and `alert` remain accepted.
+`--level` is `info`, `alert`, or `error`. It defaults to `info` when omitted.
+The CLI accepts all three. Production glass shows error toasts only; alert
+and info only off production. Status chips show in every environment.
 `--text` is 1 to 120 characters, accepts line feed as the only line break, and
 allows at most three lines. `--duration-ms` is optional, defaults to 10000 on
 the server, and must be between 2000 and 60000 inclusive when supplied.
@@ -502,6 +538,45 @@ page or stream with nothing to print writes no human output. `--json` is a
 JSON envelope or stream. After redaction it may still include a server
 `message` field when that field is data.
 
+## Preflight checks (`doctor`)
+
+`screenrig --json doctor` probes this installation and the configured control
+plane, and reports one row per check with a `name`, a `detail`, and a `status`:
+
+| Status | Meaning | Effect on the exit code |
+| --- | --- | --- |
+| `pass` | Present and usable. | none |
+| `warn` | An optional piece is absent and the CLI has a documented path without it. | none |
+| `fail` | A defect that breaks a supported command until it is fixed. | exit 1 |
+
+`data.status` is the worst row in the list. The command exits 0 unless
+something required failed, so a clean host — installed through the plugin or
+through the npm package — passes even when optional pieces are absent. Stdout
+is a success envelope either way: branch on `data.status` and the rows, not on
+`ok`.
+
+`node`, `config_permissions`, `token`, `api_url`, `ffmpeg`, `ffprobe`,
+`encoder_libx264`, `health`, `ready`, `version`, and `capabilities` fail when
+they are not satisfied. These rows warn instead:
+
+| Check | Why it is optional |
+| --- | --- |
+| `cwebp` | The standalone WebP encoder is only the fallback for an ffmpeg build without libwebp, so a host whose ffmpeg carries the `libwebp` encoder never runs it. |
+| `encoder_libwebp` | Where the binary above is installed, stills are encoded with it instead. Animation still needs `libwebp_anim`. |
+| `encoder_libx265` | Only `--codec hevc` uses it. |
+| `filter_hdr_tonemap` | Without `zscale` and `tonemap` an HDR source converts without tone mapping, and the upload envelope carries a warning. |
+| `feedback` | The server advertises it; the `feedback` commands are unavailable where it is absent. |
+
+`encoder_libwebp` and `cwebp` are the two ways to encode the one delivery
+format for images, so each warns while the other is usable and the two fail
+together when the host has neither. That case is a real defect: no image can be
+transcoded at all. The remedy the `cwebp` row names is an ffmpeg built with
+libwebp, or `cwebp` on `PATH`, or `SCREENRIG_CWEBP` pointing at it.
+
+Neither the plugin launcher nor the npm package installs ffmpeg, ffprobe, or
+cwebp. They stay host dependencies, resolved from `PATH` or from
+`SCREENRIG_FFMPEG`, `SCREENRIG_FFPROBE`, and `SCREENRIG_CWEBP`.
+
 ## Media transcoding
 
 `media upload` transcodes the source by default before it declares the upload,
@@ -517,8 +592,9 @@ version but does not enforce a minimum. What it does enforce is the presence of
 the encoder each profile needs. `screenrig doctor` reports the resolved binaries
 and versions, the `libx265`, `libx264`, and `libwebp` encoders, the `cwebp`
 fallback, and whether the build carries the `zscale` and `tonemap` filters that
-HDR tone mapping needs. `encoder_libwebp` is the ffmpeg encoder only; a fail
-there does not mean stills cannot transcode when `cwebp` passes.
+HDR tone mapping needs. `encoder_libwebp` is the ffmpeg encoder only, and its
+detail never claims the fallback covers it: a warning there means stills still
+transcode through `cwebp` while animation does not.
 
 The command also checks the filename. A low-information name such as
 `video.mp4` or `IMG_1234.jpg` adds an advisory `generic_filename` warning to
@@ -629,8 +705,8 @@ Node.js 20.11 or newer is required by the package. The commands below are
 source-checkout development gates, not installed-plugin commands; run them from
 this repository checkout. Default `media upload` transcoding additionally
 requires ffmpeg and ffprobe on the host. `--no-transcode` bypasses both. No
-other command requires them; `screenrig doctor` only probes and reports the
-optional toolchain.
+other command requires them; `screenrig doctor` probes and reports the
+toolchain, and fails only on a piece a supported command actually needs.
 
 ```sh
 npm ci

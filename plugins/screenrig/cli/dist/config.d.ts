@@ -1,7 +1,10 @@
 import { chmod, mkdir, open, rename, rm, stat } from "node:fs/promises";
+import type { OperationLogger } from "./log/types.js";
 export interface ScreenRigConfig {
     api_url: string;
     token?: string;
+    /** Path to an already-listening AF_UNIX socket for NDJSON operation logs. */
+    log_socket?: string;
     account_id?: string;
     agent_id?: string;
     last_agent?: {
@@ -52,12 +55,19 @@ export interface ConfigFs {
     stat: typeof stat;
     homedir: () => string;
     env: NodeJS.Dict<string>;
+    logger?: OperationLogger;
 }
 export declare function defaultConfigPath(fsLike: Pick<ConfigFs, "homedir" | "env" | "stat">): Promise<string>;
 export declare function isWorldOrGroupReadable(mode: number): boolean;
 export declare function readConfigFile(configPath: string, fsLike: ConfigFs, options?: {
     repair?: boolean;
 }): Promise<ScreenRigConfig | undefined>;
+/**
+ * Keep `log_socket` across rewrites that build a fresh object. Spread
+ * `current` first when the rest of the file should survive; use this when
+ * the write is intentionally sparse (enrollment pending, disconnect).
+ */
+export declare function preserveLogSocket(current: ScreenRigConfig | undefined, next: ScreenRigConfig): ScreenRigConfig;
 export declare function writeConfigAtomic(configPath: string, config: ScreenRigConfig, fsLike: ConfigFs): Promise<void>;
 export interface ConfigLockOptions {
     sleep: (ms: number) => Promise<void>;
@@ -80,11 +90,13 @@ export interface ResolvedConfig {
     agentConnection?: ScreenRigConfig["agent_connection"];
     lastAgent?: ScreenRigConfig["last_agent"];
     configPath: string;
+    logSocket?: string;
     source: {
         apiUrl: "flag" | "env" | "config" | "local-dev" | "default";
         token: "config" | "none";
     };
 }
+export declare function validateLogSocketPath(value: unknown, fsLike: Pick<ConfigFs, "stat">): Promise<string | undefined>;
 export declare function resolveConfig(options: {
     flags: Record<string, string | boolean>;
     fs: ConfigFs;

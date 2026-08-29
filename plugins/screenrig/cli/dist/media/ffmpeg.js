@@ -1,3 +1,4 @@
+import { loggingRunProcess, loggerOf } from "../log/logger.js";
 import { usageError } from "../problems.js";
 import { redactText } from "../redact.js";
 const INSTALL_HINT = "Install ffmpeg 6.0 or newer and make ffmpeg and ffprobe reachable on PATH, " +
@@ -36,7 +37,7 @@ export function runProcessFor(runtime) {
     if (!run) {
         throw usageError("This runtime cannot start the ffmpeg toolchain.");
     }
-    return run;
+    return loggingRunProcess(run, loggerOf(runtime));
 }
 function missingToolError(binary, result) {
     const reason = result.spawnError

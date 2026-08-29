@@ -1,0 +1,1 @@
+{"version":3,"file":"attach.d.ts","sourceRoot":"","sources":["../../src/log/attach.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,YAAY,CAAC;AAC7C,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,cAAc,CAAC;AACnD,OAAO,EAAqB,KAAK,UAAU,EAAE,MAAM,eAAe,CAAC;AAcnE,wBAAsB,qBAAqB,CACzC,OAAO,EAAE,UAAU,EACnB,IAAI,EAAE,UAAU,EAChB,QAAQ,EAAE,cAAc,GACvB,OAAO,CAAC,IAAI,CAAC,CAmBf"}

@@ -168,8 +168,11 @@ Bandwidth is $0.09/GB. Storage is $0.14/GB-month. Same rates on every tier.
 screenrig --json doctor
 ```
 
-Read `data.checks`. A build that reports `ffmpeg` and `ffprobe` converts media
-before upload.
+Read `data.status` and `data.checks`. Each check is `pass`, `warn`, or `fail`.
+Only `fail` changes the exit code. `data.status` is the worst row. A success
+envelope with `data.status` `warn` is a usable host, not a broken install.
+
+A build that reports `ffmpeg` and `ffprobe` converts media before upload.
 
 On a build that converts:
 
@@ -192,28 +195,33 @@ On a build that converts:
 - `doctor` reports the `ffmpeg`, `ffprobe`, `encoder_libx264`,
   `encoder_libx265`, `encoder_libwebp`, `cwebp`, and `filter_hdr_tonemap`
   checks. Use it to name the missing part before you ask the user for anything.
-  The default video path needs `libx264`. Image transcode works when
-  `encoder_libwebp` or `cwebp` passes. `encoder_libwebp` reports the ffmpeg
-  encoder only; a fail there does not mean stills cannot convert.
+  The default video path needs `libx264` (`fail` when that encoder is missing).
+  Image transcode works when `encoder_libwebp` or `cwebp` is `pass`. The other
+  of those two is `warn` when it is absent, because stills still convert.
+  `cwebp` is `warn` when ffmpeg has `libwebp`. Both are `fail` only when the
+  host has neither. `encoder_libwebp` reports the ffmpeg encoder only.
+  `encoder_libx265` and `filter_hdr_tonemap` are `warn` when missing.
 
 A missing or unusable toolchain fails `media upload` alone. It returns a usage
 error, not a plugin installation failure. Playlist, kv, doctor, compose, and
 every other command keep working, so do not reinstall the plugin and do not
-stop the wider task. Any failed check makes `doctor` itself exit non-zero, so
-read the individual check names before you call the installation unhealthy.
+stop the wider task. Treat `doctor` as unhealthy only when a check is `fail`.
+A `warn` row, including optional `cwebp` beside an ffmpeg with `libwebp`,
+does not make `doctor` exit non-zero.
 
 When the toolchain is missing, tell the user which check failed and ask them to
 install ffmpeg 6.0 or newer, with `ffmpeg` and `ffprobe` reachable on `PATH`.
 Point them at their platform package manager or `https://ffmpeg.org/download.html`.
-An `encoder_libx264` or `encoder_libx265` failure means the installed ffmpeg
-build lacks that encoder. `doctor` can pass `ffmpeg` and still fail
-`encoder_libwebp`. Name that check. If `cwebp` passes, stills still convert;
-do not ask the user to rebuild ffmpeg for images and do not use
-`--no-transcode` as the recovery. `--no-transcode` is only for a source that
-is already accepted delivery WebP. Do not upload lossless WebP. Players expect
-WebP. If `doctor` `ready` fails, stop. A 503 / `transport_error` on
-`media upload` means the service is not ready, not a bad PNG. Do not install
-software on the user's computer without their explicit request.
+An `encoder_libx264` failure means the installed ffmpeg build lacks that
+encoder. `encoder_libx265` missing is `warn`; only `--codec hevc` needs it.
+`doctor` can pass `ffmpeg` and still `warn` `encoder_libwebp`. Name that
+check. If `cwebp` is `pass`, stills still convert; do not ask the user to
+rebuild ffmpeg for images and do not use `--no-transcode` as the recovery.
+`--no-transcode` is only for a source that is already accepted delivery WebP.
+Do not upload lossless WebP. Players expect WebP. If `doctor` `ready` fails,
+stop. A 503 / `transport_error` on `media upload` means the service is not
+ready, not a bad PNG. Do not install software on the user's computer without
+their explicit request.
 
 `media upload` produces an H.264 MP4 by default. Every current browser and
 every screenRIG player decodes it. `--codec hevc` opts in to H.265 for a

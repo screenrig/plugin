@@ -1,11 +1,41 @@
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { loggerOf } from "../log/logger.js";
 import { usageError } from "../problems.js";
 import { redactText } from "../redact.js";
 import { probeMedia, resolveCwebpToolchain, resolveFfmpegToolchain, runProcessFor, } from "./ffmpeg.js";
 import { silentProgressReporter } from "./progress.js";
 import { readWebpContainer } from "./webp.js";
+function loggingProgressReporter(inner, span) {
+    let lastPercent = -1;
+    return {
+        start(info) {
+            span.progress({
+                stage: info.stage,
+                target: info.target,
+                source_bytes: info.sourceBytes,
+                width: info.width,
+                height: info.height,
+            });
+            inner.start(info);
+        },
+        update(fraction) {
+            const percent = Math.floor(Math.min(1, Math.max(0, fraction)) * 100);
+            if (percent === 100 || percent - lastPercent >= 5) {
+                lastPercent = percent;
+                span.progress({ percent });
+            }
+            inner.update(fraction);
+        },
+        finish(info) {
+            inner.finish(info);
+        },
+        failed() {
+            inner.failed();
+        },
+    };
+}
 /**
  * Delivery targets for signage and kiosk playback.
  *
@@ -54,127 +84,181 @@ export function classifySource(filePath, explicitContentType) {
 }
 export async function transcodeForUpload(request) {
     const { runtime, filePath, options } = request;
-    const reporter = request.reporter ?? silentProgressReporter();
-    const kind = classifySource(filePath, request.explicitContentType);
-    const toolchain = await resolveFfmpegToolchain(runtime);
-    const probe = await probeMedia(runtime, toolchain, filePath);
-    const sourceBytes = (await stat(filePath)).size;
-    const sourceWebp = kind === "image" &&
-        (probe.codec === "webp" || path.extname(filePath).toLowerCase() === ".webp" || request.explicitContentType === "image/webp")
-        ? readWebpContainer(await readFile(filePath, { flag: "r" }))
-        : undefined;
-    if (!probe.hasVideo) {
-        // ffmpeg has no animated-WebP demuxer, so a valid animated WebP probes empty.
-        if (sourceWebp?.animated) {
-            if (sourceWebp.width > options.maxEdge || sourceWebp.height > options.maxEdge) {
-                throw usageError(`${path.basename(filePath)} is an animated WebP of ${sourceWebp.width}x${sourceWebp.height}, ` +
-                    `which exceeds the ${options.maxEdge}px bound, and ffmpeg cannot decode animated WebP to resize it. ` +
-                    "Supply the original source, or pass --no-transcode to upload it unchanged.");
+    const logger = loggerOf(runtime);
+    return logger.withLocal({ op: "media.transcode", message: `transcode ${path.basename(filePath)}` }, async (transcodeSpan) => {
+        const reporter = loggingProgressReporter(request.reporter ?? silentProgressReporter(), transcodeSpan);
+        const kind = classifySource(filePath, request.explicitContentType);
+        const toolchain = await resolveFfmpegToolchain(runtime);
+        const probe = await probeMedia(runtime, toolchain, filePath);
+        const sourceBytes = (await stat(filePath)).size;
+        const sourceWebpBytes = kind === "image" &&
+            (probe.codec === "webp" || path.extname(filePath).toLowerCase() === ".webp" || request.explicitContentType === "image/webp")
+            ? await readFile(filePath, { flag: "r" })
+            : undefined;
+        const sourceWebp = sourceWebpBytes
+            ? logger.enabled
+                ? await logger.withLocal({ op: "webp.inspect", message: `inspect ${path.basename(filePath)}` }, async (span) => {
+                    const container = readWebpContainer(sourceWebpBytes);
+                    span.finish({
+                        animated: container?.animated,
+                        lossless: container?.lossless,
+                        width: container?.width,
+                        height: container?.height,
+                        byte_length: sourceWebpBytes.byteLength,
+                    });
+                    return container;
+                })
+                : readWebpContainer(sourceWebpBytes)
+            : undefined;
+        if (!probe.hasVideo) {
+            // ffmpeg has no animated-WebP demuxer, so a valid animated WebP probes empty.
+            if (sourceWebp?.animated) {
+                if (sourceWebp.width > options.maxEdge || sourceWebp.height > options.maxEdge) {
+                    throw usageError(`${path.basename(filePath)} is an animated WebP of ${sourceWebp.width}x${sourceWebp.height}, ` +
+                        `which exceeds the ${options.maxEdge}px bound, and ffmpeg cannot decode animated WebP to resize it. ` +
+                        "Supply the original source, or pass --no-transcode to upload it unchanged.");
+                }
+                transcodeSpan.finish({
+                    passthrough: true,
+                    stage: "image",
+                    source_bytes: sourceBytes,
+                    output_bytes: sourceBytes,
+                    width: sourceWebp.width,
+                    height: sourceWebp.height,
+                });
+                return {
+                    filePath,
+                    filename: path.basename(filePath),
+                    contentType: "image/webp",
+                    passthrough: true,
+                    reason: `source is already an animated WebP within ${options.maxEdge}px on both edges`,
+                    stage: "image",
+                    sourceBytes,
+                    outputBytes: sourceBytes,
+                    durationMs: 0,
+                    width: sourceWebp.width,
+                    height: sourceWebp.height,
+                    // Read from the RIFF header of the exact bytes being uploaded.
+                    dimensionsMeasured: true,
+                    warnings: [],
+                };
             }
+            throw usageError(`ffprobe found no decodable ${kind} stream in ${path.basename(filePath)}. ` +
+                "Pass --no-transcode to upload the bytes unchanged.");
+        }
+        const passthrough = passthroughReason(kind, probe, options, sourceWebp);
+        if (passthrough) {
+            transcodeSpan.finish({
+                passthrough: true,
+                stage: kind,
+                source_bytes: sourceBytes,
+                output_bytes: sourceBytes,
+                width: probe.displayWidth,
+                height: probe.displayHeight,
+                reason: passthrough,
+            });
             return {
                 filePath,
                 filename: path.basename(filePath),
-                contentType: "image/webp",
+                contentType: kind === "video" ? "video/mp4" : "image/webp",
                 passthrough: true,
-                reason: `source is already an animated WebP within ${options.maxEdge}px on both edges`,
-                stage: "image",
+                reason: passthrough,
+                stage: kind,
                 sourceBytes,
                 outputBytes: sourceBytes,
                 durationMs: 0,
-                width: sourceWebp.width,
-                height: sourceWebp.height,
-                // Read from the RIFF header of the exact bytes being uploaded.
+                width: probe.displayWidth,
+                height: probe.displayHeight,
+                // A passthrough uploads the probed source verbatim, so this is measured.
                 dimensionsMeasured: true,
                 warnings: [],
             };
         }
-        throw usageError(`ffprobe found no decodable ${kind} stream in ${path.basename(filePath)}. ` +
-            "Pass --no-transcode to upload the bytes unchanged.");
-    }
-    const passthrough = passthroughReason(kind, probe, options, sourceWebp);
-    if (passthrough) {
-        return {
-            filePath,
-            filename: path.basename(filePath),
-            contentType: kind === "video" ? "video/mp4" : "image/webp",
-            passthrough: true,
-            reason: passthrough,
-            stage: kind,
-            sourceBytes,
-            outputBytes: sourceBytes,
-            durationMs: 0,
-            width: probe.displayWidth,
-            height: probe.displayHeight,
-            // A passthrough uploads the probed source verbatim, so this is measured.
-            dimensionsMeasured: true,
-            warnings: [],
-        };
-    }
-    const extension = kind === "video" ? ".mp4" : ".webp";
-    const stem = path.basename(filePath, path.extname(filePath));
-    const filename = `${stem || "media"}${extension}`;
-    const cleanupDir = await mkdtemp(path.join(tmpdir(), "screenrig-transcode-"));
-    const outputPath = path.join(cleanupDir, filename);
-    // Every failure after mkdtemp must remove the directory, including planning
-    // failures such as an ffmpeg build without the encoder the profile needs.
-    try {
-        const plan = kind === "video"
-            ? planVideo(toolchain, probe, options, filePath, outputPath)
-            : await planImage(runtime, toolchain, probe, options, filePath, outputPath);
-        reporter.start({
-            stage: kind,
-            target: plan.target,
-            sourceBytes,
-            durationSeconds: plan.progressDurationSeconds,
-            width: probe.displayWidth,
-            height: probe.displayHeight,
-        });
-        const startedAt = runtime.now().getTime();
-        const tool = path.basename(plan.command) || plan.command;
-        await runEncode(runtime, plan.command, plan.args, plan.progressDurationSeconds, reporter);
-        let outputBytes;
+        const extension = kind === "video" ? ".mp4" : ".webp";
+        const stem = path.basename(filePath, path.extname(filePath));
+        const filename = `${stem || "media"}${extension}`;
+        const cleanupDir = await mkdtemp(path.join(tmpdir(), "screenrig-transcode-"));
+        const outputPath = path.join(cleanupDir, filename);
+        // Every failure after mkdtemp must remove the directory, including planning
+        // failures such as an ffmpeg build without the encoder the profile needs.
         try {
-            outputBytes = (await stat(outputPath)).size;
+            const plan = kind === "video"
+                ? planVideo(toolchain, probe, options, filePath, outputPath)
+                : await planImage(runtime, toolchain, probe, options, filePath, outputPath);
+            reporter.start({
+                stage: kind,
+                target: plan.target,
+                sourceBytes,
+                durationSeconds: plan.progressDurationSeconds,
+                width: probe.displayWidth,
+                height: probe.displayHeight,
+            });
+            const startedAt = runtime.now().getTime();
+            const tool = path.basename(plan.command) || plan.command;
+            if (tool === "cwebp" || tool.endsWith("cwebp")) {
+                await logger.withLocal({ op: "webp.encode", message: "cwebp fallback", encoder: "cwebp" }, async (span) => {
+                    await runEncode(runtime, plan.command, plan.args, plan.progressDurationSeconds, reporter);
+                    span.finish({ encoder: "cwebp", width: plan.outputWidth, height: plan.outputHeight });
+                });
+            }
+            else {
+                await runEncode(runtime, plan.command, plan.args, plan.progressDurationSeconds, reporter);
+            }
+            let outputBytes;
+            try {
+                outputBytes = (await stat(outputPath)).size;
+            }
+            catch {
+                throw usageError(`${tool} reported success but wrote no output file.`);
+            }
+            if (outputBytes < 1) {
+                throw usageError(`${tool} wrote an empty output file.`);
+            }
+            const durationMs = runtime.now().getTime() - startedAt;
+            reporter.finish({ outputBytes, elapsedMs: durationMs });
+            if (kind === "image") {
+                await requireLossyDeliveryWebp(outputPath);
+            }
+            const measured = await measureOutput(runtime, toolchain, outputPath, kind);
+            const warnings = [...plan.warnings];
+            if (!measured) {
+                warnings.push("The CLI could not measure the transcoded file, so the reported width and height are the " +
+                    "planned values and may differ from the delivered file by a pixel or two.");
+            }
+            transcodeSpan.finish({
+                passthrough: false,
+                stage: kind,
+                source_bytes: sourceBytes,
+                output_bytes: outputBytes,
+                width: measured?.width ?? plan.outputWidth,
+                height: measured?.height ?? plan.outputHeight,
+                dimensions_measured: measured !== undefined,
+                encoder: tool,
+                duration_ms: durationMs,
+            });
+            return {
+                filePath: outputPath,
+                filename,
+                contentType: kind === "video" ? "video/mp4" : "image/webp",
+                passthrough: false,
+                reason: plan.reason,
+                stage: kind,
+                sourceBytes,
+                outputBytes,
+                durationMs,
+                width: measured?.width ?? plan.outputWidth,
+                height: measured?.height ?? plan.outputHeight,
+                dimensionsMeasured: measured !== undefined,
+                warnings,
+                cleanupDir,
+            };
         }
-        catch {
-            throw usageError(`${tool} reported success but wrote no output file.`);
+        catch (error) {
+            reporter.failed();
+            await rm(cleanupDir, { recursive: true, force: true });
+            throw error;
         }
-        if (outputBytes < 1) {
-            throw usageError(`${tool} wrote an empty output file.`);
-        }
-        const durationMs = runtime.now().getTime() - startedAt;
-        reporter.finish({ outputBytes, elapsedMs: durationMs });
-        if (kind === "image") {
-            await requireLossyDeliveryWebp(outputPath);
-        }
-        const measured = await measureOutput(runtime, toolchain, outputPath, kind);
-        const warnings = [...plan.warnings];
-        if (!measured) {
-            warnings.push("The CLI could not measure the transcoded file, so the reported width and height are the " +
-                "planned values and may differ from the delivered file by a pixel or two.");
-        }
-        return {
-            filePath: outputPath,
-            filename,
-            contentType: kind === "video" ? "video/mp4" : "image/webp",
-            passthrough: false,
-            reason: plan.reason,
-            stage: kind,
-            sourceBytes,
-            outputBytes,
-            durationMs,
-            width: measured?.width ?? plan.outputWidth,
-            height: measured?.height ?? plan.outputHeight,
-            dimensionsMeasured: measured !== undefined,
-            warnings,
-            cleanupDir,
-        };
-    }
-    catch (error) {
-        reporter.failed();
-        await rm(cleanupDir, { recursive: true, force: true });
-        throw error;
-    }
+    });
 }
 /**
  * Delivery stills must be lossy WebP. Reject VP8L and unreadable output here

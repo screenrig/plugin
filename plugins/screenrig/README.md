@@ -64,8 +64,9 @@ PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
 screenrig --json version
 ```
 
-That launcher is the entry point for every ScreenRig command. It runs the
-reviewed CLI pinned by this repository and never fetches mutable code.
+That package-relative launcher is the entry point for every ScreenRig command.
+It runs the reviewed CLI pinned by this repository and never fetches mutable
+code.
 
 ## Four primitives
 
