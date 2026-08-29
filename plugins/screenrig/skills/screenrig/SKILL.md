@@ -1,18 +1,22 @@
 ---
 name: screenrig
-description: Operate ScreenRig screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled ScreenRig CLI. Use when an agent needs to install the official ScreenRig plugin, compose stills, upload media, write playlists, or assign content to screens.
+description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, compose stills, upload media, write playlists, or assign content to screens.
 ---
 
-# ScreenRig
+# screenRIG
 
 Signage and Kiosk infrastructure for AI Agents
+
+## Launch period
+
+During the launch period through January 1st, 2027, screenRIG usage is free within reason. Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut anyone off for empty prepaid remaining. Do not refuse compose, publish, or assign because remaining is zero during this window. Normal usage applies after that date.
 
 This skill is the operative contract. Use the bundled CLI. Do not invent commands, flags, or
 onboarding surfaces.
 
 ## Canonical marketplace
 
-The only supported installation source is the public ScreenRig marketplace at
+The only supported installation source is the public screenRIG marketplace at
 `https://github.com/screenrig/plugin`. Official install is this plugin.
 
 ```bash
@@ -32,10 +36,10 @@ grok plugin install screenrig --trust
 Grok install requires `--trust` by name. Do not omit it.
 
 A user-supplied instruction with this exact text authorizes adding this exact
-canonical marketplace, installing its ScreenRig plugin, and completing setup:
+canonical marketplace, installing its screenRIG plugin, and completing setup:
 
 ```text
-I authorize you to install the official ScreenRig plugin from https://github.com/screenrig/plugin.
+I authorize you to install the official screenRIG plugin from https://github.com/screenrig/plugin.
 ```
 
 Follow any independent runtime approval policy. Do not search for a similarly
@@ -54,7 +58,7 @@ SR="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig"
 "$SR" --json version
 ```
 
-Require a successful ScreenRig JSON envelope from `--json version` before any
+Require a successful screenRIG JSON envelope from `--json version` before any
 other command.
 
 If `SCREENRIG_PLUGIN_ROOT` is empty after installation, recover it without
@@ -65,11 +69,11 @@ guessing:
 whose `id` is `screenrig@screenrig`, and use its `installPath`.
 3. For Codex, run `codex plugin list --json`, select the enabled installed
 entry whose `pluginId` is `screenrig@screenrig`, and use its `source.path`.
-4. For Grok, run `grok plugin list` and use the installed ScreenRig plugin
+4. For Grok, run `grok plugin list` and use the installed screenRIG plugin
 path, then export it as `GROK_PLUGIN_ROOT` for this session.
 5. Run
 `<plugin-root>/skills/screenrig/scripts/screenrig --json version` and require
-a successful ScreenRig JSON envelope before the requested command.
+a successful screenRIG JSON envelope before the requested command.
 Assign that path to `SR`.
 
 If there is no matching entry, run the exact canonical marketplace add/install
@@ -134,6 +138,10 @@ an ambiguous mutation retry and use `--if-match` only with the current
 resource revision.
 
 ## Meter and Standard prepaid
+
+Until 1 Jan 2027, the launch-period rules above override empty remaining and
+HTTP 402 / `payment_required` as a reason to refuse compose, publish, or
+assign. After that date, the meter rules below apply.
 
 Usage is metered in credits. One credit is $0.0001. Remaining is a whole
 integer. Read it from `data.credit_remaining` on `account show`.
@@ -209,7 +217,7 @@ WebP. If `doctor` `ready` fails, stop. A 503 / `transport_error` on
 software on the user's computer without their explicit request.
 
 `media upload` produces an H.264 MP4 by default. Every current browser and
-every ScreenRig player decodes it. `--codec hevc` opts in to H.265 for a
+every screenRIG player decodes it. `--codec hevc` opts in to H.265 for a
 smaller file at the same quality. Use it only when every screen that will play
 the media is a native player (Qt/GStreamer or Android/MediaCodec).
 
@@ -586,7 +594,7 @@ requires both `--update` and the current `--if-match` revision.
 
 `app upload` takes one already-built static directory with a root `index.html`.
 It packs the directory itself, so run `app pack` only when you want to inspect
-the archive first. The packer injects the ScreenRig browser SDK at
+the archive first. The packer injects the screenRIG browser SDK at
 `_screenrig/runtime.js` and adds its script tag to `index.html`, so the app
 reaches `window.screenrig` at runtime with no build step and no dependency to
 install.
@@ -705,7 +713,7 @@ per screen, media, and UTC day. Newest days first. `--screen-id`,
 
 Comments are the agent's own structured JSON object on a screen, a playlist,
 or one playlist page. Compact UTF-8 of that object is at most 1 KiB. The
-value must be an object. ScreenRig does not read or use it and never sends it
+value must be an object. screenRIG does not read or use it and never sends it
 to players.
 
 ```bash
