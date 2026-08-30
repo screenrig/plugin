@@ -281,11 +281,11 @@ export async function preflightPlaylistBundle(directory) {
         throw usageError("Playlist bundle source must have no symlinked path components.");
     const manifest = parseManifest(await readBundleJson(root, PLAYLIST_BUNDLE_MANIFEST));
     const playlist = record(await readBundleJson(root, PLAYLIST_BUNDLE_PLAYLIST), PLAYLIST_BUNDLE_PLAYLIST);
-    const mediaKinds = new Map(manifest.media.map((item) => [
+    const mediaPrimitives = new Map(manifest.media.map((item) => [
         item.source_id,
         item.content_type.startsWith("image/") ? "image" : "video",
     ]));
-    const referenced = validatePlaylistWrite(playlist, mediaKinds);
+    const referenced = validatePlaylistWrite(playlist, mediaPrimitives);
     const listed = new Set(manifest.media.map((item) => item.source_id));
     const missing = [...referenced].filter((id) => !listed.has(id));
     const unused = [...listed].filter((id) => !referenced.has(id));
@@ -315,21 +315,28 @@ export async function preflightPlaylistBundle(directory) {
     }
     return { root, manifest, playlist, files, close };
 }
-function normalizedMediaSelector(items, original) {
-    if (!Array.isArray(items) || items.length < 1 || items.length > 32) {
-        throw usageError("Playlist export requires 1 to 32 resolved media items per placement.");
+function normalizedMediaSelector(input) {
+    const selector = record(input, "Playlist media selector");
+    let ids;
+    if (selector.by === "id") {
+        ids = [stringField(selector, "media_id", "Playlist media selector")];
     }
-    const ids = items.map((value, index) => {
-        const item = record(value, `Resolved media item ${index}`);
-        const id = stringField(item, "media_id", `Resolved media item ${index}`);
-        if (!MEDIA_ID_PATTERN.test(id))
-            throw usageError("Playlist contains an invalid resolved media id.");
-        return id;
-    });
+    else if (selector.by === "ids" && Array.isArray(selector.media_ids)) {
+        ids = selector.media_ids.map((id) => {
+            if (typeof id !== "string")
+                throw usageError("Playlist contains an invalid snapshotted media id.");
+            return id;
+        });
+    }
+    else {
+        throw usageError("Playlist export requires selectors snapshotted to by:id or by:ids.");
+    }
+    if (ids.length < 1 || ids.length > 32 || ids.some((id) => !MEDIA_ID_PATTERN.test(id))) {
+        throw usageError("Playlist export requires 1 to 32 valid snapshotted media ids per primitive.");
+    }
     if (new Set(ids).size !== ids.length)
         throw usageError("Playlist contains duplicate resolved media ids in one selector.");
-    const originalRecord = record(original, "Playlist media selector");
-    const oneAtATime = originalRecord.one_at_a_time === true;
+    const oneAtATime = selector.one_at_a_time === true;
     if (ids.length === 1 && !oneAtATime)
         return { by: "id", media_id: ids[0] };
     return { by: "ids", media_ids: ids, one_at_a_time: oneAtATime };
@@ -347,45 +354,44 @@ export function normalizePlaylistForBundle(input) {
     const mediaIds = new Set();
     const pages = source.pages.map((pageValue, pageIndex) => {
         const page = record(pageValue, `Playlist.pages[${pageIndex}]`);
-        if (!Array.isArray(page.placements))
-            throw usageError(`Playlist.pages[${pageIndex}].placements must be an array.`);
-        const placements = page.placements.map((placementValue, placementIndex) => {
-            const placement = record(placementValue, `Playlist.pages[${pageIndex}].placements[${placementIndex}]`);
-            const content = record(placement.content, `Playlist.pages[${pageIndex}].placements[${placementIndex}].content`);
-            const type = content.type;
-            if (type === "application")
-                throw usageError("Playlist export does not support application placements; export stopped before media download.");
-            let normalizedContent;
-            if (type === "iframe") {
-                normalizedContent = {
-                    type: "iframe",
-                    src: stringField(content, "src", "Iframe content"),
-                    title: stringField(content, "title", "Iframe content"),
+        if (!Array.isArray(page.primitives))
+            throw usageError(`Playlist.pages[${pageIndex}].primitives must be an array.`);
+        const primitives = page.primitives.map((primitiveValue, primitiveIndex) => {
+            const primitive = record(primitiveValue, `Playlist.pages[${pageIndex}].primitives[${primitiveIndex}]`);
+            const category = primitive.primitive;
+            if (category === "application")
+                throw usageError("Playlist export does not support application primitives; export stopped before media download.");
+            let normalized;
+            if (category === "iframe") {
+                normalized = {
+                    primitive: "iframe",
+                    src: stringField(primitive, "src", "Iframe primitive"),
+                    title: stringField(primitive, "title", "Iframe primitive"),
                 };
             }
-            else if (type === "image" || type === "video") {
-                const selector = normalizedMediaSelector(content.items, content.selector);
+            else if (category === "image" || category === "video") {
+                const selector = normalizedMediaSelector(primitive.selector);
                 const ids = selector.by === "id" ? [selector.media_id] : selector.media_ids;
                 for (const mediaId of ids)
                     mediaIds.add(mediaId);
-                normalizedContent = {
-                    type,
+                normalized = {
+                    primitive: category,
                     selector,
-                    ...(type === "image" && typeof content.alt === "string" ? { alt: content.alt } : {}),
-                    ...(type === "image" && typeof content.dwell_ms === "number" ? { dwell_ms: content.dwell_ms } : {}),
-                    ...(type === "video" ? { muted: content.muted === true, loop: content.loop === true } : {}),
+                    ...(category === "image" && typeof primitive.alt === "string" ? { alt: primitive.alt } : {}),
+                    ...(category === "image" && typeof primitive.dwell_ms === "number" ? { dwell_ms: primitive.dwell_ms } : {}),
+                    ...(category === "video" ? { muted: primitive.muted === true, loop: primitive.loop === true } : {}),
                 };
             }
             else {
-                throw usageError("Playlist export encountered an unsupported placement content type.");
+                throw usageError("Playlist export encountered an unsupported primitive.");
             }
             return {
-                id: stringField(placement, "id", "Playlist placement"),
-                content: normalizedContent,
-                rect: cloneJson(placement.rect),
-                layer: placement.layer,
-                content_fit: placement.content_fit,
-                ...(placement.enter !== undefined ? { enter: cloneJson(placement.enter) } : {}),
+                id: stringField(primitive, "id", "Playlist primitive"),
+                ...normalized,
+                rect: cloneJson(primitive.rect),
+                layer: primitive.layer,
+                content_fit: primitive.content_fit,
+                ...(primitive.enter !== undefined ? { enter: cloneJson(primitive.enter) } : {}),
             };
         });
         return {
@@ -394,7 +400,7 @@ export function normalizePlaylistForBundle(input) {
             transition: cloneJson(page.transition),
             advance: cloneJson(page.advance),
             ...(page.visibility !== undefined ? { visibility: cloneJson(page.visibility) } : {}),
-            placements,
+            primitives,
         };
     });
     return { id, revision, playlist: { name, pages }, mediaIds: [...mediaIds].sort() };
@@ -539,7 +545,7 @@ export async function exportPlaylistBundle(options) {
                 source_revision: normalized.revision,
                 path: PLAYLIST_BUNDLE_PLAYLIST,
             },
-            media: media.map(({ id: _id, kind: _kind, ...item }) => item),
+            media: media.map(({ id: _id, primitive: _primitive, ...item }) => item),
         };
         await writePrivateJson(path.join(temporary, PLAYLIST_BUNDLE_MANIFEST), manifest);
         await destinationAbsent(destination);
@@ -610,11 +616,10 @@ function rewritePlaylistIds(playlist, mapping) {
     const output = cloneJson(playlist);
     const pages = output.pages;
     for (const page of pages) {
-        for (const placement of page.placements) {
-            const content = placement.content;
-            if (content.type !== "image" && content.type !== "video")
+        for (const primitive of page.primitives) {
+            if (primitive.primitive !== "image" && primitive.primitive !== "video")
                 continue;
-            const selector = content.selector;
+            const selector = primitive.selector;
             if (selector.by === "id") {
                 const source = selector.media_id;
                 const destination = mapping.get(source);

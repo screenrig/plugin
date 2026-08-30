@@ -1,6 +1,6 @@
 import { PINS, ROLES, SPACES } from "./tokens.js";
 export const COMPOSE_TYPES = ["Frame", "Column", "Row", "Box", "Spacer", "Text", "Image"];
-export const WIRE_PLACEMENT_KINDS = ["image", "video", "iframe", "application"];
+export const WIRE_PRIMITIVES = ["image", "video", "iframe", "application"];
 export const FONT_FALLBACKS = ["Helvetica Neue", "Helvetica", "Arial", "DejaVu Sans", "Liberation Sans"];
 export function composeCatalog() {
     return {
@@ -17,7 +17,7 @@ export function composeCatalog() {
             envelope: "structured JSON, not pixels",
             textShadow: "optional Text object { x, y, blur?, color }; omitted paints without a shadow",
         },
-        wire_kinds: [...WIRE_PLACEMENT_KINDS],
+        wire_primitives: [...WIRE_PRIMITIVES],
         font_fallbacks: [...FONT_FALLBACKS],
     };
 }
@@ -34,7 +34,7 @@ export function formatComposeCatalog(catalog) {
         "fontSize: not authorable",
         `image_src: ${catalog.rules.image_src}`,
         `textShadow: ${catalog.rules.textShadow}`,
-        `wire_kinds: ${catalog.wire_kinds.join("|")}`,
+        `wire_primitives: ${catalog.wire_primitives.join("|")}`,
         "envelope: structured JSON, not pixels",
     ];
     return lines.join("\n");

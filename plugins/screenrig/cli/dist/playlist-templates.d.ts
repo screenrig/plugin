@@ -15,7 +15,7 @@ export declare const SLIDE_DEFAULT_TRANSITION: {
 /** Authoring duration when a swipe type is chosen. Not an OpenAPI default. */
 export declare const SLIDE_SWIPE_AUTHORING_DURATION_MS = 600;
 export declare const PLAYLIST_TRANSITION_TYPES: readonly ["crossfade", "swipe-left", "swipe-right", "swipe-up", "swipe-down"];
-export declare const PLACEMENT_ENTER_TYPES: readonly ["fade-up", "fade-down", "fade-left", "fade-right", "fade-in", "zoom-in", "zoom-out"];
+export declare const OBJECT_ENTER_TYPES: readonly ["fade-up", "fade-down", "fade-left", "fade-right", "fade-in", "zoom-in", "zoom-out"];
 export declare const SLIDE_DEFAULT_ADVANCE: {
     mode: "duration";
     after_ms: number;
@@ -107,7 +107,7 @@ export interface TemplateCatalog {
     compose: {
         catalog_command: string;
         render_command: string;
-        wire_kinds: readonly string[];
+        wire_primitives: readonly string[];
     };
     canvas: {
         width: number;
@@ -121,7 +121,7 @@ export interface TemplateCatalog {
     };
     transition_types: readonly typeof PLAYLIST_TRANSITION_TYPES[number][];
     swipe_duration_ms: number;
-    enter_types: readonly typeof PLACEMENT_ENTER_TYPES[number][];
+    enter_types: readonly typeof OBJECT_ENTER_TYPES[number][];
     advance: {
         mode: "duration";
         after_ms: number;

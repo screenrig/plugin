@@ -167,7 +167,7 @@ function validateIframe(value, name) {
         throw usageError(`${name}.src must be a public HTTPS URL without credentials.`);
     }
 }
-function validateSelector(value, name, kind, mediaKinds, referenced) {
+function validateSelector(value, name, primitive, mediaPrimitives, referenced) {
     const selector = record(value, name);
     let ids;
     if (selector.by === "id") {
@@ -190,11 +190,11 @@ function validateSelector(value, name, kind, mediaKinds, referenced) {
         throw usageError(`${name} must be snapshotted to by:id or by:ids.`);
     }
     for (const id of ids) {
-        const actual = mediaKinds.get(id);
+        const actual = mediaPrimitives.get(id);
         if (!actual)
             throw usageError(`${name} references media missing from the bundle: ${id}.`);
-        if (actual !== kind)
-            throw usageError(`${name} references ${actual} media from an ${kind} placement: ${id}.`);
+        if (actual !== primitive)
+            throw usageError(`${name} references ${actual} media from an ${primitive} primitive: ${id}.`);
         referenced.add(id);
     }
     return { count: ids.length, oneAtATime: selector.one_at_a_time === true };
@@ -219,7 +219,7 @@ function validateAdvance(value, name) {
     }
     throw usageError(`${name}.mode is invalid.`);
 }
-export function validatePlaylistWrite(value, mediaKinds) {
+export function validatePlaylistWrite(value, mediaPrimitives) {
     const playlist = record(value, "playlist.json");
     exact(playlist, ["name", "pages"], "playlist.json");
     string(playlist, "name", "playlist.json", 120);
@@ -232,7 +232,7 @@ export function validatePlaylistWrite(value, mediaKinds) {
     for (const [pageIndex, pageValue] of playlist.pages.entries()) {
         const pageName = `playlist.pages[${pageIndex}]`;
         const page = record(pageValue, pageName);
-        exact(page, ["id", "canvas", "transition", "advance", "visibility", "placements"], pageName);
+        exact(page, ["id", "canvas", "transition", "advance", "visibility", "primitives"], pageName);
         const pageId = string(page, "id", pageName, 64, ID_PATTERN);
         if (pageIds.has(pageId))
             throw usageError(`Playlist page id is duplicated: ${pageId}.`);
@@ -244,70 +244,71 @@ export function validatePlaylistWrite(value, mediaKinds) {
             unscheduled += 1;
         else
             validateVisibility(page.visibility, `${pageName}.visibility`);
-        if (!Array.isArray(page.placements) || page.placements.length < 1 || page.placements.length > 24) {
-            throw usageError(`${pageName}.placements must contain 1 to 24 placements.`);
+        if (!Array.isArray(page.primitives) || page.primitives.length < 1 || page.primitives.length > 24) {
+            throw usageError(`${pageName}.primitives must contain 1 to 24 primitives.`);
         }
-        const placementIds = new Set();
-        const mediaPlacements = [];
+        const primitiveIds = new Set();
+        const mediaPrimitivesOnPage = [];
         let iframeCount = 0;
-        for (const [placementIndex, placementValue] of page.placements.entries()) {
-            const placementName = `${pageName}.placements[${placementIndex}]`;
-            const placement = record(placementValue, placementName);
-            exact(placement, ["id", "content", "rect", "layer", "content_fit", "enter"], placementName);
-            const placementId = string(placement, "id", placementName, 64, ID_PATTERN);
-            if (placementIds.has(placementId))
-                throw usageError(`${pageName} placement id is duplicated: ${placementId}.`);
-            placementIds.add(placementId);
-            validateRect(placement.rect, `${placementName}.rect`);
-            number(placement, "layer", placementName, { integer: true, min: 0, max: 1024 });
-            if (placement.enter !== undefined)
-                validateEnter(placement.enter, `${placementName}.enter`);
-            const content = record(placement.content, `${placementName}.content`);
-            if (content.type === "application")
-                throw usageError("Playlist bundles do not support application placements.");
-            if (content.type === "iframe") {
-                validateIframe(content, `${placementName}.content`);
-                if (placement.content_fit !== "fill")
-                    throw usageError(`${placementName}.content_fit must be fill for an iframe.`);
+        for (const [primitiveIndex, primitiveValue] of page.primitives.entries()) {
+            const primitiveName = `${pageName}.primitives[${primitiveIndex}]`;
+            const primitive = record(primitiveValue, primitiveName);
+            const primitiveId = string(primitive, "id", primitiveName, 64, ID_PATTERN);
+            if (primitiveIds.has(primitiveId))
+                throw usageError(`${pageName} primitive id is duplicated: ${primitiveId}.`);
+            primitiveIds.add(primitiveId);
+            validateRect(primitive.rect, `${primitiveName}.rect`);
+            number(primitive, "layer", primitiveName, { integer: true, min: 0, max: 1024 });
+            if (primitive.enter !== undefined)
+                validateEnter(primitive.enter, `${primitiveName}.enter`);
+            if (primitive.primitive === "application")
+                throw usageError("Playlist bundles do not support application primitives.");
+            if (primitive.primitive === "iframe") {
+                exact(primitive, ["id", "primitive", "src", "title", "rect", "layer", "content_fit", "enter"], primitiveName);
+                validateIframe({ type: "iframe", src: primitive.src, title: primitive.title }, primitiveName);
+                if (primitive.content_fit !== "fill")
+                    throw usageError(`${primitiveName}.content_fit must be fill for an iframe.`);
                 iframeCount += 1;
                 continue;
             }
-            if (content.type !== "image" && content.type !== "video")
-                throw usageError(`${placementName}.content.type is unsupported.`);
-            if (!["contain", "cover", "fill"].includes(String(placement.content_fit)))
-                throw usageError(`${placementName}.content_fit is invalid.`);
-            const kind = content.type;
-            exact(content, kind === "image" ? ["type", "selector", "alt", "dwell_ms"] : ["type", "selector", "muted", "loop"], `${placementName}.content`);
-            const selector = validateSelector(content.selector, `${placementName}.content.selector`, kind, mediaKinds, referenced);
-            if (kind === "image") {
-                if (content.alt !== undefined && (typeof content.alt !== "string" || content.alt.length > 300))
-                    throw usageError(`${placementName}.content.alt is invalid.`);
-                if (content.dwell_ms !== undefined)
-                    number(content, "dwell_ms", `${placementName}.content`, { integer: true, min: 1000, max: 86_400_000 });
+            if (primitive.primitive !== "image" && primitive.primitive !== "video")
+                throw usageError(`${primitiveName}.primitive is unsupported.`);
+            if (!["contain", "cover", "fill"].includes(String(primitive.content_fit)))
+                throw usageError(`${primitiveName}.content_fit is invalid.`);
+            const category = primitive.primitive;
+            exact(primitive, category === "image"
+                ? ["id", "primitive", "selector", "alt", "dwell_ms", "rect", "layer", "content_fit", "enter"]
+                : ["id", "primitive", "selector", "muted", "loop", "rect", "layer", "content_fit", "enter"], primitiveName);
+            const selector = validateSelector(primitive.selector, `${primitiveName}.selector`, category, mediaPrimitives, referenced);
+            if (category === "image") {
+                if (primitive.alt !== undefined && (typeof primitive.alt !== "string" || primitive.alt.length > 300))
+                    throw usageError(`${primitiveName}.alt is invalid.`);
+                if (primitive.dwell_ms !== undefined)
+                    number(primitive, "dwell_ms", primitiveName, { integer: true, min: 1000, max: 86_400_000 });
             }
             else {
-                if (content.muted !== undefined && content.muted !== true)
-                    throw usageError(`${placementName}.content.muted must be true.`);
-                optionalBoolean(content, "loop", `${placementName}.content`);
+                if (primitive.muted !== undefined && primitive.muted !== true)
+                    throw usageError(`${primitiveName}.muted must be true.`);
+                optionalBoolean(primitive, "loop", primitiveName);
             }
-            mediaPlacements.push({ type: kind, content, selector });
+            mediaPrimitivesOnPage.push({ primitive: category, value: primitive, selector });
         }
         if (iframeCount > 2)
-            throw usageError(`${pageName}.placements must contain at most 2 iframe placements.`);
+            throw usageError(`${pageName}.primitives must contain at most 2 iframe primitives.`);
         if (advance === "application")
             throw usageError(`${pageName} application advance is unsupported because bundles exclude applications.`);
         if (advance === "media_end") {
-            if (page.placements.length !== 1 || mediaPlacements.length !== 1 || iframeCount > 0)
-                throw usageError(`${pageName} media_end requires exactly one image or video placement.`);
-            const only = mediaPlacements[0];
-            if (only.type === "image" && only.content.dwell_ms === undefined)
+            if (page.primitives.length !== 1 || mediaPrimitivesOnPage.length !== 1 || iframeCount > 0)
+                throw usageError(`${pageName} media_end requires exactly one image or video primitive.`);
+            const only = mediaPrimitivesOnPage[0];
+            if (only.primitive === "image" && only.value.dwell_ms === undefined)
                 throw usageError(`${pageName} media_end image requires dwell_ms.`);
-            if (only.type === "video" && only.content.loop === true)
+            if (only.primitive === "video" && only.value.loop === true)
                 throw usageError(`${pageName} media_end video must not loop.`);
         }
         else {
-            for (const media of mediaPlacements) {
-                if (media.type === "image" && media.content.dwell_ms !== undefined)
+            for (const media of mediaPrimitivesOnPage) {
+                if (media.primitive === "image" && media.value.dwell_ms !== undefined)
                     throw usageError(`${pageName} duration pages forbid image dwell_ms.`);
                 if (media.selector.count > 1 && !media.selector.oneAtATime)
                     throw usageError(`${pageName} multi-item selectors require one_at_a_time true.`);
