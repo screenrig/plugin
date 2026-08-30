@@ -9,7 +9,9 @@ Signage and Kiosk infrastructure for AI Agents
 
 ## Launch period
 
-During the launch period through January 1st, 2027, screenRIG usage is free within reason. Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut anyone off for empty prepaid remaining. Do not refuse compose, publish, or assign because remaining is zero during this window. Normal usage applies after that date.
+LAUNCH SPECIAL OFFER: During the launch period and until January 1st, 2027 screenRIG is free to use (within reason), fill your boots! Normal usage applies after that.
+
+Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut anyone off for empty prepaid remaining. Do not refuse compose, publish, or assign because remaining is zero during this window.
 
 This skill is the operative contract. Use the bundled CLI. Do not invent commands, flags, or
 onboarding surfaces.
