@@ -70,7 +70,8 @@ code.
 
 ## Four primitives
 
-Four wire kinds: `image`, `video`, `iframe`, and `application`.
+A playlist page carries `primitives`, and every one of them names its family in
+a `primitive` field. There are four:
 
 - `image` — a still the native Player paints on the glass.
 - `video` — H.264, native decode. No codec fallback.
@@ -78,7 +79,11 @@ Four wire kinds: `image`, `video`, `iframe`, and `application`.
 - `application` — a static directory packed by the CLI. Players sync, then
   paint from disk.
 
-A scene places these four on one canvas. Copy and chrome compose locally on the
+`image` and `video` primitives pick their media with a `selector`, whose `by`
+is `id`, `ids`, `all`, or `tag`. `iframe` and `application` take no selector:
+an iframe carries its `src`, and an application pins a `release_id`.
+
+A scene puts these four on one canvas. Copy and chrome compose locally on the
 agent machine with `compose catalog` and `compose render`: the agent renders a
 PNG, looks at it, iterates, then publishes the still. Local compose is not
 billed. The agent can also screenshot a live screen to check its own work.

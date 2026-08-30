@@ -184,7 +184,7 @@ On a build that converts:
   edge to 3840 px, never upscale, and never write lossless VP8L.
 - Optional `--tag TAG` stores a 1 to 32 letter-or-digit tag on the ready
   object. Hyphens are rejected; `ExecIntro2026` is valid and `exec-intro`
-  is not. `media list --tag TAG [--kind image|video]` filters by that tag
+  is not. `media list --tag TAG [--primitive image|video]` filters by that tag
   and is the reliable filename → id map after upload.
   `media update <id> (--tag TAG | --clear-tag) --if-match REVISION` changes
   or clears it. Untagged objects are omitted when `--tag` is present on
@@ -258,8 +258,8 @@ screenrig --json compose render ./exec-intro-overlay-native-video.json \
 # agent reads the PNG with vision; do not cat pixels into chat
 # iterate the JSON and re-render
 screenrig --json media upload ./exec-intro-overlay-native-video.png --tag TAG
-screenrig --json media list --tag TAG --kind image
-# playlist page: one image placement, rect = canvas, content_fit fill
+screenrig --json media list --tag TAG --primitive image
+# playlist page: one image primitive, rect = canvas, content_fit fill
 ```
 
 `compose catalog` prints the fail-closed node catalog: types
@@ -294,7 +294,7 @@ dump for `truncated`, fitted `fontSize`, and `box` before you upload. Never
 print PNG bytes, pixels, or image data. `--open` opens the local PNG path on
 this computer only when the user asked to view the still here. Agent vision
 uses the file path, not `--open`. Raster a diagram to PNG or WebP at canvas
-size, upload it, and place it as `image`. HTML is not a placement.
+size, upload it, and place it as `image`. HTML is not a primitive.
 
 ### Slide, overlay, and wordmark
 
@@ -367,8 +367,8 @@ Playlist: photo `layer` 0 + overlay `layer` 1, both `content_fit: "fill"` on a
 1920×1080 canvas. Eight-digit hex is how the Frame stays transparent and the
 plate keeps alpha.
 
-Wordmark: playlist `image` placement with a `rect`. Soft-open: omit that
-placement until a named page. Do not pin a logo in compose; `pin` stretches
+Wordmark: playlist `image` primitive with a `rect`. Soft-open: omit that
+primitive until a named page. Do not pin a logo in compose; `pin` stretches
 the cross axis. Bottom-right on 1920×1080 with a 5% safe area is
 `{ "x": 1424, "y": 946, "width": 400, "height": 80 }` for a 400×80 contain
 box. That rect is one worked example, not the only size. If you raster the
@@ -377,15 +377,20 @@ sized parent) so it is not 0×0.
 
 ## Playlist writes
 
-Wire placement families are three: static (`image`), motion (`video`), and
-web (`iframe`, `application`). Do not author native `text`, `box`, or `line`
-on the wire. Compose copy and chrome locally, upload the still as `image`,
-and place that image.
+Four wire primitives exist: `image`, `video`, `iframe`, and `application`.
+Static is `image`, motion is `video`, and web is `iframe` or `application`.
+Do not author native `text`, `box`, or `line` on the wire. Compose copy and
+chrome locally, upload the still as `image`, and use that image primitive.
 
 A full page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
-and `placements`. Image and video placements write a `selector`. Do not put
-`media_id` on the content object. Do not send server-resolved `items`. Advance
-with `media_end`, never `video_end`.
+and `primitives`. A primitive is flat: `id`, a `primitive` field naming one of
+the four, that primitive's own fields, then `rect`, `layer`, `content_fit`,
+and optional `enter`. There is no nested content object.
+
+Image and video primitives require a `selector`. `iframe` and `application`
+do not take one. Do not put `media_id` on the primitive itself; it belongs
+inside the selector. Do not send server-resolved `items`. Advance with
+`media_end`, never `video_end`.
 
 `canvas.background` is a solid uppercase `#RRGGBBAA` or a top-to-bottom
 linear gradient. The gradient is `{ "type": "linear", "stops": [...] }` with
@@ -396,19 +401,20 @@ Selector `by` values:
 
 - `id`: one ready `media_id`. `one_at_a_time` must be false.
 - `ids`: 1–32 unique ready IDs.
-- `all`: every ready object of that placement kind.
-- `tag`: ready objects of that kind whose tag matches `^[A-Za-z0-9]{1,32}$`.
+- `all`: every ready object of that primitive, image or video.
+- `tag`: ready objects of that primitive whose tag matches
+  `^[A-Za-z0-9]{1,32}$`.
 
-`media_end` is valid only on a page with exactly one image or video placement.
+`media_end` is valid only on a page with exactly one image or video primitive.
 Video `loop` must be false. An image on `media_end` requires `dwell_ms`.
 `dwell_ms` is rejected on duration and application pages. A video plus a
-lower-third image is two placements: that page must use `advance.mode`
+lower-third image is two primitives: that page must use `advance.mode`
 `duration`, not `media_end`. Set `after_ms` longer than the clip, or set
 `loop: true`. If `after_ms` equals the clip length, the page cuts when the
 film ends.
 
 Default `transition` is `{ "type": "crossfade", "duration_ms": 200 }`. Use
-swipe types and placement `enter` sparingly.
+swipe types and object `enter` sparingly.
 
 ```json
 {
@@ -419,14 +425,12 @@ swipe types and placement `enter` sparingly.
       "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
       "transition": { "type": "crossfade", "duration_ms": 200 },
       "advance": { "mode": "duration", "after_ms": 8000 },
-      "placements": [
+      "primitives": [
         {
           "id": "hero",
-          "content": {
-            "type": "image",
-            "selector": { "by": "id", "media_id": "med_01EXAMPLEIMAGE0000000000" },
-            "alt": "Lobby poster"
-          },
+          "primitive": "image",
+          "selector": { "by": "id", "media_id": "med_01EXAMPLEIMAGE0000000000" },
+          "alt": "Lobby poster",
           "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
           "layer": 0,
           "content_fit": "contain"
@@ -438,15 +442,13 @@ swipe types and placement `enter` sparingly.
       "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
       "transition": { "type": "crossfade", "duration_ms": 200 },
       "advance": { "mode": "media_end" },
-      "placements": [
+      "primitives": [
         {
           "id": "feature",
-          "content": {
-            "type": "video",
-            "selector": { "by": "id", "media_id": "med_01EXAMPLEVIDEO0000000000" },
-            "muted": true,
-            "loop": false
-          },
+          "primitive": "video",
+          "selector": { "by": "id", "media_id": "med_01EXAMPLEVIDEO0000000000" },
+          "muted": true,
+          "loop": false,
           "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
           "layer": 0,
           "content_fit": "contain"
@@ -469,25 +471,21 @@ Photo plus overlay still:
   "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
   "transition": { "type": "crossfade", "duration_ms": 200 },
   "advance": { "mode": "duration", "after_ms": 8000 },
-  "placements": [
+  "primitives": [
     {
       "id": "photo",
-      "content": {
-        "type": "image",
-        "selector": { "by": "id", "media_id": "med_01EXAMPLEPHOTO0000000000" },
-        "alt": "Hero photo"
-      },
+      "primitive": "image",
+      "selector": { "by": "id", "media_id": "med_01EXAMPLEPHOTO0000000000" },
+      "alt": "Hero photo",
       "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
       "layer": 0,
       "content_fit": "fill"
     },
     {
       "id": "overlay",
-      "content": {
-        "type": "image",
-        "selector": { "by": "id", "media_id": "med_01EXAMPLEOVERLAY000000000" },
-        "alt": "Lower third"
-      },
+      "primitive": "image",
+      "selector": { "by": "id", "media_id": "med_01EXAMPLEOVERLAY000000000" },
+      "alt": "Lower third",
       "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
       "layer": 1,
       "content_fit": "fill"
@@ -502,11 +500,11 @@ Video plus a lower-third image uses the same two-layer shape with
 ### Page motion
 
 These are playlist document fields the CLI sends. The control plane accepts
-swipe types and placement `enter`.
+swipe types and object `enter`.
 
 Default pages: `transition` is `{ "type": "crossfade", "duration_ms": 200 }`.
 Author crossfade unless swipe or `enter` is the intended emphasis. One overlay
-`enter` is enough; do not put `enter` on every placement, including the
+`enter` is enough; do not put `enter` on every primitive, including the
 wordmark.
 
 `transition.type` is `crossfade`, `swipe-left`, `swipe-right`, `swipe-up`, or
@@ -517,7 +515,7 @@ Swipe is the incoming page's type. The outgoing page follows so the edges
 stay touching. The name is motion direction: `swipe-left` moves content
 left.
 
-Optional placement `enter` is `{ "type": "..." }` with that same object name
+Optional object `enter` is `{ "type": "..." }` with that same object name
 on playlist JSON. Types: `fade-up`, `fade-down`, `fade-left`, `fade-right`,
 `fade-in`, `zoom-in`, `zoom-out`. Absent means no object animation.
 
@@ -550,7 +548,7 @@ plays. It is a sibling of `advance`.
       { "days": ["sun"] }
     ]
   },
-  "placements": []
+  "primitives": []
 }
 ```
 
@@ -593,7 +591,7 @@ screenrig --json playlist import ./lobby-bundle --update pl_TARGET --if-match RE
 The export destination must not exist. The bundle contains
 `screenrig-bundle.json`, `playlist.json`, and content-addressed
 `media/<sha256>.<canonical-ext>` files. Export snapshots dynamic `all` and `tag`
-selectors to exact `id` or `ids` selectors. Application placements stop export
+selectors to exact `id` or `ids` selectors. Application primitives stop export
 before any media download. Import creates a new playlist by default. Updating
 requires both `--update` and the current `--if-match` revision.
 
@@ -617,20 +615,21 @@ from the envelope:
 
 - `data.operation.state` is `succeeded`.
 - `data.application.release_id` is the `rel_...` release id. This is the only
-  value a playlist placement needs.
+  value an application primitive needs.
 - `data.application.id` is the `app_...` application id. `kv` commands take this
-  one; a playlist placement never does.
+  one; a playlist primitive never does.
 
 With `--no-wait` run `operations wait <operation_id>` before pinning the
 release into a playlist. Every `app upload` creates a new application and a
 new release.
 
-### 2. Write the application placement
+### 2. Write the application primitive
 
 ```json
 {
   "id": "board",
-  "content": { "type": "application", "release_id": "rel_01EXAMPLERELEASE00000000" },
+  "primitive": "application",
+  "release_id": "rel_01EXAMPLERELEASE00000000",
   "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
   "layer": 0,
   "content_fit": "fill",
@@ -638,12 +637,13 @@ new release.
 }
 ```
 
-- `content.release_id` is required. `content.application_id` is an optional
-  ownership assertion; omit it.
+- `release_id` is required on an `application` primitive. `application_id` is
+  an optional ownership assertion; omit it.
+- An `application` primitive takes no `selector`.
 - `content_fit` must be `fill` for `application` and `iframe`.
-- `iframe` is `{ "type": "iframe", "src": "https://...", "title": "..." }`.
-  `src` must be a public `https://` URL without credentials. An `iframe` can
-  never be a controller.
+- `iframe` is `{ "primitive": "iframe", "src": "https://...", "title": "..." }`
+  and takes no `selector`. `src` must be a public `https://` URL without
+  credentials. An `iframe` can never be a controller.
 
 ### 3. Choose how the page advances
 
@@ -659,9 +659,9 @@ Use `application` when the app calls `window.screenrig.nextPage()`:
 { "mode": "application", "max_ms": 60000 }
 ```
 
-On an `application` page exactly one placement must carry `controller: true`,
-and it must be an `application` placement. `media_end` forbids `application`
-and `iframe` placements on that page.
+On an `application` page exactly one primitive must carry `controller: true`,
+and it must be an `application` primitive. `media_end` forbids `application`
+and `iframe` primitives on that page.
 
 ### 4. Create the playlist and assign it to a screen
 
@@ -753,6 +753,9 @@ Human `events list` and `events follow` print one logfmt line per event.
 `--json events list` is one JSON page envelope. `--json events follow` is a
 JSON stream of envelopes.
 
+An `application.event` line leads its details with `code` and `primitive_id`,
+the id of the primitive that emitted it.
+
 `events follow` reconnects on disconnect or a transient failure, with
 backoff, and resumes from the last SSE id via `--after`. `--timeout` ends the
 whole follow, including backoff; 401, 403, 404, and other non-transient 4xx
@@ -793,7 +796,7 @@ media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                     [--no-transcode] [--codec h264|hevc] [--max-fps N]
                     [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
 media show <id>
-media list [--tag TAG] [--kind image|video]
+media list [--tag TAG] [--primitive image|video]
 media update <id> (--tag TAG | --clear-tag) --if-match REVISION
 media delete <id> --if-match REVISION
 compose catalog
