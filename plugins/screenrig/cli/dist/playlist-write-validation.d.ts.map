@@ -1,1 +1,1 @@
-{"version":3,"file":"playlist-write-validation.d.ts","sourceRoot":"","sources":["../src/playlist-write-validation.ts"],"names":[],"mappings":"AA0OA,wBAAgB,qBAAqB,CACnC,KAAK,EAAE,OAAO,EACd,UAAU,EAAE,WAAW,CAAC,MAAM,EAAE,OAAO,GAAG,OAAO,CAAC,GACjD,GAAG,CAAC,MAAM,CAAC,CA4Eb"}
+{"version":3,"file":"playlist-write-validation.d.ts","sourceRoot":"","sources":["../src/playlist-write-validation.ts"],"names":[],"mappings":"AA0OA,wBAAgB,qBAAqB,CACnC,KAAK,EAAE,OAAO,EACd,eAAe,EAAE,WAAW,CAAC,MAAM,EAAE,OAAO,GAAG,OAAO,CAAC,GACtD,GAAG,CAAC,MAAM,CAAC,CAqFb"}

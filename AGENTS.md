@@ -69,8 +69,19 @@ agent workflow.
   https://screenrig.ai/pricing/. Write in a feature-complete voice.
 - Teach local compose (`compose catalog`, `compose render`) for copy and
   chrome. Do not teach emitting native `text`, `box`, or `line` on the
-  playlist wire. Wire families are static (`image`), motion (`video`),
-  and web (`iframe`, `application`). Compose is local and not billed.
+  playlist wire. Compose is local and not billed.
+- The category word is **primitive**, never placement, kind, or type. Four
+  wire primitives exist: static (`image`), motion (`video`), and web
+  (`iframe`, `application`). A page carries `pages[].primitives`, and each
+  entry is flat: a `primitive` field naming the family, that family's own
+  fields, then `rect`, `layer`, `content_fit`, and optional `enter`. There is
+  no nested content object. Image and video primitives take a `selector`
+  (`by` is `id`, `ids`, `all`, or `tag`); iframe and application do not.
+  `media list` filters with `--primitive`, the API parameter is `primitive`,
+  and the event field is `primitive_id`. MIME `--content-type`, `feedback
+  --kind`, and transition/enter/advance `type` are unrelated and stay. Teach
+  the primitive wire alone: no placement compat shim and no dual-read of the
+  retired vocabulary.
 - Screenshotting is in v1. `screen screenshot <id>` blocks on a still WebP and
   writes a file. Do not print pixels.
 - Human `events list` and `events follow` print logfmt. `--json events list`

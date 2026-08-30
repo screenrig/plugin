@@ -1,6 +1,6 @@
 import { PINS, ROLES, SPACES } from "./tokens.js";
 export declare const COMPOSE_TYPES: readonly ["Frame", "Column", "Row", "Box", "Spacer", "Text", "Image"];
-export declare const WIRE_PLACEMENT_KINDS: readonly ["image", "video", "iframe", "application"];
+export declare const WIRE_PRIMITIVES: readonly ["image", "video", "iframe", "application"];
 export declare const FONT_FALLBACKS: readonly ["Helvetica Neue", "Helvetica", "Arial", "DejaVu Sans", "Liberation Sans"];
 export interface ComposeCatalog {
     types: typeof COMPOSE_TYPES[number][];
@@ -16,7 +16,7 @@ export interface ComposeCatalog {
         envelope: string;
         textShadow: string;
     };
-    wire_kinds: typeof WIRE_PLACEMENT_KINDS[number][];
+    wire_primitives: typeof WIRE_PRIMITIVES[number][];
     font_fallbacks: typeof FONT_FALLBACKS[number][];
 }
 export declare function composeCatalog(): ComposeCatalog;
