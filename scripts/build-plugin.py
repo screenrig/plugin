@@ -268,6 +268,7 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
 
 
 def verify_generated_launcher(plugin_root: Path) -> None:
+    cli_version = load_json(plugin_root / "cli" / "package.json").get("version")
     launcher = plugin_root / "skills" / PLUGIN_NAME / "scripts" / "screenrig"
     with tempfile.TemporaryDirectory(prefix="screenrig-plugin-config-") as temporary:
         result = subprocess.run(
@@ -293,7 +294,9 @@ def verify_generated_launcher(plugin_root: Path) -> None:
         or not isinstance(payload, dict)
         or payload.get("ok") is not True
         or not isinstance(data, dict)
-        or data.get("version") != version()
+        or not isinstance(cli_version, str)
+        or not cli_version
+        or data.get("version") != cli_version
     ):
         raise BuildError("generated plugin launcher did not run the bundled CLI with clean offline output")
 

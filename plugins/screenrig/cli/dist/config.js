@@ -1,7 +1,6 @@
 import { chmod, mkdir, open, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { configError } from "./problems.js";
-import { redactToken, tokenLookupId } from "./redact.js";
 export const DEFAULT_API_URL = "https://api.screenrig.ai";
 export const LOCAL_DEV_API_URL = "http://api.screenrig.localhost:8088";
 const DEFAULT_CONFIG_NAME = "config.json";
@@ -302,11 +301,16 @@ export async function resolveConfig(options) {
         source: { apiUrl: apiSource, token: tokenSource },
     };
 }
-export function describeToken(token) {
-    if (!token) {
-        return "(none)";
-    }
-    const id = tokenLookupId(token);
-    return id ? redactToken(token) : "sr_live_***";
+/** Whether this installation holds a credential at all. */
+export function hasToken(token) {
+    return typeof token === "string" && token.length > 0;
+}
+/**
+ * Presence of a credential, for stdout. Every part of a live token is
+ * secret, including the lookup segment, so no shape, prefix, or suffix of
+ * the stored value is reported here.
+ */
+export function describeTokenPresence(token) {
+    return hasToken(token) ? "present" : "(none)";
 }
 //# sourceMappingURL=config.js.map

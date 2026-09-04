@@ -14,7 +14,8 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLE = ROOT / "plugins" / "screenrig" if (ROOT / "plugins" / "screenrig").is_dir() else ROOT
-EXPECTED_VERSION = "0.1.0"
+EXPECTED_PLUGIN_VERSION = "0.1.1"
+EXPECTED_CLI_VERSION = "0.1.0"
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 TEXT_SUFFIXES = {"", ".d.ts", ".js", ".json", ".md", ".py", ".sh", ".toml", ".yaml", ".yml"}
@@ -50,7 +51,7 @@ def check_metadata(errors: list[str]) -> None:
         manifest = load(ROOT / relative, errors)
         expected = {
             "name": "screenrig",
-            "version": EXPECTED_VERSION,
+            "version": EXPECTED_PLUGIN_VERSION,
             "repository": PLUGIN_REPOSITORY,
             "license": "Apache-2.0",
         }
@@ -62,7 +63,7 @@ def check_metadata(errors: list[str]) -> None:
     package = load(package_path, errors)
     expected_package = {
         "name": "screenrig",
-        "version": EXPECTED_VERSION,
+        "version": EXPECTED_CLI_VERSION,
         "private": False,
         "license": "Apache-2.0",
     }
@@ -263,7 +264,7 @@ def run_smoke(errors: list[str]) -> None:
             or result.stderr
             or payload.get("ok") is not True
             or not isinstance(data, dict)
-            or data.get("version") != EXPECTED_VERSION
+            or data.get("version") != EXPECTED_CLI_VERSION
         ):
             errors.append(f"public smoke failed: {' '.join(command)}")
 

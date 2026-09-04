@@ -102,5 +102,12 @@ export declare function resolveConfig(options: {
     fs: ConfigFs;
     repair?: boolean;
 }): Promise<ResolvedConfig>;
-export declare function describeToken(token: string | undefined): string;
+/** Whether this installation holds a credential at all. */
+export declare function hasToken(token: string | undefined): boolean;
+/**
+ * Presence of a credential, for stdout. Every part of a live token is
+ * secret, including the lookup segment, so no shape, prefix, or suffix of
+ * the stored value is reported here.
+ */
+export declare function describeTokenPresence(token: string | undefined): string;
 //# sourceMappingURL=config.d.ts.map

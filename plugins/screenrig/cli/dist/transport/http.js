@@ -65,6 +65,7 @@ export class FetchTransport {
     }
     async request(req) {
         const controller = new AbortController();
+        const signal = req.signal ? AbortSignal.any([req.signal, controller.signal]) : controller.signal;
         const timer = req.timeout_ms && req.timeout_ms > 0
             ? setTimeout(() => controller.abort(), req.timeout_ms)
             : undefined;
@@ -73,7 +74,7 @@ export class FetchTransport {
                 method: req.method,
                 headers: this.headers(req),
                 body: this.serialize(req.body),
-                signal: req.signal ?? controller.signal,
+                signal,
             });
             const headers = headerMap(response.headers);
             if (req.binary) {
@@ -88,7 +89,7 @@ export class FetchTransport {
             return { status: response.status, headers, body: decodeTextBody(text, headers["content-type"] ?? ""), rawText: text };
         }
         catch (err) {
-            if (err.name === "AbortError") {
+            if (signal.aborted || err.name === "AbortError") {
                 throw timeoutError("API request timed out", req.headers?.["x-request-id"]);
             }
             throw networkError(err instanceof Error ? err.message : "API request failed", req.headers?.["x-request-id"]);
@@ -158,6 +159,7 @@ export class FetchTransport {
     }
     async download(req) {
         const controller = new AbortController();
+        const signal = req.signal ? AbortSignal.any([req.signal, controller.signal]) : controller.signal;
         const timer = req.timeout_ms && req.timeout_ms > 0
             ? setTimeout(() => controller.abort(), req.timeout_ms)
             : undefined;
@@ -166,28 +168,38 @@ export class FetchTransport {
             response = await this.fetchImpl(buildUrl(this.apiUrl, req.path, req.query), {
                 method: req.method,
                 headers: { ...this.headers(req), accept: "*/*" },
-                signal: req.signal ?? controller.signal,
+                signal,
             });
         }
         catch (err) {
             if (timer)
                 clearTimeout(timer);
-            if (err.name === "AbortError") {
+            if (signal.aborted || err.name === "AbortError") {
                 throw timeoutError("Media download timed out", req.headers?.["x-request-id"]);
             }
             throw networkError(err instanceof Error ? err.message : "Media download failed", req.headers?.["x-request-id"]);
         }
         const headers = headerMap(response.headers);
         if (response.status >= 400) {
-            if (timer)
-                clearTimeout(timer);
-            const text = await response.text();
-            return {
-                status: response.status,
-                headers,
-                problem: decodeTextBody(text, headers["content-type"] ?? ""),
-                rawText: text,
-            };
+            try {
+                const text = await response.text();
+                return {
+                    status: response.status,
+                    headers,
+                    problem: decodeTextBody(text, headers["content-type"] ?? ""),
+                    rawText: text,
+                };
+            }
+            catch (err) {
+                if (signal.aborted || err.name === "AbortError") {
+                    throw timeoutError("Media download timed out", req.headers?.["x-request-id"]);
+                }
+                throw networkError(err instanceof Error ? err.message : "Media download failed", req.headers?.["x-request-id"]);
+            }
+            finally {
+                if (timer)
+                    clearTimeout(timer);
+            }
         }
         if (!response.body) {
             if (timer)

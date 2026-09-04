@@ -5,7 +5,7 @@ import { limitsFromCapabilities, TEMPORARY_PROTOCOL_VERSION, } from "./adapters/
 import { SDK_PROTOCOL_VERSION } from "./adapters/sdk-injection.js";
 import { flagBool, flagNumber, flagString } from "./argv.js";
 import { ApiClient, requireToken } from "./client.js";
-import { preserveLogSocket, resolveConfig, describeToken, readConfigFile, withConfigLock, writeConfigAtomic, } from "./config.js";
+import { preserveLogSocket, resolveConfig, describeTokenPresence, hasToken, readConfigFile, withConfigLock, writeConfigAtomic, } from "./config.js";
 import { attachOperationLogger, loggerOf, loggingTransport } from "./log/index.js";
 import { ensureCredential } from "./enrollment.js";
 import { headerValue, CREDITS_REMAINING_HEADER, observeCreditsRemaining, parseCreditsInteger, } from "./credits.js";
@@ -120,6 +120,14 @@ Commands:
   feedback list [--kind bug|feature]
   doctor [--repair-config]
   version
+
+Credits:
+  Remaining is a nonnegative whole number (never negative; empty remaining
+  displays 0). Below 1000 credits, authenticated responses may warn
+  credits_low. Until 1 Jan 2027 08:00 UTC (midnight PT), production fails open:
+  billed commands are not rejected for empty remaining and do not return
+  HTTP 402. After that instant, remaining below 1 credit is payment_required.
+  Empty remaining does not stop or shut off screens in this window.
 `;
 function nonemptyEnv(value) {
     return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -1309,7 +1317,9 @@ async function accountShow(args, runtime, resolved) {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const response = await client.call({ method: "GET", path: "/api/v1/account" });
-    const envelope = jsonBody(response, client.requestId, { token_lookup: describeToken(token) });
+    // Presence only. The lookup segment of a credential identifies the live
+    // token, so no part of the stored value is reported on stdout.
+    const envelope = jsonBody(response, client.requestId, { token_present: hasToken(token) });
     const account = response.body;
     if (headerValue(response.headers, CREDITS_REMAINING_HEADER) === undefined) {
         observeCreditsRemaining(runtime, parseCreditsInteger(account.credit_remaining));
@@ -1321,7 +1331,7 @@ async function accountShow(args, runtime, resolved) {
             ["id", account.id],
             ["revision", account.revision !== undefined ? String(account.revision) : undefined],
             ["credit_remaining", account.credit_remaining !== undefined ? String(account.credit_remaining) : undefined],
-            ["token", describeToken(token)],
+            ["token", describeTokenPresence(token)],
             ["request_id", client.requestId],
         ]),
     };
@@ -2944,8 +2954,8 @@ async function doctor(args, runtime, resolved) {
     }
     checks.push({
         name: "token",
-        status: resolved.token ? "pass" : "fail",
-        detail: describeToken(resolved.token),
+        status: hasToken(resolved.token) ? "pass" : "fail",
+        detail: describeTokenPresence(resolved.token),
     });
     checks.push({
         name: "api_url",
