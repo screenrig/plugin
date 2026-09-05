@@ -1,0 +1,114 @@
+# Composition and visual direction
+
+Make signage that belongs in its real setting: a persuasive event poster, an
+orderable restaurant menu, or an inviting moving welcome. A technically valid
+title/body/footer slide can still look like generic PowerPoint. Choose the
+visual hierarchy from the content and genre, not from the first available
+recipe.
+
+## Learn from comparable screens
+
+When establishing a visual direction, inspect a few strong comparable screens,
+posters, or menus using available browsing and image-viewing tools. Reuse that
+understanding for minor edits; a fresh research phase is not always needed.
+Inspect the visual examples, not just search snippets. Official venue and restaurant pages, published menus,
+and public design portfolios can reveal category grouping, information density,
+type scale, photograph placement, price alignment, and the space given to
+branding. Prefer examples relevant to the brief over an unrelated mood board.
+If browsing is unavailable, use supplied references and disclose that limit.
+
+Borrow and recreate successful layout and information structure with the user's
+content. Use supplied, original, or appropriately licensed imagery; copying a
+composition does not require copying another business's private art or assets.
+Keep source notes for material references. Historical menus can inform layout, but do not establish current prices or offerings.
+
+## Compose for the content
+
+Use deliberate depth, overlap, contrast, scale, and negative space to guide the
+eye. Rich composition can be clear: complexity should organize or express
+something. Arbitrary minimalism, gratuitous decoration, and a repeated grid of
+cards can each weaken the result. There is no fixed template or maximum layer
+count; every element should earn its space.
+
+- **Creative poster playlists:** vary authentic art direction and composition
+  across distinct concepts where the brief invites it: photographic editorial,
+  illustration, collage, bold typography, or other genre-appropriate styles.
+  Changing only colors and titles leaves the same visual hierarchy. A real
+  campaign or brand still needs consistent identity across its pages.
+- **Menus:** keep most of the canvas useful for choosing an order. Group actual
+  categories, make item names and prices easy to scan, and subordinate concise
+  descriptions, size choices, modifiers, and add-ons. Product photographs should
+  support the choices, with enough presence to be useful. Keep branding compact;
+  do not turn every menu into a large logo and three decorative dishes. Preserve
+  consistent type, price alignment, and grouping within one restaurant system;
+  different restaurant genres can need different structures and densities.
+- **Events and promotions:** make what, when, where, and the next action legible
+  alongside the expressive imagery. Use the user's facts. For a requested demo,
+  invent coherent fictional details; do not present invented dates, offers, or
+  prices as a real business's information.
+- **Schedules and noticeboards:** make time, activity, location, and status
+  easy to scan, with a clear date, audience, and next step. A consistent grid
+  can be the right structure for functional information; choose it when it
+  helps people find what they need.
+- **Video-backed pages:** full-bleed video is useful when it serves the content.
+  Plan the crop, focal subject, and copy together. Keep aspect ratio intact and
+  verify source resolution against the painted area after cropping; a 720p clip
+  expanded to 1080p does not become a 1080p source. Check readable text against
+  changing light and motion, not only a convenient frame.
+
+## Build actual depth and purposeful motion
+
+For a layered composition, use independent foreground images with real alpha
+where appropriate: a product cutout, figure, illustrated object, or collage
+fragment can sit above a background and alongside or across typography. A
+flattened poster with separately animated text is not independent moving
+artwork. Decide which elements must remain separate before rendering assets.
+Rasterize foreground art at its intended painted resolution; preserve clean
+alpha edges and its relationship to the background. Use measured compose text
+for functional copy, then place its output and artwork as image primitives.
+
+Keep support behind text close to its actual bounds. Prefer sufficient contrast
+from the composition itself, a snug translucent surface, or a soft raster
+gradient over a giant opaque plate that hides the imagery. Keep text opaque;
+adjust the support independently. A full-width lower third is useful when the
+content calls for one, rather than a default applied to every page.
+
+Use restrained entry animation for emphasis: foreground artwork or a short
+headline can draw attention while functional information settles immediately.
+Menu items, descriptions, prices, and ordering information should remain
+stationary. Video already provides motion, so additional entrances need a
+reason. Do not animate everything or enforce a quota. Keep foreground raster
+padding and primitive bounds large enough for clean motion without changing
+the artwork's intended scale. The main skill's Page motion section defines the
+supported `enter` types, fixed timing, and review mechanics.
+
+Read the selected CLI's `compose catalog` and current command help before
+authoring effects. Do not invent native rotation, shadows, gradient node fields,
+or animation controls. When an unsupported visual treatment is needed, bake it
+into an appropriate image asset using available tools and preserve transparent
+padding. Distinguish supported compose text shadows and canvas backgrounds from
+effects on playlist primitives; they are not interchangeable APIs.
+
+## Review the intended output
+
+Honor the requested canvas and orientation, including a 1920×1080 target shown
+in a window on a larger monitor. Plan source density for the intended display
+viewport and preserve logos with `contain`; never stretch a mark to fill a box.
+The main skill's Local compose section covers resolution diagnostics and
+scaling mechanics.
+
+Review the whole playlist locally for rhythm, repeated adjacent hierarchies,
+authentic genre treatment, and consistency within a brand. Then inspect
+individual pages at the intended size for useful information, readable prices,
+crop, contrast, clean alpha, and awkward overlaps. A contact sheet reveals
+repetition; individual full-resolution images reveal detail. For separate
+layers, inspect the combined composition as well as the individual assets.
+Zero truncation and valid JSON do not prove compelling design. Choose page
+timing for the brief, reading load, and media; do not carry a fixed duration
+from an unrelated playlist.
+
+Correct observed problems with focused local renders before uploading. Use
+motion previews when available; a settled still cannot verify an entrance or
+video behavior. Match any player verification to the authorized task and state
+what was actually observed. Do not turn creative review into a mandatory paid
+generation loop or repeat expensive testing without a specific unresolved issue.
