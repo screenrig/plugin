@@ -255,6 +255,11 @@ whose permissions are too broad.
 
 ## Local compose
 
+When composing signage pages—including posters, ads, menus, schedules, and
+video-backed pages—read [Composition and visual direction](references/composition.md)
+before choosing a layout. It covers reference research, useful density, independent artwork,
+readability, and playlist-wide visual review.
+
 Write JSON, render a PNG, look at that PNG, iterate. Compose is not billed.
 Uploads and playlist writes are billed. Iterate `compose render` and read
 `<output>.layout.json` before any `media upload`.
@@ -309,10 +314,13 @@ this computer only when the user asked to view the still here. Agent vision
 uses the file path, not `--open`. Raster a diagram to PNG or WebP at canvas
 size, upload it, and place it as `image`. HTML is not a primitive.
 
-Choose raster dimensions for the screen's **physical content viewport**, not
-just the playlist's logical canvas or the full panel when content is
-letterboxed. A 1920×1080 slide displayed in a 3840×2160 viewport enlarges
-every flattened element 2×, even when its original logo is high resolution.
+Plan the canvas from the user's intended output, orientation, and content
+viewport. Honor a requested 1920×1080 deliverable even when reviewing on a
+larger monitor; desktop dimensions alone do not change the brief. For final
+physical display quality, choose raster dimensions for the **physical content
+viewport**, excluding letterboxing. A 1920×1080 slide displayed in a
+3840×2160 viewport enlarges every flattened element 2×, even when its original
+logo is high resolution.
 Preserve aspect ratio: use `objectFit: "contain"` for complete marks and
 `cover` for intentional cropping; `fill` can distort mismatched proportions.
 Source images must support their actual painted pixel dimensions, including
@@ -353,16 +361,17 @@ and tables. Flattening all copy into an SVG or PNG hides it from text fitting,
 font checks and safe-area diagnostics. Keep code-native illustrations as image
 assets when useful, while leaving adjacent explanatory text measurable.
 
-Start with a recipe from `compose catalog`: `title`, `split-image`, `cards`,
-`table`, or `overlay`. Recipes expand to the same ordinary compose nodes;
-they keep a 5% content inset and the normal readable type floors. Set `width`
-and `height` to the physical content viewport. Omitted dimensions are
+Recipes from `compose catalog` (`title`, `split-image`, `cards`, `table`,
+`overlay`) are optional starting points, not a visual system for every page.
+Use ordinary compose nodes when the content calls for a different hierarchy.
+Recipes keep a 5% content inset and the normal readable type floors. Set
+`width` and `height` to the intended content viewport. Omitted dimensions are
 1920×1080. `split-image` uses `contain` by default; `cover` crops proportionally.
 The overlay recipe defaults to a transparent canvas and an approximately 89%
 opaque plate with independently opaque text. Omit its `image` to layer the
 PNG over native video; include a local image for a flattened still.
 
-For several pages, author one batch instead of separate render/review scripts:
+For several pages, `compose batch` provides a shared render and review path:
 
 ```json
 {
@@ -424,9 +433,10 @@ require server checks. Raster QA alone never proves the playlist is valid.
 `flex: 1`, or the copy lives in a `Box` with `pin: "bottom"`. A `Column`
 without `flex: 1` shrinks to its text and sits at the top of the Frame.
 
-For text over images or video, prefer a subtly translucent backplate so the
-imagery shows through. Start around 85–92% opacity as a visual preference,
-then adjust for readability. Compose colors use `#RRGGBBAA`: for example,
+For text over images or video, fit support snugly around the copy: a
+translucent plate or raster gradient can retain the picture while making type
+readable. Choose opacity from the actual imagery; a large nearly opaque panel
+is not the default. Compose colors use `#RRGGBBAA`: for example,
 `Box.background: "#000000E0"` is black at about 88% opacity. Add padding
 around the copy, such as `"padding": "l"`. Apply alpha to the backplate
 background only; keep text opaque, such as `"color": "#FFFFFF"`, rather
@@ -456,20 +466,17 @@ Overlay still (transparent Frame, lower-third plate):
 }
 ```
 
-Do not copy a short strip Frame from an older deck. Author the overlay at
-the full slide resolution (1920×1080 in this example) with `pin: "bottom"`.
-Leave a right pocket for the playlist
-wordmark: shrink-wrap `Column` plus `Spacer`. The 5% wordmark rect
-`{ x: 1424, y: 946, width: 400, height: 80 }` sits on bottom-plate body
-copy. A tighter corner that clears copy is
-`{ x: 1544, y: 996, width: 352, height: 68 }`.
+Author the overlay at the full slide resolution (1920×1080 in this example),
+so the type ramp stays at the intended scale. The pinned bottom plate above
+is a full-width lower-third example, not a requirement for every image. Keep
+any separate wordmark clear of the copy and preserve its proportions.
 
-Side rail: shrink-wrap `Box` plus `Spacer`, not `pin: "left"` or `"right"`.
-A `Row` with `{ Box, Spacer flex: 1 }` is a left rail. Reverse the children
-for a right rail. Do not put `flex` on the copy `Box` or Yoga grows it
-across the canvas. Force newlines in title and body so min-width lands
-around 740–900 px; one long line almost fills the frame. Mix left, right,
-and bottom across a photo sequence. Bottom stays right for a lower-third.
+For snug side support, use a shrink-wrapped `Box` plus `Spacer` rather than
+`pin: "left"` or `"right"`, which stretches the cross axis. A `Row` with
+`{ Box, Spacer flex: 1 }` makes a left rail; reverse the children for a right
+rail. Omit `flex` on the copy `Box` to avoid growing it across the canvas.
+Choose line breaks and measured container sizes for the actual copy and
+picture; inspect the resulting plate bounds.
 
 ```json
 {
@@ -496,9 +503,10 @@ and bottom across a photo sequence. Bottom stays right for a lower-third.
 }
 ```
 
-Playlist: photo `layer` 0 + overlay `layer` 1, both `content_fit: "fill"` on a
-1920×1080 canvas. Eight-digit hex is how the Frame stays transparent and the
-plate keeps alpha.
+Playlist: photo `layer` 0 + overlay `layer` 1 on a 1920×1080 canvas. Use
+`content_fit: "fill"` for a matching-aspect full-canvas overlay; preserve the
+photo proportions with `contain` or intentional `cover` cropping. Eight-digit
+hex is how the Frame stays transparent and the plate keeps alpha.
 
 Wordmark: playlist `image` primitive with a `rect`. Soft-open: omit that
 primitive until a named page. Do not pin a logo in compose; `pin` stretches
@@ -636,9 +644,11 @@ These are playlist document fields the CLI sends. The control plane accepts
 swipe types and object `enter`.
 
 Default pages: `transition` is `{ "type": "crossfade", "duration_ms": 200 }`.
-Author crossfade unless swipe or `enter` is the intended emphasis. One overlay
-`enter` is enough; do not put `enter` on every primitive, including the
-wordmark.
+Author crossfade unless swipe or `enter` is the intended emphasis. Select
+foreground artwork or a short headline for restrained entrances; leave menu
+items, prices, and other information stationary. Video already supplies
+motion. Choose animated layers by purpose, without a fixed layer quota or
+an entrance on every primitive.
 
 `transition.type` is `crossfade`, `swipe-left`, `swipe-right`, `swipe-up`, or
 `swipe-down`. `duration_ms` is required and runs from 0 through 60000. When
@@ -659,6 +669,10 @@ fields and not CLI flags. Do not send duration or delay inside `enter`.
 To slide text in over a still or video, compose the text and its translucent
 plate into a transparent PNG, place that image above the background's layer,
 and apply `enter` to the overlay image. Keep the background independent.
+The same mechanism works for independent foreground artwork with alpha.
+Leave transparent breathing room around moving ink within its raster and
+primitive rect so entry motion does not clip its edges; do not stretch the
+asset to compensate. Keep supported timing constants unchanged.
 Preview the first activation and a loop replay on each intended player; check
 that the overlay begins hidden, enters within its rect, and retains the
 expected layer order. A settled screenshot alone cannot verify animation.
