@@ -1,6 +1,7 @@
 import type { CliRuntime } from "../runtime.js";
 import { type FfmpegToolchain, type MediaProbe } from "./ffmpeg.js";
 import { type ProgressReporter } from "./progress.js";
+import { type SignagePreset } from "./video-profile.js";
 /**
  * Delivery targets for signage and kiosk playback.
  *
@@ -17,6 +18,8 @@ export interface TranscodeOptions {
     maxFps: number;
     webpQuality: number;
     maxEdge: number;
+    preset?: SignagePreset;
+    noAudio?: boolean;
 }
 /**
  * H.264 High is the default because ScreenRig stores exactly one rendition per
@@ -46,9 +49,20 @@ export interface TranscodeResult {
     height: number;
     /** True when width/height were read back from the produced file. */
     dimensionsMeasured: boolean;
+    video?: {
+        codec: TranscodeCodec;
+        profile: string;
+        level: string;
+        fps: number;
+        audio: boolean;
+        scan: string;
+        preset?: SignagePreset;
+    };
     warnings: string[];
     /** Directory the caller must remove once the upload completes. */
     cleanupDir?: string;
+    /** Bind a verified snapshot to the exact bytes subsequently prepared for upload. */
+    verifiedSha256?: string;
 }
 export interface TranscodeRequest {
     runtime: CliRuntime;
@@ -79,7 +93,10 @@ export declare function isHdr(probe: MediaProbe): boolean;
  * a washed-out picture. zscale and tonemap come from libzimg, which some ffmpeg
  * builds omit; without them the CLI falls back to a plain conversion and warns.
  */
-export declare function videoFilterChain(toolchain: FfmpegToolchain, probe: MediaProbe, maxEdge: number): {
+export declare function videoFilterChain(toolchain: FfmpegToolchain, probe: MediaProbe, maxEdge: number, outputSize?: {
+    width: number;
+    height: number;
+}): {
     filter: string;
     warnings: string[];
 };

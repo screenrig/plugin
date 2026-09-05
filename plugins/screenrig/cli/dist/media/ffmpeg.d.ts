@@ -52,6 +52,21 @@ export interface MediaProbe {
     hasVideo: boolean;
     hasAudio: boolean;
     codec: string;
+    codecTag: string;
+    streamCount: number;
+    videoStreamIndex: number;
+    audioStreamIndex: number;
+    audioProfile: string;
+    timeBase: number;
+    profile: string;
+    level: number;
+    fieldOrder: string;
+    colorRange: string;
+    videoStreams: number;
+    audioStreams: number;
+    audioCodec: string;
+    audioSampleRate: number;
+    audioChannels: number;
     formatNames: readonly string[];
     pixelFormat: string;
     /** Coded dimensions, before any display-matrix rotation. */

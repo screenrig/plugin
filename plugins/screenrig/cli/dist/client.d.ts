@@ -29,7 +29,7 @@ export declare class ApiClient {
     download(req: Omit<TransportRequest, "headers"> & {
         headers?: Record<string, string>;
     }): Promise<TransportDownloadResponse>;
-    getOperation(id: string): Promise<Operation>;
+    getOperation(id: string, timeoutMs?: number): Promise<Operation>;
     waitForOperation(id: string, options: {
         timeoutMs: number;
         pollMs: number;

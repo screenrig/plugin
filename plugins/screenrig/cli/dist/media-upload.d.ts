@@ -14,7 +14,7 @@ export interface ValidatedMediaUploadSession {
     headers: Record<string, string>;
     expiresAt: number;
 }
-export declare function prepareMediaUpload(filePath: string, explicitContentType?: string): Promise<PreparedMediaUpload>;
+export declare function prepareMediaUpload(filePath: string, explicitContentType?: string, expectedSha256?: string): Promise<PreparedMediaUpload>;
 export declare function validateMediaUploadSession(input: MediaUploadSession, nowMs?: number): ValidatedMediaUploadSession;
 export declare function performSignedMediaPut(prepared: PreparedMediaUpload, session: ValidatedMediaUploadSession, signedRawPut: SignedRawPut): Promise<void>;
 export declare function performSignedMediaFilePut(filePath: string, session: ValidatedMediaUploadSession, signedRawPut: SignedRawPut): Promise<void>;

@@ -1,8 +1,13 @@
 import { PINS, ROLES, SPACES } from "./tokens.js";
 export declare const COMPOSE_TYPES: readonly ["Frame", "Column", "Row", "Box", "Spacer", "Text", "Image"];
 export declare const WIRE_PRIMITIVES: readonly ["image", "video", "iframe", "application"];
-export declare const FONT_FALLBACKS: readonly ["Helvetica Neue", "Helvetica", "Arial", "DejaVu Sans", "Liberation Sans"];
+import { FONT_FALLBACKS } from "./fonts.js";
+export { FONT_FALLBACKS } from "./fonts.js";
 export interface ComposeCatalog {
+    attributes: Record<string, string[]>;
+    installed_fonts: string[];
+    examples: Record<string, unknown>;
+    recipes: Record<string, unknown>;
     types: typeof COMPOSE_TYPES[number][];
     roles: typeof ROLES[number][];
     spaces: typeof SPACES[number][];

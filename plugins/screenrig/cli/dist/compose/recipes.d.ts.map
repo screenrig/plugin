@@ -1,0 +1,1 @@
+{"version":3,"file":"recipes.d.ts","sourceRoot":"","sources":["../../src/compose/recipes.ts"],"names":[],"mappings":"AAEA,eAAO,MAAM,YAAY,gEAAiE,CAAC;AAC3F,MAAM,MAAM,UAAU,GAAG,OAAO,YAAY,CAAC,MAAM,CAAC,CAAC;AAOrD,iFAAiF;AACjF,wBAAgB,mBAAmB,CAAC,KAAK,EAAE,OAAO,GAAG,OAAO,CAoE3D;AAED,wBAAgB,cAAc,IAAI,MAAM,CAAC,UAAU,EAAE,OAAO,CAAC,CAQ5D"}

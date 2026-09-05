@@ -18,6 +18,9 @@ import { parseSse } from "./sse.js";
 import { kvWriteFromArgs } from "./kv-write.js";
 import { commentsWriteFromArgs } from "./comments-write.js";
 import { quotedRevision } from "./if-match.js";
+import { applicationNameHeaders } from "./application-name.js";
+import { composeBatch } from "./compose/batch.js";
+import { assertPlaylistValid, PLAYLIST_SERVER_CHECKS } from "./playlist-validate.js";
 import { lowInformationFilenameWarning } from "./media-filename.js";
 import { deriveCommitIdempotencyKey, performSignedMediaPut, prepareMediaUpload, validateMediaUploadSession, } from "./media-upload.js";
 import { fetchSignedRawPut } from "./runtime.js";
@@ -61,17 +64,21 @@ Commands:
   dashboard [--print-url]
   app pack <directory> [--output FILE]
   app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
+  app update <id> <directory> --if-match REVISION [--no-wait] [--poll-ms MS]
   app list
   app show <id>
   media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                       [--no-transcode] [--codec h264|hevc] [--max-fps N]
                       [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
+                      [--preset signage-1080p30|signage-4k30] [--no-audio]
   media show <id>
   media list [--tag TAG] [--primitive image|video]
   media update <id> (--tag TAG | --clear-tag) --if-match REVISION
   media delete <id> --if-match REVISION
   compose catalog
-  compose render <file> [--output FILE] [--open]
+  compose batch <file> --output DIRECTORY [--only ID] [--target-width PX --target-height PX] [--safe-area]
+  playlist validate <file>
+  compose render <file> [--output FILE] [--target-width PX --target-height PX] [--safe-area] [--open]
   playlist templates
   playlist create <file>
   playlist update <id> <file> --if-match REVISION
@@ -191,6 +198,14 @@ async function composeRender(args, runtime) {
         throw usageError("compose render --output must not contain a NUL byte.");
     }
     const layoutOutput = `${output}.layout.json`;
+    requireFlagValue(args, "target-width", "3840");
+    requireFlagValue(args, "target-height", "2160");
+    const targetWidth = args.flags["target-width"] === undefined ? undefined : Number(flagString(args.flags, "target-width"));
+    const targetHeight = args.flags["target-height"] === undefined ? undefined : Number(flagString(args.flags, "target-height"));
+    if ((targetWidth === undefined) !== (targetHeight === undefined)) {
+        throw usageError("Provide both --target-width and --target-height for the physical content viewport.");
+    }
+    const target = targetWidth !== undefined && targetHeight !== undefined ? { width: targetWidth, height: targetHeight } : undefined;
     let spec;
     try {
         spec = JSON.parse(await readFile(specPath, "utf8"));
@@ -206,6 +221,8 @@ async function composeRender(args, runtime) {
                 baseDir: path.dirname(specPath),
                 outPath: output,
                 layoutOutPath: layoutOutput,
+                target,
+                safeArea: flagBool(args.flags, "safe-area"),
             });
             span.finish({
                 output,
@@ -233,10 +250,11 @@ async function composeRender(args, runtime) {
         ramp_root: result.ramp_root,
         ramp_at_1080: result.ramp_at_1080,
         truncated: result.truncated,
+        quality: result.quality,
         ...(opened !== undefined ? { opened } : {}),
     };
     return {
-        envelope: successEnvelope(data),
+        envelope: successEnvelope(data, { warnings: result.warnings }),
         exitCode: ExitCode.Success,
         human: humanLines("Composed still", [
             ["output", output],
@@ -245,6 +263,7 @@ async function composeRender(args, runtime) {
             ["height", String(result.height)],
             ["font_family", result.font_family],
             ["truncated", result.truncated ? "true" : "false"],
+            ...result.warnings.map((warning) => ["warning", warning.message]),
             ...(opened !== undefined ? [["opened", opened ? "true" : "false"]] : []),
         ]),
     };
@@ -312,6 +331,46 @@ export async function dispatch(args, runtime) {
                 human: formatComposeCatalog(catalog),
             };
         });
+    }
+    if (group === "playlist" && action === "validate") {
+        const file = args.positionals[2];
+        if (!file || args.positionals.length !== 3)
+            throw usageError("playlist validate requires one JSON file.");
+        let parsed;
+        try {
+            parsed = JSON.parse(await readFile(path.resolve(runtime.cwd(), file), "utf8"));
+        }
+        catch {
+            throw usageError("Cannot read playlist JSON.");
+        }
+        const body = parsed && typeof parsed === "object" && Array.isArray(parsed.pages) ? { ...parsed, pages: expandPlaylistPages(parsed.pages) } : parsed;
+        assertPlaylistValid(body);
+        return { envelope: successEnvelope({ valid: true, scope: "local_schema_and_semantics", server_checks: PLAYLIST_SERVER_CHECKS }), exitCode: ExitCode.Success, human: "Playlist passed local canonical validation. Reference authorization and runtime readiness require server checks." };
+    }
+    if (group === "compose" && action === "batch") {
+        const file = args.positionals[2];
+        requireFlagValue(args, "output", "./rendered");
+        const output = flagString(args.flags, "output");
+        if (!file || !output || args.positionals.length !== 3)
+            throw usageError("compose batch requires one JSON file and --output DIRECTORY.");
+        requireFlagValue(args, "target-width", "3840");
+        requireFlagValue(args, "target-height", "2160");
+        requireFlagValue(args, "only", "page-id");
+        const tw = flagString(args.flags, "target-width"), th = flagString(args.flags, "target-height");
+        if ((tw === undefined) !== (th === undefined))
+            throw usageError("Provide both target dimensions.");
+        const target = tw !== undefined && th !== undefined ? { width: Number(tw), height: Number(th) } : undefined;
+        let result;
+        try {
+            result = await composeBatch(path.resolve(runtime.cwd(), file), path.resolve(runtime.cwd(), output), { target, safeArea: flagBool(args.flags, "safe-area"), only: flagString(args.flags, "only") });
+        }
+        catch (error) {
+            rethrowCompose(error);
+        }
+        const warnings = result.pages.flatMap((page) => (page.warnings ?? []).map((warning) => ({ ...warning, message: `${page.id}: ${warning.message}` })));
+        if (result.failed)
+            throw new CliError(makeProblem("usage_error", "Some pages could not render", 400, `${result.failed} page(s) failed. Successful outputs are retained. See ${result.manifest} and ${result.preview}.`, { errors: result.pages.filter((page) => page.status === "failed").map((page) => ({ page_id: page.id, ...page.error })) }), ExitCode.Usage, warnings);
+        return { envelope: successEnvelope(result, { warnings }), exitCode: ExitCode.Success, human: `Rendered ${result.rendered} page(s). Preview: ${result.preview}. Details: ${result.manifest}.` };
     }
     if (group === "compose" && action === "render") {
         return composeRender(args, runtime);
@@ -385,8 +444,8 @@ export async function dispatch(args, runtime) {
     if (group === "dashboard") {
         return dashboardCommand(args, runtime, resolved);
     }
-    if (group === "app" && action === "upload") {
-        return loggerOf(runtime).withLocal({ op: "app.upload", message: "app upload" }, () => appUpload(args, runtime, resolved));
+    if (group === "app" && (action === "upload" || action === "update")) {
+        return loggerOf(runtime).withLocal({ op: `app.${action}`, message: `app ${action}` }, () => appUpload(args, runtime, resolved));
     }
     if (group === "app" && action === "list") {
         return simpleGet(args, runtime, resolved, "/api/v1/applications", "Applications");
@@ -1368,10 +1427,19 @@ async function appPack(args, runtime) {
     };
 }
 async function appUpload(args, runtime, resolved) {
-    const dir = args.positionals[2];
-    if (!dir) {
-        throw usageError("app upload requires a directory.");
+    const update = args.positionals[1] === "update";
+    const id = update ? args.positionals[2] : undefined;
+    const dir = args.positionals[update ? 3 : 2];
+    requireFlagValue(args, "if-match", "1");
+    const revision = flagString(args.flags, "if-match");
+    if (!dir || args.positionals.length !== (update ? 4 : 3) || (update && (!id || !revision))) {
+        throw usageError(update ? "app update requires <id> <directory> --if-match REVISION." : "app upload requires one directory.");
     }
+    if (update && args.flags.name !== undefined)
+        throw usageError("app update preserves the application name; omit --name.");
+    const ifMatch = update ? quotedRevision(revision) : undefined;
+    requireFlagValue(args, "name", "Lobby board");
+    const nameHeaders = applicationNameHeaders(flagString(args.flags, "name"));
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const capabilitiesResponse = await client.call({ method: "GET", path: "/api/v1/capabilities" });
@@ -1379,10 +1447,9 @@ async function appUpload(args, runtime, resolved) {
         limits: limitsFromCapabilities(capabilitiesResponse.body),
         logger: loggerOf(runtime),
     });
-    const name = applicationNameFromArgs(args);
     const response = await client.call({
         method: "POST",
-        path: "/api/v1/applications",
+        path: update ? `/api/v1/applications/${encodeURIComponent(id)}/releases` : "/api/v1/applications",
         idempotent: true,
         headers: {
             "content-type": "application/gzip",
@@ -1390,7 +1457,8 @@ async function appUpload(args, runtime, resolved) {
             "screenrig-expanded-bytes": String(packed.expanded_bytes),
             "screenrig-file-count": String(packed.file_count),
             "screenrig-sdk-version": SDK_PROTOCOL_VERSION,
-            ...(name ? { "screenrig-application-name": name } : {}),
+            ...(ifMatch ? { "if-match": ifMatch } : {}),
+            ...nameHeaders,
         },
         body: packed.archive,
     });
@@ -1404,7 +1472,7 @@ async function appUpload(args, runtime, resolved) {
         return {
             envelope: successEnvelope({ application: body, operation, pack: { sha256: packed.sha256, file_count: packed.file_count } }, { request_id: client.requestId, operation_id: operation.id }),
             exitCode: ExitCode.Success,
-            human: humanLines("Application uploaded", [
+            human: humanLines(update ? "Application release uploaded" : "Application uploaded", [
                 ["application_id", body.id],
                 // The release id is the only handle an application primitive accepts, so
                 // report it here rather than making the caller read the operation
@@ -1419,7 +1487,7 @@ async function appUpload(args, runtime, resolved) {
     return {
         envelope: jsonBody(response, client.requestId, { sha256: packed.sha256 }),
         exitCode: ExitCode.Success,
-        human: humanLines("Application upload accepted", [
+        human: humanLines(update ? "Application release accepted" : "Application upload accepted", [
             ["application_id", body.id],
             ["release_id", body.release_id],
             ["operation_id", body.operation_id],
@@ -1438,7 +1506,6 @@ async function simpleGet(args, runtime, resolved, pathName, title, query) {
     };
 }
 const MEDIA_TAG_PATTERN = /^[A-Za-z0-9]{1,32}$/;
-const APPLICATION_NAME_MAX = 120;
 const PLAYBACK_DAY_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 function requireFlagValue(args, name, example) {
     if (args.flags[name] === true) {
@@ -1455,17 +1522,6 @@ function mediaTagFromArgs(args) {
         throw usageError("--tag must be 1 to 32 letters or digits.");
     }
     return tag;
-}
-function applicationNameFromArgs(args) {
-    requireFlagValue(args, "name", "Lobby board");
-    const name = flagString(args.flags, "name");
-    if (name === undefined) {
-        return undefined;
-    }
-    if (name.length > APPLICATION_NAME_MAX || /[\r\n]/.test(name)) {
-        throw usageError("--name must be at most 120 characters and must not contain a line break.");
-    }
-    return name;
 }
 function mediaPrimitiveFromArgs(args) {
     requireFlagValue(args, "primitive", "image");
@@ -1581,6 +1637,22 @@ function readyMediaId(operation) {
 }
 /** Flags that shape the pre-upload transcode. */
 export function transcodeOptionsFromArgs(args) {
+    const preset = flagString(args.flags, "preset");
+    if (args.flags.preset !== undefined && preset !== "signage-1080p30" && preset !== "signage-4k30") {
+        throw usageError("--preset accepts signage-1080p30 or signage-4k30.");
+    }
+    if (args.flags["no-audio"] !== undefined && args.flags["no-audio"] !== true)
+        throw usageError("--no-audio takes no value.");
+    const noAudio = flagBool(args.flags, "no-audio");
+    if (flagBool(args.flags, "no-transcode") && (preset || noAudio)) {
+        throw usageError("--preset and --no-audio require transcoding; remove --no-transcode.");
+    }
+    for (const flag of ["max-fps", "max-edge", "webp-quality"]) {
+        const raw = args.flags[flag];
+        if (raw !== undefined && (typeof raw !== "string" || !Number.isFinite(Number(raw)))) {
+            throw usageError(`--${flag} requires a numeric value.`);
+        }
+    }
     const codecFlag = flagString(args.flags, "codec")?.toLowerCase();
     let codec = DEFAULT_CODEC;
     if (codecFlag !== undefined) {
@@ -1606,7 +1678,8 @@ export function transcodeOptionsFromArgs(args) {
     if (!Number.isInteger(webpQuality) || webpQuality < 1 || webpQuality > 100) {
         throw usageError("--webp-quality must be a whole number between 1 and 100.");
     }
-    return { codec, maxFps, maxEdge, webpQuality };
+    return { codec, maxFps, maxEdge, webpQuality,
+        preset: preset === "signage-1080p30" || preset === "signage-4k30" ? preset : undefined, noAudio };
 }
 function progressReporterFor(args, runtime) {
     if (flagBool(args.flags, "no-progress")) {
@@ -1641,7 +1714,7 @@ async function mediaUpload(args, runtime, client) {
     }
     try {
         const prepared = transcode
-            ? await prepareMediaUpload(transcode.filePath, transcode.contentType)
+            ? await prepareMediaUpload(transcode.filePath, transcode.contentType, transcode.verifiedSha256)
             : await prepareMediaUpload(sourcePath, explicitContentType);
         const tag = mediaTagFromArgs(args);
         if (tag !== undefined) {
@@ -1695,6 +1768,7 @@ async function mediaUpload(args, runtime, client) {
                     height: transcode.height,
                     dimensions_measured: transcode.dimensionsMeasured,
                     duration_ms: transcode.durationMs,
+                    ...(transcode.video ? { video: transcode.video } : {}),
                 }
                 : { applied: false, reason: "--no-transcode uploaded the source bytes unchanged" },
         };
@@ -1989,6 +2063,7 @@ async function playlistCommand(args, runtime, resolved, action) {
         }
         const pages = expandPlaylistPages(parsed.pages);
         const body = { name: parsed.name, pages };
+        assertPlaylistValid(body);
         // A create has no assigned screen yet, so there is nothing to check. An
         // update can add a schedule to a playlist screens are already running.
         if (action === "update" && id) {
@@ -3074,7 +3149,25 @@ async function doctor(args, runtime, resolved) {
         try {
             const response = await client.call({ method: "GET", path: route });
             const name = route === "/api/v1/capabilities" ? "capabilities" : route.slice(2);
-            checks.push({ name, status: "pass", detail: `status ${response.status}` });
+            const body = response.body;
+            const degraded = route === "/.ready" && body !== null && typeof body === "object"
+                && "degraded" in body && Array.isArray(body.degraded) ? body.degraded : [];
+            const guidance = [...new Set(degraded.map((dependency) => {
+                    switch (dependency) {
+                        case "application_processing":
+                            return "application_processing: new applications cannot become ready; ask the service operator to restore application workers, then rerun doctor";
+                        case "valkey":
+                            return "valkey: ask the service operator to restore Valkey connectivity, then rerun doctor";
+                        default:
+                            // Probe names are server input; do not echo arbitrary values into diagnostics.
+                            return "another optional dependency is unavailable; ask the service operator to inspect readiness diagnostics, then rerun doctor";
+                    }
+                }))];
+            checks.push({
+                name,
+                status: degraded.length > 0 ? "warn" : "pass",
+                detail: `status ${response.status}${guidance.length > 0 ? `; service ready with degraded dependencies. ${guidance.join(". ")}` : ""}`,
+            });
             if (route === "/api/v1/capabilities") {
                 // Probe feedback support from the advertised feature map rather than
                 // assuming the routes exist on every deployment.

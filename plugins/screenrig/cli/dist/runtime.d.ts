@@ -28,6 +28,8 @@ export interface SignedRawPutRequest {
     body: Uint8Array | AsyncIterable<Uint8Array>;
     credentials: "omit";
     redirect: "error";
+    /** End the transfer when its signed upload session expires. */
+    expiresAt?: number;
 }
 export interface SignedRawPutResponse {
     status: number;
@@ -38,7 +40,11 @@ export interface RunProcessRequest {
     command: string;
     args: string[];
     /** Receives each complete stdout line. When set, stdout is streamed instead of captured. */
-    onStdoutLine?: (line: string) => void;
+    onStdoutLine?: (line: string) => void | boolean;
+    /** Stream stderr without retaining it; return false to stop a rejected inspection. */
+    onStderrLine?: (line: string) => void | boolean;
+    /** Bound pending streamed lines; exceeding this aborts the process. */
+    maxLineChars?: number;
     timeoutMs?: number;
 }
 export interface RunProcessResult {
@@ -52,6 +58,8 @@ export interface RunProcessResult {
     /** Set when the process could not be started at all. */
     spawnError?: string;
     timedOut?: boolean;
+    outputTruncated?: boolean;
+    stoppedEarly?: boolean;
 }
 export type RunProcess = (request: RunProcessRequest) => Promise<RunProcessResult>;
 export declare function spawnRunProcess(): RunProcess;

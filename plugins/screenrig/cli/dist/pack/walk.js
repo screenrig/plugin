@@ -1,4 +1,5 @@
-import { lstat, readdir, readFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { packError } from "./limits.js";
 import { caseFold, compileIgnore, hasIllegalChars, hasTraversal, isBuiltinIgnored, pathDepth, posixNormalize, toPosixRelative, utf8Bytes, } from "./paths.js";
@@ -45,6 +46,8 @@ export async function walkDirectory(root, limits) {
     const entries = [];
     const seenNormalized = new Set();
     const seenFolded = new Set();
+    let fileCount = 0;
+    let expandedBytes = 0;
     async function visit(absolute) {
         const relative = toPosixRelative(root, absolute);
         const posixPath = posixNormalize(relative);
@@ -114,10 +117,38 @@ export async function walkDirectory(root, limits) {
         if (st.size > limits.application_file_bytes) {
             throw packError("file_too_large", `File exceeds ${limits.application_file_bytes} bytes: ${posixPath}`);
         }
-        const data = await readFile(absolute);
-        if (data.length !== st.size) {
-            throw packError("sparse_rejected", `File size changed or is sparse: ${posixPath}`);
+        if (fileCount >= limits.application_file_count) {
+            throw packError("too_many_files", `Archive exceeds the ${limits.application_file_count} file limit at ${posixPath}`);
         }
+        if (st.size > limits.application_expanded_bytes - expandedBytes) {
+            throw packError("expanded_too_large", `Expanded size exceeds ${limits.application_expanded_bytes} at ${posixPath}`);
+        }
+        const handle = await open(absolute, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+        let data;
+        try {
+            const opened = await handle.stat();
+            if (!opened.isFile() || opened.dev !== st.dev || opened.ino !== st.ino ||
+                opened.size !== st.size || opened.nlink !== 1 || isSparse(opened)) {
+                throw packError("unsupported_entry", `File changed while packing: ${posixPath}`);
+            }
+            data = Buffer.allocUnsafe(st.size);
+            let offset = 0;
+            while (offset < data.length) {
+                const { bytesRead } = await handle.read(data, offset, Math.min(256 * 1024, data.length - offset), offset);
+                if (bytesRead === 0)
+                    throw packError("unsupported_entry", `File changed while packing: ${posixPath}`);
+                offset += bytesRead;
+            }
+            const after = await handle.stat();
+            if (after.size !== opened.size || after.mtimeMs !== opened.mtimeMs || after.ctimeMs !== opened.ctimeMs) {
+                throw packError("unsupported_entry", `File changed while packing: ${posixPath}`);
+            }
+        }
+        finally {
+            await handle.close();
+        }
+        fileCount += 1;
+        expandedBytes += data.length;
         entries.push({ path: posixPath, type: "file", data, size: data.length });
     }
     const rootStat = await lstat(root);

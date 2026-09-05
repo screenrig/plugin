@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLE = ROOT / "plugins" / "screenrig" if (ROOT / "plugins" / "screenrig").is_dir() else ROOT
-EXPECTED_PLUGIN_VERSION = "0.1.1"
+EXPECTED_PLUGIN_VERSION = "0.1.2"
 EXPECTED_CLI_VERSION = "0.1.0"
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
@@ -73,17 +73,18 @@ def check_metadata(errors: list[str]) -> None:
     repository = package.get("repository")
     if not isinstance(repository, dict) or repository.get("url") != CLI_REPOSITORY:
         errors.append(f"{package_path.relative_to(ROOT)} repository.url must be {CLI_REPOSITORY}")
-    allowed_cli_deps = {"@napi-rs/canvas", "yoga-layout"}
+    allowed_cli_deps = {"@napi-rs/canvas", "yoga-layout", "ajv", "ajv-formats"}
     deps = package.get("dependencies")
-    if deps:
-        if not isinstance(deps, dict):
-            errors.append(f"{package_path.relative_to(ROOT)} dependencies must be an object")
-        else:
-            extra = sorted(set(deps) - allowed_cli_deps)
-            if extra:
-                errors.append(
-                    f"bundled CLI dependencies must be exactly {sorted(allowed_cli_deps)}; extra {extra}"
-                )
+    if not isinstance(deps, dict):
+        errors.append(f"{package_path.relative_to(ROOT)} dependencies must be an object")
+    else:
+        extra = sorted(set(deps) - allowed_cli_deps)
+        missing = sorted(allowed_cli_deps - set(deps))
+        if extra or missing:
+            errors.append(
+                f"bundled CLI dependencies must be exactly {sorted(allowed_cli_deps)}; "
+                f"extra {extra}; missing {missing}"
+            )
     for field in ("optionalDependencies", "peerDependencies"):
         if package.get(field):
             errors.append(f"bundled CLI must not require unavailable {field}")

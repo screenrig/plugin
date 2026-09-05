@@ -52,6 +52,7 @@ jobs:
           python3 scripts/build-plugin.py --check --cli-artifact "${RUNNER_TEMP}/screenrig-cli/${filename}"
           python3 scripts/validate-plugin.py --cli-artifact "${RUNNER_TEMP}/screenrig-cli/${filename}" --cli-source "${RUNNER_TEMP}/screenrig-cli-source"
           python3 scripts/check-public-repo.py
+          PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-public-dependencies.py
       - name: Package deterministic plugin artifact
         run: >-
           tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0

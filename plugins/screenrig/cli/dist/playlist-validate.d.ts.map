@@ -1,0 +1,1 @@
+{"version":3,"file":"playlist-validate.d.ts","sourceRoot":"","sources":["../src/playlist-validate.ts"],"names":[],"mappings":"AAkCA,eAAO,MAAM,sBAAsB,UAA8H,CAAC;AAClK,wBAAgB,cAAc,CAAC,KAAK,EAAE,OAAO,GAAG,KAAK,CAAC;IAAE,IAAI,EAAE,MAAM,CAAC;IAAC,OAAO,EAAE,MAAM,CAAA;CAAE,CAAC,CAcvF;AACD,wBAAgB,mBAAmB,CAAC,KAAK,EAAE,OAAO,GAAG,IAAI,CAIxD"}

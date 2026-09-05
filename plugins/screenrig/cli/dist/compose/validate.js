@@ -102,10 +102,14 @@ export function validateSpec(spec) {
     const frame = spec;
     if (frame.type !== "Frame")
         throw usage("root type must be Frame");
-    if (!Number.isFinite(frame.width) || !Number.isFinite(frame.height)) {
-        throw usage("Frame.width and Frame.height required");
+    if (![frame.width, frame.height].every((value) => Number.isSafeInteger(value) && value > 0 && value <= 8192) || frame.width * frame.height > 33_554_432) {
+        throw usage("Frame.width and Frame.height must be positive integers up to 8192, with at most 33554432 pixels");
     }
     walk(frame, "Frame");
     return frame;
+}
+// The catalog uses the validator's allowlist so discoverability cannot drift.
+export function composeAttributes() {
+    return Object.fromEntries(Object.entries({ Frame: FRAME_KEYS, Column: STACK_KEYS, Row: STACK_KEYS, Box: STACK_KEYS, Text: TEXT_KEYS, Image: IMAGE_KEYS, Spacer: SPACER_KEYS }).map(([type, keys]) => [type, [...keys]]));
 }
 //# sourceMappingURL=validate.js.map

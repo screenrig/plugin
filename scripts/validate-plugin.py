@@ -21,7 +21,7 @@ PLUGIN = ROOT / "plugins" / "screenrig"
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 CLI_RUNTIME_LOCK = "runtime-dependencies.lock.json"
-PLUGIN_VERSION = "0.1.1"
+PLUGIN_VERSION = "0.1.2"
 CLI_VERSION = "0.1.0"
 CLI_SOURCE_FILES = (
     "src/commands.ts",

@@ -7,6 +7,8 @@ import { redactText } from "../redact.js";
 import { probeMedia, resolveCwebpToolchain, resolveFfmpegToolchain, runProcessFor, } from "./ffmpeg.js";
 import { silentProgressReporter } from "./progress.js";
 import { readWebpContainer } from "./webp.js";
+import { planVideoDelivery, validateVideoOutput } from "./video-profile.js";
+import { inspectH264Passthrough } from "./video-inspection.js";
 function loggingProgressReporter(inner, span) {
     let lastPercent = -1;
     return {
@@ -88,6 +90,8 @@ export async function transcodeForUpload(request) {
     return logger.withLocal({ op: "media.transcode", message: `transcode ${path.basename(filePath)}` }, async (transcodeSpan) => {
         const reporter = loggingProgressReporter(request.reporter ?? silentProgressReporter(), transcodeSpan);
         const kind = classifySource(filePath, request.explicitContentType);
+        if (kind !== "video" && (options.preset || options.noAudio))
+            throw usageError("--preset and --no-audio apply to video uploads only.");
         const toolchain = await resolveFfmpegToolchain(runtime);
         const probe = await probeMedia(runtime, toolchain, filePath);
         const sourceBytes = (await stat(filePath)).size;
@@ -146,15 +150,20 @@ export async function transcodeForUpload(request) {
             throw usageError(`ffprobe found no decodable ${kind} stream in ${path.basename(filePath)}. ` +
                 "Pass --no-transcode to upload the bytes unchanged.");
         }
-        const passthrough = passthroughReason(kind, probe, options, sourceWebp);
+        const verified = kind === "video" ? await inspectH264Passthrough(runtime, toolchain, filePath, probe, options) : undefined;
+        const passthrough = verified
+            ? "source H.264 passed full compressed-stream delivery checks; original bytes preserved"
+            : passthroughReason(kind, probe, options, sourceWebp);
         if (passthrough) {
+            const passedProbe = verified?.probe ?? probe;
+            const passedBytes = verified?.bytes ?? sourceBytes;
             transcodeSpan.finish({
                 passthrough: true,
                 stage: kind,
-                source_bytes: sourceBytes,
-                output_bytes: sourceBytes,
-                width: probe.displayWidth,
-                height: probe.displayHeight,
+                source_bytes: passedBytes,
+                output_bytes: passedBytes,
+                width: passedProbe.displayWidth,
+                height: passedProbe.displayHeight,
                 reason: passthrough,
             });
             return {
@@ -163,12 +172,14 @@ export async function transcodeForUpload(request) {
                 contentType: kind === "video" ? "video/mp4" : "image/webp",
                 passthrough: true,
                 reason: passthrough,
+                ...(verified ? { filePath: verified.filePath, filename: path.basename(verified.filePath), cleanupDir: verified.cleanupDir,
+                    verifiedSha256: verified.sha256, video: videoSummary(verified.probe, options) } : {}),
                 stage: kind,
-                sourceBytes,
-                outputBytes: sourceBytes,
+                sourceBytes: passedBytes,
+                outputBytes: passedBytes,
                 durationMs: 0,
-                width: probe.displayWidth,
-                height: probe.displayHeight,
+                width: passedProbe.displayWidth,
+                height: passedProbe.displayHeight,
                 // A passthrough uploads the probed source verbatim, so this is measured.
                 dimensionsMeasured: true,
                 warnings: [],
@@ -215,16 +226,26 @@ export async function transcodeForUpload(request) {
                 throw usageError(`${tool} wrote an empty output file.`);
             }
             const durationMs = runtime.now().getTime() - startedAt;
-            reporter.finish({ outputBytes, elapsedMs: durationMs });
             if (kind === "image") {
                 await requireLossyDeliveryWebp(outputPath);
             }
-            const measured = await measureOutput(runtime, toolchain, outputPath, kind);
+            let video;
+            let measured;
+            if (plan.delivery) {
+                const outputProbe = await probeMedia(runtime, toolchain, outputPath);
+                validateVideoOutput(outputProbe, plan.delivery, options);
+                measured = { width: outputProbe.displayWidth, height: outputProbe.displayHeight };
+                video = videoSummary(outputProbe, options);
+            }
+            else {
+                measured = await measureOutput(runtime, toolchain, outputPath, kind);
+            }
             const warnings = [...plan.warnings];
             if (!measured) {
                 warnings.push("The CLI could not measure the transcoded file, so the reported width and height are the " +
                     "planned values and may differ from the delivered file by a pixel or two.");
             }
+            reporter.finish({ outputBytes, elapsedMs: durationMs });
             transcodeSpan.finish({
                 passthrough: false,
                 stage: kind,
@@ -249,6 +270,7 @@ export async function transcodeForUpload(request) {
                 width: measured?.width ?? plan.outputWidth,
                 height: measured?.height ?? plan.outputHeight,
                 dimensionsMeasured: measured !== undefined,
+                ...(video ? { video } : {}),
                 warnings,
                 cleanupDir,
             };
@@ -259,6 +281,10 @@ export async function transcodeForUpload(request) {
             throw error;
         }
     });
+}
+function videoSummary(probe, options) {
+    return { codec: options.codec, profile: probe.profile, level: String(probe.level / (options.codec === "h264" ? 10 : 30)),
+        fps: probe.fps, audio: probe.hasAudio, scan: probe.fieldOrder || "unknown", ...(options.preset ? { preset: options.preset } : {}) };
 }
 /**
  * Delivery stills must be lossy WebP. Reject VP8L and unreadable output here
@@ -406,8 +432,8 @@ function zscaleInputOptions(probe) {
  * a washed-out picture. zscale and tonemap come from libzimg, which some ffmpeg
  * builds omit; without them the CLI falls back to a plain conversion and warns.
  */
-export function videoFilterChain(toolchain, probe, maxEdge) {
-    const scale = boundedScaleFilter(maxEdge);
+export function videoFilterChain(toolchain, probe, maxEdge, outputSize) {
+    const scale = outputSize ? `scale=w=${outputSize.width}:h=${outputSize.height}` : boundedScaleFilter(maxEdge);
     if (!isHdr(probe)) {
         return { filter: scale, warnings: [] };
     }
@@ -466,31 +492,34 @@ function planVideo(toolchain, probe, options, input, output) {
             reason: "Report which encoders the resolved ffmpeg build provides.",
         });
     }
-    const { filter, warnings } = videoFilterChain(toolchain, probe, options.maxEdge);
-    const { rate, gop } = encodeTiming(probe, options.maxFps);
-    const size = boundedSize(probe.displayWidth, probe.displayHeight, options.maxEdge);
+    const delivery = planVideoDelivery(probe, options);
+    const { filter, warnings } = videoFilterChain(toolchain, probe, options.maxEdge, delivery);
+    const { rate, gop } = encodeTiming(probe, delivery.fps);
+    const size = delivery;
     const args = [
         "-i", input,
         "-f", "mp4",
         "-vf", filter,
         "-map", "0:v:0",
-        "-map", "0:a:0?",
+        ...(delivery.audio ? ["-map", "0:a:0?"] : []),
         "-c:v", encoder,
     ];
     if (options.codec === "hevc") {
-        args.push("-tag:v", "hvc1", "-profile:v", "main", "-level:v", "5.1", "-preset", "fast", "-crf", "28", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p", ...REC709_OUTPUT, "-bf", "2", "-r", rate, "-g", String(gop), "-x265-params", `output-depth=8:min-keyint=${gop}:scenecut=0:log-level=error`);
+        args.push("-tag:v", "hvc1", "-profile:v", "main", "-level:v", delivery.level, "-preset", "fast", "-crf", "28", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p", ...REC709_OUTPUT, "-bf", "2", "-r", rate, "-g", String(gop), "-x265-params", `level-idc=${delivery.level}:colorprim=bt709:transfer=bt709:colormatrix=bt709:range=limited:min-keyint=${gop}:scenecut=0:log-level=error`);
     }
     else {
-        args.push("-profile:v", "high", "-level:v", "4.2", "-preset", "fast", "-crf", "23", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p", ...REC709_OUTPUT, "-bf", "2", "-r", rate, "-g", String(gop), "-keyint_min", String(gop), "-sc_threshold", "0");
+        args.push("-profile:v", "high", "-level:v", delivery.level, "-preset", "fast", "-crf", "23", "-maxrate", "8M", "-bufsize", "16M", "-pix_fmt", "yuv420p", ...REC709_OUTPUT, "-bf", "2", "-r", rate, "-g", String(gop), "-x264-params", "colorprim=bt709:transfer=bt709:colormatrix=bt709:fullrange=off", "-refs", "2", // Match the fast preset; allow four DPB frames including B-frame reordering.
+        "-keyint_min", String(gop), "-sc_threshold", "0");
     }
     // Players play a complete cached file, so a faststart remux is wasted work.
-    args.push("-avoid_negative_ts", "make_zero", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", "-write_tmcd", "0", "-threads", "0", "-progress", "pipe:1", "-nostdin", "-y", output);
+    args.push("-avoid_negative_ts", "make_zero", ...(delivery.audio ? ["-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2"] : ["-an"]), "-write_tmcd", "0", "-threads", "0", "-progress", "pipe:1", "-nostdin", "-y", output);
     return {
+        delivery,
         command: toolchain.ffmpeg,
         args,
         target: options.codec === "hevc" ? "H.265 MP4" : "H.264 MP4",
-        reason: `re-encoded to ${options.codec === "hevc" ? "H.265" : "H.264"} MP4, bounded to ${options.maxEdge}px ` +
-            `on both edges, capped at ${options.maxFps} fps`,
+        reason: `re-encoded to ${options.codec === "hevc" ? "H.265" : "H.264"} MP4, level ${delivery.level}, ` +
+            `${delivery.width}x${delivery.height} at ${rate} fps${options.preset ? ` (${options.preset})` : ""}${options.noAudio ? ", without audio" : ""}`,
         progressDurationSeconds: probe.durationSeconds,
         outputWidth: size.width,
         outputHeight: size.height,

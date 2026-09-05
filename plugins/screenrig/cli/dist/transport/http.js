@@ -152,6 +152,10 @@ export class FetchTransport {
                     throw networkError(err instanceof Error ? err.message : "SSE stream failed", requestId);
                 }
                 finally {
+                    try {
+                        await reader.cancel();
+                    }
+                    catch { /* Preserve the original stream error. */ }
                     reader.releaseLock();
                 }
             },
@@ -208,7 +212,21 @@ export class FetchTransport {
         }
         const reader = response.body.getReader();
         const requestId = req.headers?.["x-request-id"];
+        let released = false;
+        const cancel = async () => {
+            if (released)
+                return;
+            released = true;
+            if (timer)
+                clearTimeout(timer);
+            try {
+                await reader.cancel();
+            }
+            catch { /* Preserve the caller's original failure. */ }
+            reader.releaseLock();
+        };
         const body = {
+            cancel,
             async *[Symbol.asyncIterator]() {
                 try {
                     while (true) {
@@ -219,14 +237,12 @@ export class FetchTransport {
                     }
                 }
                 catch (err) {
-                    if (err.name === "AbortError")
+                    if (signal.aborted || err.name === "AbortError")
                         throw timeoutError("Media download timed out", requestId);
                     throw networkError(err instanceof Error ? err.message : "Media download stream failed", requestId);
                 }
                 finally {
-                    if (timer)
-                        clearTimeout(timer);
-                    reader.releaseLock();
+                    await cancel();
                 }
             },
         };

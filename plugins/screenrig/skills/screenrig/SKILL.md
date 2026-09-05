@@ -49,6 +49,13 @@ named repository or install `screenrig` from a global package source. Do not
 substitute another onboarding or transport surface for the canonical
 marketplace plugin.
 
+Canonical skill source can lead the pinned installed CLI during repository
+development. New skill text does not upgrade its executable. Check the selected
+CLI's `--help` or `compose catalog` before relying on newly added commands.
+When explicitly testing a CLI source checkout, follow that checkout's agent
+guide for its built executable; do not replace the installed plugin cache with
+a mutable local build.
+
 Use the CLI packaged with this skill. It requires Node.js 20.11 or newer.
 Resolve the installed plugin root, prepend its scripts directory to `PATH`
 once, then invoke `screenrig`. Do not export `SR`. Do not install a global
@@ -56,9 +63,15 @@ package.
 
 ```bash
 SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
-PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
-screenrig --json version
+if [ -n "$SCREENRIG_PLUGIN_ROOT" ]; then
+  PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
+  screenrig --json version
+fi
 ```
+
+An empty root means use the lookup below before running the CLI; do not add
+`/skills/screenrig/scripts` to PATH. The plugin launcher is scoped to this
+shell session, so a new shell may need the same root lookup and PATH setup.
 
 Require a successful screenRIG JSON envelope from `--json version` before any
 other command.
@@ -270,10 +283,10 @@ whole spec. Do not author `x`/`y` except on the Frame canvas. Do not author
 `fontSize`. Roles pick the type ramp. On 1920×1080, `display` wishes 130 px,
 `title` 86, `body` 45, `caption`/`label` 32. Budget copy for that scale.
 The type ramp uses `min(Frame width, height)`. A 1920×400 strip Frame makes
-`title` wish 48 px, not 86. Overlay Frames stay 1920×1080. Never size the
-Frame to the plate. Read `layout.json` `ramp` vs `ramp_at_1080` (and
-`ramp_root`) after `compose render`. If `ramp.title.wish` is not 86 on a
-slide overlay, the Frame is the wrong size.
+`title` wish 48 px, not 86. Overlay Frames cover the full slide at the chosen
+render resolution; never size the Frame to the plate. Read `layout.json`
+`ramp` vs `ramp_at_1080` (and `ramp_root`) after `compose render`. On a
+1920×1080 overlay, `ramp.title.wish` is 86; larger render Frames scale it up.
 `Image`, `Box`, `Row`, `Column`, and `Spacer` honor `width` and `height` in
 px. Keep `flex` for remaining space. An `Image` without `height` or `flex`
 in a Column has no main-axis size and paints nothing useful. `pin` `top` or
@@ -296,11 +309,130 @@ this computer only when the user asked to view the still here. Agent vision
 uses the file path, not `--open`. Raster a diagram to PNG or WebP at canvas
 size, upload it, and place it as `image`. HTML is not a primitive.
 
+Choose raster dimensions for the screen's **physical content viewport**, not
+just the playlist's logical canvas or the full panel when content is
+letterboxed. A 1920×1080 slide displayed in a 3840×2160 viewport enlarges
+every flattened element 2×, even when its original logo is high resolution.
+Preserve aspect ratio: use `objectFit: "contain"` for complete marks and
+`cover` for intentional cropping; `fill` can distort mismatched proportions.
+Source images must support their actual painted pixel dimensions, including
+the part cropped by `cover`. Re-render from originals at the target density;
+enlarging the finished PNG cannot recover detail.
+
+Current compose output dimensions equal the Frame dimensions. To adapt a
+1920×1080 spec for 3840×2160, double the Frame and every explicit child
+`width`/`height`, plus Text `textShadow` offsets and blur if present. Keep
+roles, spacing/radius tokens, and `flex` unchanged: they scale or distribute
+space through layout. Compare the new layout and PNG because type rounding
+and text wrapping can change. Increasing only the Frame leaves fixed-size
+elements proportionally smaller. Inspect the result on the physical screen
+at 1:1 pixels; native screenshots are reduced resolution and can hide
+pixelation.
+
+Pass `--target-width 3840 --target-height 2160` to `compose render` when the
+physical content viewport is known. These flags check quality; they do not
+resize the Frame or PNG. Read envelope `warnings` and `data.quality`, also
+saved in the layout dump. `image_upscaled` reports decoded source enlargement
+above 1.25× using actual paint bounds, including cover cropping.
+`image_aspect_stretched` reports fill distortion above 1%; `contain` and
+`cover` preserve proportions. `compose_output_upscaled` reports output
+magnification above 1.25× at the target. Fix the source or render dimensions
+before uploading. With no target, quality reports `target_status: "unknown"`;
+this is not evidence of adequate display resolution. Upload transcoding can
+change dimensions, so inspect the accepted media dimensions too.
+
+Use optional `--safe-area` for a TV that may crop edges: it warns when measured text crosses the 5% margin. Warnings are nonblocking, and full-bleed
+imagery stays valid. `compose catalog` exposes validator-backed per-node
+attributes, installed font families, and renderable slide/transparent-overlay
+examples.
+
+### Compose a deck with fewer corrective steps
+
+Prefer measured native compose Text/Row/Column nodes for titles, copy, cards
+and tables. Flattening all copy into an SVG or PNG hides it from text fitting,
+font checks and safe-area diagnostics. Keep code-native illustrations as image
+assets when useful, while leaving adjacent explanatory text measurable.
+
+Start with a recipe from `compose catalog`: `title`, `split-image`, `cards`,
+`table`, or `overlay`. Recipes expand to the same ordinary compose nodes;
+they keep a 5% content inset and the normal readable type floors. Set `width`
+and `height` to the physical content viewport. Omitted dimensions are
+1920×1080. `split-image` uses `contain` by default; `cover` crops proportionally.
+The overlay recipe defaults to a transparent canvas and an approximately 89%
+opaque plate with independently opaque text. Omit its `image` to layer the
+PNG over native video; include a local image for a flattened still.
+
+For several pages, author one batch instead of separate render/review scripts:
+
+```json
+{
+  "pages": [
+    { "id": "intro", "spec": { "recipe": "title", "width": 3840, "height": 2160, "title": "A clear introduction", "body": "One useful idea, explained simply." } },
+    { "id": "comparison", "spec": { "recipe": "cards", "width": 3840, "height": 2160, "title": "Compare the outcomes", "cards": [{ "title": "Prepare", "body": "Validate before publishing." }, { "title": "Verify", "body": "Inspect the target screen." }] } }
+  ]
+}
+```
+
+```bash
+screenrig --json compose batch ./deck.json --output ./rendered --target-width 3840 --target-height 2160 --safe-area
+```
+
+Each `spec` can instead be a relative JSON file path. The command returns
+ordered page results, individual PNG/layout paths, one contact-sheet preview,
+and a manifest. It renders serially to bound full-resolution memory. Failed
+pages are named in the JSON error; successful outputs remain available.
+Fix one page and run the same command with `--only comparison`: only that page
+renders, the others are explicitly `not_selected`, and a separate correction
+manifest/preview preserves the full-run evidence. This is selective rendering,
+not an automatic cache-validity promise.
+
+Read node-specific `text_overflow`, `text_truncated`, `text_dense` and
+`text_overlap` warnings before upload. Shorten copy, widen its container, or
+split a page instead of lowering type floors. `data.quality.text` reports
+measured ink and layout bounds. Parent plates are not text collisions;
+intentional text-over-media and media-over-media intersections are recorded
+separately in `quality.overlaps`. Image upscale/stretch warnings remain
+separate. The preview preserves aspect and shows transparency over a checker.
+Inspect individual full-resolution outputs before claiming pixel quality.
+
+Font checks compare rendered characters with the font's missing-glyph raster
+at the requested weight. `font_glyph_fallback` reports a replacement font for
+that Text node; measurement and painting both use it. Choose the named font
+explicitly for consistent typography. `font_glyph_missing` means no installed
+fallback covers the text. Install a suitable font or change the family; do not
+accept missing-character boxes. This check is not a proof of every language's
+shaping or typography quality.
+
+Validate the separate wire playlist locally before expensive upload/publication
+work, and again after replacing draft references with accepted resource IDs:
+
+```bash
+screenrig --json playlist validate ./playlist.json
+```
+
+This uses backend-generated schema and semantics, including application
+controllers, selectors, duplicate IDs and type-only `enter` objects. Errors
+name exact JSON paths. It is local and does not require authentication or make
+HTTP requests. Create/update also run this check before their write. A pass
+means local shape and cross-field semantics are valid; authorization, media
+readiness, dynamic selector counts, durations and remote availability still
+require server checks. Raster QA alone never proves the playlist is valid.
+
 ### Slide, overlay, and wordmark
 
 `justify: "end"` is not the bottom of the slide unless the `Column` has
 `flex: 1`, or the copy lives in a `Box` with `pin: "bottom"`. A `Column`
 without `flex: 1` shrinks to its text and sits at the top of the Frame.
+
+For text over images or video, prefer a subtly translucent backplate so the
+imagery shows through. Start around 85–92% opacity as a visual preference,
+then adjust for readability. Compose colors use `#RRGGBBAA`: for example,
+`Box.background: "#000000E0"` is black at about 88% opacity. Add padding
+around the copy, such as `"padding": "l"`. Apply alpha to the backplate
+background only; keep text opaque, such as `"color": "#FFFFFF"`, rather
+than fading the whole group. For a separate overlay over video, keep the
+Frame transparent. Check contrast over changing bright and dark frames;
+increase the plate opacity or use an opaque plate when needed for legibility.
 
 Overlay still (transparent Frame, lower-third plate):
 
@@ -325,7 +457,8 @@ Overlay still (transparent Frame, lower-third plate):
 ```
 
 Do not copy a short strip Frame from an older deck. Author the overlay at
-1920×1080 with `pin: "bottom"`. Leave a right pocket for the playlist
+the full slide resolution (1920×1080 in this example) with `pin: "bottom"`.
+Leave a right pocket for the playlist
 wordmark: shrink-wrap `Column` plus `Spacer`. The 5% wordmark rect
 `{ x: 1424, y: 946, width: 400, height: 80 }` sits on bottom-plate body
 copy. A tighter corner that clears copy is
@@ -523,6 +656,25 @@ Object enter starts invisible. It runs 500 ms after the page occupies the
 full viewport, for 400 ms. Those delays are contract constants, not author
 fields and not CLI flags. Do not send duration or delay inside `enter`.
 
+To slide text in over a still or video, compose the text and its translucent
+plate into a transparent PNG, place that image above the background's layer,
+and apply `enter` to the overlay image. Keep the background independent.
+Preview the first activation and a loop replay on each intended player; check
+that the overlay begins hidden, enters within its rect, and retains the
+expected layer order. A settled screenshot alone cannot verify animation.
+
+### Operator navigation while a web page is active
+
+On Qt and Android, plain Space, N/P, Enter, and arrows belong to an active iframe or
+application so typing and kiosk navigation remain usable. Operator shortcuts
+are Ctrl+Alt+Left/Right for Previous/Next and Ctrl+Alt+Space for Pause/Resume.
+Escape opens Settings with Previous page, Pause/Resume playback, and Next page
+menu controls. On Qt, use Up/Down to select a row and Enter to choose it.
+A paused web page stays paused until explicit resume or the player's existing
+60-minute expiry. Rapid navigation while the next page prepares keeps only the
+latest pending direction and applies it once after activation; it does not
+queue an unbounded series of stale key presses.
+
 ## Page scheduling with visibility
 
 A page may carry an optional `visibility` object that limits when the page
@@ -597,6 +749,11 @@ requires both `--update` and the current `--if-match` revision.
 
 ## Putting a web app on a screen
 
+Provide visible in-app Back and Reset controls for kiosk navigation. Do not
+rely on Escape or the platform Back key: the Qt player reserves them for
+operator Settings. Verify keyboard focus and key handling inside the native
+player as well as in browser preview before advertising keyboard shortcuts.
+
 ### 1. Upload the app and read its release id
 
 `app upload` takes one already-built static directory with a root `index.html`.
@@ -621,7 +778,21 @@ from the envelope:
 
 With `--no-wait` run `operations wait <operation_id>` before pinning the
 release into a playlist. Every `app upload` creates a new application and a
-new release.
+first immutable release. To repair or improve the same app, read its current
+revision with `app show`, then publish a new release:
+
+```bash
+screenrig --json app show app_EXAMPLE
+screenrig --json app update app_EXAMPLE ./lobby-board --if-match 3
+```
+
+`app update` preserves application identity, name, and application K/V. It uses
+the same packer, upload limits, operation wait, and release result as upload.
+Wait for `operation.state: "succeeded"`, then explicitly replace the intended
+playlist primitive's `release_id` and update the playlist with its revision.
+Existing playlists remain pinned to their old immutable release until edited.
+On a revision conflict, read the app again before deciding whether to retry;
+do not create a replacement application just to bypass the conflict.
 
 ### 2. Write the application primitive
 
@@ -658,6 +829,18 @@ Use `application` when the app calls `window.screenrig.nextPage()`:
 ```json
 { "mode": "application", "max_ms": 60000 }
 ```
+
+For an interactive kiosk, use application mode with a `max_ms` long enough
+for the intended visit. A duration page advances at its deadline even while a
+visitor is using the app; pointer activity does not extend that deadline.
+Call `nextPage()` after completion or a deliberate idle reset, and explain the
+bounded fallback in the experience. `await window.screenrig.ready()` completes
+the bridge handshake; it does not prove the candidate page is active. Use
+`await window.screenrig.waitUntilActive()` before starting a visitor idle clock
+or sending active-page events. Use `await window.screenrig.emitConfirmed(code)`
+when the UI promises that an event was accepted, and handle its rejection;
+plain `emit(code)` is a send attempt. Choose a shorter duration only for a
+preview that is supposed to rotate regardless of input.
 
 On an `application` page exactly one primitive must carry `controller: true`,
 and it must be an `application` primitive. `media_end` forbids `application`
@@ -790,6 +973,7 @@ account show
 dashboard [--print-url]
 app pack <directory> [--output FILE]
 app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
+app update <id> <directory> --if-match REVISION [--no-wait] [--poll-ms MS]
 app list
 app show <id>
 media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
@@ -800,7 +984,9 @@ media list [--tag TAG] [--primitive image|video]
 media update <id> (--tag TAG | --clear-tag) --if-match REVISION
 media delete <id> --if-match REVISION
 compose catalog
-compose render <file> [--output FILE] [--open]
+compose render <file> [--output FILE] [--target-width PX --target-height PX] [--safe-area] [--open]
+compose batch <file> --output DIRECTORY [--only ID] [--target-width PX --target-height PX] [--safe-area]
+playlist validate <file>
 playlist create <file>
 playlist update <id> <file> --if-match REVISION
 playlist export <id> --output DIRECTORY
