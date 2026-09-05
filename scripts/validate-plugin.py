@@ -21,7 +21,8 @@ PLUGIN = ROOT / "plugins" / "screenrig"
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 CLI_RUNTIME_LOCK = "runtime-dependencies.lock.json"
-RELEASE_VERSION = "0.1.0"
+PLUGIN_VERSION = "0.1.1"
+CLI_VERSION = "0.1.0"
 CLI_SOURCE_FILES = (
     "src/commands.ts",
     "src/client.ts",
@@ -109,8 +110,8 @@ def check_marketplaces() -> None:
     if entry.get("name") != "screenrig" or entry.get("source") != "./plugins/screenrig":
         errors.append(".claude-plugin/marketplace.json: invalid ScreenRig source")
     version = entry.get("version")
-    if version != RELEASE_VERSION:
-        errors.append(f".claude-plugin/marketplace.json: version must be {RELEASE_VERSION}")
+    if version != PLUGIN_VERSION:
+        errors.append(f".claude-plugin/marketplace.json: version must be {PLUGIN_VERSION}")
     if entry.get("repository") != PLUGIN_REPOSITORY or entry.get("license") != "Apache-2.0":
         errors.append(".claude-plugin/marketplace.json: public repository/license metadata drift")
     for platform in ("codex", "claude"):
@@ -214,14 +215,14 @@ def check_package() -> None:
             result.returncode != 0
             or envelope.get("ok") is not True
             or not isinstance(data, dict)
-            or data.get("version") != RELEASE_VERSION
+            or data.get("version") != CLI_VERSION
             or result.stderr
         ):
             errors.append("packaged skill wrapper did not execute the bundled CLI with clean JSON output")
     package = load(PLUGIN / "cli" / "package.json")
     repository = package.get("repository") or {}
     if (
-        package.get("version") != RELEASE_VERSION
+        package.get("version") != CLI_VERSION
         or package.get("private") is not False
         or package.get("license") != "Apache-2.0"
         or not isinstance(repository, dict)
