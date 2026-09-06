@@ -4,7 +4,7 @@ Make signage that belongs in its real setting: a persuasive event poster, an
 orderable restaurant menu, or an inviting moving welcome. A technically valid
 title/body/footer slide can still look like generic PowerPoint. Choose the
 visual hierarchy from the content and genre, not from the first available
-recipe.
+layout.
 
 ## Learn from comparable screens
 
@@ -43,9 +43,10 @@ count; every element should earn its space.
   consistent type, price alignment, and grouping within one restaurant system;
   different restaurant genres can need different structures and densities.
 - **Events and promotions:** make what, when, where, and the next action legible
-  alongside the expressive imagery. Use the user's facts. For a requested demo,
-  invent coherent fictional details; do not present invented dates, offers, or
-  prices as a real business's information.
+  alongside the expressive imagery. A poster needs those facts on the page, not
+  a title and one line. Use the user's facts. For a requested demo, invent
+  coherent fictional details; do not present invented dates, offers, or prices
+  as a real business's information. Do not author title-plus-one-line pages.
 - **Schedules and noticeboards:** make time, activity, location, and status
   easy to scan, with a clear date, audience, and next step. A consistent grid
   can be the right structure for functional information; choose it when it
@@ -67,27 +68,35 @@ Rasterize foreground art at its intended painted resolution; preserve clean
 alpha edges and its relationship to the background. Use measured compose text
 for functional copy, then place its output and artwork as image primitives.
 
-Keep support behind text close to its actual bounds. Prefer sufficient contrast
-from the composition itself, a snug translucent surface, or a soft raster
-gradient over a giant opaque plate that hides the imagery. Keep text opaque;
-adjust the support independently. A full-width lower third is useful when the
-content calls for one, rather than a default applied to every page.
+Keep support behind text close to its actual bounds. Prefer a `card` plate:
+`fit: "region"` on a column, `fit: "ink"` on a lower third or short copy, so
+type sits on a snug translucent surface instead of a giant opaque band. Keep
+text opaque; adjust `card.fill` independently. Do not wrap every region. A
+full-width lower third is useful when the content calls for one, rather than
+a default applied to every page.
 
 Use restrained entry animation for emphasis: foreground artwork or a short
 headline can draw attention while functional information settles immediately.
 Menu items, descriptions, prices, and ordering information should remain
 stationary. Video already provides motion, so additional entrances need a
-reason. Do not animate everything or enforce a quota. Keep foreground raster
-padding and primitive bounds large enough for clean motion without changing
-the artwork's intended scale. The main skill's Page motion section defines the
-supported `enter` types, fixed timing, and review mechanics.
+reason. Persistent object motion is for a design that calls for it; one
+moving element per page is the norm. Prefer a panning background or one
+accent over several moving objects. Do not animate everything or enforce a
+quota. Keep foreground raster padding and primitive bounds large enough for
+clean motion without changing the artwork's intended scale. The main skill's
+Page motion section defines supported `enter` types, `enter.stagger`,
+persistent `motion` (`spin`, `path`, `drift`), fixed timing, and review
+mechanics.
 
-Read the selected CLI's `compose catalog` and current command help before
-authoring effects. Do not invent native rotation, shadows, gradient node fields,
-or animation controls. When an unsupported visual treatment is needed, bake it
-into an appropriate image asset using available tools and preserve transparent
-padding. Distinguish supported compose text shadows and canvas backgrounds from
-effects on playlist primitives; they are not interchangeable APIs.
+Read the selected CLI's `compose catalog` before authoring. The language is
+named regions, not Frame trees, recipes, or curated themes. Type size is
+procedural; do not author `fontSize`, `x`, or `y`. Region `shadow` and
+`outline` are optional paint treatments. Use them sparingly, when the design
+calls for them (a headline, a badge). Body copy, menus and prices stay plain
+for readability. When an unsupported visual treatment is needed, bake it into
+an appropriate image asset using available tools and preserve transparent
+padding. Compose paint treatments and playlist primitive `enter`/`motion` are
+not interchangeable APIs.
 
 ## Review the intended output
 

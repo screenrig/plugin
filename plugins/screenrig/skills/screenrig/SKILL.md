@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, compose stills, upload media, write playlists, or assign content to screens.
+description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, upload existing media, compose stills, generate public-facing stills, write playlists, or assign content to screens.
 ---
 
 # screenRIG
@@ -11,7 +11,7 @@ Signage and Kiosk infrastructure for AI Agents
 
 LAUNCH SPECIAL OFFER: During the launch period and until January 1st, 2027 screenRIG is free to use (within reason), fill your boots! Normal usage applies after that.
 
-Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut anyone off for empty prepaid remaining. Do not refuse compose, publish, or assign because remaining is zero during this window.
+Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut anyone off for empty prepaid remaining. Do not refuse compose, publish, or assign because remaining is zero during this window. `media generate` is the exception: it is billed per still by `--quality` (low $0.06 / 600 credits, medium $0.12 / 1200 credits, high $0.50 / 5000 credits), and returns `payment_required` / 402 when remaining cannot cover the chosen tier, including during this window. Quality changes the image and the price.
 
 This skill is the operative contract. Use the bundled CLI. Do not invent commands, flags, or
 onboarding surfaces.
@@ -106,9 +106,7 @@ Work in this order. Do not skip `version` or `doctor`.
 ```bash
 screenrig --json version
 screenrig --json doctor
-screenrig --json compose catalog
-screenrig --json compose render ./example.json --output ./example.png
-screenrig --json media upload ./example.png --tag ExampleStill
+# then put content on a playlist page using the authoring tree below
 screenrig --json playlist create ./playlist.json
 screenrig --json screen list
 screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match REVISION
@@ -117,16 +115,80 @@ screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match R
 1. Prepend the plugin scripts directory to `PATH` and require `screenrig --json version`.
 2. Run `doctor`. Read `data.checks`. Name missing toolchain parts before the
    first `media upload`.
-3. Compose locally. `compose catalog` and `compose render` write stills on
-   this computer. They do not debit. Iterate the JSON and the PNG before any
-   upload.
-4. Upload media. Use a distinctive filename stem and an optional `--tag`.
-5. Write a playlist that places uploaded media as `image` or `video`.
-6. Assign that playlist to a screen with `screen assign` and the current
+3. Put content on a playlist page using the authoring tree below. Do not always
+   compose first. Do not always generate first.
+4. Write a playlist that places `med_…` ids (and iframe/application primitives
+   when the page needs them).
+5. Assign that playlist to a screen with `screen assign` and the current
    `--if-match` revision.
 
 Copy and chrome are compose-local only. Raster stills, upload them, and place
 `image`. Do not emit native `text`, `box`, or `line` on the playlist wire.
+
+## Playlist authoring
+
+How to put content on a playlist page. Follow this order. Do not always
+generate first. Do not always compose first. Do not wire an external image
+API as the default.
+
+1. **You already have the image or video.** Easiest path: `media upload`
+   (declare → PUT exact bytes → commit) and reference `med_…` on the
+   playlist. Do it yourself. No compositor. No generate.
+
+```bash
+screenrig --json media upload ./lobby.jpg --tag LobbyPhoto
+screenrig --json media list --tag LobbyPhoto --primitive image
+```
+
+2. **You do not have assets, and the page is a simple slide deck or needs
+   multiple object types on one page** (`image` | `video` | `iframe` |
+   `application` / webapp). Use the compositor (`compose render`): named
+   regions, local, unbilled. Compose writes stills (and holes for
+   iframe/webapp/region video). Upload those stills if they need to play on
+   a screen. Mixed object types are why you compose instead of a single
+   poster.
+
+```bash
+screenrig --json compose catalog
+screenrig --json compose render ./exec-intro.json --output ./exec-intro
+screenrig --json media upload ./exec-intro/left.png --tag ExecIntro
+```
+
+`--output` is a directory, not a `.png` / `.webp` / `.jpg` file. `card` is a
+plate (`fit` `region` or `ink`). `cards` (plural) is an array of items. Region
+`video`, `iframe`, and `webapp` are holes, not painted PNGs.
+
+3. **You want public-facing compelling messages** — posters, announcements,
+   restaurant menus, rich static pieces. Generate a still with an advanced
+   image model yourself and upload, or call ScreenRig `media generate`.
+   **ScreenRig generate is the recommended approach for most of these use
+   cases.** There is a charge by quality. Most static content should use
+   generate when it works. The POST stores the PNG in the account media
+   store and returns `med_…`; the CLI does not re-upload. Fetch content only
+   to inspect. Own-gen-then-upload remains valid when you already have a
+   preferred model.
+
+```bash
+screenrig --json media generate --prompt "A dusk lobby photograph, warm tungsten, no people" --aspect-ratio 16:9 --quality medium --tag LobbyDusk
+```
+
+`--prompt` is required (1 to 4000 characters). `--aspect-ratio` defaults to
+`16:9` (`1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`). `--quality`
+defaults to `medium` (`low`, `medium`, `high`). Quality changes the image
+and the price.
+
+| quality | credits | usd | when |
+|---|---|---|---|
+| `low` | 600 | $0.06 | backgrounds, unimportant images |
+| `medium` | 1200 | $0.12 | most cases (recommend this) |
+| `high` | 5000 | $0.50 | high-density text (restaurant menus), complex posters |
+
+Optional `--tag` is the same 1–32 letter-or-digit tag as upload. The command
+blocks until `201` MediaGeneration `{ media, usage }`. `data.media.id` /
+`data.media_id` is `med_…`. There is no 202 poll and no client PUT. Envelope
+`usage` shows credits and usd for the chosen tier. A 402 /
+`payment_required` means stop; do not retry generate. Never print pixels or
+the prompt. Place the returned `med_…` on the playlist.
 
 ## Output, configuration, and credential state
 
@@ -155,7 +217,8 @@ resource revision.
 
 Until 1 Jan 2027, the launch-period rules above override empty remaining and
 HTTP 402 / `payment_required` as a reason to refuse compose, publish, or
-assign. After that date, the meter rules below apply.
+assign. `media generate` still 402s when underfunded in that window. After
+that date, the meter rules below apply.
 
 Usage is metered in credits. One credit is $0.0001. Remaining is a whole
 integer. Read it from `data.credit_remaining` on `account show`.
@@ -166,7 +229,9 @@ there. Do not invent a pay command in this CLI.
 
 A 1-credit control-plane tax applies to each billed authenticated command and
 each billed account-listen-stream event. Compose catalog/render, `doctor`,
-and `version` do not debit that tax.
+and `version` do not debit that tax. `media generate` is billed per still by
+`--quality`: low $0.06 (600 credits), medium $0.12 (1200 credits), high
+$0.50 (5000 credits). Quality changes the image and the price.
 
 - `warnings[].code === "credits_low"`: remaining is below 1000 credits. Surface
   remaining. Do not retry the same billed command as a fix. Send the user to
@@ -249,70 +314,115 @@ When `media upload` succeeds, the ready id is `data.media_id`. The same value
 is `data.id` and `data.operation.result.media_id`. After a tagged upload,
 `media list --tag TAG` is the filename → id map.
 
+For many local files, point bulk work at `media upload-batch --state`; do
+not loop `media upload` by hand. The manifest is
+`{ "items": [ { "path": "./a.png", "tag"?: "lobby", "content_type"?: "image/png" } ] }`
+with 1 to 1000 items. Paths are relative to the manifest file. `--state FILE`
+is required: a 0600 JSON file keyed by the SHA-256 of each source file's
+local bytes. Items already present with a `media_id` are reported as
+`resumed`. Do not share one state file across accounts.
+
+```bash
+screenrig --json media upload-batch ./images.json --state ./upload-state.json
+```
+
 Run `doctor --json` for local diagnostics. Use
 `doctor --repair-config --json` only to repair an existing credential file
 whose permissions are too broad.
 
 ## Local compose
 
+Compose is authoring path 2: a simple slide deck, or mixed object types on
+one page. It is local and unbilled. It is not the first choice when you
+already have the image or video, and it is not the recommended path for a
+public-facing poster or menu.
+
 When composing signage pages—including posters, ads, menus, schedules, and
 video-backed pages—read [Composition and visual direction](references/composition.md)
 before choosing a layout. It covers reference research, useful density, independent artwork,
 readability, and playlist-wide visual review.
 
-Write JSON, render a PNG, look at that PNG, iterate. Compose is not billed.
+Write JSON, `compose render`, look at the PNGs, iterate. Compose is not billed.
 Uploads and playlist writes are billed. Iterate `compose render` and read
-`<output>.layout.json` before any `media upload`.
+`manifest.json` before any `media upload`.
 
-Stem `--output` before `compose render` so the PNG name is the human handle.
-Default `--output` follows the spec filename. The CLI `generic_filename`
-warning will not rename on upload.
+`--output` is a directory, not a `.png` / `.webp` / `.jpg` file. Stem it
+before `compose render` so the directory name is the human handle. Default
+`--output` follows the spec filename without `.json`. The CLI
+`generic_filename` warning will not rename on upload.
 
 ```bash
 screenrig --json compose catalog
-screenrig --json compose render ./exec-intro-overlay-native-video.json \
-  --output ./exec-intro-overlay-native-video.png
-# read ./exec-intro-overlay-native-video.png.layout.json
-# agent reads the PNG with vision; do not cat pixels into chat
+screenrig --json compose render ./exec-intro.json --output ./exec-intro
+# read ./exec-intro/manifest.json and the region PNGs
+# agent reads the PNGs with vision; do not cat pixels into chat
 # iterate the JSON and re-render
-screenrig --json media upload ./exec-intro-overlay-native-video.png --tag TAG
+screenrig --json media upload ./exec-intro/left.png --tag TAG
 screenrig --json media list --tag TAG --primitive image
-# playlist page: one image primitive, rect = canvas, content_fit fill
+# playlist page: image primitives at the manifest rects, or one combined image
+# many files: media upload-batch ./images.json --state ./upload-state.json
 ```
 
-`compose catalog` prints the fail-closed node catalog: types
-`Frame`/`Column`/`Row`/`Box`/`Spacer`/`Text`/`Image`, roles
-`display|title|body|caption|label`, spaces `xs|s|m|l|xl`, pins
-`top|bottom|left|right`. Author only catalog fields. Unknown keys fail the
-whole spec. Do not author `x`/`y` except on the Frame canvas. Do not author
-`fontSize`. Roles pick the type ramp. On 1920×1080, `display` wishes 130 px,
-`title` 86, `body` 45, `caption`/`label` 32. Budget copy for that scale.
-The type ramp uses `min(Frame width, height)`. A 1920×400 strip Frame makes
-`title` wish 48 px, not 86. Overlay Frames cover the full slide at the chosen
-render resolution; never size the Frame to the plate. Read `layout.json`
-`ramp` vs `ramp_at_1080` (and `ramp_root`) after `compose render`. On a
-1920×1080 overlay, `ramp.title.wish` is 86; larger render Frames scale it up.
-`Image`, `Box`, `Row`, `Column`, and `Spacer` honor `width` and `height` in
-px. Keep `flex` for remaining space. An `Image` without `height` or `flex`
-in a Column has no main-axis size and paints nothing useful. `pin` `top` or
-`bottom` stretches the full width; `left` or `right` stretches the full
-height. Do not pin a wordmark. Optional Text
-`textShadow` is `{ x, y, blur?, color }` in px; omit it to paint without a
-shadow. `Image.src` is a local filesystem path relative to the spec file, never
-a URL. The CLI does not fetch. The envelope is structured JSON, not pixels.
+`compose catalog` prints the fail-closed page language: page keys
+`width`/`height`/`font`/`background`/`brand`/`text`/`image`/`video`/`motion`/`pages`/`viewing`/`logo`,
+regions `fullpage|left|right|left-third|middle-third|right-third|middle-half|top-half|bottom-half|top|bottom`,
+and inner fields `title|subtitle|text|footer|image|video|iframe|webapp|cards|card|table`
+plus `enter`/`stagger`/`motion`/`align`/`valign`/`fill`/`color`/`z`/`shadow`/`outline`.
+Author only catalog fields. Unknown keys fail the whole spec. Do not author
+`fontSize`. Do not author `x`/`y`. Do not author Frame trees, recipes, or
+`.layout.json`. On the page, `text` is the copy color. In a
+region, `text` is body copy (a string or an array of lines). Type size is
+procedural from `min(width, height)` and optional `viewing` `near|mid|far`
+(default `mid`). Titles default to `brand`. Body (`subtitle`, `text`, `footer`)
+defaults to `text`. Optional region or `card` `color` overrides every role in
+that box. Text over a page `image` or `video` with no `fill` gets a 1 px
+unblurred drop shadow (`#000000E6` on light type, `#FFFFFFE6` on dark type).
+Set `shadow` to `"none"` or `{ x, y, color }` to override. `outline` is
+`{ width: 0.5-12, color }` and is off unless set. A card plate is backing, so
+type on a card does not get the automatic shadow.
+On 1920×1080 mid, body wish is about 45 px and title wish is 86 px. A region
+then applies one scale (about 0.65–1.35) so type fills the box; a single line
+is not grown. Footer stays on the bottom edge. If the region holds image or a
+placeholder, type stays at scale 1 and media takes the leftover.
 
-Omitted `Frame.background` fills `#1B2632`. Set `background` when you want a
-different ground. Default text fill is `#EEE9DF`; set `color` when you need
-another. Omit `fontFamily` to walk `Helvetica Neue` and the catalog fallbacks.
-A missing name is `usage_error`, not a silent fallback.
+`card` (singular) is a plate. `card.fit` is `region` (default: fill the whole
+region rect) or `ink` (hug measured type plus 24 px pad, placed with the
+region's `align`/`valign`). Default fill is the page background + B3 (30%
+transparency). Override with `card.fill`. Inner fields: `title`, `subtitle`,
+`text`, `footer`, `image`, `cards`, `table`, `fill`, `color`, `fit`. `cards`
+(plural) is `[{ title, subtitle?, text?, price?, image? }]` and can sit inside
+`card`. No nested `card`. Sibling `title`/`text`/`cards` are not allowed next
+to `card`. Use a card to bring type forward over photo or video; do not wrap
+every region. Cutout and image-only regions stay un-carded. Copy strings
+accept `**bold**`, `*italic*`, and `__underline__` only. Nesting
+`***bold italic***` is allowed. Unmatched markers stay literal. No links,
+lists, or headings. `table` is `{ columns, rows }` with 1 to 8 columns; every
+column is sized. Page `logo` is a path or `{ src, corner }`
+(`top-left|top-right|bottom-left|bottom-right`, default `bottom-right`). The
+mark sits 32 px inset from that corner, contained max 200×100, never
+upscaled, never stretched, above regions. Type, card, and iframe holes inset
+so they do not overlap the mark. `iframe`, `webapp`, and region `video` reserve leftover space
+like an image and are not painted. Manifest `media` is
+`{ type: iframe|application|video, src, rect }` in page coordinates. Omit the PNG
+`file` when the layer is only a hole. URLs are allowed for iframe and webapp src
+fields. Page-level `video` stays a transparent background for the player. `enter` is a playlist enter type with optional `stagger` 0 through 8.
+`motion` is playlist `spin` or `drift`. Image paths are local filesystem paths
+relative to the spec file, never a URL. The CLI does not fetch. The envelope
+is structured JSON, not pixels.
 
-`compose render` writes a PNG and `<output>.layout.json`. Default `--output`
-replaces a `.json` suffix with `.png`, or appends `.png`. Read that layout
-dump for `truncated`, fitted `fontSize`, and `box` before you upload. Never
-print PNG bytes, pixels, or image data. `--open` opens the local PNG path on
-this computer only when the user asked to view the still here. Agent vision
-uses the file path, not `--open`. Raster a diagram to PNG or WebP at canvas
-size, upload it, and place it as `image`. HTML is not a primitive.
+A named `font` must be installed on this host. A missing family is
+`usage_error`, not a silent fallback. Omit `font` to walk catalog fallbacks.
+Set page `background`, `brand`, and `text` as hex colors. Muted copy is mixed
+from `text` toward `background`.
+
+`compose render` writes one PNG per region and `manifest.json`
+(`version`, `canvas`, `layers[]` each `{ id, file?, z, rect, enter?, motion?, media? }`).
+Rects are integers, field-for-field with playlist `PlaylistRect`.
+`--combined` writes a flattened PNG for inspection. Default for agent work is
+layered. Never print PNG bytes, pixels, or image data. `--open` opens the
+combined PNG on this computer only when the user asked to view the still here.
+Agent vision uses the file path, not `--open`. Raster a diagram to PNG or WebP
+at canvas size, upload it, and place it as `image`. HTML is not a primitive.
 
 Plan the canvas from the user's intended output, orientation, and content
 viewport. Honor a requested 1920×1080 deliverable even when reviewing on a
@@ -320,97 +430,86 @@ larger monitor; desktop dimensions alone do not change the brief. For final
 physical display quality, choose raster dimensions for the **physical content
 viewport**, excluding letterboxing. A 1920×1080 slide displayed in a
 3840×2160 viewport enlarges every flattened element 2×, even when its original
-logo is high resolution.
-Preserve aspect ratio: use `objectFit: "contain"` for complete marks and
-`cover` for intentional cropping; `fill` can distort mismatched proportions.
-Source images must support their actual painted pixel dimensions, including
-the part cropped by `cover`. Re-render from originals at the target density;
-enlarging the finished PNG cannot recover detail.
+logo is high resolution. Region images cover their box. Source images must
+support their actual painted pixel dimensions, including the part cropped by
+cover. Re-render from originals at the target density; enlarging the finished
+PNG cannot recover detail.
 
-Current compose output dimensions equal the Frame dimensions. To adapt a
-1920×1080 spec for 3840×2160, double the Frame and every explicit child
-`width`/`height`, plus Text `textShadow` offsets and blur if present. Keep
-roles, spacing/radius tokens, and `flex` unchanged: they scale or distribute
-space through layout. Compare the new layout and PNG because type rounding
-and text wrapping can change. Increasing only the Frame leaves fixed-size
-elements proportionally smaller. Inspect the result on the physical screen
-at 1:1 pixels; native screenshots are reduced resolution and can hide
-pixelation.
+Current compose output dimensions equal the page `width`/`height`. To adapt a
+1920×1080 spec for 3840×2160, double `width` and `height`. Type scales with
+the shorter edge. Inspect the result on the physical screen at 1:1 pixels;
+native screenshots are reduced resolution and can hide pixelation.
 
 Pass `--target-width 3840 --target-height 2160` to `compose render` when the
 physical content viewport is known. These flags check quality; they do not
-resize the Frame or PNG. Read envelope `warnings` and `data.quality`, also
-saved in the layout dump. `image_upscaled` reports decoded source enlargement
-above 1.25× using actual paint bounds, including cover cropping.
-`image_aspect_stretched` reports fill distortion above 1%; `contain` and
-`cover` preserve proportions. `compose_output_upscaled` reports output
-magnification above 1.25× at the target. Fix the source or render dimensions
-before uploading. With no target, quality reports `target_status: "unknown"`;
-this is not evidence of adequate display resolution. Upload transcoding can
-change dimensions, so inspect the accepted media dimensions too.
+resize the PNG. Read envelope `warnings` and `data.quality`.
+`image_upscaled` reports decoded source enlargement above 1.25× using actual
+paint bounds. `compose_output_upscaled` reports output magnification above
+1.25× at the target. Fix the source or render dimensions before uploading.
+With no target, quality reports `target_status: "unknown"`; this is not
+evidence of adequate display resolution. Upload transcoding can change
+dimensions, so inspect the accepted media dimensions too.
 
-Use optional `--safe-area` for a TV that may crop edges: it warns when measured text crosses the 5% margin. Warnings are nonblocking, and full-bleed
-imagery stays valid. `compose catalog` exposes validator-backed per-node
-attributes, installed font families, and renderable slide/transparent-overlay
-examples.
+Use optional `--safe-area` for a TV that may crop edges: it warns when
+measured text crosses the 5% margin. Warnings are nonblocking, and full-bleed
+imagery stays valid. `compose catalog` lists page keys, regions, inner fields,
+enter/motion enums, viewing, installed fonts, and examples in this language.
 
 ### Compose a deck with fewer corrective steps
 
-Prefer measured native compose Text/Row/Column nodes for titles, copy, cards
-and tables. Flattening all copy into an SVG or PNG hides it from text fitting,
-font checks and safe-area diagnostics. Keep code-native illustrations as image
-assets when useful, while leaving adjacent explanatory text measurable.
-
-Recipes from `compose catalog` (`title`, `split-image`, `cards`, `table`,
-`overlay`) are optional starting points, not a visual system for every page.
-Use ordinary compose nodes when the content calls for a different hierarchy.
-Recipes keep a 5% content inset and the normal readable type floors. Set
-`width` and `height` to the intended content viewport. Omitted dimensions are
-1920×1080. `split-image` uses `contain` by default; `cover` crops proportionally.
-The overlay recipe defaults to a transparent canvas and an approximately 89%
-opaque plate with independently opaque text. Omit its `image` to layer the
-PNG over native video; include a local image for a flattened still.
-
-For several pages, `compose batch` provides a shared render and review path:
+Prefer region `title`/`text`/`cards`/`table` for titles, copy, cards and
+tables so type fitting, font checks and safe-area diagnostics still run.
+Keep illustrations as image assets in a region. A deck is `{ "pages": [ {
+"id": "intro", ...page overrides, regions } ] }`. `compose render` of that
+file is enough. `compose batch` adds a contact sheet and `--only ID`.
 
 ```json
 {
+  "width": 1920,
+  "height": 1080,
+  "background": "#1C1410",
+  "brand": "#C9A227",
+  "text": "#F3E6D0",
   "pages": [
-    { "id": "intro", "spec": { "recipe": "title", "width": 3840, "height": 2160, "title": "A clear introduction", "body": "One useful idea, explained simply." } },
-    { "id": "comparison", "spec": { "recipe": "cards", "width": 3840, "height": 2160, "title": "Compare the outcomes", "cards": [{ "title": "Prepare", "body": "Validate before publishing." }, { "title": "Verify", "body": "Inspect the target screen." }] } }
+    {
+      "id": "intro",
+      "left": { "title": "A clear introduction", "text": "One useful idea, explained simply." }
+    },
+    {
+      "id": "comparison",
+      "fullpage": {
+        "title": "Compare the outcomes",
+        "cards": [
+          { "title": "Prepare", "text": "Validate before publishing." },
+          { "title": "Verify", "text": "Inspect the target screen." }
+        ]
+      }
+    }
   ]
 }
 ```
 
 ```bash
+screenrig --json compose render ./deck.json --output ./rendered --target-width 3840 --target-height 2160 --safe-area
 screenrig --json compose batch ./deck.json --output ./rendered --target-width 3840 --target-height 2160 --safe-area
 ```
 
-Each `spec` can instead be a relative JSON file path. The command returns
-ordered page results, individual PNG/layout paths, one contact-sheet preview,
-and a manifest. It renders serially to bound full-resolution memory. Failed
-pages are named in the JSON error; successful outputs remain available.
-Fix one page and run the same command with `--only comparison`: only that page
-renders, the others are explicitly `not_selected`, and a separate correction
-manifest/preview preserves the full-run evidence. This is selective rendering,
-not an automatic cache-validity promise.
+`compose batch` accepts 1 to 2000 pages and returns ordered page results,
+layered PNG paths, a contact-sheet preview, and a batch manifest. Fix one
+page and run the same command with `--only comparison`: only that page
+renders, the others are explicitly `not_selected`. This is selective
+rendering, not an automatic cache-validity promise.
 
-Read node-specific `text_overflow`, `text_truncated`, `text_dense` and
-`text_overlap` warnings before upload. Shorten copy, widen its container, or
-split a page instead of lowering type floors. `data.quality.text` reports
-measured ink and layout bounds. Parent plates are not text collisions;
-intentional text-over-media and media-over-media intersections are recorded
-separately in `quality.overlaps`. Image upscale/stretch warnings remain
-separate. The preview preserves aspect and shows transparency over a checker.
-Inspect individual full-resolution outputs before claiming pixel quality.
+Read `data.quality.text` for measured ink. Image upscale warnings remain
+separate. Inspect individual full-resolution region PNGs and the combined
+composition before claiming pixel quality.
 
-Font checks compare rendered characters with the font's missing-glyph raster
-at the requested weight. `font_glyph_fallback` reports a replacement font for
-that Text node; measurement and painting both use it. Choose the named font
-explicitly for consistent typography. `font_glyph_missing` means no installed
-fallback covers the text. Install a suitable font or change the family; do not
-accept missing-character boxes. This check is not a proof of every language's
-shaping or typography quality.
+Font checks compare rendered characters with the font's missing-glyph raster.
+`font_glyph_fallback` reports a replacement font for that run; choose the
+named font explicitly for consistent typography. `font_glyph_missing` means
+no installed fallback covers the text. Install a suitable font or change the
+family; do not accept missing-character boxes. This check is not a proof of
+every language's shaping or typography quality.
 
 Validate the separate wire playlist locally before expensive upload/publication
 work, and again after replacing draft references with accepted resource IDs:
@@ -420,8 +519,8 @@ screenrig --json playlist validate ./playlist.json
 ```
 
 This uses backend-generated schema and semantics, including application
-controllers, selectors, duplicate IDs and type-only `enter` objects. Errors
-name exact JSON paths. It is local and does not require authentication or make
+controllers, selectors, duplicate IDs, object `enter` (type plus optional
+`stagger`), and object `motion`. Errors name exact JSON paths. It is local and does not require authentication or make
 HTTP requests. Create/update also run this check before their write. A pass
 means local shape and cross-field semantics are valid; authorization, media
 readiness, dynamic selector counts, durations and remote availability still
@@ -429,92 +528,70 @@ require server checks. Raster QA alone never proves the playlist is valid.
 
 ### Slide, overlay, and wordmark
 
-`justify: "end"` is not the bottom of the slide unless the `Column` has
-`flex: 1`, or the copy lives in a `Box` with `pin: "bottom"`. A `Column`
-without `flex: 1` shrinks to its text and sits at the top of the Frame.
+For text over images or video, put copy in a `card` so the plate brings type
+forward. Default `card.fit` `region` fills the region (a column, a half).
+`fit: "ink"` hugs the measured type plus 24 px; use it for lower thirds and
+short copy so a two-line `bottom` card does not paint a full-width opaque
+band. Default fill is the page background + B3. Override with `card.fill`.
+Keep text opaque. Check contrast over changing bright and dark frames; a
+poor type-on-plate contrast warns (`card_low_contrast`) and does not block
+render. Do not wrap every region in a card.
 
-For text over images or video, fit support snugly around the copy: a
-translucent plate or raster gradient can retain the picture while making type
-readable. Choose opacity from the actual imagery; a large nearly opaque panel
-is not the default. Compose colors use `#RRGGBBAA`: for example,
-`Box.background: "#000000E0"` is black at about 88% opacity. Add padding
-around the copy, such as `"padding": "l"`. Apply alpha to the backplate
-background only; keep text opaque, such as `"color": "#FFFFFF"`, rather
-than fading the whole group. For a separate overlay over video, keep the
-Frame transparent. Check contrast over changing bright and dark frames;
-increase the plate opacity or use an opaque plate when needed for legibility.
-
-Overlay still (transparent Frame, lower-third plate):
+Overlay still (transparent page, ink-fit lower third):
 
 ```json
 {
-  "type": "Frame",
   "width": 1920,
   "height": 1080,
   "background": "#00000000",
-  "children": [
-    {
-      "type": "Box",
-      "pin": "bottom",
-      "padding": "l",
-      "background": "#000000E8",
-      "children": [
-        { "type": "Text", "text": "Lower third", "role": "title", "color": "#FFFFFF" }
-      ]
+  "brand": "#C9A227",
+  "text": "#FFFFFF",
+  "video": "./clip.mp4",
+  "bottom": {
+    "enter": "fade-up",
+    "valign": "bottom",
+    "card": {
+      "fit": "ink",
+      "title": "Lower third",
+      "text": "Keep copy on a snug plate over the picture."
     }
-  ]
+  }
 }
 ```
 
 Author the overlay at the full slide resolution (1920×1080 in this example),
-so the type ramp stays at the intended scale. The pinned bottom plate above
-is a full-width lower-third example, not a requirement for every image. Keep
-any separate wordmark clear of the copy and preserve its proportions.
+so the type ramp stays at the intended scale. A `bottom` card with
+`fit: "region"` is a full-width band; that is not the default for short copy.
+Keep any separate wordmark clear of the copy and preserve its proportions.
 
-For snug side support, use a shrink-wrapped `Box` plus `Spacer` rather than
-`pin: "left"` or `"right"`, which stretches the cross axis. A `Row` with
-`{ Box, Spacer flex: 1 }` makes a left rail; reverse the children for a right
-rail. Omit `flex` on the copy `Box` to avoid growing it across the canvas.
-Choose line breaks and measured container sizes for the actual copy and
-picture; inspect the resulting plate bounds.
+For a side rail, put a `card` in `left` or `right`. Do not author `x`/`y`.
 
 ```json
 {
-  "type": "Frame",
   "width": 1920,
   "height": 1080,
   "background": "#00000000",
-  "children": [
-    {
-      "type": "Row",
-      "children": [
-        {
-          "type": "Box",
-          "padding": "l",
-          "background": "#000000E8",
-          "children": [
-            { "type": "Text", "text": "Side title", "role": "title", "color": "#FFFFFF" }
-          ]
-        },
-        { "type": "Spacer", "flex": 1 }
-      ]
+  "brand": "#C9A227",
+  "text": "#FFFFFF",
+  "left": {
+    "card": {
+      "title": "Side title",
+      "text": "What, when, where, and the next action."
     }
-  ]
+  }
 }
 ```
+
+Page `logo` is the identity mark: 32 px inset from the chosen corner, contain
+inside 200×100, never upscaled. Prefer `logo` over a hand-placed playlist
+wordmark when composing the still.
 
 Playlist: photo `layer` 0 + overlay `layer` 1 on a 1920×1080 canvas. Use
 `content_fit: "fill"` for a matching-aspect full-canvas overlay; preserve the
 photo proportions with `contain` or intentional `cover` cropping. Eight-digit
-hex is how the Frame stays transparent and the plate keeps alpha.
-
-Wordmark: playlist `image` primitive with a `rect`. Soft-open: omit that
-primitive until a named page. Do not pin a logo in compose; `pin` stretches
-the cross axis. Bottom-right on 1920×1080 with a 5% safe area is
-`{ "x": 1424, "y": 946, "width": 400, "height": 80 }` for a 400×80 contain
-box. That rect is one worked example, not the only size. If you raster the
-mark into the still instead, set `Image` `width` and `height` (or `flex` in a
-sized parent) so it is not 0×0.
+hex is how the page stays transparent and the plate keeps alpha. Layered
+region PNGs can sit as image primitives at their manifest rects. Inspect with
+`--combined`; default agent output stays layered.
 
 ## Playlist writes
 
@@ -526,7 +603,7 @@ chrome locally, upload the still as `image`, and use that image primitive.
 A full page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
 and `primitives`. A primitive is flat: `id`, a `primitive` field naming one of
 the four, that primitive's own fields, then `rect`, `layer`, `content_fit`,
-and optional `enter`. There is no nested content object.
+optional `enter`, and optional `motion`. There is no nested content object.
 
 Image and video primitives require a `selector`. `iframe` and `application`
 do not take one. Do not put `media_id` on the primitive itself; it belongs
@@ -555,7 +632,7 @@ lower-third image is two primitives: that page must use `advance.mode`
 film ends.
 
 Default `transition` is `{ "type": "crossfade", "duration_ms": 200 }`. Use
-swipe types and object `enter` sparingly.
+swipe types, object `enter`, and object `motion` sparingly.
 
 ```json
 {
@@ -600,9 +677,10 @@ swipe types and object `enter` sparingly.
 }
 ```
 
-Use `data.media_id` from `media upload` (same value as `data.id`). Do not
-invent one. After a tagged upload, `media list --tag TAG` is the filename →
-id map.
+Use `data.media_id` from `media upload` or `media generate` (same value as
+`data.id`). Do not invent one. After a tagged upload or generate,
+`media list --tag TAG` is the filename → id map. Do not re-upload a generated
+still.
 
 Photo plus overlay still:
 
@@ -641,7 +719,7 @@ Video plus a lower-third image uses the same two-layer shape with
 ### Page motion
 
 These are playlist document fields the CLI sends. The control plane accepts
-swipe types and object `enter`.
+swipe types, object `enter`, and object `motion`.
 
 Default pages: `transition` is `{ "type": "crossfade", "duration_ms": 200 }`.
 Author crossfade unless swipe or `enter` is the intended emphasis. Select
@@ -658,13 +736,16 @@ Swipe is the incoming page's type. The outgoing page follows so the edges
 stay touching. The name is motion direction: `swipe-left` moves content
 left.
 
-Optional object `enter` is `{ "type": "..." }` with that same object name
-on playlist JSON. Types: `fade-up`, `fade-down`, `fade-left`, `fade-right`,
-`fade-in`, `zoom-in`, `zoom-out`. Absent means no object animation.
+Optional object `enter` is `{ "type": "...", "stagger"?: 0 }` with that same
+object name on playlist JSON. Types: `fade-up`, `fade-down`, `fade-left`,
+`fade-right`, `fade-in`, `zoom-in`, `zoom-out`. Optional integer `stagger`
+is 0 through 8. Absent means no object animation.
 
 Object enter starts invisible. It runs 500 ms after the page occupies the
-full viewport, for 400 ms. Those delays are contract constants, not author
-fields and not CLI flags. Do not send duration or delay inside `enter`.
+full viewport, for 400 ms, plus `stagger * 120` ms when `stagger` is
+present. Those delays are contract constants, not author fields and not CLI
+flags. Do not send duration or delay inside `enter`; `stagger` is the only
+extra author field.
 
 To slide text in over a still or video, compose the text and its translucent
 plate into a transparent PNG, place that image above the background's layer,
@@ -676,6 +757,68 @@ asset to compensate. Keep supported timing constants unchanged.
 Preview the first activation and a loop replay on each intended player; check
 that the overlay begins hidden, enters within its rect, and retains the
 expected layer order. A settled screenshot alone cannot verify animation.
+
+Optional object `motion` is a discriminated object on `type`: `spin`,
+`path`, or `drift`. Absent means the primitive stays at rest after enter.
+Persistent motion is for designs that call for it; one moving element per page is the norm. Prefer a panning background or one accent over several moving objects.
+
+`spin` takes `direction` `cw` or `ccw` and `speed` `slow`, `medium`, or
+`fast`, and applies to `image` and `video` only:
+
+```json
+{
+  "id": "badge",
+  "primitive": "image",
+  "selector": { "by": "id", "media_id": "med_01EXAMPLEBADGE00000000000" },
+  "rect": { "x": 1640, "y": 80, "width": 200, "height": 200 },
+  "layer": 1,
+  "content_fit": "contain",
+  "motion": { "type": "spin", "direction": "cw", "speed": "slow" }
+}
+```
+
+`path` takes 1 through 64 `points`, `rate` greater than 0 and at most 10000,
+and optional `loop` `loop`, `ping-pong`, or `once`. It applies to `image`,
+`video`, `application`, and `iframe`. The authored `rect` is the start pose;
+`points` are later top-left waypoints in canvas units:
+
+```json
+{
+  "id": "background",
+  "primitive": "image",
+  "selector": { "by": "id", "media_id": "med_01EXAMPLEBACKGROUND000000" },
+  "rect": { "x": 0, "y": 0, "width": 2400, "height": 1080 },
+  "layer": 0,
+  "content_fit": "cover",
+  "motion": {
+    "type": "path",
+    "points": [{ "x": -480, "y": 0 }],
+    "rate": 40,
+    "loop": "loop"
+  }
+}
+```
+
+`drift` is a Ken Burns pan-and-zoom. It takes `zoom` `in` or `out`,
+`direction` `left`, `right`, `up`, `down`, or `none`, and the same `speed`
+tokens. It applies to `image` and `video` only:
+
+```json
+{
+  "id": "photo",
+  "primitive": "image",
+  "selector": { "by": "id", "media_id": "med_01EXAMPLEPHOTO0000000000" },
+  "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+  "layer": 0,
+  "content_fit": "cover",
+  "motion": {
+    "type": "drift",
+    "zoom": "in",
+    "direction": "right",
+    "speed": "slow"
+  }
+}
+```
 
 ### Operator navigation while a web page is active
 
@@ -990,16 +1133,21 @@ app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
 app update <id> <directory> --if-match REVISION [--no-wait] [--poll-ms MS]
 app list
 app show <id>
+media generate --prompt TEXT [--aspect-ratio RATIO] [--quality low|medium|high] [--tag TAG]
 media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                     [--no-transcode] [--codec h264|hevc] [--max-fps N]
                     [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
+media upload-batch <manifest.json> --state FILE [--concurrency N]
+                   [--no-transcode] [--tag TAG] [--no-progress]
 media show <id>
 media list [--tag TAG] [--primitive image|video]
 media update <id> (--tag TAG | --clear-tag) --if-match REVISION
 media delete <id> --if-match REVISION
 compose catalog
-compose render <file> [--output FILE] [--target-width PX --target-height PX] [--safe-area] [--open]
-compose batch <file> --output DIRECTORY [--only ID] [--target-width PX --target-height PX] [--safe-area]
+compose render <file> [--output DIRECTORY] [--combined] [--target-width PX --target-height PX] [--safe-area]
+                      [--open] [--lint-only]
+compose batch <file> --output DIRECTORY [--only ID] [--target-width PX --target-height PX]
+                      [--safe-area] [--lint-only]
 playlist validate <file>
 playlist create <file>
 playlist update <id> <file> --if-match REVISION
