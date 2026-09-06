@@ -59,8 +59,8 @@ agent workflow.
   Grok `--trust` named and `GROK_PLUGIN_ROOT` lookup. After install, prepend
   `$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts` to `PATH` once, then run
   `screenrig --json version`, `doctor`, the playlist authoring tree, playlist,
-  and `screen assign`. Do not export `SR`. Do not teach always compose first
-  or always generate first. Compose is local stills.
+  and `screen assign`. Do not export `SR`. Teach choose by what the page is.
+  Compose is local unbilled stills for slide-deck-like pages.
   Do not teach `agent enroll`, `screen pair`, `browser setup`, `screen
   provision`, `ABC-234`, or playlist text-slot template tutorials.
 - Keep `--json` envelopes. Never teach a token flag or pasted bearer. The
@@ -68,14 +68,29 @@ agent workflow.
 - Meter usage in credits. Standard is prepaid. HTTP 402 / `payment_required`
   means do not retry billed commands; point money at
   https://screenrig.ai/pricing/. Write in a feature-complete voice.
-- Teach the playlist authoring tree: existing assets → `media upload`; a
-  simple slide deck or mixed object types (`image` | `video` | `iframe` |
-  `application`) → local unbilled `compose render`; public-facing posters,
-  announcements, and menus → `media generate` (recommended) or own-gen-then-upload.
+- Teach the playlist authoring tree. Choose by what the page is. Do not
+  generate an atmosphere plate and compose type onto it. Do not compose a
+  presentable poster as named regions + cards.
+  1. Existing image or video → `media upload` and place `med_…`. No compose.
+     No generate.
+  2. Anything presentable (posters, announcements, restaurant menus, event
+     art, product stills, public-facing rich static pages) → `media generate`
+     as the **whole page**. Put every fact and all copy in the prompt so the
+     image model typesets it. ScreenRig generate is the default (current
+     vendor model is GPT-image-2). Own-gen-then-upload remains valid only if
+     they already have a preferred model. Do not compose this page. Do not
+     generate atmosphere-only stills for later overlay.
+  3. Slide-deck-like experiences (title/body/table slides, internal decks,
+     measured type that must stay editable as compose JSON) → local unbilled
+     `compose render`.
+  4. Live objects (a playing video, iframe, or webapp as the page or as
+     playlist primitives) → write playlist primitives. Upload the video if
+     you have it. Do not local-render stills merely to attach `enter` /
+     `motion`. Animation is not a reason to compose.
   `media generate` is billed per still by `--quality`: low $0.06 (600 credits)
-  for backgrounds, medium $0.12 (1200 credits) for most cases, high $0.50
-  (5000 credits) for high-density text. Quality changes the image and the
-  price. Do not teach emitting
+  for unimportant generated stills only, medium $0.12 (1200 credits) for most
+  cases (default), high $0.50 (5000 credits) for dense text and complex
+  posters. Quality changes the image and the price. Do not teach emitting
   native `text`, `box`, or `line` on the playlist wire. Compose is local and
   not billed.
 - The category word is **primitive**, never placement, kind, or type. Four

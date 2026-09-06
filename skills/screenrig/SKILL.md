@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, upload existing media, compose stills, generate public-facing stills, write playlists, or assign content to screens.
+description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, upload existing media, generate a presentable whole-page still, compose a slide-deck still, write playlists, or assign content to screens.
 ---
 
 # screenRIG
@@ -115,38 +115,82 @@ screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match R
 1. Prepend the plugin scripts directory to `PATH` and require `screenrig --json version`.
 2. Run `doctor`. Read `data.checks`. Name missing toolchain parts before the
    first `media upload`.
-3. Put content on a playlist page using the authoring tree below. Do not always
-   compose first. Do not always generate first.
+3. Put content on a playlist page using the authoring tree below. Choose by
+   what the page is.
 4. Write a playlist that places `med_…` ids (and iframe/application primitives
    when the page needs them).
 5. Assign that playlist to a screen with `screen assign` and the current
    `--if-match` revision.
 
-Copy and chrome are compose-local only. Raster stills, upload them, and place
-`image`. Do not emit native `text`, `box`, or `line` on the playlist wire.
+Do not emit native `text`, `box`, or `line` on the playlist wire. Presentable
+copy lives in the generated still. Deck copy is composed locally, uploaded,
+and placed as `image`.
 
 ## Playlist authoring
 
-How to put content on a playlist page. Follow this order. Do not always
-generate first. Do not always compose first. Do not wire an external image
-API as the default.
+### Image-model layout
 
-1. **You already have the image or video.** Easiest path: `media upload`
-   (declare → PUT exact bytes → commit) and reference `med_…` on the
-   playlist. Do it yourself. No compositor. No generate.
+`media generate` as the whole page is **image-model layout**: the model
+paints art, hierarchy, and type together. That is the presentable quality
+bar. GPT-image-2 is orders of magnitude nicer than a composed still.
+
+Local `compose render` is a **slide-deck renderer**: measured type, tables,
+named regions. It is not in the same quality class. Do not compose a
+presentable poster hoping it will match generate.
+
+Generating an atmosphere plate and composing type onto it throws away the
+image-model layout. Do not do that.
+
+Compose and generate are not interchangeable layout tools. Pick generate
+when the page must look presentable.
+
+How to put content on a playlist page. Choose by what the page is. Do not
+generate an atmosphere plate and compose type onto it. Do not compose a
+presentable poster as named regions + cards.
+
+1. **You already have the image or video.** `media upload` and place
+   `med_…`. No compose. No generate.
 
 ```bash
 screenrig --json media upload ./lobby.jpg --tag LobbyPhoto
 screenrig --json media list --tag LobbyPhoto --primitive image
 ```
 
-2. **You do not have assets, and the page is a simple slide deck or needs
-   multiple object types on one page** (`image` | `video` | `iframe` |
-   `application` / webapp). Use the compositor (`compose render`): named
-   regions, local, unbilled. Compose writes stills (and holes for
-   iframe/webapp/region video). Upload those stills if they need to play on
-   a screen. Mixed object types are why you compose instead of a single
-   poster.
+2. **Anything presentable** — posters, announcements, restaurant menus,
+   event art, product stills, public-facing rich static pages. `media
+   generate` as the **whole page**. Put every fact and all copy in the
+   prompt so the image model typesets it. ScreenRig generate is the default
+   (current vendor model is GPT-image-2). Own-gen-then-upload remains valid
+   only if you already have a preferred model. Do not compose this page. Do
+   not generate atmosphere-only stills for later overlay.
+
+```bash
+screenrig --json media generate --prompt "Finished 16:9 event poster with all copy typeset in the image. Title FIRE AT THE TABLE. Subtitle Four courses over live coals. Menu: Ember bread, smoked butter; Humber mussels, kelp butter; Coal ribeye, hispi, bone sauce; Burnt honey tart, bay cream. Saturday 17 October, 19:00-22:30, The Kiln Room, 14 Humber Dock, Hull HU1 1TB. Tickets 86 pounds. Book at the Kiln desk. Dark hearth photography, gold and cream type." --aspect-ratio 16:9 --quality high --tag FireAtTheTable
+```
+
+`--prompt` is required (1 to 4000 characters). `--aspect-ratio` defaults to
+`16:9` (`1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`). `--quality`
+defaults to `medium` (`low`, `medium`, `high`). Quality changes the image
+and the price.
+
+| quality | credits | usd | when |
+|---|---|---|---|
+| `low` | 600 | $0.06 | unimportant generated stills only |
+| `medium` | 1200 | $0.12 | most cases (recommend this) |
+| `high` | 5000 | $0.50 | dense text and complex posters |
+
+Optional `--tag` is the same 1–32 letter-or-digit tag as upload. The command
+blocks until `201` MediaGeneration `{ media, usage }`. `data.media.id` /
+`data.media_id` is `med_…`. There is no 202 poll and no client PUT. Envelope
+`usage` shows credits and usd for the chosen tier. A 402 /
+`payment_required` means stop; do not retry generate. Never print pixels or
+the prompt. Place the returned `med_…` on the playlist as one full-page
+`image`. The POST stores the PNG in the account media store; the CLI does
+not re-upload. Fetch content only to inspect.
+
+3. **Slide-deck-like experiences** — title/body/table slides, internal
+   decks, measured type that must stay editable as compose JSON. Local
+   unbilled `compose render`.
 
 ```bash
 screenrig --json compose catalog
@@ -158,37 +202,17 @@ screenrig --json media upload ./exec-intro/left.png --tag ExecIntro
 plate (`fit` `region` or `ink`). `cards` (plural) is an array of items. Region
 `video`, `iframe`, and `webapp` are holes, not painted PNGs.
 
-3. **You want public-facing compelling messages** — posters, announcements,
-   restaurant menus, rich static pieces. Generate a still with an advanced
-   image model yourself and upload, or call ScreenRig `media generate`.
-   **ScreenRig generate is the recommended approach for most of these use
-   cases.** There is a charge by quality. Most static content should use
-   generate when it works. The POST stores the PNG in the account media
-   store and returns `med_…`; the CLI does not re-upload. Fetch content only
-   to inspect. Own-gen-then-upload remains valid when you already have a
-   preferred model.
+4. **Live objects** — a playing video, iframe, or webapp as the page (or as
+   playlist primitives). Write playlist primitives. Upload the video if you
+   have it. Do not local-render stills merely to attach `enter` / `motion`.
+   Animation is not a reason to compose.
 
 ```bash
-screenrig --json media generate --prompt "A dusk lobby photograph, warm tungsten, no people" --aspect-ratio 16:9 --quality medium --tag LobbyDusk
+screenrig --json media upload ./clip.mp4 --tag LobbyClip
 ```
 
-`--prompt` is required (1 to 4000 characters). `--aspect-ratio` defaults to
-`16:9` (`1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`). `--quality`
-defaults to `medium` (`low`, `medium`, `high`). Quality changes the image
-and the price.
-
-| quality | credits | usd | when |
-|---|---|---|---|
-| `low` | 600 | $0.06 | backgrounds, unimportant images |
-| `medium` | 1200 | $0.12 | most cases (recommend this) |
-| `high` | 5000 | $0.50 | high-density text (restaurant menus), complex posters |
-
-Optional `--tag` is the same 1–32 letter-or-digit tag as upload. The command
-blocks until `201` MediaGeneration `{ media, usage }`. `data.media.id` /
-`data.media_id` is `med_…`. There is no 202 poll and no client PUT. Envelope
-`usage` shows credits and usd for the chosen tier. A 402 /
-`payment_required` means stop; do not retry generate. Never print pixels or
-the prompt. Place the returned `med_…` on the playlist.
+Then write a `video`, `iframe`, or `application` primitive. See Playlist
+writes and Putting a web app on a screen.
 
 ## Output, configuration, and credential state
 
@@ -332,15 +356,17 @@ whose permissions are too broad.
 
 ## Local compose
 
-Compose is authoring path 2: a simple slide deck, or mixed object types on
-one page. It is local and unbilled. It is not the first choice when you
-already have the image or video, and it is not the recommended path for a
-public-facing poster or menu.
+Compose is authoring path 3: slide-deck-like experiences — title/body/table
+slides, internal decks, measured type that must stay editable as compose
+JSON. It is local and unbilled. Presentable posters, menus, event art, and
+other public-facing rich static pages are generated finished stills, not
+composed pages.
 
-When composing signage pages—including posters, ads, menus, schedules, and
-video-backed pages—read [Composition and visual direction](references/composition.md)
-before choosing a layout. It covers reference research, useful density, independent artwork,
-readability, and playlist-wide visual review.
+When composing a slide-deck page, read
+[Composition and visual direction](references/composition.md) before
+choosing a layout. Compose visual guidance is for slide-deck pages. Overlay
+is a compose mechanic for decks; it is not the presentable-poster path.
+Animation is not a reason to compose.
 
 Write JSON, `compose render`, look at the PNGs, iterate. Compose is not billed.
 Uploads and playlist writes are billed. Iterate `compose render` and read
@@ -528,7 +554,11 @@ require server checks. Raster QA alone never proves the playlist is valid.
 
 ### Slide, overlay, and wordmark
 
-For text over images or video, put copy in a `card` so the plate brings type
+Overlay is a compose mechanic for slide-deck pages and live video. It is not
+the presentable-poster path. A presentable poster, menu, or event still is
+one generated image with the copy typeset in the still.
+
+For deck text over images or video, put copy in a `card` so the plate brings type
 forward. Default `card.fit` `region` fills the region (a column, a half).
 `fit: "ink"` hugs the measured type plus 24 px; use it for lower thirds and
 short copy so a two-line `bottom` card does not paint a full-width opaque
@@ -586,19 +616,21 @@ Page `logo` is the identity mark: 32 px inset from the chosen corner, contain
 inside 200×100, never upscaled. Prefer `logo` over a hand-placed playlist
 wordmark when composing the still.
 
-Playlist: photo `layer` 0 + overlay `layer` 1 on a 1920×1080 canvas. Use
-`content_fit: "fill"` for a matching-aspect full-canvas overlay; preserve the
-photo proportions with `contain` or intentional `cover` cropping. Eight-digit
-hex is how the page stays transparent and the plate keeps alpha. Layered
-region PNGs can sit as image primitives at their manifest rects. Inspect with
-`--combined`; default agent output stays layered.
+For a deck overlay playlist: photo `layer` 0 + overlay `layer` 1 on a
+1920×1080 canvas. Use `content_fit: "fill"` for a matching-aspect full-canvas
+overlay; preserve the photo proportions with `contain` or intentional `cover`
+cropping. Eight-digit hex is how the page stays transparent and the plate
+keeps alpha. Layered region PNGs can sit as image primitives at their
+manifest rects. Inspect with `--combined`; default agent output stays layered.
+A presentable poster is one generated `image` primitive, not photo plus overlay.
 
 ## Playlist writes
 
 Four wire primitives exist: `image`, `video`, `iframe`, and `application`.
 Static is `image`, motion is `video`, and web is `iframe` or `application`.
-Do not author native `text`, `box`, or `line` on the wire. Compose copy and
-chrome locally, upload the still as `image`, and use that image primitive.
+Do not author native `text`, `box`, or `line` on the wire. Presentable copy
+lives in the generated still. Deck copy and chrome are composed locally,
+uploaded as `image`, and used as one image primitive.
 
 A full page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
 and `primitives`. A primitive is flat: `id`, a `primitive` field naming one of
@@ -682,7 +714,8 @@ Use `data.media_id` from `media upload` or `media generate` (same value as
 `media list --tag TAG` is the filename → id map. Do not re-upload a generated
 still.
 
-Photo plus overlay still:
+Deck photo plus overlay still. Presentable posters are one generated `image`,
+not this two-layer shape.
 
 ```json
 {
@@ -747,9 +780,11 @@ present. Those delays are contract constants, not author fields and not CLI
 flags. Do not send duration or delay inside `enter`; `stagger` is the only
 extra author field.
 
-To slide text in over a still or video, compose the text and its translucent
+To slide deck text in over a still or video, compose the text and its translucent
 plate into a transparent PNG, place that image above the background's layer,
 and apply `enter` to the overlay image. Keep the background independent.
+This is a deck or live-video mechanic, not the presentable-poster path.
+Animation is not a reason to compose a presentable page.
 The same mechanism works for independent foreground artwork with alpha.
 Leave transparent breathing room around moving ink within its raster and
 primitive rect so entry motion does not clip its edges; do not stretch the
