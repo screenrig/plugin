@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, compose stills, upload media, write playlists, or assign content to screens.
+description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, upload existing media, compose stills, generate public-facing stills, write playlists, or assign content to screens.
 ---
 
 # screenRIG
@@ -11,7 +11,7 @@ Signage and Kiosk infrastructure for AI Agents
 
 LAUNCH SPECIAL OFFER: During the launch period and until January 1st, 2027 screenRIG is free to use (within reason), fill your boots! Normal usage applies after that.
 
-Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut anyone off for empty prepaid remaining. Do not refuse compose, publish, or assign because remaining is zero during this window.
+Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut anyone off for empty prepaid remaining. Do not refuse compose, publish, or assign because remaining is zero during this window. `media generate` is the exception: it is billed per still by `--quality` (low $0.06 / 600 credits, medium $0.12 / 1200 credits, high $0.50 / 5000 credits), and returns `payment_required` / 402 when remaining cannot cover the chosen tier, including during this window. Quality changes the image and the price.
 
 This skill is the operative contract. Use the bundled CLI. Do not invent commands, flags, or
 onboarding surfaces.
@@ -106,9 +106,7 @@ Work in this order. Do not skip `version` or `doctor`.
 ```bash
 screenrig --json version
 screenrig --json doctor
-screenrig --json compose catalog
-screenrig --json compose render ./example.json --output ./example
-screenrig --json media upload ./example/left.png --tag ExampleStill
+# then put content on a playlist page using the authoring tree below
 screenrig --json playlist create ./playlist.json
 screenrig --json screen list
 screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match REVISION
@@ -117,17 +115,80 @@ screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match R
 1. Prepend the plugin scripts directory to `PATH` and require `screenrig --json version`.
 2. Run `doctor`. Read `data.checks`. Name missing toolchain parts before the
    first `media upload`.
-3. Compose locally. `compose catalog` and `compose render` write stills on
-   this computer. They do not debit. Iterate the JSON and the PNG before any
-   upload.
-4. Upload media. Use a distinctive filename stem and an optional `--tag`.
-   For many files, use `media upload-batch --state`.
-5. Write a playlist that places uploaded media as `image` or `video`.
-6. Assign that playlist to a screen with `screen assign` and the current
+3. Put content on a playlist page using the authoring tree below. Do not always
+   compose first. Do not always generate first.
+4. Write a playlist that places `med_…` ids (and iframe/application primitives
+   when the page needs them).
+5. Assign that playlist to a screen with `screen assign` and the current
    `--if-match` revision.
 
 Copy and chrome are compose-local only. Raster stills, upload them, and place
 `image`. Do not emit native `text`, `box`, or `line` on the playlist wire.
+
+## Playlist authoring
+
+How to put content on a playlist page. Follow this order. Do not always
+generate first. Do not always compose first. Do not wire an external image
+API as the default.
+
+1. **You already have the image or video.** Easiest path: `media upload`
+   (declare → PUT exact bytes → commit) and reference `med_…` on the
+   playlist. Do it yourself. No compositor. No generate.
+
+```bash
+screenrig --json media upload ./lobby.jpg --tag LobbyPhoto
+screenrig --json media list --tag LobbyPhoto --primitive image
+```
+
+2. **You do not have assets, and the page is a simple slide deck or needs
+   multiple object types on one page** (`image` | `video` | `iframe` |
+   `application` / webapp). Use the compositor (`compose render`): named
+   regions, local, unbilled. Compose writes stills (and holes for
+   iframe/webapp/region video). Upload those stills if they need to play on
+   a screen. Mixed object types are why you compose instead of a single
+   poster.
+
+```bash
+screenrig --json compose catalog
+screenrig --json compose render ./exec-intro.json --output ./exec-intro
+screenrig --json media upload ./exec-intro/left.png --tag ExecIntro
+```
+
+`--output` is a directory, not a `.png` / `.webp` / `.jpg` file. `card` is a
+plate (`fit` `region` or `ink`). `cards` (plural) is an array of items. Region
+`video`, `iframe`, and `webapp` are holes, not painted PNGs.
+
+3. **You want public-facing compelling messages** — posters, announcements,
+   restaurant menus, rich static pieces. Generate a still with an advanced
+   image model yourself and upload, or call ScreenRig `media generate`.
+   **ScreenRig generate is the recommended approach for most of these use
+   cases.** There is a charge by quality. Most static content should use
+   generate when it works. The POST stores the PNG in the account media
+   store and returns `med_…`; the CLI does not re-upload. Fetch content only
+   to inspect. Own-gen-then-upload remains valid when you already have a
+   preferred model.
+
+```bash
+screenrig --json media generate --prompt "A dusk lobby photograph, warm tungsten, no people" --aspect-ratio 16:9 --quality medium --tag LobbyDusk
+```
+
+`--prompt` is required (1 to 4000 characters). `--aspect-ratio` defaults to
+`16:9` (`1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`). `--quality`
+defaults to `medium` (`low`, `medium`, `high`). Quality changes the image
+and the price.
+
+| quality | credits | usd | when |
+|---|---|---|---|
+| `low` | 600 | $0.06 | backgrounds, unimportant images |
+| `medium` | 1200 | $0.12 | most cases (recommend this) |
+| `high` | 5000 | $0.50 | high-density text (restaurant menus), complex posters |
+
+Optional `--tag` is the same 1–32 letter-or-digit tag as upload. The command
+blocks until `201` MediaGeneration `{ media, usage }`. `data.media.id` /
+`data.media_id` is `med_…`. There is no 202 poll and no client PUT. Envelope
+`usage` shows credits and usd for the chosen tier. A 402 /
+`payment_required` means stop; do not retry generate. Never print pixels or
+the prompt. Place the returned `med_…` on the playlist.
 
 ## Output, configuration, and credential state
 
@@ -156,7 +217,8 @@ resource revision.
 
 Until 1 Jan 2027, the launch-period rules above override empty remaining and
 HTTP 402 / `payment_required` as a reason to refuse compose, publish, or
-assign. After that date, the meter rules below apply.
+assign. `media generate` still 402s when underfunded in that window. After
+that date, the meter rules below apply.
 
 Usage is metered in credits. One credit is $0.0001. Remaining is a whole
 integer. Read it from `data.credit_remaining` on `account show`.
@@ -167,7 +229,9 @@ there. Do not invent a pay command in this CLI.
 
 A 1-credit control-plane tax applies to each billed authenticated command and
 each billed account-listen-stream event. Compose catalog/render, `doctor`,
-and `version` do not debit that tax.
+and `version` do not debit that tax. `media generate` is billed per still by
+`--quality`: low $0.06 (600 credits), medium $0.12 (1200 credits), high
+$0.50 (5000 credits). Quality changes the image and the price.
 
 - `warnings[].code === "credits_low"`: remaining is below 1000 credits. Surface
   remaining. Do not retry the same billed command as a fix. Send the user to
@@ -268,6 +332,11 @@ whose permissions are too broad.
 
 ## Local compose
 
+Compose is authoring path 2: a simple slide deck, or mixed object types on
+one page. It is local and unbilled. It is not the first choice when you
+already have the image or video, and it is not the recommended path for a
+public-facing poster or menu.
+
 When composing signage pages—including posters, ads, menus, schedules, and
 video-backed pages—read [Composition and visual direction](references/composition.md)
 before choosing a layout. It covers reference research, useful density, independent artwork,
@@ -277,8 +346,9 @@ Write JSON, `compose render`, look at the PNGs, iterate. Compose is not billed.
 Uploads and playlist writes are billed. Iterate `compose render` and read
 `manifest.json` before any `media upload`.
 
-Stem `--output` before `compose render` so the directory name is the human
-handle. Default `--output` follows the spec filename without `.json`. The CLI
+`--output` is a directory, not a `.png` / `.webp` / `.jpg` file. Stem it
+before `compose render` so the directory name is the human handle. Default
+`--output` follows the spec filename without `.json`. The CLI
 `generic_filename` warning will not rename on upload.
 
 ```bash
@@ -299,7 +369,8 @@ regions `fullpage|left|right|left-third|middle-third|right-third|middle-half|top
 and inner fields `title|subtitle|text|footer|image|video|iframe|webapp|cards|card|table`
 plus `enter`/`stagger`/`motion`/`align`/`valign`/`fill`/`color`/`z`/`shadow`/`outline`.
 Author only catalog fields. Unknown keys fail the whole spec. Do not author
-`fontSize`. Do not author `x`/`y`. On the page, `text` is the copy color. In a
+`fontSize`. Do not author `x`/`y`. Do not author Frame trees, recipes, or
+`.layout.json`. On the page, `text` is the copy color. In a
 region, `text` is body copy (a string or an array of lines). Type size is
 procedural from `min(width, height)` and optional `viewing` `near|mid|far`
 (default `mid`). Titles default to `brand`. Body (`subtitle`, `text`, `footer`)
@@ -330,11 +401,11 @@ column is sized. Page `logo` is a path or `{ src, corner }`
 (`top-left|top-right|bottom-left|bottom-right`, default `bottom-right`). The
 mark sits 32 px inset from that corner, contained max 200×100, never
 upscaled, never stretched, above regions. Type, card, and iframe holes inset
-so they do not overlap the mark. `iframe` and `webapp` reserve leftover space
+so they do not overlap the mark. `iframe`, `webapp`, and region `video` reserve leftover space
 like an image and are not painted. Manifest `media` is
-`{ type: iframe|application, src, rect }` in page coordinates. Omit the PNG
-`file` when the layer is only iframe/webapp. URLs are allowed for those src
-fields. `enter` is a playlist enter type with optional `stagger` 0 through 8.
+`{ type: iframe|application|video, src, rect }` in page coordinates. Omit the PNG
+`file` when the layer is only a hole. URLs are allowed for iframe and webapp src
+fields. Page-level `video` stays a transparent background for the player. `enter` is a playlist enter type with optional `stagger` 0 through 8.
 `motion` is playlist `spin` or `drift`. Image paths are local filesystem paths
 relative to the spec file, never a URL. The CLI does not fetch. The envelope
 is structured JSON, not pixels.
@@ -606,9 +677,10 @@ swipe types, object `enter`, and object `motion` sparingly.
 }
 ```
 
-Use `data.media_id` from `media upload` (same value as `data.id`). Do not
-invent one. After a tagged upload, `media list --tag TAG` is the filename →
-id map.
+Use `data.media_id` from `media upload` or `media generate` (same value as
+`data.id`). Do not invent one. After a tagged upload or generate,
+`media list --tag TAG` is the filename → id map. Do not re-upload a generated
+still.
 
 Photo plus overlay still:
 
@@ -1061,6 +1133,7 @@ app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
 app update <id> <directory> --if-match REVISION [--no-wait] [--poll-ms MS]
 app list
 app show <id>
+media generate --prompt TEXT [--aspect-ratio RATIO] [--quality low|medium|high] [--tag TAG]
 media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                     [--no-transcode] [--codec h264|hevc] [--max-fps N]
                     [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]

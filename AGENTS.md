@@ -58,8 +58,9 @@ agent workflow.
   install is this plugin: Claude, Codex, and Grok marketplace commands, with
   Grok `--trust` named and `GROK_PLUGIN_ROOT` lookup. After install, prepend
   `$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts` to `PATH` once, then run
-  `screenrig --json version`, `doctor`, local `compose catalog`/`compose
-  render`, media, playlist, and `screen assign`. Do not export `SR`. Compose is local stills.
+  `screenrig --json version`, `doctor`, the playlist authoring tree, playlist,
+  and `screen assign`. Do not export `SR`. Do not teach always compose first
+  or always generate first. Compose is local stills.
   Do not teach `agent enroll`, `screen pair`, `browser setup`, `screen
   provision`, `ABC-234`, or playlist text-slot template tutorials.
 - Keep `--json` envelopes. Never teach a token flag or pasted bearer. The
@@ -67,9 +68,16 @@ agent workflow.
 - Meter usage in credits. Standard is prepaid. HTTP 402 / `payment_required`
   means do not retry billed commands; point money at
   https://screenrig.ai/pricing/. Write in a feature-complete voice.
-- Teach local compose (`compose catalog`, `compose render`) for copy and
-  chrome. Do not teach emitting native `text`, `box`, or `line` on the
-  playlist wire. Compose is local and not billed.
+- Teach the playlist authoring tree: existing assets → `media upload`; a
+  simple slide deck or mixed object types (`image` | `video` | `iframe` |
+  `application`) → local unbilled `compose render`; public-facing posters,
+  announcements, and menus → `media generate` (recommended) or own-gen-then-upload.
+  `media generate` is billed per still by `--quality`: low $0.06 (600 credits)
+  for backgrounds, medium $0.12 (1200 credits) for most cases, high $0.50
+  (5000 credits) for high-density text. Quality changes the image and the
+  price. Do not teach emitting
+  native `text`, `box`, or `line` on the playlist wire. Compose is local and
+  not billed.
 - The category word is **primitive**, never placement, kind, or type. Four
   wire primitives exist: static (`image`), motion (`video`), and web
   (`iframe`, `application`). A page carries `pages[].primitives`, and each
