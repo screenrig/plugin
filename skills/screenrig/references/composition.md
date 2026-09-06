@@ -77,17 +77,23 @@ Use restrained entry animation for emphasis: foreground artwork or a short
 headline can draw attention while functional information settles immediately.
 Menu items, descriptions, prices, and ordering information should remain
 stationary. Video already provides motion, so additional entrances need a
-reason. Do not animate everything or enforce a quota. Keep foreground raster
-padding and primitive bounds large enough for clean motion without changing
-the artwork's intended scale. The main skill's Page motion section defines the
-supported `enter` types, fixed timing, and review mechanics.
+reason. Persistent object motion is for a design that calls for it; one
+moving element per page is the norm. Prefer a panning background or one
+accent over several moving objects. Do not animate everything or enforce a
+quota. Keep foreground raster padding and primitive bounds large enough for
+clean motion without changing the artwork's intended scale. The main skill's
+Page motion section defines supported `enter` types, `enter.stagger`,
+persistent `motion` (`spin`, `path`, `drift`), fixed timing, and review
+mechanics.
 
-Read the selected CLI's `compose catalog` and current command help before
-authoring effects. Do not invent native rotation, shadows, gradient node fields,
-or animation controls. When an unsupported visual treatment is needed, bake it
-into an appropriate image asset using available tools and preserve transparent
-padding. Distinguish supported compose text shadows and canvas backgrounds from
-effects on playlist primitives; they are not interchangeable APIs.
+Read the selected CLI's `compose catalog` before authoring. Text `effects`,
+`Frame.theme`, named colour tokens, `Icon`/`Divider`/`Pill`, linear gradient
+backgrounds, and `Text.scale: "display-xl"` are catalog fields. Use text
+effects sparingly, when the design calls for them (a headline, a badge). Body copy, menus and prices stay plain for readability.
+When an unsupported visual treatment is needed, bake it into an appropriate
+image asset using available tools and preserve transparent padding. Compose
+paint treatments and playlist primitive `enter`/`motion` are not
+interchangeable APIs.
 
 ## Review the intended output
 
