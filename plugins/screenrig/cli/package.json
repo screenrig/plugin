@@ -1,6 +1,6 @@
 {
   "name": "screenrig",
-  "version": "0.1.0",
+  "version": "26.09.0-dev",
   "private": false,
   "description": "ScreenRig control-plane CLI for agent-driven digital signage and kiosk operations.",
   "homepage": "https://screenrig.ai",
@@ -95,7 +95,6 @@
   "dependencies": {
     "@napi-rs/canvas": "^1.0.7",
     "ajv": "8.18.0",
-    "ajv-formats": "3.0.1",
-    "yoga-layout": "^3.2.1"
+    "ajv-formats": "3.0.1"
   }
 }

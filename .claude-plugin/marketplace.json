@@ -3,12 +3,12 @@
   "owner": {
     "name": "ScreenRig"
   },
-  "description": "Public ScreenRig agent marketplace with a pinned, bundled CLI.",
+  "description": "Public ScreenRig agent marketplace with a bundled CLI.",
   "plugins": [
     {
       "name": "screenrig",
       "source": "./plugins/screenrig",
-      "description": "Operate ScreenRig screens, media, and playlists with the pinned, bundled CLI.",
+      "description": "Operate ScreenRig screens, media, and playlists with the bundled CLI.",
       "version": "26.09.1",
       "author": {
         "name": "ScreenRig"

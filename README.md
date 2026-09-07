@@ -63,8 +63,8 @@ screenrig --json version
 ```
 
 That package-relative launcher is the entry point for every ScreenRig command.
-It runs the reviewed CLI pinned by this repository and never fetches mutable
-code.
+It runs the bundled CLI from current `screenrig/cli` `main` and never fetches
+mutable code.
 
 Installed agents compare the installed plugin and bundled CLI versions to the
 published CalVer on GitHub `main` (`.claude-plugin/marketplace.json`
@@ -109,15 +109,16 @@ Isolated origins and H.264 are the product.
 ## This repository
 
 This is the canonical public marketplace source. It carries the ScreenRig skill
-and one generated plugin containing an exact, reviewed CLI artifact.
+and one generated plugin containing the current `screenrig/cli` `main` CLI.
 
 - `skills/screenrig/` and the root marketplace manifests are canonical.
-- `components.lock.json` pins the `screenrig/cli` commit, artifact filename, and
-  SHA-256 that produced `plugins/screenrig/`.
+- `components.lock.json` records the `screenrig/cli` commit, artifact filename,
+  and SHA-256 of the CLI that was just bundled. It is provenance, not a freeze.
 - `plugins/screenrig/` is generated. Change canonical inputs and rebuild; do not
   edit it directly.
-- CI reproduces the pinned CLI artifact, rebuilds and validates the bundle,
-  scans the public boundary, and publishes `screenrig-plugin.tar.gz`.
+- CI packs `screenrig/cli` `main`, rebuilds and validates the bundle, scans the
+  public boundary, and publishes `screenrig-plugin.tar.gz`. Skill commands must
+  exist in the bundled binary.
 
 ```sh
 python3 scripts/check-public-repo.py

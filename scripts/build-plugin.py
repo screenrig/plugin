@@ -17,15 +17,19 @@ import sys
 import tarfile
 import tempfile
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Iterator
 
 
 ROOT = Path(__file__).resolve().parent.parent
-CLI = ROOT / "packages" / "cli"
+SIBLING_CLI = ROOT.parent / "cli"
 SKILL = ROOT / "skills" / "screenrig"
 PUBLIC_ROOT = ROOT / "build" / "plugin"
 PLUGINS = ROOT / "plugins"
 PLUGIN_NAME = "screenrig"
+CLI_REPOSITORY = "screenrig/cli"
+CLI_ARTIFACT_NAME = "screenrig-cli.tgz"
+LOCK_PATH = ROOT / "components.lock.json"
+LOCK_SCHEMA = "screenrig.plugin-components-lock/v1"
 CLI_RUNTIME_LOCK = "runtime-dependencies.lock.json"
 PUBLIC_FILES = (
     ".github/workflows/ci.yml",
@@ -41,25 +45,96 @@ class BuildError(RuntimeError):
     pass
 
 
+def run_command(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise BuildError(f"{' '.join(command)} failed:\n{result.stdout}{result.stderr}")
+
+
+def sibling_cli_root() -> Path | None:
+    if (SIBLING_CLI / "scripts" / "package-release.sh").is_file() and (SIBLING_CLI / "package.json").is_file():
+        return SIBLING_CLI
+    return None
+
+
+def git_head(repo: Path) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    commit = result.stdout.strip()
+    if result.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise BuildError(f"cannot read CLI commit from {repo}")
+    return commit
+
+
+def pack_cli_source(source: Path, destination: Path) -> None:
+    script = source / "scripts" / "package-release.sh"
+    if not script.is_file():
+        raise BuildError(f"CLI source is missing scripts/package-release.sh: {source}")
+    env = dict(os.environ)
+    env["NPM_CONFIG_CACHE"] = str(source / ".tmp" / "npm-cache")
+    if not (source / "node_modules").is_dir():
+        run_command(["npm", "ci"], source, env)
+    run_command(["npm", "run", "build"], source, env)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    run_command(["bash", str(script), str(destination)], source, env)
+    if not destination.is_file():
+        raise BuildError(f"CLI packer did not write {destination}")
+
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def write_component_lock(commit: str, artifact: Path) -> None:
+    if not re.fullmatch(r"[0-9a-f]{40}", commit) or set(commit) == {"0"}:
+        raise BuildError("CLI commit is invalid")
+    payload = {
+        "schema": LOCK_SCHEMA,
+        "state": "resolved",
+        "cli": {
+            "repository": CLI_REPOSITORY,
+            "commit": commit,
+            "artifact": {
+                "file": artifact.name,
+                "sha256": sha256_file(artifact),
+            },
+        },
+    }
+    LOCK_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def verify_cli_runtime_bundle(cli_root: Path) -> None:
     runtime_lock = cli_root / CLI_RUNTIME_LOCK
     try:
         manifest = json.loads(runtime_lock.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise BuildError(f"pinned CLI artifact is missing a valid {CLI_RUNTIME_LOCK}") from exc
+        raise BuildError(f"bundled CLI artifact is missing a valid {CLI_RUNTIME_LOCK}") from exc
     if not isinstance(manifest, dict):
-        raise BuildError(f"pinned CLI artifact has an invalid {CLI_RUNTIME_LOCK}")
+        raise BuildError(f"bundled CLI artifact has an invalid {CLI_RUNTIME_LOCK}")
     packages = manifest.get("packages")
     if manifest.get("schema") != "screenrig.cli-runtime-dependencies/v1" or not isinstance(packages, list) or not packages:
-        raise BuildError(f"pinned CLI artifact has an invalid {CLI_RUNTIME_LOCK}")
+        raise BuildError(f"bundled CLI artifact has an invalid {CLI_RUNTIME_LOCK}")
     package_lock_sha256 = manifest.get("package_lock_sha256")
     if not isinstance(package_lock_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", package_lock_sha256) is None:
-        raise BuildError(f"pinned CLI artifact has an invalid {CLI_RUNTIME_LOCK} package-lock digest")
+        raise BuildError(f"bundled CLI artifact has an invalid {CLI_RUNTIME_LOCK} package-lock digest")
     bundled_names: set[str] = set()
     bundled_paths: set[str] = set()
     for package in packages:
         if not isinstance(package, dict):
-            raise BuildError(f"pinned CLI artifact has an invalid {CLI_RUNTIME_LOCK} package entry")
+            raise BuildError(f"bundled CLI artifact has an invalid {CLI_RUNTIME_LOCK} package entry")
         relative = package.get("path")
         name = package.get("name")
         version_value = package.get("version")
@@ -80,30 +155,30 @@ def verify_cli_runtime_bundle(cli_root: Path) -> None:
             or not isinstance(integrity, str)
             or not any(value.startswith("sha512-") for value in integrity.split())
         ):
-            raise BuildError(f"pinned CLI artifact has an unsafe {CLI_RUNTIME_LOCK} package entry")
+            raise BuildError(f"bundled CLI artifact has an unsafe {CLI_RUNTIME_LOCK} package entry")
         if relative in bundled_paths:
-            raise BuildError(f"pinned CLI artifact has a duplicate {CLI_RUNTIME_LOCK} package path: {relative}")
+            raise BuildError(f"bundled CLI artifact has a duplicate {CLI_RUNTIME_LOCK} package path: {relative}")
         bundled_paths.add(relative)
         metadata_path = cli_root / relative / "package.json"
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise BuildError(f"pinned CLI artifact runtime dependency is missing or invalid: {relative}") from exc
+            raise BuildError(f"bundled CLI artifact runtime dependency is missing or invalid: {relative}") from exc
         if metadata.get("name") != name or metadata.get("version") != version_value:
-            raise BuildError(f"pinned CLI artifact runtime dependency differs from its manifest: {relative}")
+            raise BuildError(f"bundled CLI artifact runtime dependency differs from its manifest: {relative}")
         bundled_names.add(name)
     try:
         package = json.loads((cli_root / "package.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise BuildError(f"pinned CLI artifact package.json is invalid: {exc}") from exc
+        raise BuildError(f"bundled CLI artifact package.json is invalid: {exc}") from exc
     if not isinstance(package, dict):
-        raise BuildError("pinned CLI artifact package.json must contain an object")
+        raise BuildError("bundled CLI artifact package.json must contain an object")
     dependencies = package.get("dependencies") or {}
     if not isinstance(dependencies, dict) or not set(dependencies).issubset(bundled_names):
-        raise BuildError("pinned CLI artifact does not bundle every declared production dependency")
+        raise BuildError("bundled CLI artifact does not bundle every declared production dependency")
     readme = (cli_root / "README.md").read_text(encoding="utf-8")
     if "[security policy](SECURITY.md)" not in readme:
-        raise BuildError("pinned CLI README does not link its bundled SECURITY.md")
+        raise BuildError("bundled CLI README does not link its bundled SECURITY.md")
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -127,73 +202,34 @@ def version() -> str:
     return value
 
 
-def npm_package_files(cli_root: Path, *, build_source: bool) -> list[str]:
-    if not build_source:
-        paths = sorted(path.relative_to(cli_root).as_posix() for path in cli_root.rglob("*") if path.is_file())
-        if not {"dist/bin.js", "package.json", "README.md", "SECURITY.md"}.issubset(paths):
-            raise BuildError("pinned CLI artifact is missing executable, metadata, README, or security policy")
-        verify_cli_runtime_bundle(cli_root)
-        return paths
-    if not (cli_root / "package.json").is_file():
-        raise BuildError("pinned CLI release input is missing at packages/cli/package.json")
-    npm_env = dict(os.environ)
-    npm_env["NPM_CONFIG_CACHE"] = str(cli_root / ".tmp" / "npm-cache")
-    build = subprocess.run(
-        ["npm", "run", "build"],
-        cwd=cli_root,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=npm_env,
-        check=False,
-    )
-    if build.returncode != 0:
-        raise BuildError(f"CLI build failed:\n{build.stdout}{build.stderr}")
-    packed = subprocess.run(
-        ["npm", "pack", "--json", "--dry-run"],
-        cwd=cli_root,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=npm_env,
-        check=False,
-    )
-    if packed.returncode != 0:
-        raise BuildError(f"CLI package inventory failed:\n{packed.stdout}{packed.stderr}")
-    try:
-        payload = json.loads(packed.stdout)
-        if isinstance(payload, list):
-            package = payload[0]
-        elif isinstance(payload, dict) and isinstance(payload.get(PLUGIN_NAME), dict):
-            package = payload[PLUGIN_NAME]
-        else:
-            raise TypeError("unknown npm pack JSON shape")
-        files = package["files"]
-        paths = [str(entry["path"]) for entry in files]
-    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
-        raise BuildError("npm pack returned an invalid file inventory") from exc
-    if "dist/bin.js" not in paths or "package.json" not in paths:
-        raise BuildError("CLI package inventory is missing dist/bin.js or package.json")
+def npm_package_files(cli_root: Path) -> list[str]:
+    paths = sorted(path.relative_to(cli_root).as_posix() for path in cli_root.rglob("*") if path.is_file())
+    if not {"dist/bin.js", "package.json", "README.md", "SECURITY.md"}.issubset(paths):
+        raise BuildError("bundled CLI artifact is missing executable, metadata, README, or security policy")
+    verify_cli_runtime_bundle(cli_root)
     return paths
 
 
 def verify_cli_artifact(artifact: Path) -> None:
-    lock = load_json(ROOT / "components.lock.json")
+    lock = load_json(LOCK_PATH)
     cli = lock.get("cli")
-    if lock.get("schema") != "screenrig.plugin-components-lock/v1" or lock.get("state") != "resolved" or not isinstance(cli, dict):
-        raise BuildError("standalone plugin component lock is unresolved or invalid")
+    if lock.get("schema") != LOCK_SCHEMA or lock.get("state") != "resolved" or not isinstance(cli, dict):
+        raise BuildError("plugin component lock is unresolved or invalid")
     repository = cli.get("repository")
     commit = cli.get("commit")
-    pinned = cli.get("artifact")
-    if not isinstance(repository, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
-        raise BuildError("standalone plugin CLI repository is invalid")
+    recorded = cli.get("artifact")
+    if not isinstance(repository, str) or repository != CLI_REPOSITORY:
+        raise BuildError("plugin CLI repository is invalid")
     if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit) or set(commit) == {"0"}:
-        raise BuildError("standalone plugin CLI commit is invalid")
-    if not isinstance(pinned, dict) or pinned.get("file") != artifact.name:
-        raise BuildError("standalone plugin CLI artifact filename differs from the component lock")
-    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
-    if pinned.get("sha256") != digest:
-        raise BuildError("standalone plugin CLI artifact digest differs from the component lock")
+        raise BuildError("plugin CLI commit is invalid")
+    if not isinstance(recorded, dict) or recorded.get("file") != artifact.name:
+        raise BuildError("plugin CLI artifact filename differs from the component lock")
+    digest = sha256_file(artifact)
+    if recorded.get("sha256") != digest:
+        raise BuildError(
+            "plugin CLI artifact digest differs from the component lock; "
+            "pack current screenrig/cli main and rebuild with --write-lock"
+        )
 
 
 def extract_cli_artifact(artifact: Path, destination: Path) -> Path:
@@ -202,15 +238,15 @@ def extract_cli_artifact(artifact: Path, destination: Path) -> Path:
         for member in archive.getmembers():
             parts = Path(member.name).parts
             if not parts or parts[0] != "package" or any(part in {"", ".", ".."} for part in parts):
-                raise BuildError(f"pinned CLI artifact contains an unsafe path: {member.name}")
+                raise BuildError(f"bundled CLI artifact contains an unsafe path: {member.name}")
             relative = Path(*parts[1:])
             if not relative.parts:
                 if not member.isdir():
-                    raise BuildError("pinned CLI artifact has an invalid package root")
+                    raise BuildError("bundled CLI artifact has an invalid package root")
                 continue
             canonical = relative.as_posix()
             if canonical in seen:
-                raise BuildError(f"pinned CLI artifact contains a duplicate path: {canonical}")
+                raise BuildError(f"bundled CLI artifact contains a duplicate path: {canonical}")
             seen.add(canonical)
             target = destination / relative
             if member.isdir():
@@ -218,25 +254,47 @@ def extract_cli_artifact(artifact: Path, destination: Path) -> Path:
             elif member.isfile():
                 source = archive.extractfile(member)
                 if source is None:
-                    raise BuildError(f"pinned CLI artifact entry is unreadable: {canonical}")
+                    raise BuildError(f"bundled CLI artifact entry is unreadable: {canonical}")
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with target.open("xb") as output:
                     shutil.copyfileobj(source, output)
             else:
-                raise BuildError(f"pinned CLI artifact contains a non-regular entry: {canonical}")
+                raise BuildError(f"bundled CLI artifact contains a non-regular entry: {canonical}")
     return destination
 
 
 @contextmanager
-def cli_input(cli_artifact: Path | None):
-    if cli_artifact is None:
-        if not CLI.is_dir():
-            raise BuildError("standalone plugin rebuild requires --cli-artifact")
-        yield CLI, True
-        return
-    verify_cli_artifact(cli_artifact)
+def cli_input(
+    cli_artifact: Path | None,
+    *,
+    write_lock: bool,
+    cli_commit: str | None,
+    check: bool,
+) -> Iterator[tuple[Path, Path, str | None, bool]]:
     with tempfile.TemporaryDirectory(prefix="screenrig-plugin-cli-") as temporary:
-        yield extract_cli_artifact(cli_artifact, Path(temporary) / "package"), False
+        temp = Path(temporary)
+        if cli_artifact is None:
+            source = sibling_cli_root()
+            if source is None:
+                raise BuildError("plugin rebuild requires --cli-artifact or a sibling ../cli checkout")
+            artifact = temp / CLI_ARTIFACT_NAME
+            pack_cli_source(source, artifact)
+            commit = cli_commit or git_head(source)
+            if check and not write_lock:
+                verify_cli_artifact(artifact)
+            yield extract_cli_artifact(artifact, temp / "package"), artifact, commit, (not check) or write_lock
+            return
+        artifact = cli_artifact.expanduser().resolve()
+        if not artifact.is_file():
+            raise BuildError(f"CLI artifact is missing: {artifact}")
+        if not write_lock:
+            verify_cli_artifact(artifact)
+        commit = cli_commit
+        if write_lock and not commit:
+            source = sibling_cli_root()
+            if source is not None:
+                commit = git_head(source)
+        yield extract_cli_artifact(artifact, temp / "package"), artifact, commit, write_lock
 
 
 def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version: str) -> None:
@@ -301,7 +359,14 @@ def verify_generated_launcher(plugin_root: Path) -> None:
         raise BuildError("generated plugin launcher did not run the bundled CLI with clean offline output")
 
 
-def build(output: Path, cli_artifact: Path | None = None) -> Path:
+def build(
+    output: Path,
+    cli_artifact: Path | None = None,
+    *,
+    write_lock: bool = False,
+    cli_commit: str | None = None,
+    check: bool = False,
+) -> Path:
     metadata = load_json(ROOT / "build" / "plugin.json")
     if metadata.get("name") != PLUGIN_NAME:
         raise BuildError("build/plugin.json name must be screenrig")
@@ -319,14 +384,23 @@ def build(output: Path, cli_artifact: Path | None = None) -> Path:
     shutil.copytree(SKILL, plugin_root / "skills" / PLUGIN_NAME)
 
     cli_root = plugin_root / "cli"
-    with cli_input(cli_artifact) as (source_root, build_source):
-        for relative in npm_package_files(source_root, build_source=build_source):
+    with cli_input(cli_artifact, write_lock=write_lock, cli_commit=cli_commit, check=check) as (
+        source_root,
+        artifact,
+        commit,
+        should_write,
+    ):
+        for relative in npm_package_files(source_root):
             source = source_root / relative
             destination = cli_root / relative
             if not source.is_file():
                 raise BuildError(f"npm package file is missing: {relative}")
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
+        if should_write:
+            if not commit:
+                raise BuildError("--write-lock requires --cli-commit or a sibling ../cli checkout")
+            write_component_lock(commit, artifact)
     (cli_root / "dist" / "bin.js").chmod(0o755)
     emit_manifests(plugin_root, metadata, release_version)
     verify_generated_launcher(plugin_root)
@@ -355,12 +429,26 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--cli-artifact", type=Path)
+    parser.add_argument("--write-lock", action="store_true")
+    parser.add_argument("--cli-commit")
     args = parser.parse_args()
+    if args.write_lock and args.check:
+        print("build-plugin: --write-lock cannot be combined with --check", file=sys.stderr)
+        return 2
+    if args.cli_commit is not None and not re.fullmatch(r"[0-9a-f]{40}", args.cli_commit):
+        print("build-plugin: --cli-commit must be a 40-character lowercase SHA-1", file=sys.stderr)
+        return 2
     try:
         if args.check:
             with tempfile.TemporaryDirectory(prefix="screenrig-plugin-") as temp:
                 expected = Path(temp) / "plugins"
-                build(expected, args.cli_artifact)
+                build(
+                    expected,
+                    args.cli_artifact,
+                    write_lock=False,
+                    cli_commit=args.cli_commit,
+                    check=True,
+                )
                 changes = compare(expected / PLUGIN_NAME, PLUGINS / PLUGIN_NAME)
                 if changes:
                     print("generated ScreenRig plugin is stale:", file=sys.stderr)
@@ -372,7 +460,13 @@ def main() -> int:
         target = PLUGINS / PLUGIN_NAME
         if target.exists():
             shutil.rmtree(target)
-        build(PLUGINS, args.cli_artifact)
+        build(
+            PLUGINS,
+            args.cli_artifact,
+            write_lock=args.write_lock or args.cli_artifact is None,
+            cli_commit=args.cli_commit,
+            check=False,
+        )
         print("built ScreenRig plugin")
         return 0
     except BuildError as exc:

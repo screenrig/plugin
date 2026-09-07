@@ -76,6 +76,8 @@ export declare function importPlaylistBundle(options: {
     runtime: CliRuntime;
     updateId?: string;
     ifMatch?: string;
+    /** Replaces the bundle's playlist name on the written playlist. Names are unique per account. */
+    name?: string;
     timeoutMs?: number;
     pollMs?: number;
     beforePlaylistWrite?: (playlist: JsonRecord, updateId: string | undefined) => Promise<void>;

@@ -2,17 +2,20 @@
 
 This repository implements the noninteractive ScreenRig control-plane CLI and
 deterministic web-application package packer. The supported customer
-distribution is the exact CI artifact pinned and bundled by
-[`screenrig/plugin`](https://github.com/screenrig/plugin); the plugin invokes it
-through a package-relative launcher.
+distribution is the CLI bundled by
+[`screenrig/plugin`](https://github.com/screenrig/plugin) from current
+`screenrig/cli` `main`; the plugin invokes it through a package-relative
+launcher.
 
 ## Official npm installation for developer shells
 
-The public npm package is `screenrig`. Install an exact published version rather
-than a mutable range:
+The public npm package is `screenrig`. Install an exact published CalVer
+(`YY.MM.SERIAL`, UTC) rather than a mutable range. GitHub release tags are
+`vYY.MM.N`. Local and pull-request trees use `YY.MM.0-dev` and must not be
+published.
 
 ```sh
-npm install --global screenrig@0.1.0
+npm install --global screenrig@<YY.MM.SERIAL>
 screenrig --json version
 ```
 
@@ -23,8 +26,8 @@ that is missing nothing required and reports the rest as warnings.
 
 This global package is the official developer-shell distribution. Agent workflows
 that load the ScreenRig plugin must keep using the plugin-relative launcher. The
-plugin pins and bundles an exact reviewed CLI artifact, so it never resolves a
-global `screenrig` from `PATH` and never substitutes the npm package at run time.
+plugin bundles current `screenrig/cli` `main`, so it never resolves a global
+`screenrig` from `PATH` and never substitutes the npm package at run time.
 
 ## Implemented behavior
 
@@ -51,10 +54,12 @@ operation log. The CLI connects as a **client** to an already-listening Unix
 domain socket at that path and writes one JSON object per line. Stdout stays
 the single command envelope; `--json` and stderr progress are unchanged. There
 is no `--log-socket` flag and no `SCREENRIG_LOG_SOCKET` override. If the field
-is absent or empty, behavior is unchanged. If it is set and connect or write
-fails, the command fails: the consumer must already be listening. Completed writes are not retained.
-A consumer that stops reading fails when the pending buffer exceeds 1 MiB;
-closing waits at most five seconds for accepted writes to drain.
+is absent or empty, behavior is unchanged. Connect failure or back-pressure
+never fails the command: lines are dropped and counted, and the envelope
+includes one warning `{ "code": "log_sink_degraded", "dropped": N }`. Completed
+writes are not retained. A consumer that stops reading causes further lines to
+be dropped once the pending buffer exceeds 1 MiB; closing waits at most five
+seconds for accepted writes to drain.
 
 ```json
 {
@@ -156,23 +161,107 @@ compatibility aliases. Revoke uses the same last-agent guard and local cleanup
 semantics as `agent disconnect`.
 
 `compose catalog` and `compose render` run locally. They do not enroll. They
-do not debit credits. `compose render` reads a JSON spec, writes a PNG, and
-writes `<output>.layout.json` next to it. The envelope carries paths, canvas
-size, the resolved font family, space tokens, the type ramp, and whether any
-text was truncated. It never prints image bytes. `--open` opens the local PNG
-with the OS opener when the user asked to view the still on this computer.
+do not debit credits. `compose render` reads a JSON page, writes one PNG per
+region plus `manifest.json`, and optionally `--combined` for a flattened
+inspection PNG. The envelope carries the output directory, file list, canvas
+size, the resolved font family, the layered manifest, and visual `lint`
+findings ordered by page. It never prints image bytes. `--open` opens the
+combined PNG with the OS opener when the user asked to view the still on this
+computer. `--lint-only` still composes in memory and reports `lint` without
+writing files. Type size is procedural from page width/height and optional
+`viewing` (`near`/`mid`/`far`, default `mid`). Do not author `fontSize`, `x`,
+or `y`. A named `font` that is not installed is `usage_error`, not a silent
+fallback. Glyph fallback and overflow diagnostics stay on the authored page.
+
+How to put content on a playlist page. Choose by what the page is. Do not
+generate an atmosphere plate and compose type onto it. Do not compose a
+presentable poster as named regions + cards.
+
+1. **You already have the image or video.** Easiest path: `media upload`
+   (declare → PUT exact bytes → commit) and reference `med_…` on the
+   playlist. Do it yourself. No compositor. No generate.
+2. **Anything presentable** — posters, announcements, restaurant menus,
+   event art, product stills, public-facing rich static pages. `media
+   generate` as the **whole page**. Put every fact and all copy in the
+   prompt so the image model typesets it. ScreenRig generate is the default.
+   Own-gen-then-upload remains valid only if you already have a preferred
+   model. Do not compose this page. Do not generate atmosphere-only stills
+   for later overlay. There is a charge by quality. `low` is $0.06 (600
+   credits) for unimportant generated stills only. `medium` is $0.12 (1200
+   credits) and is the default for most cases. `high` is $0.50 (5000 credits)
+   for high-density text such as restaurant menus and complex posters.
+   Quality changes the image and the price. The POST stores a lossy WebP in
+   the account media store and returns `med_…`; the CLI does not re-upload.
+   `media download <id>` fetches the still to disk for inspection or use in
+   a composed exception.
+3. **Slide-deck-like experiences** — title/body/table slides, internal
+   decks, measured type that must stay editable as compose JSON. Local
+   unbilled `compose render`. Named regions. Compose writes stills and holes
+   for iframe/webapp/region video. Upload those stills if they need to play
+   on a screen.
+4. **Live objects** — a playing video, iframe, or webapp as the page (or as
+   playlist primitives). Write playlist primitives. Upload the video if you
+   have it. Do not local-render stills merely to attach `enter` / `motion`.
+   Animation is not a reason to compose.
+
+```sh
+screenrig --json media generate --prompt "Finished 16:9 event poster with all copy typeset in the image. Headline: Community Supper. Date: Saturday 17 October, 19:00. Location: Main Hall. Call to action: Reserve at the welcome desk. Warm editorial food photography with cream type. No other text." --aspect-ratio 16:9 --quality high --tag CommunitySupper
+```
+
+`--prompt` is required. `--aspect-ratio` defaults to `16:9` (`1:1`, `16:9`,
+`9:16`, `4:3`, `3:4`, `3:2`, `2:3`). `--quality` defaults to `medium`
+(`low`, `medium`, `high`). Quality changes the image and the price.
+Optional `--tag` is the same 1–32 letter-or-digit tag as upload. The command
+blocks until a `201` MediaGeneration `{ media, usage }`. `media.id` is
+`med_…`. There is no 202 poll and no client PUT. A 402 is
+`payment_required` even during the launch fail-open window. Envelope `usage`
+shows credits and usd for the chosen tier (600 credits / $0.06, 1200 credits
+/ $0.12, 5000 credits / $0.50). The envelope never prints image bytes or the
+prompt.
+
+`media generate` is one blocking call and it is slow on purpose: the image is
+drawn while the request is open. Measured durations are about 15 s at `low`,
+about 35 s at `medium`, and about 80 s at `high`. The client budget for this
+call is 150 s, above the server's own budget, so the server is what binds; the
+generic request budget for every other command stays at 30 s. Give the command
+at least three minutes in any wrapper that imposes its own timeout. Unless
+`--no-progress` is set, the command writes an up-front notice to stderr before
+it blocks (`media_generate_started` with `quality`, `typical_seconds`, and
+`timeout_ms` under `--json`), and the success envelope carries `elapsed_ms`.
+
+A billed blocking call that does not return leaves the caller unable to say
+whether the still exists. The CLI stores the request's `Idempotency-Key` in the
+0600 user config before sending, so re-running the identical `media generate`
+command retries under the same key and the server replays the original
+`MediaGeneration` instead of generating and billing a second still. A different
+prompt, ratio, quality, or tag never inherits that key, and the key is released
+as soon as a generation returns. A timeout or dropped connection therefore
+reports that the still may or may not have been created and billed, and its
+`error.next.command` names the `media list` call that shows what the account
+actually holds.
+
+The stored rendition is lossy WebP (quality 90) at the exact aspect size with a
+1080 px short edge: `16:9` is 1920×1080, `9:16` 1080×1920, `1:1` 1080×1080,
+`4:3` 1440×1080, `3:4` 1080×1440, `3:2` 1620×1080, and `2:3` 1080×1620. The
+filename is distinctive per generation, `generated-16x9-1a2b3c4d.webp`, with
+the suffix taken from the media id. A generated still declares no
+`source_filename`. Read `data.media.width` / `height` from the envelope rather
+than assuming; fetch the bytes with `media download <id>`.
 
 ScreenRig content has three families: static images, including stills produced
-by local compose; motion video; and web content delivered as an `iframe` or
+by local compose or `media generate`; motion video; and web content delivered as an `iframe` or
 `application`.
 
 Four wire primitives are supported: `image`, `video`, `iframe`, and
-`application`. Copy and chrome are composed locally, uploaded as `image`,
-then used as one image primitive. `playlist templates` is a local catalog of
-slide ids; templates that would emit native `text`, `box`, or `line` fail with a pointer at
-`compose catalog` and `compose render`. Picture-only templates still expand
-to image or video primitives with selectors. A page without `template` is
-forwarded unchanged when its `primitives` use those four wire primitives.
+`application`. Presentable copy lives in the generated still. Decks are
+composed from `compose catalog` examples. Deck copy and chrome are composed
+locally, uploaded as `image`, then used as one image primitive.
+`playlist templates` is a local catalog that refuses native text; it is not
+the authoring path. Templates that would emit native `text`, `box`, or `line`
+fail with a pointer at `compose catalog` and `compose render`. Picture-only
+templates still expand to image or video primitives with selectors. A page
+without `template` is forwarded unchanged when its `primitives` use those
+four wire primitives.
 `canvas.background` is a solid uppercase `#RRGGBBAA` or a top-to-bottom
 linear gradient (`type` `linear`, 2 through 8 strictly increasing stops,
 first `at` 0, last `at` 1, no angle). Image and video primitives write a
@@ -191,17 +280,87 @@ page's type. The outgoing page follows so the edges stay touching. The name
 is motion direction: `swipe-left` moves content left.
 
 Optional object `enter` is `{ "type": "..." }` with that same object name on
-playlist JSON. There is no snake_case rename inside it. Types are
-`fade-up`, `fade-down`, `fade-left`, `fade-right`, `fade-in`, `zoom-in`,
-and `zoom-out`. Absent means no object animation. Use swipe and `enter`
-sparingly, for emphasis or a particular style, not on every page. If you
-want object animation, layer the primitives and put the motion on the
-top-layer text or images. Do not animate every object. Object enter
-starts invisible. It runs 500 ms after the page occupies the full
-viewport, for 400 ms. Those delays are contract constants, not author
-fields and not CLI flags. The pinned CLI implements these playlist document
-fields, and the control plane accepts swipe types and object `enter`. This
-does not establish marketplace availability or deployment.
+playlist JSON. Optional integer `stagger` is 0 through 8. There is no
+snake_case rename inside it. Types are `fade-up`, `fade-down`,
+`fade-left`, `fade-right`, `fade-in`, `zoom-in`, and `zoom-out`. Absent
+means no object animation. Use swipe and `enter` sparingly, for emphasis
+or a particular style, not on every page. If you want object animation,
+layer the primitives and put the motion on the top-layer text or images.
+Do not animate every object. Object enter starts invisible. It runs
+500 ms after the page occupies the full viewport, for 400 ms, plus
+`stagger * 120` ms when `stagger` is present. Those delays are contract
+constants, not author fields and not CLI flags.
+
+Optional object `motion` is a discriminated object on `type`: `spin`,
+`path`, or `drift`. There is no snake_case rename inside it. Absent means
+the primitive stays at rest after enter. `spin` takes `direction`
+`cw` or `ccw` and `speed` `slow`, `medium`, or `fast`, and applies to
+`image` and `video` only. `drift` takes `zoom` `in` or `out`, `direction`
+`left`, `right`, `up`, `down`, or `none`, and the same `speed` tokens,
+and applies to `image` and `video` only. `path` takes 1 through 64
+`points`, `rate` greater than 0 and at most 10000, and optional `loop`
+`loop`, `ping-pong`, or `once`; it applies to `image`, `video`,
+`application`, and `iframe`. `playlist templates` prints the two examples
+below. The bundled CLI implements these playlist document fields, and the
+control plane accepts swipe types, object `enter`, and object `motion`.
+This does not establish marketplace availability or deployment.
+
+A panning background:
+
+```json
+{
+  "id": "pan",
+  "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+  "transition": { "type": "crossfade", "duration_ms": 200 },
+  "advance": { "mode": "duration", "after_ms": 8000 },
+  "primitives": [
+    {
+      "id": "background",
+      "primitive": "image",
+      "selector": { "by": "id", "media_id": "med_background" },
+      "rect": { "x": 0, "y": 0, "width": 2400, "height": 1080 },
+      "layer": 0,
+      "content_fit": "cover",
+      "motion": {
+        "type": "path",
+        "points": [{ "x": -480, "y": 0 }],
+        "rate": 40,
+        "loop": "loop"
+      }
+    }
+  ]
+}
+```
+
+Persistent motion is for designs that call for it; one moving element per page is the norm.
+
+A slowly spinning badge:
+
+```json
+{
+  "id": "badge",
+  "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#1B2632FF" },
+  "transition": { "type": "crossfade", "duration_ms": 200 },
+  "advance": { "mode": "duration", "after_ms": 8000 },
+  "primitives": [
+    {
+      "id": "badge",
+      "primitive": "image",
+      "selector": { "by": "id", "media_id": "med_badge" },
+      "rect": { "x": 1640, "y": 80, "width": 200, "height": 200 },
+      "layer": 1,
+      "content_fit": "contain",
+      "motion": {
+        "type": "spin",
+        "direction": "cw",
+        "speed": "slow"
+      }
+    }
+  ]
+}
+```
+
+Persistent motion is for designs that call for it; one moving element per page is the norm.
 
 The ordinary pair command currently accepts six canonical characters:
 
@@ -234,12 +393,12 @@ de-associate; the server returns `screen_archive_required`.
 Ed25519 identity with `ScreenRig-Pairing` and `ScreenRig-Session`;
 `ScreenRig-Device` is retired. Signed on-device reset is the only
 de-associate. The CLI is not a screen and holds no player keypair. `screen
-archive` and `screen unarchive` are implemented by the pinned CLI. Native
+archive` and `screen unarchive` are implemented by the bundled CLI. Native
 identity remains an owning-player claim; none of this establishes marketplace
 availability, deployment, or hardware validation.
 
 Application packing accepts an already-built static directory. It produces
-deterministic bounded archives, injects the pinned browser SDK runtime, and
+deterministic bounded archives, injects the browser SDK runtime, and
 never builds or executes uploaded source. File-count and expanded-byte limits are
 checked before each file is read; source files are read through bounded descriptors
 and changes during reading are rejected. `app upload` accepts optional
@@ -256,13 +415,15 @@ object on a screen, a playlist, or one playlist page. Compact UTF-8 of that
 object is at most 1 KiB. ScreenRig does not read or use it, does not send it
 to players, and does not treat it as authorization. Set takes `--json-value`
 or `--file`. Last write wins; there is no `--if-match`. These commands are
-implemented by the pinned CLI. Their inclusion does not establish marketplace
+implemented by the bundled CLI. Their inclusion does not establish marketplace
 availability or deployment.
 
 `playback list` returns daily playback aggregates for this account, newest
 days first. Filter with `--screen-id`, `--media-id`, and `--day YYYY-MM-DD`.
 Those identifiers select the caller's own rows and are never a cross-account
-lookup.
+lookup. Each row carries the server-resolved `filename` and, for rows
+aggregated since players began reporting image starts, `primitive` (`image` or
+`video`). Rows last aggregated before that change have no `primitive`.
 
 Authenticated responses may carry remaining prepaid credits as a nonnegative
 whole integer. Remaining never displays negative; empty remaining is `0`.
@@ -275,6 +436,11 @@ this window. After that instant, remaining below 1 credit rejects billed
 control-plane commands with `payment_required` (HTTP 402). The CLI still
 maps a 402 to `payment_required` if the server sends one. Both
 `credits_low` and `payment_required` can appear together on a 402 envelope.
+`media generate` is the exception: it is billed per still by `--quality`
+(low $0.06 / 600 credits, medium $0.12 / 1200 credits, high $0.50 / 5000
+credits). Quality changes the image and the price. Remaining that cannot
+cover the chosen tier returns `payment_required` / 402, including during
+this window.
 `account show`, `agent status`, `agent disconnect --yes`,
 `auth status`, `auth revoke --yes [--allow-lockout]`, `screen toast`,
 `screen screenshot`, `compose catalog`, and `compose render` do not debit
@@ -332,11 +498,10 @@ is safe: the request carries `Idempotency-Key`, and an exact retry returns the
 original link and expiry for twenty-four hours instead of minting a second live
 link.
 
-This command is implemented in current CLI source, but the current locked plugin
-bundle has not yet selected a reviewed artifact containing it. The dashboard
-origin is not deployed: no request has been served there, so a minted link does
-not resolve yet. Do not read this section as a working dashboard or marketplace
-availability claim.
+This command is implemented in current CLI source. The plugin bundles current
+`screenrig/cli` `main`. The dashboard origin is not deployed: no request has
+been served there, so a minted link does not resolve yet. Do not read this
+section as a working dashboard or marketplace availability claim.
 
 ## Feedback
 
@@ -422,11 +587,16 @@ The manifest records `selector_policy: "snapshot"` and
 rejected before any media download because v1 has no application-package
 export.
 
-Import creates a new playlist by default. Updating is explicit and requires the
-current destination revision:
+Import creates a new playlist by default. Playlist names are unique per
+account, so importing an account's own export unchanged is refused with 409
+`resource_conflict`; that problem's `next` names the two ways forward.
+`--name NAME` (1 to 120 characters) replaces the bundle's playlist name on the
+written playlist. Updating is explicit and requires the current destination
+revision:
 
 ```sh
 screenrig --json playlist import ./lobby-bundle
+screenrig --json playlist import ./lobby-bundle --name "Lobby loop (copy)"
 screenrig --json playlist import ./lobby-bundle --update pl_02 --if-match 8
 ```
 
@@ -497,30 +667,69 @@ CLI never prints image bytes, hex, or base64.
 
 ## Local compose
 
+Compose is authoring path 3: slide-deck-like experiences — title/body/table
+slides, internal decks, measured type that must stay editable as compose
+JSON. Decks are composed from `compose catalog` examples. It is local and
+unbilled. Presentable posters, menus, event art, and
+other public-facing rich static pages are generated finished stills, not
+composed pages. Overlay is a compose mechanic for decks; it is not the
+presentable-poster path. Animation is not a reason to compose.
+
 Compose a still on this machine, look at the PNG, then upload it as media.
 
 ```sh
 screenrig --json compose catalog
-screenrig --json compose render ./spec.json --output ./still.png
-screenrig --json media upload ./still.png
+screenrig --json compose render ./spec.json --output ./still
+screenrig --json media upload ./still/left.png
 ```
 
-The spec is a fail-closed tree of `Frame`, `Column`, `Row`, `Box`, `Spacer`,
-`Text`, and `Image`. Roles are `display`, `title`, `body`, `caption`, and
-`label`. Spacing tokens are `xs`, `s`, `m`, `l`, and `xl`. Pins are `top`,
-`bottom`, `left`, and `right`. Do not author `x` or `y` on any node. The root
-`Frame` defines the canvas through required `width` and `height`. Do not author
-`fontSize`. The pinned CLI accepts positive `width` and `height` values in px on
-`Image`, `Box`, `Row`, `Column`, and `Spacer`. Keep `flex` for remaining space.
-`pin` `top` or `bottom` stretches the full width; `left` or `right` stretches
-the full height. Size a wordmark with `width` and `height`, not `pin`.
-Optional Text `textShadow` is
-`{ "x": 2, "y": 2, "blur": 4, "color": "#00000080" }`; omit it to paint
-without a shadow. `Image.src` is a local filesystem path
-relative to the spec file. The CLI does not fetch URLs.
+The spec is a fail-closed JSON page. Page rails are `width`, `height`
+(default 1920×1080), `font`, `background`, `brand`, `text` (the copy color),
+optional `image` or `video` (local full-bleed paths), optional `motion`,
+optional `viewing` (`near`/`mid`/`far`, default `mid`), and optional `pages`.
+Regions are `fullpage`, `left`, `right`, `left-third`, `middle-third`,
+`right-third`, `middle-half`, `top-half`, `bottom-half`, `top`, and `bottom`.
+Inside a region: `eyebrow`, `title`, `subtitle`, `text` (body copy: a string or
+an array of lines), `footer`, `image`, `video`, `iframe`, `webapp`, `cards`,
+`card`, `table`, plus `enter`, `stagger`, `motion`, `align`, `valign`, `fill`,
+`color`, `z`, `shadow`, and `outline`. Unknown keys fail. Do not author
+`fontSize`, `x`, or `y`. On the page, `text` is the copy color. In a region,
+`text` is body copy. Parse order is `eyebrow`, `title`, `subtitle`, `text`,
+then image/cards/table, footer last. `eyebrow` and card-item titles, prices,
+and table headers default to `brand`. Region `title` defaults to page `text`.
+Body `text` uses muted. `subtitle` and `footer` use `text`. Optional region
+or `card` `color` overrides the box. A named `font` must be installed on this
+host. Text over a page `image` or `video` with no `fill` gets a 1 px unblurred
+drop shadow (`#000000E6` on light type, `#FFFFFFE6` on dark type). Set
+`shadow` to `"none"` or `{ x, y, color, blur? }` to override (`blur` 0–32,
+omit is 0). `outline` is `{ width: 0.5-12, color }` and is off unless set.
 
-`--open` is only for viewing the still on this computer. Agent vision reads
-the file path. Do not cat pixels into chat.
+`card` is a plate. `card.fit` is `region` (default, fills the region rect) or
+`ink` (hugs measured type plus 24 px pad, placed with `align`/`valign`).
+Default fill is the page background + B3. Override with `card.fill`. `cards`
+(plural) is an array of `{ title, subtitle?, text?, price?, image? }` and can
+sit inside `card`. Copy accepts `**bold**`, `*italic*`, and `__underline__`.
+`table` is `{ columns, rows }` with 1 to 8 columns; every column is sized
+from its content. Page `logo` is a path or `{ src, corner }` (`top-left` /
+`top-right` / `bottom-left` / `bottom-right`, default `bottom-right`). The
+mark sits 32 px inset from that corner, contained to 200×100, never
+upscaled. `iframe`, `webapp`, and region `video` are not painted: the manifest carries
+`media: { type, src, rect }` in page coordinates and omits `file` when the
+layer is hole-only. Page-level `video` stays a transparent background for the
+player. `enter` is a playlist `PrimitiveEnter` type (`fade-up`
+through `zoom-out`) with optional integer `stagger` 0 through 8. `motion` is
+playlist `spin` or `drift` (same fields as the wire). `compose render`
+writes one PNG per region and `manifest.json` with `version`, `canvas`, and
+`layers[]` each `{ id, file?, z, rect, enter?, motion?, media? }`. Rects are
+integers. `--combined` writes a flattened PNG for inspection. Default for
+agent work is layered. Image paths are local filesystem paths relative to
+the spec file. The CLI does not fetch URLs. Visual lint emits
+`low_contrast_rendered` when sampled finished pixels are below 4.5:1. A
+poor type-on-plate contrast emits a nonblocking `card_low_contrast`
+warning.
+
+`--open` is only for viewing the combined still on this computer. Agent vision
+reads the file path. Do not cat pixels into chat.
 
 A playlist page for that still is one `image` primitive whose `rect` is the
 canvas and whose `content_fit` is `fill`.
@@ -541,6 +750,14 @@ screenrig events follow
 screenrig --json events follow --after ev1_0
 screenrig --json playback list --screen-id scr_01 --day 2026-08-14
 ```
+
+Paging is contiguous. A page is `items` plus `next_cursor`: the cursor of the
+last returned event while newer events already exist, or `null` at the end of
+the history. Pass a string `next_cursor` back as `--after` and stop on `null`;
+`null` is not an error and the CLI never rewrites it. `--limit` defaults to 50
+on the server and accepts 1 through 200. The CLI forwards the value unchanged,
+so a value outside that range returns the server's 400 `invalid_request` with
+an `errors[]` member whose `field` is `limit`. There is no silent cap.
 
 A human line looks like
 `at=2026-08-14T17:00:00.000Z type=application.event severity=info code=cta.pressed primitive_id=weather`.
@@ -574,12 +791,29 @@ credential is secret, including the lookup id ahead of the final underscore, so
 no prefix, suffix, or redacted form of the stored value appears in `doctor`
 output in either mode. `account show` reports the same fact as `token_present`.
 
-`node`, `config_permissions`, `token`, `api_url`, `ffmpeg`, `ffprobe`,
+A fresh install has no credential and nothing is broken, so a missing
+credential is `warn`, not `fail`: the row's `detail` says whether the
+installation is not enrolled, disconnected, or waiting on a pending agent
+connection, and the row carries `next.command` (`screenrig agent enroll
+--email ADDRESS`, or `screenrig agent connect`). The same `next` is repeated
+at `data.next` so a first-run agent can read one field. Run `doctor` before
+`agent enroll`; a `warn` status with that `next` is the expected first-run
+result, and every authenticated command fails with `not_enrolled` until the
+enrollment runs.
+
+`node`, `config_permissions`, `api_url`, `ffmpeg`, `ffprobe`,
 `encoder_libx264`, `health`, `ready`, `version`, and `capabilities` fail when
-they are not satisfied. These rows warn instead:
+they are not satisfied. The `ready` row warns, rather than fails, when the
+service answers 200 with a non-empty `degraded` list. Its `detail` then names
+each degraded dependency and prints the server's `degraded_detail` sentence
+for it verbatim (flattened to one line and redacted), for example why
+`app upload` will answer 503 `dependency_unavailable` until the application
+workers run. A dependency the server lists without a sentence falls back to the
+CLI's own guidance. These rows warn instead:
 
 | Check | Why it is optional |
 | --- | --- |
+| `token` | No credential is stored yet. `next.command` names `agent enroll --email ADDRESS` or `agent connect`. |
 | `cwebp` | The standalone WebP encoder is only the fallback for an ffmpeg build without libwebp, so a host whose ffmpeg carries the `libwebp` encoder never runs it. |
 | `encoder_libwebp` | Where the binary above is installed, stills are encoded with it instead. Animation still needs `libwebp_anim`. |
 | `encoder_libx265` | Only `--codec hevc` uses it. |
@@ -614,6 +848,22 @@ fallback, and whether the build carries the `zscale` and `tonemap` filters that
 HDR tone mapping needs. `encoder_libwebp` is the ffmpeg encoder only, and its
 detail never claims the fallback covers it: a warning there means stills still
 transcode through `cwebp` while animation does not.
+
+Before anything runs, a declared `--content-type` is checked against the
+file's bytes. The CLI sniffs the container signature (PNG, JPEG, GIF, WebP,
+MP4/QuickTime, Matroska/WebM, and a few others) and, when the declared type
+contradicts it, fails locally with `usage_error` naming both types. Nothing is
+transcoded or uploaded: `photo.png --content-type video/mp4` no longer becomes
+a one-frame MP4. A file the sniffer does not recognize is left to the
+extension and ffprobe as before. No declaration means nothing to contradict.
+
+The declaration always carries `source_filename`, the caller's file name. The
+server stores it on the ready object and derives the stored `filename` from it
+when the extension changed: `photo.png` transcoded to WebP is stored as
+`photo.png.webp`, `photo.jpg` as `photo.jpg.webp`, and a source `photo.webp`
+stays `photo.webp`, so distinct sources no longer collide. `media list` and
+`media show` return both fields; `source_filename` is the human handle for
+filename-to-id lookups.
 
 The command also checks the filename. A low-information name such as
 `video.mp4` or `IMG_1234.jpg` adds an advisory `generic_filename` warning to
@@ -714,6 +964,7 @@ link, but that saving does not outrank playback on the browser path.
 
 | Flag | Effect |
 | --- | --- |
+| `--content-type TYPE` | The source's type when the extension does not say. Checked against the bytes first: a contradiction is a local `usage_error` before any transcode or upload. |
 | `--no-transcode` | Upload accepted delivery bytes unchanged. ffmpeg, ffprobe, and cwebp are not run; lossless WebP is still rejected. |
 | `--codec h264\|hevc` | Video codec. Default `h264`. `avc` and `h265` are accepted as aliases. |
 | `--preset signage-1080p30\|signage-4k30` | Optional orientation-aware video size and 30 fps caps. |
@@ -731,10 +982,73 @@ screenrig --json media upload ./lobby.mov --preset signage-1080p30 --no-audio
 screenrig --json media upload ./portrait.mov --preset signage-4k30
 screenrig --json media upload ./poster.png --no-transcode
 screenrig --json media upload ./lobby-welcome.png --tag lobby
+screenrig --json media generate --prompt "Finished 16:9 event poster with all copy typeset in the image. Headline: Community Supper. Date: Saturday 17 October, 19:00. Location: Main Hall. Call to action: Reserve at the welcome desk. Warm editorial food photography with cream type. No other text." --quality high --tag CommunitySupper
+screenrig --json media upload-batch ./images.json --state ./upload-state.json
+screenrig --json media upload-batch ./images.json --state ./upload-state.json --concurrency 4 --no-transcode --tag lobby
 screenrig --json media list --tag lobby --primitive image
 screenrig --json media update med_01 --tag lobby --if-match 1
 screenrig --json media update med_01 --clear-tag --if-match 2
+screenrig --json media download med_01
+screenrig --json media download med_01 --output ./hero.webp
 ```
+
+`media download <id> [--output FILE]` fetches the original stored rendition
+through `GET /api/v1/media/{id}/content` on the account bearer and writes it
+to disk. It reads the `Media` row first, verifies the streamed bytes against
+the row's `bytes` and `sha256` and the response `Content-Type`, and only then
+moves the file into place; a mismatch leaves no file behind. `--output` is a
+file path, not a directory. The default is `./<id>.<ext>` in the current
+working directory, with the extension taken from the content type (`png`,
+`jpg`, `webp`, `gif`, `mp4`, `webm`), matching the server's
+`Content-Disposition`. An existing file is overwritten without a prompt. The
+success envelope is `media_id`, `id`, `path`, `bytes`, `sha256`,
+`content_type`, `primitive`, `filename`, optional `source_filename`, and
+`width` / `height` when the row carries them. Bytes never reach stdout, the
+envelope, or the operation log. This is what makes a generated still
+composable: download it, then point a `compose render` region `image` at the
+path.
+
+The `media upload` success envelope reports `upload.filename` as the name the
+server actually stored, read back from the ready `Media` row after commit. The
+server derives it from `source_filename` when a client-side transcode changed
+the extension, so `photo.png` is stored as `photo.png.webp` and `photo.jpg` as
+`photo.jpg.webp` while a source `photo.webp` stays `photo.webp`. The name the
+CLI put on the wire stays visible as `upload.declared_filename` (`photo.webp`
+for all three), the caller's original name stays as `upload.source_filename`,
+and `upload.filename_source` is `server` or, when the row could not be read
+back, `declared`. Under `--no-wait` there is no ready row yet, so the declared
+name is what is reported. The `generic_filename` warning quotes the caller's
+own name rather than a post-transcode derivative.
+
+`media upload-batch` uploads many local files through the same declare / transcode
+/ PUT / wait path as `media upload`. The manifest is
+`{ "items": [ { "path": "./a.png", "tag"?: "lobby", "content_type"?: "image/png" } ] }`
+with 1 to 1000 items. Paths are resolved relative to the manifest file.
+`--state FILE` is required: a 0600 JSON file keyed by the SHA-256 of each
+source file's local bytes, bound to this API URL and account. Items already
+present with a `media_id` are skipped and reported as `resumed`. The file
+records the operation id as soon as declare succeeds, before the signed PUT,
+so a crash mid-flight can recover on resume. Do not share one state file
+across accounts.
+
+Each item's idempotency key is derived from its content hash, so a retry of
+the same bytes does not create a duplicate. A 409 `resource_conflict` whose
+detail is a terminal operation first tries to recover the media id (from the
+stored operation, or by matching `sha256` on `GET /api/v1/media`); if none
+exists the item re-declares with a fresh key derived from `sha256` plus an
+attempt counter and records that in state. A 429 honours `Retry-After`
+(delta-seconds or HTTP-date) when the server sends it; otherwise the command
+uses bounded exponential backoff starting at 1 second, capped at 30 seconds,
+with jitter, and at most 8 attempts per item. 5xx responses use the same
+backoff. `--concurrency` defaults to 4 and accepts 1 through 8.
+
+The envelope reports `attempts`, `rate_limited`, `wait_ms` (backoff sleeps),
+`transfer_ms` (request time), `accepted`, `resumed`, `items`, and `failed` (the
+last problem per failed item). `items` is one row per file that reached the
+account, in manifest order, with `path`, `source_filename`, `sha256`,
+`outcome` (`accepted` or `resumed`), `media_id`, and `revision` when known, so
+a batch does not need a follow-up `media list --tag` to learn what it created. Progress goes to stderr; `--no-progress` silences
+it. `--tag` is the default tag when an item omits one.
 
 `media list` forwards `--tag` and `--primitive image|video` to
 `GET /api/v1/media` as `tag` and `primitive` parameters.
@@ -751,9 +1065,14 @@ Under `--json` the reporter writes `transcode_start`, `transcode_progress`, and
 an ETA, redrawn in place on a TTY and throttled when stderr is not a TTY.
 
 The envelope carries a `transcode` block with `applied`, `stage`, `reason`,
-`source_bytes`, `output_bytes`, `width`, `height`, `dimensions_measured`, and
-`duration_ms`. `width` and `height` are read back from the produced file with a
-follow-up probe. Video read-back must confirm the codec, profile/level, pixel
+`source_bytes`, `output_bytes`, `width`, `height`, `source_width`,
+`source_height`, `dimensions_measured`, and `duration_ms`. `width` and
+`height` are read back from the produced file with a follow-up probe;
+`source_width` and `source_height` are the probed source dimensions before any
+bound. When an image larger than the edge bound is scaled down, the envelope
+adds an `image_resized` warning naming the source and delivered sizes (for
+example `8000x4000` scaled to `3840x1920`), so nobody discovers the smaller
+still on the screen. Video read-back must confirm the codec, profile/level, pixel
 format, exact planned dimensions, rate, color tags, and expected audio layout
 before any upload starts. Known interlaced output is rejected; unavailable HEVC
 scan metadata is reported as `unknown`. A failed video probe or mismatch aborts
@@ -818,10 +1137,13 @@ is absent, valueless, not a directory, or missing a canonical input is an error,
 never a pass. Run it whenever the backend contract may have changed; a snapshot
 that passes `vendor:check` can still be superseded.
 
-The ordinary `main` workflow publishes deterministic `screenrig-cli.tgz` as a
-short-lived CI artifact. The plugin repository pins that artifact by CLI commit
-and SHA-256. A separate protected workflow publishes npm only after a
-non-prerelease GitHub release is published with a tag matching the package version.
+The ordinary `main` workflow tags `vYY.MM.N` and publishes deterministic
+`screenrig-cli.tgz` as a short-lived CI artifact. Committed `package.json` stays
+`0.1.0`; CI stamps the artifact. The plugin repository records that artifact as
+provenance (CLI commit and SHA-256), not as a freeze instead of `main`. A
+separate protected workflow publishes npm
+only after a non-prerelease GitHub release is published on that existing CalVer
+tag. It reuses the tag and stamps the published package.
 It uses npm trusted publishing through GitHub OIDC, includes provenance, performs
 exact-version clean-install tests on Linux, macOS, and Windows, and attaches the
 offline archive plus its checksum to the stable GitHub release. See the
@@ -829,10 +1151,10 @@ offline archive plus its checksum to the stable GitHub release. See the
 
 For a coordinated identity release, freeze and review the backend contract
 first, vendor and gate that exact snapshot here, publish and review the resulting
-CLI CI artifact, then update the plugin lock and regenerate its bundle. Site and
-dashboard releases follow their own independent workflows only after those
-inputs are fixed. Source-ready CLI commands are not evidence that the older
-locked plugin bundle or any public origin exposes them.
+CLI CI artifact. Plugin CI packs current `screenrig/cli` `main` into the
+marketplace bundle. Site and dashboard releases follow their own independent
+workflows only after those inputs are fixed. Source-ready CLI commands are not
+evidence that a public origin exposes them.
 
 The plugin marketplace is a separate distribution. This repository does not
 deploy ScreenRig, publish Homebrew formulae, or publish to PyPI.
@@ -857,16 +1179,22 @@ not other ScreenRig services or repositories.
 
 ### Compose quality and application revisions
 
-`compose catalog` includes installed font families, validator-backed node
-attributes, and complete slide and transparent-overlay examples.
+`compose catalog` includes installed font families, page keys, named regions,
+region fields, enter and motion enums, `viewing` (`near`/`mid`/`far`, default
+`mid`) for distance-based type floors applied at layout (1080p mid body wish
+is about 45 px) and again as visual `lint` (`too_small_for_distance`),
+layered examples, visual `lint` codes, and the preview reminder to look at
+the contact sheet.
 `compose render spec.json --target-width 3840 --target-height 2160` checks the
 physical content viewport without resizing the output. Nonblocking warnings
-identify decoded image upscaling above 1.25×, fill aspect distortion above 1%,
-and flattened output upscaling above 1.25×. Measurements are returned in
-`data.quality` and the layout JSON; an omitted target is explicitly unknown.
-Use `contain` for a complete logo and `cover` for proportional cropping.
-Re-render from originals at the required Frame dimensions to recover detail.
+identify decoded image upscaling above 1.25× and output upscaling above 1.25×.
+Measurements are returned in `data.quality` and visual `lint`; they are not
+`manifest.json` fields. An omitted target is explicitly unknown. Cover crops
+fill a region without stretching.
+Re-render from originals at the required canvas dimensions to recover detail.
 Optional `--safe-area` flags measured text ink outside a 5% TV-safe margin.
+`compose batch` accepts the same flags, writes a contact sheet, and supports
+`--only ID`.
 
 To publish a replacement package under the same application identity, run
 `app show app_EXAMPLE` to obtain its revision, then
@@ -877,26 +1205,33 @@ update their application primitive explicitly after the operation succeeds.
 
 ### Local deck authoring
 
-`compose render` accepts ordinary Frame specs or semantic recipes from
-`compose catalog`: `title`, `split-image`, `cards`, `table`, and `overlay`.
-Recipes retain native measured Text nodes, 5% content insets and readable type
-floors. They accept explicit physical `width`/`height` (default 1920×1080).
-Images preserve aspect; overlays keep text opaque over a translucent plate.
+`compose render` accepts a JSON page or a deck `{ "pages": [ { "id": "intro", ...region overrides } ] }`.
+A deck file is enough; `compose batch` adds a contact-sheet preview and
+`--only ID`. Type size follows the canvas. Images cover their region.
+Overlays keep text opaque; set a `card` plate when backing is needed.
+Alternate region sets on adjacent pages; a deck that repeats one layout
+reads as a slideshow, not signage.
 
-`compose batch deck.json --output ./rendered --safe-area` accepts
-`{"pages":[{"id":"intro","spec":{"recipe":"title","title":"Welcome","body":"A useful introduction."}}]}`.
-Each spec may also be a relative JSON file path. One command returns ordered
-results, PNGs, measured layout diagnostics, a contact-sheet preview and a
-manifest. Failures retain successful pages; `--only intro` selectively retries
-one page and marks other pages `not_selected` in a separate correction manifest.
-Rendering is serial to bound full-resolution memory, with at most 100 pages.
+`compose batch deck.json --output ./rendered --safe-area` accepts the same
+JSON as `compose render`, including `{ "pages": [ { "id": "intro", "left": { "title": "Welcome", "text": "A useful introduction." } } ] }`.
+One command accepts 1 to 2000 pages and returns ordered results, layered
+PNGs, `manifest.json`, a contact-sheet preview and a batch manifest.
+`--only intro` selectively retries one page and marks other pages
+`not_selected` in a separate correction manifest.
 
-Diagnostics distinguish measured text overflow, truncation, crowding and text
-collisions from intentional text/media overlays. Missing-glyph raster detection
-selects a complete installed fallback before measurement and paint, preserving
-the requested weight and reporting its node and font. Unresolved glyphs are
-warned explicitly. This is not a language-shaping guarantee. Full-resolution
-visual review remains useful; contact sheets are reduced-resolution previews.
+Missing-glyph raster detection selects a complete installed fallback before
+measurement and paint, preserving the requested weight and reporting its node
+and font. Unresolved glyphs are warned explicitly. This is not a
+language-shaping guarantee. Full-resolution visual review remains useful;
+contact sheets are reduced-resolution previews. Copy that still cannot fit at
+the minimum type scale is a `usage_error` that names the region (and `.card`
+for an ink plate) and the scale it was tried at; no PNG is written for that
+page, because a still with copy hanging past its plate or region edge is wrong
+to ship. Shorten the copy, drop a block, or use a taller region. An ink-fit
+card measures its type inside the plate's own 24 px padding, so the plate hugs
+every line. Regions that share one top and height (`left` and `right`, or the
+three thirds) form a row: with automatic vertical alignment they share one
+type scale and one starting line, so titles across a menu sit on one baseline.
 
 `playlist validate playlist.json` performs offline canonical schema and
 cross-field validation before upload or publication. Create/update run the same
@@ -904,3 +1239,26 @@ check. JSON errors identify exact fields, including unsupported entry timing.
 A local pass does not resolve authorization, reference readiness, dynamic
 selectors, media durations or remote availability. The schema and semantics
 come from the backend snapshots tracked by `vendor/manifest.json`.
+Validate, `compose render`, and `compose batch` also emit visual `lint`
+warnings (never errors) under `data.lint`, ordered by page:
+`low_contrast_rendered` (finished pixels below 4.5:1),
+`text_over_busy_image` (text over the page background image, or over an image
+painted in the same region; a page `logo` is a corner mark and never counts as
+a background), `too_small_for_distance`, `too_dense`, `collision`,
+`motion_overuse`, `adjacent_repeat`, and `safe_margin`.
+`--lint-only` is accepted on those commands and on `playlist preview`.
+
+`playlist preview playlist.json --output ./frames --contact-sheet` composites
+every page at 1920×1080 using `screenrig.canvas/v1` canvas-to-viewport,
+layer order, content fit, and clipping. It writes three PNGs per page with
+stable names `<page-id>.rest.png`, `<page-id>.entry.png`, and
+`<page-id>.motion-mid.png`. `rest` is after all object enters; `entry` is
+700 ms into the enter timeline; `motion-mid` is path/spin/drift at half
+cycle. Local compose outputs or fetched media fill image and video regions
+(video uses an ffmpeg poster at `--frame-ms`, default 1000); iframe and
+application regions are labelled grey placeholders. `--contact-sheet` writes
+one 6-column PNG of every `rest` frame with the page id and lint count under
+each tile. Preview of a `pl_…` id uses the account API; a JSON file does not
+enroll.
+
+Look at the contact sheet before publishing. Fix what the lint names, then look again.

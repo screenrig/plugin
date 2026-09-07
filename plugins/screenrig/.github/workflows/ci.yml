@@ -11,12 +11,12 @@ permissions:
 
 concurrency:
   group: public-plugin-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -24,24 +24,20 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
-      - name: Reproduce the exact pinned CLI artifact
+      - name: Pack current screenrig/cli main
         run: |
+          repository="screenrig/cli"
+          filename="screenrig-cli.tgz"
           test "$(jq -r .state components.lock.json)" = resolved
-          repository="$(jq -r .cli.repository components.lock.json)"
-          commit="$(jq -r .cli.commit components.lock.json)"
-          filename="$(jq -r .cli.artifact.file components.lock.json)"
-          expected="$(jq -r .cli.artifact.sha256 components.lock.json)"
-          test "${repository}" = screenrig/cli
+          test "$(jq -r .cli.repository components.lock.json)" = "${repository}"
           install -d "${RUNNER_TEMP}/screenrig-cli-source"
           git -C "${RUNNER_TEMP}/screenrig-cli-source" init --quiet
           git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --depth=1 \
-            "https://github.com/${repository}.git" "${commit}"
+            "https://github.com/${repository}.git" main
           git -C "${RUNNER_TEMP}/screenrig-cli-source" checkout --quiet --detach FETCH_HEAD
-          test "$(git -C "${RUNNER_TEMP}/screenrig-cli-source" rev-parse HEAD)" = "${commit}"
-          # Fetch the vYY.MM.* tag for this CLI commit and apply the same stamp
-          # the CLI distributing job used, so the hash does not drift. The first
-          # stamped CLI tarball invalidates the sha256 in components.lock.json
-          # until ops re-locks. Do not invent a SHA.
+          commit="$(git -C "${RUNNER_TEMP}/screenrig-cli-source" rev-parse HEAD)"
+          # Stamp the same CalVer the CLI distributing job used when this
+          # main HEAD is tagged vYY.MM.N, so the tarball hash is stable.
           cli_version="$(python3 scripts/calver.py cli-stamp --repository "${repository}" --commit "${commit}")"
           if [ -n "${cli_version}" ]; then
             export SCREENRIG_VERSION="${cli_version}"
@@ -55,15 +51,39 @@ jobs:
           bash "${RUNNER_TEMP}/screenrig-cli-source/scripts/package-release.sh" \
             "${RUNNER_TEMP}/screenrig-cli/${filename}"
           test -f "${RUNNER_TEMP}/screenrig-cli/${filename}"
-          printf '%s  %s\n' "${expected}" "${RUNNER_TEMP}/screenrig-cli/${filename}" \
-            | sha256sum --check --status
+          printf '%s' "${commit}" > "${RUNNER_TEMP}/screenrig-cli/commit"
       - name: Rebuild and verify the committed plugin bundle
         run: |
-          filename="$(jq -r .cli.artifact.file components.lock.json)"
-          python3 scripts/build-plugin.py --check --cli-artifact "${RUNNER_TEMP}/screenrig-cli/${filename}"
-          python3 scripts/validate-plugin.py --cli-artifact "${RUNNER_TEMP}/screenrig-cli/${filename}" --cli-source "${RUNNER_TEMP}/screenrig-cli-source"
+          filename="screenrig-cli.tgz"
+          artifact="${RUNNER_TEMP}/screenrig-cli/${filename}"
+          commit="$(cat "${RUNNER_TEMP}/screenrig-cli/commit")"
+          packed="$(sha256sum "${artifact}" | awk '{print $1}')"
+          locked="$(jq -r .cli.artifact.sha256 components.lock.json)"
+          if [ "${packed}" != "${locked}" ]; then
+            if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+              echo "Committed marketplace CLI is behind screenrig/cli main" >&2
+              echo "packed ${packed}" >&2
+              echo "locked ${locked}" >&2
+              exit 1
+            fi
+            python3 scripts/build-plugin.py --cli-artifact "${artifact}" --write-lock --cli-commit "${commit}"
+            install -d "${RUNNER_TEMP}/screenrig-cli-bundle-update"
+            cp components.lock.json "${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
+            cp -a plugins/screenrig "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig"
+          fi
+          python3 scripts/build-plugin.py --check --cli-artifact "${artifact}"
+          python3 scripts/validate-plugin.py --cli-artifact "${artifact}" --cli-source "${RUNNER_TEMP}/screenrig-cli-source"
           python3 scripts/check-public-repo.py
           PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-public-dependencies.py
+          python3 scripts/test-skill-commands.py
+      - name: Upload rebuilt marketplace CLI when it drifted
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: screenrig-cli-bundle-update
+          path: ${{ runner.temp }}/screenrig-cli-bundle-update/
+          if-no-files-found: ignore
+          retention-days: 1
       - name: Package deterministic plugin artifact
         if: github.ref != 'refs/heads/main'
         run: >-
@@ -82,7 +102,7 @@ jobs:
     if: github.repository == 'screenrig/plugin' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
@@ -90,6 +110,35 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: screenrig-cli-bundle-update
+          path: ${{ runner.temp }}/screenrig-cli-bundle-update
+      - name: Publish current CLI bundle when screenrig/cli main moved
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          update="${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
+          if [ ! -f "${update}" ]; then
+            echo "Committed marketplace CLI already matches screenrig/cli main"
+            exit 0
+          fi
+          old="$(jq -r .cli.artifact.sha256 components.lock.json)"
+          new="$(jq -r .cli.artifact.sha256 "${update}")"
+          if [ "${old}" = "${new}" ]; then
+            echo "Bundled CLI digest unchanged; not committing"
+            exit 0
+          fi
+          cp "${update}" components.lock.json
+          rm -rf plugins/screenrig
+          cp -a "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig" plugins/screenrig
+          git add -- components.lock.json plugins/screenrig
+          git diff --cached --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Bundle current screenrig/cli main"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
       - name: Tag this commit and stamp the distributing artifact
         run: |
           version="$(python3 scripts/calver.py tag)"

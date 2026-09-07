@@ -30,6 +30,28 @@ export function resolveFontFamily(name) {
     }
     throw usage(`none of the fallback fonts were installed: ${FONT_FALLBACKS.join(", ")}`);
 }
+export function cssFont(weight, size, family, italic = false) {
+    return `${italic ? "italic " : ""}${weight} ${size}px "${family}"`;
+}
+export function familyHasFace(family, weight, italic) {
+    loadUserFonts();
+    const entry = GlobalFonts.families.find((item) => item.family === family);
+    if (!entry)
+        return false;
+    return entry.styles.some((style) => {
+        const isItalic = /italic|oblique/i.test(style.style);
+        if (isItalic !== italic)
+            return false;
+        return weight >= 600 ? style.weight >= 600 : style.weight < 600;
+    });
+}
+export function isSyntheticFace(family, weight, italic) {
+    const numeric = Number(weight);
+    const wantBold = Number.isFinite(numeric) && numeric >= 600;
+    if (!wantBold && !italic)
+        return false;
+    return !familyHasFace(family, wantBold ? 700 : 400, italic);
+}
 const glyphCache = new Map();
 function glyphSignature(character, family, weight) {
     const key = `${family}\0${weight}\0${character}`;
@@ -42,6 +64,12 @@ function glyphSignature(character, family, weight) {
     const signature = `${ctx.measureText(character).width}:${createHash("sha256").update(ctx.getImageData(0, 0, 128, 128).data).digest("hex")}`;
     glyphCache.set(key, signature);
     return signature;
+}
+export function familyRendersText(family, text, weight) {
+    loadUserFonts();
+    if (!GlobalFonts.has(family))
+        return false;
+    return missingCharacters(text, family, weight).length === 0;
 }
 function missingCharacters(text, family, weight) {
     const missing = glyphSignature("\u{10ffff}", family, weight);

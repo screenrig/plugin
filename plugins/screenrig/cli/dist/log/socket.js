@@ -3,66 +3,70 @@ import { configError } from "../problems.js";
 import { redactText } from "../redact.js";
 const MAX_PENDING_LOG_BYTES = 1024 * 1024;
 const LOG_CLOSE_TIMEOUT_MS = 5000;
+/** Counts every line and never writes. Used when connect fails. */
+export class DroppingLogSink {
+    dropped = 0;
+    writeLine(_line) {
+        this.dropped += 1;
+    }
+    async close() { }
+    droppedCount() {
+        return this.dropped;
+    }
+}
 class UnixSocketSink {
     socket;
-    socketPath;
-    failed;
-    constructor(socket, socketPath) {
+    failed = false;
+    dropped = 0;
+    constructor(socket) {
         this.socket = socket;
-        this.socketPath = socketPath;
-        this.socket.on("error", (err) => { this.failed = err; });
-    }
-    writeError() {
-        return configError(`Failed to write operation log to ${this.socketPath}: ${redactText(this.failed?.message ?? "socket closed")}. ` +
-            "The consumer must already be listening and reading.");
+        this.socket.on("error", () => {
+            this.failed = true;
+        });
     }
     writeLine(line) {
-        if (this.failed || this.socket.destroyed)
-            throw this.writeError();
+        if (this.failed || this.socket.destroyed) {
+            this.dropped += 1;
+            return;
+        }
         const payload = line.endsWith("\n") ? line : `${line}\n`;
         if (this.socket.writableLength + Buffer.byteLength(payload) > MAX_PENDING_LOG_BYTES) {
-            this.failed = new Error("log consumer is not draining the bounded write buffer");
-            this.socket.destroy();
-            throw this.writeError();
+            this.dropped += 1;
+            return;
         }
         // Socket end waits for all write callbacks. Keeping a Promise per completed
         // line would retain the entire history of a long-running events command.
-        this.socket.write(payload, (err) => { if (err)
-            this.failed = err; });
+        this.socket.write(payload, (err) => {
+            if (err) {
+                this.failed = true;
+            }
+        });
+    }
+    droppedCount() {
+        return this.dropped;
     }
     async close() {
-        if (this.failed) {
-            this.socket.destroy();
-            throw this.writeError();
-        }
-        if (this.socket.destroyed)
+        if (this.socket.destroyed) {
             return;
+        }
         try {
-            await new Promise((resolve, reject) => {
-                const finish = (error) => {
+            await new Promise((resolve) => {
+                const finish = () => {
                     clearTimeout(timer);
                     this.socket.removeListener("finish", onFinish);
                     this.socket.removeListener("error", onError);
                     this.socket.removeListener("close", onClose);
-                    if (error)
-                        reject(error);
-                    else if (this.failed)
-                        reject(this.writeError());
-                    else
-                        resolve();
+                    resolve();
                 };
                 const onFinish = () => finish();
-                const onError = (error) => finish(error);
-                const onClose = () => finish(this.socket.writableFinished ? undefined : new Error("socket closed before log flush"));
-                const timer = setTimeout(() => finish(new Error("log consumer did not drain before close timed out")), LOG_CLOSE_TIMEOUT_MS);
+                const onError = () => finish();
+                const onClose = () => finish();
+                const timer = setTimeout(finish, LOG_CLOSE_TIMEOUT_MS);
                 this.socket.once("finish", onFinish);
                 this.socket.once("error", onError);
                 this.socket.once("close", onClose);
                 this.socket.end();
             });
-        }
-        catch (error) {
-            throw configError(`Failed to close log_socket ${this.socketPath}: ${redactText(error instanceof Error ? error.message : "socket close failed")}.`);
         }
         finally {
             this.socket.destroy();
@@ -92,7 +96,7 @@ export async function connectUnixLogSocket(socketPath) {
             }
             settled = true;
             socket.removeListener("error", fail);
-            resolve(new UnixSocketSink(socket, socketPath));
+            resolve(new UnixSocketSink(socket));
         });
     });
 }

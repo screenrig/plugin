@@ -1,6 +1,6 @@
 import { fetchSignedRawPut } from "../runtime.js";
 import { commandWords, createSinkLogger, loggingSignedRawPut, noopLogger } from "./logger.js";
-import { connectUnixLogSocket } from "./socket.js";
+import { connectUnixLogSocket, DroppingLogSink } from "./socket.js";
 function bindLogger(runtime, logger) {
     runtime.logger = logger;
     runtime.fs = { ...runtime.fs, logger };
@@ -21,7 +21,13 @@ export async function attachOperationLogger(runtime, args, resolved) {
         runtime.logger = noopLogger;
         return;
     }
-    const sink = await connectUnixLogSocket(socketPath);
+    let sink;
+    try {
+        sink = await connectUnixLogSocket(socketPath);
+    }
+    catch {
+        sink = new DroppingLogSink();
+    }
     const logger = createSinkLogger({
         sink,
         command,

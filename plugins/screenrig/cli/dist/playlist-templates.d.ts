@@ -16,6 +16,90 @@ export declare const SLIDE_DEFAULT_TRANSITION: {
 export declare const SLIDE_SWIPE_AUTHORING_DURATION_MS = 600;
 export declare const PLAYLIST_TRANSITION_TYPES: readonly ["crossfade", "swipe-left", "swipe-right", "swipe-up", "swipe-down"];
 export declare const OBJECT_ENTER_TYPES: readonly ["fade-up", "fade-down", "fade-left", "fade-right", "fade-in", "zoom-in", "zoom-out"];
+export declare const OBJECT_MOTION_TYPES: readonly ["spin", "path", "drift"];
+export declare const OBJECT_MOTION_GUIDANCE = "Persistent motion is for designs that call for it; one moving element per page is the norm.";
+/** Full-page example: one panning background on `path` / `loop`. */
+export declare const PANNING_BACKGROUND_EXAMPLE_PAGE: {
+    id: string;
+    canvas: {
+        width: number;
+        height: number;
+        viewport_fit: "contain";
+        background: string;
+    };
+    transition: {
+        type: "crossfade";
+        duration_ms: number;
+    };
+    advance: {
+        mode: "duration";
+        after_ms: number;
+    };
+    primitives: {
+        id: string;
+        primitive: "image";
+        selector: {
+            by: "id";
+            media_id: string;
+        };
+        rect: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        };
+        layer: number;
+        content_fit: "cover";
+        motion: {
+            type: "path";
+            points: {
+                x: number;
+                y: number;
+            }[];
+            rate: number;
+            loop: "loop";
+        };
+    }[];
+};
+/** Full-page example: one slowly spinning badge. */
+export declare const SPINNING_BADGE_EXAMPLE_PAGE: {
+    id: string;
+    canvas: {
+        width: number;
+        height: number;
+        viewport_fit: "contain";
+        background: string;
+    };
+    transition: {
+        type: "crossfade";
+        duration_ms: number;
+    };
+    advance: {
+        mode: "duration";
+        after_ms: number;
+    };
+    primitives: {
+        id: string;
+        primitive: "image";
+        selector: {
+            by: "id";
+            media_id: string;
+        };
+        rect: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        };
+        layer: number;
+        content_fit: "contain";
+        motion: {
+            type: "spin";
+            direction: "cw";
+            speed: "slow";
+        };
+    }[];
+};
 export declare const SLIDE_DEFAULT_ADVANCE: {
     mode: "duration";
     after_ms: number;
@@ -122,6 +206,12 @@ export interface TemplateCatalog {
     transition_types: readonly typeof PLAYLIST_TRANSITION_TYPES[number][];
     swipe_duration_ms: number;
     enter_types: readonly typeof OBJECT_ENTER_TYPES[number][];
+    motion_types: readonly typeof OBJECT_MOTION_TYPES[number][];
+    motion_guidance: string;
+    motion_examples: {
+        panning_background: typeof PANNING_BACKGROUND_EXAMPLE_PAGE;
+        spinning_badge: typeof SPINNING_BADGE_EXAMPLE_PAGE;
+    };
     advance: {
         mode: "duration";
         after_ms: number;

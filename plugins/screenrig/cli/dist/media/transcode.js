@@ -142,6 +142,8 @@ export async function transcodeForUpload(request) {
                     durationMs: 0,
                     width: sourceWebp.width,
                     height: sourceWebp.height,
+                    sourceWidth: sourceWebp.width,
+                    sourceHeight: sourceWebp.height,
                     // Read from the RIFF header of the exact bytes being uploaded.
                     dimensionsMeasured: true,
                     warnings: [],
@@ -180,6 +182,8 @@ export async function transcodeForUpload(request) {
                 durationMs: 0,
                 width: passedProbe.displayWidth,
                 height: passedProbe.displayHeight,
+                sourceWidth: passedProbe.displayWidth,
+                sourceHeight: passedProbe.displayHeight,
                 // A passthrough uploads the probed source verbatim, so this is measured.
                 dimensionsMeasured: true,
                 warnings: [],
@@ -241,6 +245,21 @@ export async function transcodeForUpload(request) {
                 measured = await measureOutput(runtime, toolchain, outputPath, kind);
             }
             const warnings = [...plan.warnings];
+            const finalWidth = measured?.width ?? plan.outputWidth;
+            const finalHeight = measured?.height ?? plan.outputHeight;
+            // An image larger than the bound is accepted and scaled, not rejected. Say
+            // so with both sizes, because nothing else in the envelope shows the source.
+            const resized = kind === "image" &&
+                (probe.displayWidth > options.maxEdge || probe.displayHeight > options.maxEdge) &&
+                (finalWidth !== probe.displayWidth || finalHeight !== probe.displayHeight)
+                ? {
+                    sourceWidth: probe.displayWidth,
+                    sourceHeight: probe.displayHeight,
+                    width: finalWidth,
+                    height: finalHeight,
+                    maxEdge: options.maxEdge,
+                }
+                : undefined;
             if (!measured) {
                 warnings.push("The CLI could not measure the transcoded file, so the reported width and height are the " +
                     "planned values and may differ from the delivered file by a pixel or two.");
@@ -267,10 +286,13 @@ export async function transcodeForUpload(request) {
                 sourceBytes,
                 outputBytes,
                 durationMs,
-                width: measured?.width ?? plan.outputWidth,
-                height: measured?.height ?? plan.outputHeight,
+                width: finalWidth,
+                height: finalHeight,
+                sourceWidth: probe.displayWidth,
+                sourceHeight: probe.displayHeight,
                 dimensionsMeasured: measured !== undefined,
                 ...(video ? { video } : {}),
+                ...(resized ? { resized } : {}),
                 warnings,
                 cleanupDir,
             };

@@ -1,26 +1,15 @@
-import { resolveTextFont } from "./fonts.js";
+import type { ComposeDocument, LayerSpec, LogoCorner, PageManifest, PageSpec, PlaylistRect } from "./types.js";
+import { CARD_INK_PAD, LOGO_INSET, LOGO_MAX } from "./types.js";
 export { resolveFontFamily } from "./fonts.js";
-import type { SpaceScale, TypeRamp } from "./types.js";
-interface Box {
+export { parseComposeSpec } from "./parse.js";
+export { regionRect } from "./parse.js";
+export declare function rejectImageLikeOutput(output: string, command: string): void;
+export declare function resolveImagePath(src: string, baseDir: string, field?: string): string;
+export interface Box {
     x: number;
     y: number;
     width: number;
     height: number;
-}
-export interface LayoutDump {
-    type: string;
-    role?: string;
-    pin?: string;
-    box?: Box;
-    text_bounds?: Box;
-    text_font?: ReturnType<typeof resolveTextFont>;
-    fit?: {
-        fontSize: number;
-        lineHeight: number;
-        lines: string[];
-        truncated: boolean;
-    };
-    children?: LayoutDump[];
 }
 export interface ComposeQuality {
     target_status: "known" | "unknown";
@@ -37,15 +26,15 @@ export interface ComposeQuality {
         y: number;
     };
     text: Array<{
-        node: string;
+        layer: string;
+        role: string;
         box: Box;
         ink: Box;
         font_size: number;
-        preferred_font_size: number;
-        truncated: boolean;
+        family: string;
     }>;
     fonts: Array<{
-        node: string;
+        layer: string;
         family: string;
         fallback_from?: string;
         missing_codepoints: string[];
@@ -53,11 +42,11 @@ export interface ComposeQuality {
     overlaps: Array<{
         first: string;
         second: string;
-        kind: "text_text" | "text_media" | "media_media";
+        kind: "layer_layer";
         area: number;
     }>;
     images: Array<{
-        node: string;
+        layer: string;
         source: {
             width: number;
             height: number;
@@ -70,7 +59,7 @@ export interface ComposeQuality {
             width: number;
             height: number;
         };
-        object_fit: string;
+        object_fit: "cover";
         scale_x: number;
         scale_y: number;
     }>;
@@ -79,30 +68,107 @@ export interface ComposeWarning {
     code: string;
     message: string;
 }
-export interface ComposeResult {
+export interface PaintedLayer {
+    id: string;
+    png: Buffer | null;
+    family: string;
+    overflow: boolean;
+    scale: number;
+    /** Distance from the padded region top to the first line of type. */
+    originOffset: number;
+    ink: Box[];
+}
+export interface ComposePageResult {
+    id: string;
+    layers: LayerSpec[];
+    painted: PaintedLayer[];
+    manifest: PageManifest;
+    combined: Buffer;
     quality: ComposeQuality;
     warnings: ComposeWarning[];
-    layout: LayoutDump;
-    space: SpaceScale;
-    ramp: TypeRamp;
-    ramp_root: number;
-    ramp_at_1080: TypeRamp;
     font_family: string;
-    truncated: boolean;
+}
+export interface ComposeResult {
+    document: ComposeDocument;
+    pages: ComposePageResult[];
+    canvas: {
+        width: number;
+        height: number;
+    };
+    name: string | null;
+}
+export { LOGO_MAX, LOGO_INSET, CARD_INK_PAD };
+export declare function logoSize(img: {
     width: number;
     height: number;
-}
-export declare function resolveImagePath(src: string, baseDir: string): string;
-export declare function composeSpec(spec: unknown, options: {
+}): {
+    width: number;
+    height: number;
+};
+export declare function placeLogo(img: {
+    width: number;
+    height: number;
+}, canvas: {
+    width: number;
+    height: number;
+}, corner: LogoCorner): Box;
+/** Logo painted box plus the 32 px margin back to the chosen canvas edges. */
+export declare function reservedLogoBox(logo: Box, canvas: {
+    width: number;
+    height: number;
+}, corner: LogoCorner): Box;
+export declare function composeDocument(source: unknown, options: {
     baseDir: string;
-    outPath?: string;
-    layoutOutPath?: string;
-    safeArea?: boolean;
     target?: {
         width: number;
         height: number;
     };
-}): Promise<ComposeResult & {
-    png: Buffer;
+    safeArea?: boolean;
+}): Promise<ComposeResult>;
+export interface WrittenCompose {
+    output: string;
+    canvas: {
+        width: number;
+        height: number;
+    };
+    name: string | null;
+    files: string[];
+    pages: Array<{
+        id: string;
+        dir: string;
+        manifest: PageManifest;
+        images: Array<{
+            id: string;
+            file: string;
+        }>;
+        combined?: string;
+        quality: ComposeQuality;
+        warnings: ComposeWarning[];
+        font_family: string;
+        scale: Record<string, number>;
+    }>;
+    manifest: PageManifest | null;
+    images: Array<{
+        id: string;
+        file: string;
+    }>;
+    quality: ComposeQuality;
+    warnings: ComposeWarning[];
+    font_family: string;
+}
+export declare function composeAndWrite(source: unknown, options: {
+    baseDir: string;
+    outDir: string;
+    combined?: boolean;
+    target?: {
+        width: number;
+        height: number;
+    };
+    safeArea?: boolean;
+    lintOnly?: boolean;
+}): Promise<WrittenCompose & {
+    result: ComposeResult;
 }>;
+export declare function defaultComposeOutDir(specPath: string): string;
+export type { PlaylistRect, PageSpec };
 //# sourceMappingURL=compose.d.ts.map

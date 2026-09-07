@@ -1,6 +1,6 @@
 {
   "schema": "screenrig.cli-runtime-dependencies/v1",
-  "package_lock_sha256": "4bcb36451f06c4de1bed905c47127005a1c67b12c17d04c6ab7de53f48330d85",
+  "package_lock_sha256": "8db04ab04d13cd267a2355b319a679d82602548d03b38c6ead378a279d28e6d8",
   "packages": [
     {
       "path": "node_modules/@napi-rs/canvas",
@@ -127,13 +127,6 @@
       "version": "2.0.2",
       "resolved": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
       "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw=="
-    },
-    {
-      "path": "node_modules/yoga-layout",
-      "name": "yoga-layout",
-      "version": "3.2.1",
-      "resolved": "https://registry.npmjs.org/yoga-layout/-/yoga-layout-3.2.1.tgz",
-      "integrity": "sha512-0LPOt3AxKqMdFBZA3HBAt/t/8vIKq7VaQYbuA8WxCgung+p9TVyKRYdpvCb80HcdTN2NkbIKbhNwKUfm3tQywQ=="
     }
   ]
 }

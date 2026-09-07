@@ -58,6 +58,21 @@ export interface TranscodeResult {
         scan: string;
         preset?: SignagePreset;
     };
+    /** Source dimensions as probed, before any bound was applied. */
+    sourceWidth: number;
+    sourceHeight: number;
+    /**
+     * Present when the encode scaled an image down to fit the edge bound. The
+     * caller turns it into an `image_resized` warning so the operator knows the
+     * delivered still is smaller than the file they supplied.
+     */
+    resized?: {
+        sourceWidth: number;
+        sourceHeight: number;
+        width: number;
+        height: number;
+        maxEdge: number;
+    };
     warnings: string[];
     /** Directory the caller must remove once the upload completes. */
     cleanupDir?: string;

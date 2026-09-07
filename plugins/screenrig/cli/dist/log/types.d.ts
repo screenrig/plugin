@@ -73,6 +73,11 @@ export interface StartLocalInit {
     message?: string;
     id?: string;
     params?: Record<string, string | number | boolean>;
+    /**
+     * Emit this span's start/finish (or error) only. Nested HTTP/local spans and
+     * `progress` phases are omitted so a long batch cannot flood the socket.
+     */
+    quiet?: boolean;
     [key: string]: unknown;
 }
 export interface OperationLogger {
@@ -87,9 +92,11 @@ export interface OperationLogger {
     beginRun(): void;
     endRun(err?: unknown): void;
     close(): Promise<void>;
+    droppedLines(): number;
 }
 export interface LogSink {
     writeLine(line: string): void;
     close(): Promise<void>;
+    droppedCount(): number;
 }
 //# sourceMappingURL=types.d.ts.map

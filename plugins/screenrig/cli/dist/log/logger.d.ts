@@ -1,3 +1,4 @@
+import type { Warning } from "../envelope.js";
 import type { SignedRawPut } from "../runtime.js";
 import type { RunProcess } from "../runtime.js";
 import type { Transport } from "../transport/types.js";
@@ -13,6 +14,8 @@ export declare function responseSummary(body: unknown, binary: boolean, contentT
     byte_length?: number;
     response?: unknown;
 };
+export declare const LOG_SINK_DEGRADED_CODE = "log_sink_degraded";
+export declare function logSinkDegradedWarning(dropped: number): Warning | undefined;
 export declare const noopLogger: OperationLogger;
 export declare function loggerOf(runtime: {
     logger?: OperationLogger;

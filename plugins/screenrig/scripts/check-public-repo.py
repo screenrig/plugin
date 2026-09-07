@@ -86,7 +86,7 @@ def check_metadata(errors: list[str]) -> None:
     repository = package.get("repository")
     if not isinstance(repository, dict) or repository.get("url") != CLI_REPOSITORY:
         errors.append(f"{package_path.relative_to(ROOT)} repository.url must be {CLI_REPOSITORY}")
-    allowed_cli_deps = {"@napi-rs/canvas", "yoga-layout", "ajv", "ajv-formats"}
+    allowed_cli_deps = {"@napi-rs/canvas", "ajv", "ajv-formats"}
     deps = package.get("dependencies")
     if not isinstance(deps, dict):
         errors.append(f"{package_path.relative_to(ROOT)} dependencies must be an object")
@@ -151,17 +151,24 @@ def check_public_tree(errors: list[str]) -> None:
             "fetch-depth: 0",
             "scripts/package-release.sh",
             "git -C \"${RUNNER_TEMP}/screenrig-cli-source\" fetch --depth=1",
+            "\"https://github.com/${repository}.git\" main",
             "python3 scripts/calver.py cli-stamp",
             "SCREENRIG_VERSION",
             "npm --prefix \"${RUNNER_TEMP}/screenrig-cli-source\" run build",
             "--cli-artifact",
+            "--write-lock",
+            "--cli-commit",
             "--cli-source",
             "python3 scripts/validate-plugin.py",
+            "python3 scripts/test-skill-commands.py",
             "name: screenrig-plugin",
             "gitleaks\" git",
             "contents: write",
             "python3 scripts/calver.py tag",
             "github.ref == 'refs/heads/main'",
+            "git push",
+            "GITHUB_TOKEN",
+            "Bundled CLI digest",
         ):
             if fact not in workflow:
                 errors.append(f"public CI is missing required gate: {fact}")

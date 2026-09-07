@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
 import { constants, createReadStream } from "node:fs";
-import { open } from "node:fs/promises";
+import { open, rm } from "node:fs/promises";
 import path from "node:path";
 import { isValidIdempotencyKey } from "./ids.js";
+import { lowInformationFilenameWarning } from "./media-filename.js";
+import { transcodeForUpload } from "./media/transcode.js";
+import { assertDeclaredTypeMatchesBytes } from "./media/sniff.js";
 import { readWebpContainer } from "./media/webp.js";
 import { CliError, networkError, usageError } from "./problems.js";
+import { fetchSignedRawPut } from "./runtime.js";
 const MEDIA_PUT_NOT_READY = "Private media upload did not complete because the service is not ready. Run screenrig --json doctor and check the ready result before retrying.";
 export const SUPPORTED_MEDIA_CONTENT_TYPES = [
     "image/png",
@@ -159,5 +163,188 @@ export function deriveCommitIdempotencyKey(base) {
     if (derived === base || !isValidIdempotencyKey(derived))
         throw usageError("Could not derive media commit idempotency key.");
     return derived;
+}
+/** SHA-256 of the local source bytes. Batch resume keys this, not the transcoded digest. */
+export async function hashLocalMediaFile(filePath) {
+    const bytes = await readMediaSnapshot(filePath);
+    return createHash("sha256").update(bytes).digest("hex");
+}
+export function readyMediaId(operation) {
+    const mediaId = operation.result?.media_id;
+    return typeof mediaId === "string" && mediaId.length > 0 ? mediaId : undefined;
+}
+/**
+ * Transcode (unless `--no-transcode`) and snapshot the bytes that will be
+ * declared. The caller must `cleanupPreparedMediaFile` after submit/failure.
+ */
+export async function prepareMediaFileForUpload(input) {
+    // The declared type is a claim; the bytes are the fact. Refuse a contradiction
+    // before ffmpeg or the server sees the file.
+    await assertDeclaredTypeMatchesBytes(input.sourcePath, input.explicitContentType);
+    const sourceFilename = path.basename(input.sourcePath);
+    if (!sourceFilename || Buffer.byteLength(sourceFilename, "utf8") > 255) {
+        throw usageError("Media filename must be 1 to 255 bytes.");
+    }
+    let transcode;
+    if (!input.noTranscode) {
+        transcode = await transcodeForUpload({
+            runtime: input.runtime,
+            filePath: input.sourcePath,
+            explicitContentType: input.explicitContentType,
+            options: input.transcodeOptions,
+            reporter: input.reporter,
+        });
+    }
+    try {
+        const prepared = transcode
+            ? await prepareMediaUpload(transcode.filePath, transcode.contentType, transcode.verifiedSha256)
+            : await prepareMediaUpload(input.sourcePath, input.explicitContentType);
+        // Always declare the caller's file name. The server derives the stored
+        // filename from it (photo.png uploaded as WebP becomes photo.png.webp), so
+        // distinct sources no longer collide, and `media list` keeps the handle.
+        prepared.declaration.source_filename = sourceFilename;
+        if (input.tag !== undefined) {
+            prepared.declaration.tag = input.tag;
+        }
+        return { prepared, transcode };
+    }
+    catch (error) {
+        if (transcode?.cleanupDir) {
+            await rm(transcode.cleanupDir, { recursive: true, force: true });
+        }
+        throw error;
+    }
+}
+export async function cleanupPreparedMediaFile(prepared) {
+    if (prepared?.transcode?.cleanupDir) {
+        await rm(prepared.transcode.cleanupDir, { recursive: true, force: true });
+    }
+}
+function transcodeEnvelope(transcode) {
+    if (!transcode) {
+        return { applied: false, reason: "--no-transcode uploaded the source bytes unchanged" };
+    }
+    return {
+        applied: !transcode.passthrough,
+        stage: transcode.stage,
+        reason: transcode.reason,
+        source_bytes: transcode.sourceBytes,
+        output_bytes: transcode.outputBytes,
+        width: transcode.width,
+        height: transcode.height,
+        source_width: transcode.sourceWidth,
+        source_height: transcode.sourceHeight,
+        dimensions_measured: transcode.dimensionsMeasured,
+        duration_ms: transcode.durationMs,
+        ...(transcode.video ? { video: transcode.video } : {}),
+    };
+}
+function uploadWarnings(prepared, transcode) {
+    const warnings = (transcode?.warnings ?? []).map((message) => ({ code: "transcode_warning", message }));
+    if (transcode?.resized) {
+        const { sourceWidth, sourceHeight, width, height, maxEdge } = transcode.resized;
+        warnings.push({
+            code: "image_resized",
+            message: `${prepared.declaration.source_filename ?? prepared.declaration.filename} was ${sourceWidth}x${sourceHeight} and was ` +
+                `scaled down to ${width}x${height} to fit the ${maxEdge} px bound on each edge. The stored still is smaller ` +
+                "than the source; pass --max-edge to tighten the bound further, or supply a smaller source to keep control of the result.",
+        });
+    }
+    // Quote the name the caller chose. After a transcode the declared name is a
+    // local derivative (photo.png sent as photo.webp) and quoting that reads as a
+    // name the caller never typed.
+    const filenameWarning = lowInformationFilenameWarning(prepared.declaration.source_filename ?? prepared.declaration.filename);
+    if (filenameWarning)
+        warnings.push({ code: "generic_filename", message: filenameWarning });
+    return warnings;
+}
+/** Declare, signed PUT, commit, and optionally wait. Same path as `media upload`. */
+export async function submitPreparedMedia(input, preparedFile) {
+    const { runtime, client } = input;
+    const { prepared } = preparedFile;
+    const declareKey = input.idempotencyKey ?? client.idempotencyKey;
+    const declarationResponse = await client.call({
+        method: "POST",
+        path: "/api/v1/media/uploads",
+        idempotent: true,
+        idempotencyKey: declareKey,
+        body: prepared.declaration,
+    });
+    if (declarationResponse.headers["cache-control"] !== "private, no-store") {
+        throw usageError("Media upload declaration did not return the required private, no-store cache policy.");
+    }
+    const session = validateMediaUploadSession(declarationResponse.body, runtime.now().getTime());
+    if (input.onDeclared) {
+        await input.onDeclared(session);
+    }
+    await performSignedMediaPut(prepared, session, runtime.signedRawPut ?? fetchSignedRawPut());
+    const commitResponse = await client.call({
+        method: "POST",
+        path: `/api/v1/media/uploads/${session.id}/commit`,
+        idempotent: true,
+        idempotencyKey: deriveCommitIdempotencyKey(declareKey),
+        body: prepared.commit,
+    });
+    let operation = commitResponse.body;
+    if (!input.noWait) {
+        operation = await client.waitForOperation(operation.id, {
+            timeoutMs: input.timeoutMs ?? 120_000,
+            pollMs: input.pollMs ?? 1000,
+            sleep: runtime.sleep,
+        });
+    }
+    return { mediaId: readyMediaId(operation), operation };
+}
+function asRecord(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+        return undefined;
+    return value;
+}
+/**
+ * The name the caller needs after an upload is the one the account now holds,
+ * not the local pre-transcode guess: photo.png, photo.jpg, and photo.webp all
+ * declare photo.webp but are stored as three distinct rows. Only the ready
+ * object carries the derived name, so read it back.
+ */
+async function storedMediaFilename(client, mediaId) {
+    try {
+        const response = await client.call({ method: "GET", path: `/api/v1/media/${mediaId}` });
+        const body = asRecord(response.body);
+        const filename = typeof body?.filename === "string" && body.filename.length > 0 ? body.filename : undefined;
+        const sourceFilename = typeof body?.source_filename === "string" && body.source_filename.length > 0 ? body.source_filename : undefined;
+        return { ...(filename ? { filename } : {}), ...(sourceFilename ? { source_filename: sourceFilename } : {}) };
+    }
+    catch {
+        // The bytes are already stored and billed. A failed read-back downgrades the
+        // reported name; it does not fail the upload.
+        return {};
+    }
+}
+export async function uploadMediaFile(input) {
+    const preparedFile = await prepareMediaFileForUpload(input);
+    try {
+        const submitted = await submitPreparedMedia(input, preparedFile);
+        const stored = submitted.mediaId ? await storedMediaFilename(input.client, submitted.mediaId) : {};
+        return {
+            ...submitted,
+            upload: {
+                filename: stored.filename ?? preparedFile.prepared.declaration.filename,
+                declared_filename: preparedFile.prepared.declaration.filename,
+                filename_source: stored.filename ? "server" : "declared",
+                ...(stored.source_filename ?? preparedFile.prepared.declaration.source_filename
+                    ? { source_filename: stored.source_filename ?? preparedFile.prepared.declaration.source_filename }
+                    : {}),
+                content_type: preparedFile.prepared.declaration.content_type,
+                bytes: preparedFile.prepared.declaration.bytes,
+                sha256: preparedFile.prepared.declaration.sha256,
+                ...(preparedFile.prepared.declaration.tag ? { tag: preparedFile.prepared.declaration.tag } : {}),
+            },
+            transcode: transcodeEnvelope(preparedFile.transcode),
+            warnings: uploadWarnings(preparedFile.prepared, preparedFile.transcode),
+        };
+    }
+    finally {
+        await cleanupPreparedMediaFile(preparedFile);
+    }
 }
 //# sourceMappingURL=media-upload.js.map

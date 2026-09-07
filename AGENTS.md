@@ -1,54 +1,60 @@
 # ScreenRig plugin agent guide
 
 This repository owns the public ScreenRig Codex/Claude marketplace, canonical
-skill source, plugin metadata, and generated bundle containing a pinned CLI. It
-does not own the CLI source, players, backend, site, or production deployment.
-The separately published `screenrig` npm package is the official developer-shell
-distribution. It is never a substitute for this plugin's pinned launcher in an
-agent workflow.
+skill source, plugin metadata, and generated bundle containing the current
+`screenrig/cli` `main` CLI. It does not own the CLI source, players, backend,
+site, or production deployment. The separately published `screenrig` npm
+package is the official developer-shell distribution. It is never a substitute
+for this plugin's bundled launcher in an agent workflow.
 
 ## Sources of truth
 
 - `skills/screenrig/`, `build/plugin.json`, root marketplace manifests, root
   public files, and `components.lock.json` are canonical inputs.
-- `components.lock.json` pins the exact `screenrig/cli` commit, artifact
-  filename, and SHA-256. That lock is not a product version and does not
-  store CalVer. The first CLI tarball that stamps CalVer into package.json
-  will not match the locked sha256 until ops re-locks; do not invent a SHA.
+- `components.lock.json` records provenance of the CLI that was just bundled:
+  `screenrig/cli` commit, artifact filename, and SHA-256. It is not a freeze
+  that CI may refetch instead of `main`, and it is not a product version.
+  Do not invent a SHA; hash the tarball you packed.
 - Distributed plugin versions are CalVer `YY.MM.SERIAL` (UTC). Tags are
-  `vYY.MM.N`. Committed `.claude-plugin/marketplace.json` stays `0.1.2`;
-  CI stamps generated `plugin.json` in the artifact. Local and pull-request
-  trees use `YY.MM.0-dev`. Plugin CI fetches the CLI commit's `vYY.MM.*`
-  tag and applies the same stamp so the rebuilt tarball hash does not drift.
+  `vYY.MM.N`. Committed `.claude-plugin/marketplace.json` is the published
+  CalVer (currently `26.09.1`); CI stamps generated `plugin.json` in the
+  distributing artifact. Local and pull-request trees use `YY.MM.0-dev`.
+  Plugin CI packs `screenrig/cli` `main` and, when that HEAD is tagged
+  `vYY.MM.N`, applies the same stamp so the tarball hash is stable.
 - `scripts/build-plugin.py` defines generation of `plugins/screenrig/`.
+  Locally it may pack sibling `../cli`. CI clones and packs
+  `https://github.com/screenrig/cli` `main`.
 - `scripts/validate-plugin.py` and `scripts/check-public-repo.py` define the
-  public/reproducibility boundary.
+  public/reproducibility boundary. Skill Commands must exist in the bundled
+  CLI usage; `media generate` and `media download` are required.
 - This repository publishes an artifact and never deploys ScreenRig.
   **Deploys are independent** (operating rule): this repository's `main`
   Action tags CalVer `vYY.MM.N` and publishes the stamped
   `screenrig-plugin.tar.gz` CI artifact only. No
-  marketplace publish unless the user asks later. Do not pack siblings.
-  Do not dispatch backend. Do not copy deploy tokens between repos.
+  marketplace publish unless the user asks later. Do not pack siblings as
+  a deploy. Do not dispatch backend. Do not copy deploy tokens between repos.
   Coordinated multi-repo deploy is rare and only for a breaking contract
-  change. `components.lock.json` pins the bundled CLI artifact; it is not
-  a production host lock.
+  change. Vendoring current CLI into `plugins/screenrig/cli` is how
+  marketplace git-clone installs get a CLI.
 
 ## Edit and generation rules
 
 - Never edit `plugins/screenrig/` independently. Change canonical inputs and
-  regenerate with the exact CLI artifact selected by `components.lock.json`.
-- Never copy CLI source or a local mutable build into the bundle. Update the
-  lock only when intentionally selecting a reviewed CLI CI artifact.
+  regenerate from current `screenrig/cli` `main` (or the sibling checkout).
+- Local `build-plugin.py` may pack sibling `../cli` when that directory
+  exists. After packing, write `components.lock.json` as provenance of that
+  tarball. Official rebuild: `python3 scripts/build-plugin.py --cli-artifact
+  <tarball> --write-lock --cli-commit <sha>`.
 - Keep Codex and Claude marketplace metadata, generated manifests, public
-  README, and skill behavior aligned **at lock/regeneration time**. Canonical
-  skill source may lead the generated `plugins/screenrig/` copy while the
-  lock is unchanged. Never hand-edit `plugins/screenrig/` to close that gap.
+  README, and skill behavior aligned at regeneration time. Canonical skill
+  source may lead the generated `plugins/screenrig/` copy until rebuild.
+  Never hand-edit `plugins/screenrig/` to close that gap.
 - The launcher must preflight Node.js 20.11+ and prefer the package-relative
   bundled `cli/dist/bin.js`. When that file is absent, resolve `cli/dist/bin.js`
   from a plugin-root environment variable or a parent-directory walk so a
   source checkout works without a marketplace install.
 - Do not add global npm resolution to the launcher. The npm package is for an
-  operator's developer shell; a loaded agent uses the reviewed CLI bundled with
+  operator's developer shell; a loaded agent uses the CLI bundled with
   its installed plugin.
 - The launcher preflights Node.js and nothing else. It must stay silent on
   success: `scripts/check-public-repo.py` and `scripts/validate-plugin.py` both
@@ -148,20 +154,22 @@ python3 scripts/check-public-repo.py
 plugins/screenrig/skills/screenrig/scripts/screenrig --json version
 ```
 
-Bundle validation and reproduction require the exact locked CLI artifact:
+Bundle validation compares the committed `plugins/screenrig` tree to a rebuild
+from current `screenrig/cli` `main` (or `--cli-artifact` of that pack):
 
 ```sh
-python3 scripts/build-plugin.py --check --cli-artifact <locked-cli-artifact>
-python3 scripts/validate-plugin.py --cli-artifact <locked-cli-artifact>
+python3 scripts/build-plugin.py --check --cli-artifact <current-cli-tarball>
+python3 scripts/validate-plugin.py --cli-artifact <current-cli-tarball>
+python3 scripts/test-skill-commands.py
+python3 scripts/test-plugin-freshness.py
 ```
 
-Verify the artifact SHA-256 against `components.lock.json` first. These gates
-do not prove marketplace installation/loading, live API use, native hardware,
-or production deployment.
+`components.lock.json` must match the tarball just packed. These gates do not
+prove marketplace installation/loading, live API use, native hardware, or
+production deployment.
 
 ## Completion evidence
 
-Report canonical and generated files changed, locked CLI repository/commit/hash,
-generation/validation results, stale-language scan, repository status, and
-every skipped marketplace/live/backend/native gate. Do not claim a reproducible
-bundle when the exact locked CLI artifact was unavailable.
+Report canonical and generated files changed, bundled CLI repository/commit/hash
+(provenance), generation/validation results, stale-language scan, repository
+status, and every skipped marketplace/live/backend/native gate.

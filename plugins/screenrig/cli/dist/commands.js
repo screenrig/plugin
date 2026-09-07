@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { limitsFromCapabilities, TEMPORARY_PROTOCOL_VERSION, } from "./adapters/protocol.js";
 import { SDK_PROTOCOL_VERSION } from "./adapters/sdk-injection.js";
@@ -20,25 +20,27 @@ import { commentsWriteFromArgs } from "./comments-write.js";
 import { quotedRevision } from "./if-match.js";
 import { applicationNameHeaders } from "./application-name.js";
 import { composeBatch } from "./compose/batch.js";
-import { assertPlaylistValid, PLAYLIST_SERVER_CHECKS } from "./playlist-validate.js";
-import { lowInformationFilenameWarning } from "./media-filename.js";
-import { deriveCommitIdempotencyKey, performSignedMediaPut, prepareMediaUpload, validateMediaUploadSession, } from "./media-upload.js";
-import { fetchSignedRawPut } from "./runtime.js";
-import { newIdempotencyKey } from "./ids.js";
+import { assertPlaylistValid, PLAYLIST_SERVER_CHECKS, playlistLint } from "./playlist-validate.js";
+import { lintComposedPage, pageSpecForLint, pixelsFromPng, sortLint, viewingOf, } from "./compose/lint.js";
+import { LOOK_AT_THE_CONTACT_SHEET, PREVIEW_VIEWPORT, previewPlaylist } from "./playlist-preview.js";
+import { uploadMediaFile } from "./media-upload.js";
+import { runMediaUploadBatch, UPLOAD_BATCH_DEFAULT_CONCURRENCY, UPLOAD_BATCH_MAX_CONCURRENCY, UPLOAD_BATCH_MIN_CONCURRENCY } from "./media-upload-batch.js";
 import { clearProvisionRetryState, provisionRetryState } from "./provisioning-state.js";
+import { clearGenerateRetryState, generateRequestHash, generateRetryState } from "./media-generate-retry.js";
 import { validateProvisioningUrls } from "./provisioning-url.js";
 import { validateDashboardLink } from "./dashboard-link.js";
 import { browserHandoffUrl, browserSetupRetryState, clearBrowserSetupRetryState, normalizeBrowserSetupCode, } from "./browser-setup.js";
 import { isSensitiveKey, isSensitiveValue, redactEvent, redactText } from "./redact.js";
 import { expandPlaylistPages, formatTemplateCatalog, playlistTemplateCatalog, } from "./playlist-templates.js";
 import { composeCatalog, formatComposeCatalog } from "./compose/catalog.js";
-import { composeSpec } from "./compose/compose.js";
+import { composeAndWrite, defaultComposeOutDir, rejectImageLikeOutput } from "./compose/compose.js";
 import { cwebpLookup, ffmpegLookup, resolveCwebpToolchain, resolveFfmpegToolchain, } from "./media/ffmpeg.js";
 import { createProgressReporter, silentProgressReporter } from "./media/progress.js";
-import { DEFAULT_CODEC, DEFAULT_MAX_FPS, DEFAULT_WEBP_QUALITY, MAX_EDGE, transcodeForUpload, } from "./media/transcode.js";
+import { DEFAULT_CODEC, DEFAULT_MAX_FPS, DEFAULT_WEBP_QUALITY, MAX_EDGE, } from "./media/transcode.js";
 import { exportPlaylistBundle, importPlaylistBundle } from "./playlist-bundle.js";
 import { agentPlatform, decryptAgentCredential, generateAgentConnectionKey, publicAgentConnectionKey, validateAgent, validateAgentSelfStatus, validateAgentConnectionEvent, validateAgentConnectionStart, } from "./agent-identity.js";
-export const CLI_VERSION = "0.1.0";
+import { CLI_VERSION } from "./version.js";
+export { CLI_VERSION };
 export const USAGE = `screenrig — ScreenRig localhost v1 control-plane CLI
 
 Usage:
@@ -51,6 +53,8 @@ Configuration (user config JSON, not flags):
   log_socket   optional path to an already-listening Unix socket. The CLI
                connects as a client and writes one NDJSON operation-log
                object per line. Absent or empty keeps current behavior.
+               Connect or back-pressure drops lines and warns
+               log_sink_degraded; it does not fail the command.
                This is a config field only, not a command-line switch.
 
 Commands:
@@ -67,23 +71,32 @@ Commands:
   app update <id> <directory> --if-match REVISION [--no-wait] [--poll-ms MS]
   app list
   app show <id>
+  media generate --prompt TEXT [--aspect-ratio RATIO] [--quality low|medium|high] [--tag TAG]
   media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                       [--no-transcode] [--codec h264|hevc] [--max-fps N]
                       [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
                       [--preset signage-1080p30|signage-4k30] [--no-audio]
+  media upload-batch <manifest.json> --state FILE [--concurrency N]
+                     [--no-transcode] [--tag TAG] [--no-progress]
   media show <id>
+  media download <id> [--output FILE]
   media list [--tag TAG] [--primitive image|video]
   media update <id> (--tag TAG | --clear-tag) --if-match REVISION
   media delete <id> --if-match REVISION
   compose catalog
+                      (local regions, enter/motion, fonts, examples; no network)
   compose batch <file> --output DIRECTORY [--only ID] [--target-width PX --target-height PX] [--safe-area]
-  playlist validate <file>
-  compose render <file> [--output FILE] [--target-width PX --target-height PX] [--safe-area] [--open]
+                      [--lint-only]
+                      (contact sheet; 1 to 2000 pages)
+  playlist validate <file> [--lint-only]
+  compose render <file> [--output DIRECTORY] [--combined] [--target-width PX --target-height PX] [--safe-area]
+                      [--open] [--lint-only]
+  playlist preview <file|id> --output DIR [--frame-ms MS] [--contact-sheet] [--lint-only]
   playlist templates
   playlist create <file>
   playlist update <id> <file> --if-match REVISION
   playlist export <id> --output DIRECTORY
-  playlist import <directory> [--update ID --if-match REVISION]
+  playlist import <directory> [--name NAME] [--update ID --if-match REVISION]
   playlist show <id>
   playlist list
   playlist delete <id> --if-match REVISION
@@ -135,6 +148,15 @@ Credits:
   billed commands are not rejected for empty remaining and do not return
   HTTP 402. After that instant, remaining below 1 credit is payment_required.
   Empty remaining does not stop or shut off screens in this window.
+  media generate is the exception: it is billed per still by --quality.
+  low is $0.06 (600 credits) for unimportant generated stills only.
+  medium is $0.12 (1200 credits) and is the default for most cases.
+  high is $0.50 (5000 credits) for dense text and complex posters.
+  Quality changes the image and the price.
+  Remaining that cannot cover the chosen tier returns payment_required / 402,
+  including during this window.
+
+${LOOK_AT_THE_CONTACT_SHEET}
 `;
 function nonemptyEnv(value) {
     return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -170,9 +192,6 @@ function rethrowCompose(err) {
     }
     throw err;
 }
-function defaultComposePngPath(specPath) {
-    return specPath.toLowerCase().endsWith(".json") ? `${specPath.slice(0, -5)}.png` : `${specPath}.png`;
-}
 async function composeRender(args, runtime) {
     const file = args.positionals[2];
     if (!file) {
@@ -187,17 +206,27 @@ async function composeRender(args, runtime) {
     if (file.includes("\0")) {
         throw usageError("compose render spec path must not contain a NUL byte.");
     }
-    requireFlagValue(args, "output", "./still.png");
+    requireFlagValue(args, "output", "./still");
     const specPath = path.resolve(runtime.cwd(), file);
     const outputFlag = flagString(args.flags, "output");
     if (outputFlag?.includes("\0")) {
         throw usageError("compose render --output must not contain a NUL byte.");
     }
-    const output = path.resolve(runtime.cwd(), outputFlag ?? defaultComposePngPath(file));
+    const output = path.resolve(runtime.cwd(), outputFlag ?? defaultComposeOutDir(file));
     if (output.includes("\0")) {
         throw usageError("compose render --output must not contain a NUL byte.");
     }
-    const layoutOutput = `${output}.layout.json`;
+    try {
+        rejectImageLikeOutput(output, "compose render");
+    }
+    catch (err) {
+        rethrowCompose(err);
+    }
+    if (flagBool(args.flags, "ink-tight") || flagString(args.flags, "ink-padding") !== undefined) {
+        throw usageError("compose render no longer crops with --ink-tight; layered region PNGs are the publishing model. Run compose catalog.");
+    }
+    const lintOnly = flagBool(args.flags, "lint-only");
+    const combined = flagBool(args.flags, "combined") || flagBool(args.flags, "open");
     requireFlagValue(args, "target-width", "3840");
     requireFlagValue(args, "target-height", "2160");
     const targetWidth = args.flags["target-width"] === undefined ? undefined : Number(flagString(args.flags, "target-width"));
@@ -214,21 +243,22 @@ async function composeRender(args, runtime) {
         throw usageError(`Cannot read compose spec: ${err instanceof Error ? err.message : "invalid JSON"}`);
     }
     const logger = loggerOf(runtime);
-    let result;
+    let written;
     try {
-        result = await logger.withLocal({ op: "compose.render", message: `render ${path.basename(specPath)}` }, async (span) => {
-            const rendered = await composeSpec(spec, {
+        written = await logger.withLocal({ op: "compose.render", message: `render ${path.basename(specPath)}` }, async (span) => {
+            const rendered = await composeAndWrite(spec, {
                 baseDir: path.dirname(specPath),
-                outPath: output,
-                layoutOutPath: layoutOutput,
+                outDir: output,
+                combined,
                 target,
                 safeArea: flagBool(args.flags, "safe-area"),
+                lintOnly,
             });
             span.finish({
                 output,
-                width: rendered.width,
-                height: rendered.height,
-                truncated: rendered.truncated,
+                width: rendered.canvas.width,
+                height: rendered.canvas.height,
+                pages: rendered.pages.length,
             });
             return rendered;
         });
@@ -236,34 +266,56 @@ async function composeRender(args, runtime) {
     catch (err) {
         rethrowCompose(err);
     }
-    const opened = flagBool(args.flags, "open")
-        ? await (runtime.openPath?.(output) ?? Promise.resolve(false))
+    const combinedPath = written.pages[0]?.combined ? path.join(written.pages[0].dir, "combined.png") : undefined;
+    const opened = !lintOnly && flagBool(args.flags, "open") && combinedPath
+        ? await (runtime.openPath?.(combinedPath) ?? Promise.resolve(false))
         : undefined;
+    const lintWithPixels = [];
+    for (const page of written.result.pages) {
+        const pixels = await pixelsFromPng(page.combined);
+        const pageSpec = pageSpecForLint(spec, page.id);
+        lintWithPixels.push(...lintComposedPage({
+            page_id: page.id,
+            spec: pageSpec,
+            quality: page.quality,
+            pixels,
+            viewing: viewingOf(pageSpec),
+        }));
+    }
+    const ordered = sortLint(lintWithPixels, written.result.pages.map((page) => page.id));
     const data = {
         output,
-        layout_output: layoutOutput,
-        width: result.width,
-        height: result.height,
-        font_family: result.font_family,
-        space: result.space,
-        ramp: result.ramp,
-        ramp_root: result.ramp_root,
-        ramp_at_1080: result.ramp_at_1080,
-        truncated: result.truncated,
-        quality: result.quality,
+        files: written.files,
+        canvas: written.canvas,
+        name: written.name,
+        manifest: written.manifest,
+        pages: written.pages.map((page) => ({
+            id: page.id,
+            dir: page.dir,
+            manifest: page.manifest,
+            images: page.images,
+            combined: page.combined,
+            scale: page.scale,
+        })),
+        width: written.canvas.width,
+        height: written.canvas.height,
+        font_family: written.font_family,
+        quality: written.quality,
+        lint: ordered,
         ...(opened !== undefined ? { opened } : {}),
     };
     return {
-        envelope: successEnvelope(data, { warnings: result.warnings }),
+        envelope: successEnvelope(data, { warnings: written.warnings }),
         exitCode: ExitCode.Success,
         human: humanLines("Composed still", [
             ["output", output],
-            ["layout_output", layoutOutput],
-            ["width", String(result.width)],
-            ["height", String(result.height)],
-            ["font_family", result.font_family],
-            ["truncated", result.truncated ? "true" : "false"],
-            ...result.warnings.map((warning) => ["warning", warning.message]),
+            ["name", written.name ?? undefined],
+            ["width", String(written.canvas.width)],
+            ["height", String(written.canvas.height)],
+            ["font_family", written.font_family],
+            ["files", written.files.join(", ")],
+            ...written.warnings.map((warning) => ["warning", warning.message]),
+            ...ordered.map((item) => ["lint", `${item.code} ${item.id}`]),
             ...(opened !== undefined ? [["opened", opened ? "true" : "false"]] : []),
         ]),
     };
@@ -345,7 +397,19 @@ export async function dispatch(args, runtime) {
         }
         const body = parsed && typeof parsed === "object" && Array.isArray(parsed.pages) ? { ...parsed, pages: expandPlaylistPages(parsed.pages) } : parsed;
         assertPlaylistValid(body);
-        return { envelope: successEnvelope({ valid: true, scope: "local_schema_and_semantics", server_checks: PLAYLIST_SERVER_CHECKS }), exitCode: ExitCode.Success, human: "Playlist passed local canonical validation. Reference authorization and runtime readiness require server checks." };
+        const lint = playlistLint(body);
+        return {
+            envelope: successEnvelope({ valid: true, scope: "local_schema_and_semantics", server_checks: PLAYLIST_SERVER_CHECKS, lint }),
+            exitCode: ExitCode.Success,
+            human: [
+                "Playlist passed local canonical validation. Reference authorization and runtime readiness require server checks.",
+                ...lint.map((item) => `lint: ${item.page_id} ${item.code} ${item.id}`),
+                LOOK_AT_THE_CONTACT_SHEET,
+            ].join("\n"),
+        };
+    }
+    if (group === "playlist" && action === "preview") {
+        return playlistPreviewCommand(args, runtime, resolved);
     }
     if (group === "compose" && action === "batch") {
         const file = args.positionals[2];
@@ -353,6 +417,12 @@ export async function dispatch(args, runtime) {
         const output = flagString(args.flags, "output");
         if (!file || !output || args.positionals.length !== 3)
             throw usageError("compose batch requires one JSON file and --output DIRECTORY.");
+        try {
+            rejectImageLikeOutput(path.resolve(runtime.cwd(), output), "compose batch");
+        }
+        catch (error) {
+            rethrowCompose(error);
+        }
         requireFlagValue(args, "target-width", "3840");
         requireFlagValue(args, "target-height", "2160");
         requireFlagValue(args, "only", "page-id");
@@ -362,7 +432,12 @@ export async function dispatch(args, runtime) {
         const target = tw !== undefined && th !== undefined ? { width: Number(tw), height: Number(th) } : undefined;
         let result;
         try {
-            result = await composeBatch(path.resolve(runtime.cwd(), file), path.resolve(runtime.cwd(), output), { target, safeArea: flagBool(args.flags, "safe-area"), only: flagString(args.flags, "only") });
+            result = await composeBatch(path.resolve(runtime.cwd(), file), path.resolve(runtime.cwd(), output), {
+                target,
+                safeArea: flagBool(args.flags, "safe-area"),
+                only: flagString(args.flags, "only"),
+                lintOnly: flagBool(args.flags, "lint-only"),
+            });
         }
         catch (error) {
             rethrowCompose(error);
@@ -370,7 +445,15 @@ export async function dispatch(args, runtime) {
         const warnings = result.pages.flatMap((page) => (page.warnings ?? []).map((warning) => ({ ...warning, message: `${page.id}: ${warning.message}` })));
         if (result.failed)
             throw new CliError(makeProblem("usage_error", "Some pages could not render", 400, `${result.failed} page(s) failed. Successful outputs are retained. See ${result.manifest} and ${result.preview}.`, { errors: result.pages.filter((page) => page.status === "failed").map((page) => ({ page_id: page.id, ...page.error })) }), ExitCode.Usage, warnings);
-        return { envelope: successEnvelope(result, { warnings }), exitCode: ExitCode.Success, human: `Rendered ${result.rendered} page(s). Preview: ${result.preview}. Details: ${result.manifest}.` };
+        return {
+            envelope: successEnvelope(result, { warnings }),
+            exitCode: ExitCode.Success,
+            human: [
+                `Rendered ${result.rendered} page(s). Preview: ${result.preview}. Details: ${result.manifest}.`,
+                ...result.lint.map((item) => `lint: ${item.page_id} ${item.code} ${item.id}`),
+                LOOK_AT_THE_CONTACT_SHEET,
+            ].join("\n"),
+        };
     }
     if (group === "compose" && action === "render") {
         return composeRender(args, runtime);
@@ -1138,7 +1221,7 @@ function isAuthenticatedCommand(group, action) {
         account: new Set(["show"]),
         dashboard: new Set([undefined]),
         app: new Set(["upload", "list", "show"]),
-        media: new Set(["upload", "show", "list", "delete", "update"]),
+        media: new Set(["upload", "show", "download", "list", "delete", "update"]),
         playlist: new Set(["create", "update", "export", "import", "show", "get", "list", "delete"]),
         screen: new Set(["pair", "provision", "update", "list", "show", "assign", "set-timezone", "archive", "unarchive", "delete", "rotate-public-id", "toast", "screenshot"]),
         browser: new Set(["setup"]),
@@ -1566,6 +1649,9 @@ async function mediaCommand(args, runtime, resolved, action) {
     if (action === "update") {
         return mediaUpdate(args, client);
     }
+    if (action === "download") {
+        return loggerOf(runtime).withLocal({ op: "media.download", message: "media download" }, () => mediaDownload(args, runtime, client));
+    }
     if (action === "delete") {
         const id = args.positionals[2];
         const revision = flagString(args.flags, "if-match");
@@ -1579,10 +1665,183 @@ async function mediaCommand(args, runtime, resolved, action) {
         });
         return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Deleted media ${id}` };
     }
+    if (action === "generate") {
+        return loggerOf(runtime).withLocal({ op: "media.generate", message: "media generate" }, () => mediaGenerate(args, runtime, client, resolved));
+    }
     if (action === "upload") {
         return loggerOf(runtime).withLocal({ op: "media.upload", message: "media upload" }, () => mediaUpload(args, runtime, client));
     }
+    if (action === "upload-batch") {
+        return mediaUploadBatch(args, runtime, client, resolved);
+    }
     throw usageError("Unknown media command.");
+}
+const GENERATE_ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"];
+const GENERATE_QUALITIES = ["low", "medium", "high"];
+const GENERATE_PROMPT_MAX = 4000;
+/**
+ * `media generate` is a single blocking call with no poll, and the server's own
+ * vendor budget for the image is ninety seconds. The client budget therefore
+ * has to sit above ninety seconds plus the store-and-commit tail, so the
+ * server's timeout is what binds and the CLI never abandons a still the account
+ * has already been billed for. This is deliberately not the generic request
+ * timeout, which stays at thirty seconds for ordinary calls.
+ */
+const GENERATE_BLOCKING_TIMEOUT_MS = 150_000;
+/** Measured blocking durations per tier, for the up-front notice only. */
+const GENERATE_TYPICAL_SECONDS = {
+    low: 15,
+    medium: 35,
+    high: 80,
+};
+function isGenerateAspectRatio(value) {
+    return GENERATE_ASPECT_RATIOS.includes(value);
+}
+function isGenerateQuality(value) {
+    return GENERATE_QUALITIES.includes(value);
+}
+function mediaGenerationFromBody(body) {
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+        throw usageError("Media generation response does not match the MediaGeneration contract.");
+    }
+    const rec = body;
+    const media = rec.media;
+    const usage = rec.usage;
+    if (!media || typeof media !== "object" || Array.isArray(media)) {
+        throw usageError("Media generation response does not match the MediaGeneration contract.");
+    }
+    const id = media.id;
+    if (typeof id !== "string" || !id.startsWith("med_")) {
+        throw usageError("Media generation response is missing a med_… media id.");
+    }
+    if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
+        throw usageError("Media generation response does not match the MediaGeneration contract.");
+    }
+    const credits = usage.credits;
+    const usd = usage.usd;
+    if (typeof credits !== "number" || !Number.isInteger(credits) || credits < 1) {
+        throw usageError("Media generation response does not match the MediaGeneration contract.");
+    }
+    if (typeof usd !== "string" || usd.length < 1) {
+        throw usageError("Media generation response does not match the MediaGeneration contract.");
+    }
+    return {
+        media: media,
+        usage: usage,
+    };
+}
+/**
+ * A billed blocking call that did not return a result leaves the caller unable
+ * to say whether the still exists. Name both ways to find out: the identical
+ * re-run replays under the stored key, and the listing shows what the account
+ * actually holds.
+ */
+function ambiguousGenerateError(error, options) {
+    if (!(error instanceof CliError))
+        return error;
+    if (error.problem.code !== "timeout" && error.problem.code !== "transport_error")
+        return error;
+    const seconds = Math.round(options.elapsedMs / 1000);
+    const listCommand = options.tag
+        ? `screenrig --json media list --tag ${options.tag}`
+        : "screenrig --json media list --primitive image";
+    return new CliError(makeProblem(error.problem.code, error.problem.title, error.problem.status, `media generate did not return a result after ${seconds} s. The still may or may not have been created, and a created still is billed. ` +
+        "Re-run the identical media generate command: it retries with the same idempotency key, so a still that was created is returned instead of generating and billing a second one.", {
+        request_id: error.problem.request_id,
+        next: {
+            command: listCommand,
+            reason: "Lists this account's stills, newest first, so you can see whether the generation completed before you re-run it.",
+        },
+    }), error.exitCode, error.warnings);
+}
+function writeGenerateNotice(args, runtime, quality) {
+    if (flagBool(args.flags, "no-progress"))
+        return;
+    const seconds = GENERATE_TYPICAL_SECONDS[quality];
+    if (flagBool(args.flags, "json")) {
+        runtime.stderr.write(`${JSON.stringify({
+            event: "media_generate_started",
+            quality,
+            typical_seconds: seconds,
+            timeout_ms: GENERATE_BLOCKING_TIMEOUT_MS,
+        })}\n`);
+        return;
+    }
+    runtime.stderr.write(`screenrig: media generate blocks until the still is ready; ${quality} quality usually takes about ${seconds} s.\n`);
+}
+async function mediaGenerate(args, runtime, client, resolved) {
+    requireFlagValue(args, "prompt", `"Finished event poster with title, facts, and type in the image"`);
+    requireFlagValue(args, "aspect-ratio", "16:9");
+    requireFlagValue(args, "quality", "medium");
+    const prompt = flagString(args.flags, "prompt");
+    if (prompt === undefined || prompt.length < 1 || prompt.length > GENERATE_PROMPT_MAX) {
+        throw usageError("media generate requires --prompt TEXT of 1 to 4000 characters.");
+    }
+    const aspectRatio = flagString(args.flags, "aspect-ratio") ?? "16:9";
+    if (!isGenerateAspectRatio(aspectRatio)) {
+        throw usageError("--aspect-ratio must be 1:1, 16:9, 9:16, 4:3, 3:4, 3:2, or 2:3.");
+    }
+    const quality = flagString(args.flags, "quality") ?? "medium";
+    if (!isGenerateQuality(quality)) {
+        throw usageError("--quality must be low, medium, or high.");
+    }
+    const tag = mediaTagFromArgs(args);
+    const body = {
+        prompt,
+        aspect_ratio: aspectRatio,
+        quality,
+        ...(tag ? { tag } : {}),
+    };
+    const timeoutMs = flagNumber(args.flags, "timeout") ?? GENERATE_BLOCKING_TIMEOUT_MS;
+    const retry = await generateRetryState({
+        resolved,
+        runtime,
+        requestHash: generateRequestHash(body),
+        ...(flagString(args.flags, "idempotency-key") ? { requestedKey: flagString(args.flags, "idempotency-key") } : {}),
+    });
+    writeGenerateNotice(args, runtime, quality);
+    const startedAt = runtime.now().getTime();
+    let response;
+    try {
+        response = await client.call({
+            method: "POST",
+            path: "/api/v1/media/generations",
+            idempotent: true,
+            idempotencyKey: retry.state.idempotency_key,
+            timeout_ms: timeoutMs,
+            body,
+        });
+    }
+    catch (error) {
+        const ambiguous = ambiguousGenerateError(error, {
+            elapsedMs: runtime.now().getTime() - startedAt,
+            ...(tag ? { tag } : {}),
+        });
+        if (ambiguous === error) {
+            // The server answered, so there is nothing for a replay to recover.
+            await clearGenerateRetryState(resolved, runtime, retry.state.idempotency_key);
+        }
+        throw ambiguous;
+    }
+    const elapsedMs = runtime.now().getTime() - startedAt;
+    if (response.status !== 201) {
+        throw usageError("media generate does not poll; the server must return 201 MediaGeneration.");
+    }
+    const generated = mediaGenerationFromBody(response.body);
+    const mediaId = generated.media.id;
+    // The generation resolved, so the stored key has nothing left to replay.
+    await clearGenerateRetryState(resolved, runtime, retry.state.idempotency_key);
+    return {
+        envelope: jsonBody(response, client.requestId, { id: mediaId, media_id: mediaId, elapsed_ms: elapsedMs }),
+        exitCode: ExitCode.Success,
+        human: humanLines("Generated media", [
+            ["media_id", mediaId],
+            ["quality", generated.usage.quality ?? quality],
+            ["credits", String(generated.usage.credits)],
+            ["usd", generated.usage.usd],
+            ["elapsed_ms", String(elapsedMs)],
+        ]),
+    };
 }
 async function mediaUpdate(args, client) {
     const id = args.positionals[2];
@@ -1609,6 +1868,135 @@ async function mediaUpdate(args, client) {
         human: clearTag ? `Cleared tag on media ${id}` : `Set tag ${tag} on media ${id}`,
     };
 }
+const MEDIA_ID_PATTERN = /^med_[A-Za-z0-9_-]+$/;
+/** Canonical file extension for each verified media content type, matching the server's Content-Disposition. */
+const MEDIA_CONTENT_EXTENSIONS = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+};
+function mediaRecordFromBody(body, id) {
+    const rec = (body ?? {});
+    if (rec.id !== id ||
+        typeof rec.content_type !== "string" ||
+        typeof rec.sha256 !== "string" ||
+        !/^[a-f0-9]{64}$/.test(rec.sha256) ||
+        typeof rec.bytes !== "number" ||
+        !Number.isInteger(rec.bytes) ||
+        rec.bytes < 1) {
+        throw usageError(`Media ${id} metadata does not match the Media contract; cannot verify a download.`);
+    }
+    return rec;
+}
+/**
+ * `media download <id> [--output FILE]` binds `GET /api/v1/media/{id}/content`.
+ *
+ * The metadata row is read first so the default name, the expected length,
+ * and the expected SHA-256 come from the server; the streamed bytes are
+ * verified against them before the file is moved into place. Bytes never
+ * reach stdout, the envelope, or the log.
+ */
+async function mediaDownload(args, runtime, client) {
+    const id = args.positionals[2];
+    if (!id || !MEDIA_ID_PATTERN.test(id)) {
+        throw usageError("media download requires <id> starting with med_.");
+    }
+    if (args.positionals.length !== 3) {
+        throw usageError("media download takes exactly one media id.");
+    }
+    const metadataResponse = await client.call({ method: "GET", path: `/api/v1/media/${id}` });
+    const media = mediaRecordFromBody(metadataResponse.body, id);
+    const extension = MEDIA_CONTENT_EXTENSIONS[media.content_type.toLowerCase()];
+    if (!extension) {
+        throw usageError(`Media ${id} has content type ${media.content_type}, which this CLI cannot write.`);
+    }
+    const outputPath = await resolveDownloadOutput(runtime.cwd(), `./${id}.${extension}`, args.flags);
+    const response = await client.download({ method: "GET", path: `/api/v1/media/${id}/content` });
+    const tempPath = `${outputPath}.${process.pid}.part`;
+    let digest = "";
+    let written = 0;
+    try {
+        const contentType = (response.headers["content-type"] ?? "").split(";", 1)[0]?.trim().toLowerCase();
+        if (contentType !== media.content_type.toLowerCase()) {
+            throw usageError(`Media ${id} download Content-Type did not match its metadata.`);
+        }
+        const reportedLength = response.headers["content-length"];
+        if (reportedLength !== undefined && reportedLength !== String(media.bytes)) {
+            throw usageError(`Media ${id} download Content-Length did not match its metadata.`);
+        }
+        if (!response.body) {
+            throw usageError(`Media ${id} download returned no body.`);
+        }
+        const hash = createHash("sha256");
+        const handle = await open(tempPath, "w", 0o600);
+        try {
+            for await (const chunk of response.body) {
+                written += chunk.byteLength;
+                if (written > media.bytes) {
+                    throw usageError(`Media ${id} download exceeded the declared length.`);
+                }
+                let offset = 0;
+                while (offset < chunk.byteLength) {
+                    const result = await handle.write(chunk, offset, chunk.byteLength - offset);
+                    offset += result.bytesWritten;
+                }
+                hash.update(chunk);
+            }
+            await handle.sync();
+        }
+        finally {
+            await handle.close();
+        }
+        if (written !== media.bytes) {
+            throw usageError(`Media ${id} download ended before the declared length.`);
+        }
+        digest = hash.digest("hex");
+        if (digest !== media.sha256) {
+            throw usageError(`Media ${id} download SHA-256 did not match its metadata.`);
+        }
+        await rename(tempPath, outputPath);
+    }
+    catch (error) {
+        await rm(tempPath, { force: true });
+        if (error instanceof CliError) {
+            throw error;
+        }
+        throw usageError("Cannot write the media download to the output path.");
+    }
+    finally {
+        await response.body?.cancel?.();
+    }
+    const data = {
+        media_id: id,
+        id,
+        path: outputPath,
+        bytes: written,
+        sha256: digest,
+        content_type: media.content_type,
+        primitive: media.primitive,
+        filename: media.filename,
+        ...(typeof media.source_filename === "string" ? { source_filename: media.source_filename } : {}),
+        ...(typeof media.width === "number" ? { width: media.width } : {}),
+        ...(typeof media.height === "number" ? { height: media.height } : {}),
+    };
+    return {
+        envelope: successEnvelope(data, { request_id: client.requestId }),
+        exitCode: ExitCode.Success,
+        human: humanLines("Media downloaded", [
+            ["media_id", id],
+            ["path", outputPath],
+            ["bytes", String(written)],
+            ["sha256", digest],
+            ["content_type", media.content_type],
+            ["filename", media.filename],
+            ["source_filename", media.source_filename],
+            ["size", typeof media.width === "number" && typeof media.height === "number" ? `${media.width}x${media.height}` : undefined],
+        ]),
+    };
+}
 async function playbackList(args, runtime, resolved) {
     requireFlagValue(args, "screen-id", "scr_01");
     requireFlagValue(args, "media-id", "med_01");
@@ -1630,10 +2018,6 @@ async function playbackList(args, runtime, resolved) {
         media_id: mediaId,
         day,
     });
-}
-function readyMediaId(operation) {
-    const mediaId = operation.result?.media_id;
-    return typeof mediaId === "string" && mediaId.length > 0 ? mediaId : undefined;
 }
 /** Flags that shape the pre-upload transcode. */
 export function transcodeOptionsFromArgs(args) {
@@ -1702,105 +2086,90 @@ async function mediaUpload(args, runtime, client) {
     // Validate unconditionally so a typo such as --webp-quality 500 is rejected
     // whether or not transcoding runs. The result is unused under --no-transcode.
     const transcodeOptions = transcodeOptionsFromArgs(args);
-    let transcode;
-    if (!flagBool(args.flags, "no-transcode")) {
-        transcode = await transcodeForUpload({
-            runtime,
-            filePath: sourcePath,
-            explicitContentType,
-            options: transcodeOptions,
-            reporter: progressReporterFor(args, runtime),
-        });
+    const uploaded = await uploadMediaFile({
+        runtime,
+        client,
+        sourcePath,
+        explicitContentType,
+        tag: mediaTagFromArgs(args),
+        transcodeOptions,
+        noTranscode: flagBool(args.flags, "no-transcode"),
+        reporter: progressReporterFor(args, runtime),
+        noWait: flagBool(args.flags, "no-wait"),
+        timeoutMs: flagNumber(args.flags, "timeout") ?? 120_000,
+        pollMs: flagNumber(args.flags, "poll-ms") ?? 1000,
+    });
+    const mediaId = uploaded.mediaId;
+    const data = {
+        ...(mediaId ? { media_id: mediaId, id: mediaId } : {}),
+        operation: uploaded.operation,
+        upload: uploaded.upload,
+        transcode: uploaded.transcode,
+    };
+    return {
+        envelope: successEnvelope(data, {
+            request_id: client.requestId,
+            operation_id: uploaded.operation.id,
+            warnings: uploaded.warnings,
+        }),
+        exitCode: ExitCode.Success,
+        human: humanLines(flagBool(args.flags, "no-wait") ? "Media upload committed" : "Media uploaded", [
+            ["media_id", mediaId],
+            ["operation_id", uploaded.operation.id],
+            ["state", uploaded.operation.state],
+            ["filename", uploaded.upload.filename],
+            ["source_filename", uploaded.upload.source_filename],
+            ["content_type", uploaded.upload.content_type],
+            ["tag", uploaded.upload.tag],
+            ["transcode", typeof uploaded.transcode.duration_ms === "number" ? `${uploaded.transcode.reason} in ${uploaded.transcode.duration_ms} ms` : "skipped"],
+            ["sha256", uploaded.upload.sha256],
+            ...uploaded.warnings.map((warning) => ["warning", warning.message]),
+        ]),
+    };
+}
+async function mediaUploadBatch(args, runtime, client, resolved) {
+    const manifest = args.positionals[2];
+    if (!manifest || args.positionals.length !== 3) {
+        throw usageError("media upload-batch requires one manifest JSON file.");
     }
-    try {
-        const prepared = transcode
-            ? await prepareMediaUpload(transcode.filePath, transcode.contentType, transcode.verifiedSha256)
-            : await prepareMediaUpload(sourcePath, explicitContentType);
-        const tag = mediaTagFromArgs(args);
-        if (tag !== undefined) {
-            prepared.declaration.tag = tag;
-        }
-        const declarationResponse = await client.call({
-            method: "POST",
-            path: "/api/v1/media/uploads",
-            idempotent: true,
-            body: prepared.declaration,
-        });
-        if (declarationResponse.headers["cache-control"] !== "private, no-store") {
-            throw usageError("Media upload declaration did not return the required private, no-store cache policy.");
-        }
-        const session = validateMediaUploadSession(declarationResponse.body, runtime.now().getTime());
-        await performSignedMediaPut(prepared, session, runtime.signedRawPut ?? fetchSignedRawPut());
-        const commitResponse = await client.call({
-            method: "POST",
-            path: `/api/v1/media/uploads/${session.id}/commit`,
-            idempotent: true,
-            idempotencyKey: deriveCommitIdempotencyKey(client.idempotencyKey),
-            body: prepared.commit,
-        });
-        let operation = commitResponse.body;
-        if (!flagBool(args.flags, "no-wait")) {
-            operation = await client.waitForOperation(operation.id, {
-                timeoutMs: flagNumber(args.flags, "timeout") ?? 120_000,
-                pollMs: flagNumber(args.flags, "poll-ms") ?? 1000,
-                sleep: runtime.sleep,
-            });
-        }
-        const mediaId = readyMediaId(operation);
-        const data = {
-            ...(mediaId ? { media_id: mediaId, id: mediaId } : {}),
-            operation,
-            upload: {
-                filename: prepared.declaration.filename,
-                content_type: prepared.declaration.content_type,
-                bytes: prepared.declaration.bytes,
-                sha256: prepared.declaration.sha256,
-                ...(prepared.declaration.tag ? { tag: prepared.declaration.tag } : {}),
-            },
-            transcode: transcode
-                ? {
-                    applied: !transcode.passthrough,
-                    stage: transcode.stage,
-                    reason: transcode.reason,
-                    source_bytes: transcode.sourceBytes,
-                    output_bytes: transcode.outputBytes,
-                    width: transcode.width,
-                    height: transcode.height,
-                    dimensions_measured: transcode.dimensionsMeasured,
-                    duration_ms: transcode.durationMs,
-                    ...(transcode.video ? { video: transcode.video } : {}),
-                }
-                : { applied: false, reason: "--no-transcode uploaded the source bytes unchanged" },
-        };
-        const warnings = (transcode?.warnings ?? []).map((message) => ({ code: "transcode_warning", message }));
-        const filenameWarning = lowInformationFilenameWarning(prepared.declaration.filename);
-        if (filenameWarning)
-            warnings.push({ code: "generic_filename", message: filenameWarning });
-        return {
-            envelope: successEnvelope(data, {
-                request_id: client.requestId,
-                operation_id: operation.id,
-                warnings,
-            }),
-            exitCode: ExitCode.Success,
-            human: humanLines(flagBool(args.flags, "no-wait") ? "Media upload committed" : "Media uploaded", [
-                ["media_id", mediaId],
-                ["operation_id", operation.id],
-                ["state", operation.state],
-                ["filename", prepared.declaration.filename],
-                ["content_type", prepared.declaration.content_type],
-                ["tag", prepared.declaration.tag],
-                ["transcode", transcode ? `${transcode.reason} in ${transcode.durationMs} ms` : "skipped"],
-                ["sha256", prepared.declaration.sha256],
-                ...warnings.map((warning) => ["warning", warning.message]),
-            ]),
-        };
+    requireFlagValue(args, "state", "./upload-state.json");
+    requireFlagValue(args, "concurrency", "4");
+    const state = flagString(args.flags, "state");
+    if (!state) {
+        throw usageError("media upload-batch requires --state FILE.");
     }
-    finally {
-        if (transcode?.cleanupDir) {
-            await rm(transcode.cleanupDir, { recursive: true, force: true });
-        }
+    const concurrency = flagNumber(args.flags, "concurrency") ?? UPLOAD_BATCH_DEFAULT_CONCURRENCY;
+    if (!Number.isInteger(concurrency) ||
+        concurrency < UPLOAD_BATCH_MIN_CONCURRENCY ||
+        concurrency > UPLOAD_BATCH_MAX_CONCURRENCY) {
+        throw usageError(`--concurrency must be a whole number from ${UPLOAD_BATCH_MIN_CONCURRENCY} to ${UPLOAD_BATCH_MAX_CONCURRENCY}.`);
     }
+    const transcodeOptions = transcodeOptionsFromArgs(args);
+    const result = await runMediaUploadBatch({
+        runtime,
+        client,
+        manifestPath: path.resolve(runtime.cwd(), manifest),
+        statePath: path.resolve(runtime.cwd(), state),
+        apiUrl: resolved.apiUrl,
+        accountId: resolved.accountId,
+        concurrency,
+        defaultTag: mediaTagFromArgs(args),
+        transcodeOptions,
+        noTranscode: flagBool(args.flags, "no-transcode"),
+        reporter: progressReporterFor(args, runtime),
+        json: flagBool(args.flags, "json"),
+        noProgress: flagBool(args.flags, "no-progress"),
+        timeoutMs: flagNumber(args.flags, "timeout") ?? 120_000,
+        pollMs: flagNumber(args.flags, "poll-ms") ?? 1000,
+    });
+    return {
+        envelope: successEnvelope(result.data, {
+            request_id: client.requestId,
+            warnings: result.warnings,
+        }),
+        exitCode: result.exitCode,
+        human: result.human,
+    };
 }
 /**
  * The submission kind comes from the route, never from the request body, so the
@@ -1978,6 +2347,67 @@ async function feedbackList(args, client) {
             ].join("\n"),
     };
 }
+async function playlistPreviewCommand(args, runtime, resolved) {
+    const target = args.positionals[2];
+    requireFlagValue(args, "output", "./preview");
+    requireFlagValue(args, "frame-ms", "1000");
+    const output = flagString(args.flags, "output");
+    if (!target || !output || args.positionals.length !== 3) {
+        throw usageError("playlist preview requires <file|id> and --output DIR.");
+    }
+    if (target.includes("\0") || output.includes("\0")) {
+        throw usageError("playlist preview paths must not contain a NUL byte.");
+    }
+    const frameRaw = flagString(args.flags, "frame-ms");
+    const frameMs = frameRaw === undefined ? 1000 : Number(frameRaw);
+    if (!Number.isSafeInteger(frameMs) || frameMs < 0 || frameMs > 60_000) {
+        throw usageError("playlist preview --frame-ms must be an integer from 0 to 60000.");
+    }
+    const outputDir = path.resolve(runtime.cwd(), output);
+    const filePath = path.resolve(runtime.cwd(), target);
+    let playlist;
+    let searchDirs = [path.dirname(filePath), runtime.cwd(), outputDir];
+    let client;
+    let fromFile = false;
+    try {
+        playlist = JSON.parse(await readFile(filePath, "utf8"));
+        fromFile = true;
+    }
+    catch {
+        fromFile = false;
+    }
+    if (!fromFile) {
+        if (!/^pl_[A-Za-z0-9_-]+$/.test(target)) {
+            throw usageError("Cannot read playlist JSON.");
+        }
+        const token = requireToken(resolved.token);
+        client = clientFor(runtime, args, resolved.apiUrl, token);
+        const response = await client.call({ method: "GET", path: `/api/v1/playlists/${target}` });
+        playlist = response.body;
+        searchDirs = [runtime.cwd(), outputDir];
+    }
+    const result = await previewPlaylist({
+        playlist,
+        outputDirectory: outputDir,
+        viewport: PREVIEW_VIEWPORT,
+        frameMs,
+        contactSheet: flagBool(args.flags, "contact-sheet"),
+        lintOnly: flagBool(args.flags, "lint-only"),
+        searchDirs,
+        client,
+        runtime,
+    });
+    return {
+        envelope: successEnvelope(result, { request_id: client?.requestId }),
+        exitCode: ExitCode.Success,
+        human: [
+            `Previewed ${result.pages.length} page(s). Output: ${result.output}.`,
+            ...(result.contact_sheet ? [`contact_sheet: ${result.contact_sheet}`] : []),
+            ...result.lint.map((item) => `lint: ${item.page_id} ${item.code} ${item.id}`),
+            LOOK_AT_THE_CONTACT_SHEET,
+        ].join("\n"),
+    };
+}
 async function playlistCommand(args, runtime, resolved, action) {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
@@ -2011,17 +2441,20 @@ async function playlistCommand(args, runtime, resolved, action) {
     if (action === "import") {
         requireFlagValue(args, "update", "pl_01");
         requireFlagValue(args, "if-match", "1");
+        requireFlagValue(args, "name", "Lobby loop (copy)");
         const directory = args.positionals[2];
         if (!directory || args.positionals.length !== 3)
             throw usageError("playlist import requires one <directory>.");
         const updateId = flagString(args.flags, "update");
         const ifMatch = flagString(args.flags, "if-match");
+        const name = flagString(args.flags, "name");
         const result = await importPlaylistBundle({
             directory: path.resolve(runtime.cwd(), directory),
             client,
             runtime,
             updateId,
             ifMatch,
+            name,
             timeoutMs: flagNumber(args.flags, "timeout"),
             pollMs: flagNumber(args.flags, "poll-ms"),
             beforePlaylistWrite: async (playlist, targetId) => {
@@ -2442,12 +2875,22 @@ function screenshotUnavailable(requestId) {
         request_id: requestId,
     }));
 }
+const READINESS_SENTENCE_MAX = 400;
+/** One line, redacted, bounded: the sentence is server text shown to the operator. */
+function redactedReadinessSentence(sentence) {
+    const flat = redactText(sentence).replace(/[\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trim();
+    return flat.length > READINESS_SENTENCE_MAX ? `${flat.slice(0, READINESS_SENTENCE_MAX)}...` : flat;
+}
 async function resolveScreenshotOutput(cwd, id, flags) {
+    return resolveDownloadOutput(cwd, `./${id}.webp`, flags);
+}
+/** `--output` is a file path, never a directory; the default is relative to cwd. */
+async function resolveDownloadOutput(cwd, defaultRelative, flags) {
     if (flags.output === true) {
         throw usageError("--output requires a file path.");
     }
     const specified = flagString(flags, "output");
-    const relative = specified ?? `./${id}.webp`;
+    const relative = specified ?? defaultRelative;
     if (relative.endsWith("/") || relative.endsWith("\\")) {
         throw usageError("--output must be a file path, not a directory.");
     }
@@ -2845,6 +3288,11 @@ function formatEventLines(events) {
         .join("\n");
 }
 async function eventsList(args, runtime, resolved) {
+    // `--limit` is forwarded verbatim: the server owns the 1..200 bound and
+    // answers 400 invalid_request with errors[].field = "limit", which the
+    // envelope surfaces. A null next_cursor is the end of the history, not an error.
+    requireFlagValue(args, "limit", "50");
+    requireFlagValue(args, "after", "ev1_0");
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const response = await client.call({
@@ -2995,6 +3443,52 @@ async function eventsFollow(args, runtime, resolved) {
         human: "",
     };
 }
+/**
+ * A fresh install has no credential and nothing is broken, so the `token` row
+ * warns and names the enrollment or connection command instead of failing.
+ * `fail` is reserved for damage the operator must repair: bad permissions,
+ * a missing toolchain piece a supported command needs, or an unreachable
+ * control plane.
+ */
+function credentialCheck(resolved) {
+    if (hasToken(resolved.token)) {
+        return { name: "token", status: "pass", detail: describeTokenPresence(resolved.token) };
+    }
+    const detail = describeTokenPresence(resolved.token);
+    if (resolved.agentConnection) {
+        return {
+            name: "token",
+            status: "warn",
+            detail: `${detail}; an agent connection is pending dashboard approval`,
+            next: {
+                command: "screenrig agent connect",
+                reason: "Resume the pending passkey-approved connection, then rerun doctor.",
+            },
+        };
+    }
+    if (resolved.lastAgent) {
+        return {
+            name: "token",
+            status: "warn",
+            detail: `${detail}; this installation was disconnected`,
+            next: {
+                command: "screenrig agent connect",
+                reason: "Connect a new independently revocable agent through dashboard passkey approval, then rerun doctor.",
+            },
+        };
+    }
+    return {
+        name: "token",
+        status: "warn",
+        detail: `${detail}; this installation is not enrolled`,
+        next: {
+            command: resolved.enrollment?.email ? "screenrig agent enroll" : "screenrig agent enroll --email ADDRESS",
+            reason: resolved.enrollment?.email
+                ? "Resume the exact pending enrollment, then rerun doctor."
+                : "Create the first agent with unverified contact metadata, then rerun doctor. Every authenticated command fails with not_enrolled until then.",
+        },
+    };
+}
 function probeFailureDetail(err, fallback) {
     if (err instanceof CliError) {
         return err.problem.detail;
@@ -3027,11 +3521,7 @@ async function doctor(args, runtime, resolved) {
     catch {
         checks.push({ name: "config_permissions", status: "pass", detail: "config file not present" });
     }
-    checks.push({
-        name: "token",
-        status: hasToken(resolved.token) ? "pass" : "fail",
-        detail: describeTokenPresence(resolved.token),
-    });
+    checks.push(credentialCheck(resolved));
     checks.push({
         name: "api_url",
         status: resolved.apiUrl.startsWith("https://") || resolved.apiUrl.startsWith("http://127.") || resolved.apiUrl.includes("localhost") ? "pass" : "fail",
@@ -3152,7 +3642,19 @@ async function doctor(args, runtime, resolved) {
             const body = response.body;
             const degraded = route === "/.ready" && body !== null && typeof body === "object"
                 && "degraded" in body && Array.isArray(body.degraded) ? body.degraded : [];
+            const degradedDetail = route === "/.ready" && body !== null && typeof body === "object"
+                && "degraded_detail" in body && body.degraded_detail !== null && typeof body.degraded_detail === "object"
+                && !Array.isArray(body.degraded_detail)
+                ? body.degraded_detail
+                : {};
             const guidance = [...new Set(degraded.map((dependency) => {
+                    // The server's degraded_detail sentence is written for a client to show
+                    // verbatim (for example why app upload will answer 503). Prefer it, bounded
+                    // and redacted, over the local fallback text.
+                    const sentence = typeof dependency === "string" ? degradedDetail[dependency] : undefined;
+                    if (typeof sentence === "string" && sentence.trim().length > 0) {
+                        return `${dependency}: ${redactedReadinessSentence(sentence)}`;
+                    }
                     switch (dependency) {
                         case "application_processing":
                             return "application_processing: new applications cannot become ready; ask the service operator to restore application workers, then rerun doctor";
@@ -3192,10 +3694,13 @@ async function doctor(args, runtime, resolved) {
     const failed = checks.some((check) => check.status === "fail");
     const warned = checks.some((check) => check.status === "warn");
     const status = failed ? "fail" : warned ? "warn" : "pass";
+    // `data.next` is the one command that clears the worst row that has one.
+    const next = checks.find((check) => check.status === "fail" && check.next)?.next
+        ?? checks.find((check) => check.status === "warn" && check.next)?.next;
     return {
-        envelope: successEnvelope({ status, checks, version: CLI_VERSION }),
+        envelope: successEnvelope({ status, checks, version: CLI_VERSION, ...(next ? { next } : {}) }),
         exitCode: failed ? ExitCode.Unexpected : ExitCode.Success,
-        human: checks.map((check) => `${check.status.toUpperCase()} ${check.name}: ${check.detail}`).join("\n"),
+        human: checks.map((check) => `${check.status.toUpperCase()} ${check.name}: ${check.detail}${check.next ? `\n  next: ${check.next.command}` : ""}`).join("\n"),
     };
 }
 //# sourceMappingURL=commands.js.map

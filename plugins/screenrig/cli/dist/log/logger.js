@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { CliError, configError } from "../problems.js";
+import { CliError } from "../problems.js";
 import { isSensitiveKey, isSensitiveValue, redactText, redactValue } from "../redact.js";
 import { httpResourceId, httpTag, localTag } from "./tag.js";
 import { LOG_EVENT_VERSION } from "./types.js";
@@ -70,6 +70,9 @@ function resourceId(explicit, fields) {
     }
     if (!fields) {
         return undefined;
+    }
+    if (typeof fields.id === "string" && fields.id.length > 0 && !isSensitiveValue(fields.id)) {
+        return fields.id;
     }
     for (const key of ["capture_id", "operation_id"]) {
         const value = fields[key];
@@ -184,7 +187,8 @@ class BaseLogger {
     stack = new SpanStack();
     runSpan;
     closed = false;
-    sinkError;
+    /** Nested spans under a quiet parent are omitted. The quiet span itself still emits start/finish. */
+    suppressNested = 0;
     constructor(options) {
         this.enabled = options.enabled;
         this.runId = options.runId ?? randomUUID();
@@ -195,12 +199,12 @@ class BaseLogger {
     setCommand(command) {
         this.command = command;
     }
+    droppedLines() {
+        return this.sink.droppedCount();
+    }
     emit(event) {
         if (!this.enabled || this.closed) {
             return;
-        }
-        if (this.sinkError) {
-            throw this.sinkError;
         }
         const full = {
             ...event,
@@ -214,12 +218,15 @@ class BaseLogger {
         try {
             this.sink.writeLine(line);
         }
-        catch (err) {
-            this.sinkError = configError(`Failed to write operation log: ${errorMessage(err)}. The consumer must already be listening on log_socket.`);
-            throw this.sinkError;
+        catch {
+            // The sink must never fail the command. DroppingLogSink and UnixSocketSink
+            // already count without throwing; this is a last-resort guard.
         }
     }
     startHttp(init) {
+        if (this.suppressNested > 0) {
+            return silentHttpSpan();
+        }
         const correlationId = randomUUID();
         const parent = this.stack.push(correlationId);
         const started = this.now().getTime();
@@ -282,10 +289,13 @@ class BaseLogger {
         };
     }
     startLocal(init) {
+        if (this.suppressNested > 0) {
+            return silentLocalSpan();
+        }
         const correlationId = randomUUID();
         const parent = this.stack.push(correlationId);
         const started = this.now().getTime();
-        const { op, message, id: initId, params: initParams, ...rest } = init;
+        const { op, message, id: initId, params: initParams, quiet, ...rest } = init;
         const tag = localTag(op);
         const id = resourceId(typeof initId === "string" ? initId : undefined, rest);
         const params = compactParams(initParams, rest);
@@ -301,12 +311,18 @@ class BaseLogger {
             ...(id ? { id } : {}),
             ...(params ? { params } : {}),
         });
+        if (quiet) {
+            this.suppressNested += 1;
+        }
         let closed = false;
         const close = (phase, fields) => {
             if (closed) {
                 return;
             }
             closed = true;
+            if (quiet) {
+                this.suppressNested = Math.max(0, this.suppressNested - 1);
+            }
             this.stack.pop(correlationId);
             const closeId = resourceId(id, fields);
             const closeParams = compactParams(params, fields);
@@ -329,7 +345,7 @@ class BaseLogger {
                 return closed;
             },
             progress: (fields) => {
-                if (closed) {
+                if (closed || quiet) {
                     return;
                 }
                 const progressId = resourceId(id, fields);
@@ -395,13 +411,63 @@ class BaseLogger {
             return;
         }
         this.closed = true;
-        await this.sink.close();
+        try {
+            await this.sink.close();
+        }
+        catch {
+            // Close is best-effort; a stalled consumer must not fail the command.
+        }
     }
+}
+function silentHttpSpan() {
+    let closed = false;
+    return {
+        correlationId: randomUUID(),
+        get closed() {
+            return closed;
+        },
+        response() {
+            closed = true;
+        },
+        error() {
+            closed = true;
+        },
+    };
+}
+function silentLocalSpan() {
+    let closed = false;
+    return {
+        correlationId: randomUUID(),
+        get closed() {
+            return closed;
+        },
+        progress() { },
+        finish() {
+            closed = true;
+        },
+        error() {
+            closed = true;
+        },
+    };
 }
 const silentSink = {
     writeLine() { },
     async close() { },
+    droppedCount() {
+        return 0;
+    },
 };
+export const LOG_SINK_DEGRADED_CODE = "log_sink_degraded";
+export function logSinkDegradedWarning(dropped) {
+    if (!Number.isInteger(dropped) || dropped <= 0) {
+        return undefined;
+    }
+    return {
+        code: LOG_SINK_DEGRADED_CODE,
+        dropped,
+        message: `Operation log dropped ${dropped} line(s) because log_socket was unavailable or the consumer fell behind.`,
+    };
+}
 export const noopLogger = new BaseLogger({
     enabled: false,
     command: [],
@@ -418,6 +484,9 @@ export function createMemoryLogger(options = {}) {
             events.push(JSON.parse(line));
         },
         async close() { },
+        droppedCount() {
+            return 0;
+        },
     };
     const logger = new BaseLogger({
         enabled: true,

@@ -392,6 +392,7 @@ export function normalizePlaylistForBundle(input) {
                 layer: primitive.layer,
                 content_fit: primitive.content_fit,
                 ...(primitive.enter !== undefined ? { enter: cloneJson(primitive.enter) } : {}),
+                ...(primitive.motion !== undefined ? { motion: cloneJson(primitive.motion) } : {}),
             };
         });
         return {
@@ -752,6 +753,11 @@ function partialImportError(error, uploaded, mutationStarted, playlistWriteStart
     }), ExitCode.Conflict);
 }
 export async function importPlaylistBundle(options) {
+    if (options.name !== undefined) {
+        const trimmed = options.name.trim();
+        if (trimmed.length === 0 || trimmed.length > 120)
+            throw usageError("playlist import --name must be 1 to 120 characters.");
+    }
     if (options.updateId && !options.ifMatch)
         throw usageError("playlist import --update requires --if-match REVISION.");
     if (!options.updateId && options.ifMatch)
@@ -846,6 +852,8 @@ export async function importPlaylistBundle(options) {
             uploaded.push(destinationId);
         }
         const playlist = rewritePlaylistIds(bundle.playlist, mapping);
+        if (options.name !== undefined)
+            playlist.name = options.name.trim();
         const playlistKey = deriveBundleIdempotencyKey(options.client.idempotencyKey, options.updateId ? "playlist-update" : "playlist-create", options.updateId ?? bundle.manifest.playlist.source_id);
         playlistWriteStarted = true;
         const response = await options.client.call({
@@ -867,10 +875,32 @@ export async function importPlaylistBundle(options) {
     }
     catch (error) {
         rethrowRateLimitedImport(error, { uploaded, mutationStarted, playlistWriteStarted });
+        rethrowNameConflict(error, { directory: options.directory, updateId: options.updateId, playlistWriteStarted });
         partialImportError(error, uploaded, mutationStarted, playlistWriteStarted);
     }
     finally {
         await bundle.close();
     }
+}
+/**
+ * Playlist names are unique per account, so importing an account's own export
+ * unchanged is refused with 409 `resource_conflict`. The problem gains a
+ * `next` that names the two ways forward: import under another name, or
+ * replace the existing playlist. The mapping stays truthful: all media was
+ * reused or confirmed before the write, and the write itself did not happen.
+ */
+function rethrowNameConflict(error, state) {
+    if (!(error instanceof CliError) || error.problem.status !== 409 || error.problem.code !== "resource_conflict")
+        return;
+    if (!state.playlistWriteStarted || state.updateId)
+        return;
+    throw new CliError({
+        ...error.problem,
+        detail: `${error.problem.detail} Playlist names are unique per account, and this bundle's name is already taken.`,
+        next: {
+            command: `screenrig --json playlist import ${state.directory} --name NAME`,
+            reason: "Import as a new playlist under a different name, or replace the existing one with --update ID --if-match REVISION.",
+        },
+    }, error.exitCode, error.warnings);
 }
 //# sourceMappingURL=playlist-bundle.js.map

@@ -162,7 +162,11 @@ export interface AccountEvent {
 }
 export interface EventPage {
     items: AccountEvent[];
-    next_cursor: string;
+    /**
+     * Cursor of the last returned event while newer events already exist; pass
+     * it back as `after`. `null` marks the end of the history and is not an error.
+     */
+    next_cursor: string | null;
 }
 export interface Capabilities {
     /** Default-plan storage cap. Zero means no product storage cap. */
@@ -196,14 +200,14 @@ export declare const DEFAULT_ARCHIVE_LIMITS: ArchiveLimits;
 export declare function limitsFromCapabilities(capabilities: Capabilities): ArchiveLimits;
 /**
  * Full playlist pages stay opaque: the CLI forwards author-supplied playlist
- * JSON unchanged, including `transition.type` swipe variants and optional
- * object `enter`. Templated pages are the exception — the CLI expands
- * `template` + `slots` into an ordinary write page in `playlist-templates.ts`
- * and never sends `template` to the server. Omitted templated transitions stay
- * `{ type: "crossfade", duration_ms: 200 }` with no `enter`. The contract's
- * page and primitive schemas are still not mirrored here except for
- * the fields that expander writes. Mirror a schema only when the CLI builds or
- * reads its fields.
+ * JSON unchanged, including `transition.type` swipe variants, optional
+ * object `enter`, and optional object `motion`. Templated pages are the
+ * exception — the CLI expands `template` + `slots` into an ordinary write page
+ * in `playlist-templates.ts` and never sends `template` to the server. Omitted
+ * templated transitions stay `{ type: "crossfade", duration_ms: 200 }` with no
+ * `enter` and no `motion`. The contract's page and primitive schemas are still
+ * not mirrored here except for the fields that expander writes. Mirror a schema
+ * only when the CLI builds or reads its fields.
  *
  * Page `visibility` is inspected only for key presence. That is exactly what
  * decides whether a playlist needs the target screen to carry a timezone, so
@@ -366,14 +370,58 @@ export interface MediaCommit {
 export interface MediaUploadDeclaration {
     bytes: number;
     content_type: "image/png" | "image/jpeg" | "image/webp" | "image/gif" | "video/mp4" | "video/webm";
+    /** Name of the bytes being uploaded, as they will be sent. */
     filename: string;
+    /**
+     * Caller's original file name before any client-side transcode. Bare file
+     * name only. The server stores it verbatim and derives the ready `filename`
+     * from it, so photo.png uploaded as WebP is stored as photo.png.webp.
+     */
+    source_filename?: string;
     sha256: string;
     /** Optional mutable query tag. Stored on the ready object, not redeclared at commit. */
     tag?: string;
 }
+/** The subset of a ready Media row that `media download` verifies against. */
+export interface MediaRecord {
+    id: string;
+    filename: string;
+    /** Present when the upload declared one; absent for generated stills. */
+    source_filename?: string;
+    primitive: "image" | "video";
+    content_type: string;
+    sha256: string;
+    bytes: number;
+    width?: number;
+    height?: number;
+    [key: string]: unknown;
+}
 /** PATCH /api/v1/media/{id}. tag is required; null clears it. */
 export interface MediaTagPatch {
     tag: string | null;
+}
+export type MediaGenerationAspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "3:4" | "3:2" | "2:3";
+export type MediaGenerationQuality = "low" | "medium" | "high";
+/** POST /api/v1/media/generations. prompt is required; aspect_ratio and quality have server defaults. quality changes the image and the price. */
+export interface MediaGenerationRequest {
+    prompt: string;
+    aspect_ratio?: MediaGenerationAspectRatio;
+    quality?: MediaGenerationQuality;
+    tag?: string;
+}
+export interface MediaGenerationUsage {
+    credits: number;
+    usd: string;
+    quality?: MediaGenerationQuality;
+    aspect_ratio?: MediaGenerationAspectRatio;
+}
+/** 201 body. media.id is med_…. Never image bytes. */
+export interface MediaGeneration {
+    media: {
+        id: string;
+        [key: string]: unknown;
+    };
+    usage: MediaGenerationUsage;
 }
 export interface MediaUploadSession {
     expires_at: string;
