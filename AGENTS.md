@@ -59,39 +59,38 @@ agent workflow.
   Grok `--trust` named and `GROK_PLUGIN_ROOT` lookup. After install, prepend
   `$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts` to `PATH` once, then run
   `screenrig --json version`, `doctor`, the playlist authoring tree, playlist,
-  and `screen assign`. Do not export `SR`. Teach the order of preference in
-  the authoring-tree bullet below: the customer's own media first,
-  `media generate` for an informational screen, compose for its exceptions.
-  Compose is local stills.
-  Teach first run honestly: `doctor` warns (not fails) on a fresh install
-  and names `agent enroll --email ADDRESS`; `agent enroll`, `agent status`,
-  `agent connect` (a human approves in a dashboard browser; 408 `timeout`
-  means retry to resume), `agent disconnect --yes`, and `screen pair CODE`
-  (six undashed characters read from the glass) are documented in the
-  skill's "First run: enrol and pair" section. Do not teach `browser setup`,
-  `screen provision`, the dashed `ABC-234` form as `screen pair` input, or
-  playlist text-slot template tutorials.
+  and `screen assign`. Do not export `SR`. Teach choose by what the page is.
+  Compose is local unbilled stills for slide-deck-like pages.
+  Do not teach `agent enroll`, `screen pair`, `browser setup`, `screen
+  provision`, `ABC-234`, or playlist text-slot template tutorials.
 - Keep `--json` envelopes. Never teach a token flag or pasted bearer. The
   credential is a user-private file.
 - Meter usage in credits. Standard is prepaid. HTTP 402 / `payment_required`
   means do not retry billed commands; point money at
   https://screenrig.ai/pricing/. Write in a feature-complete voice.
-- Teach the playlist authoring tree in this order of preference: existing
-  customer assets → `media upload`; any informational screen that must be
-  made (poster, menu board, announcement, opening hours, wayfinding) →
-  `media generate` as the default, or own-gen-then-upload; local unbilled
-  `compose render` only for its exceptions — mixed live primitives on one
-  page (`image` | `video` | `iframe` | `application`), data that must be
-  exact, and layout iteration without spend. `media generate` draws the
-  finished artefact including all of its text; never teach layering text
-  over a generated still, and never teach animation as a reason to compose
-  instead of generate. `media generate` is billed per still by `--quality`:
-  low $0.06 (600 credits) for backgrounds, medium $0.12 (1200 credits) as
-  the default for most work, high $0.50 (5000 credits) for artefacts
-  carrying a lot of text such as a restaurant menu. Quality changes the
-  image and the price. The call blocks for tens of seconds and scales with
-  the tier; teach budgeting the global `--timeout` rather than treating it
-  as a hang. Do not teach emitting
+- Teach the playlist authoring tree. Choose by what the page is. Do not
+  generate an atmosphere plate and compose type onto it. Do not compose a
+  presentable poster as named regions + cards.
+  1. Existing image or video → `media upload` and place `med_…`. No compose.
+     No generate.
+  2. Anything presentable (posters, announcements, restaurant menus, event
+     art, product stills, public-facing rich static pages) → `media generate`
+     as the **whole page**. Put every fact and all copy in the prompt so the
+     image model typesets it. ScreenRig generate is the default.
+     Own-gen-then-upload remains valid only if
+     they already have a preferred model. Do not compose this page. Do not
+     generate atmosphere-only stills for later overlay.
+  3. Slide-deck-like experiences (title/body/table slides, internal decks,
+     measured type that must stay editable as compose JSON) → local unbilled
+     `compose render`.
+  4. Live objects (a playing video, iframe, or webapp as the page or as
+     playlist primitives) → write playlist primitives. Upload the video if
+     you have it. Do not local-render stills merely to attach `enter` /
+     `motion`. Animation is not a reason to compose.
+  `media generate` is billed per still by `--quality`: low $0.06 (600 credits)
+  for unimportant generated stills only, medium $0.12 (1200 credits) for most
+  cases (default), high $0.50 (5000 credits) for dense text and complex
+  posters. Quality changes the image and the price. Do not teach emitting
   native `text`, `box`, or `line` on the playlist wire. Compose is local and
   not billed.
 - The category word is **primitive**, never placement, kind, or type. Four

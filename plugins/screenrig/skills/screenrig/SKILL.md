@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, upload existing media, generate finished posters and menu boards, compose stills for mixed pages, write playlists, or assign content to screens.
+description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, upload existing media, generate a presentable whole-page still, compose a slide-deck still, write playlists, or assign content to screens.
 ---
 
 # screenRIG
@@ -120,205 +120,80 @@ screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match R
    `screenrig agent enroll --email ADDRESS`: that is the expected first-run
    result, not a broken install. Name missing toolchain parts before the
    first `media upload`.
-3. Enrol once (`agent enroll`) and pair each native player (`screen pair`) as
-   described under "First run: enrol and pair".
-4. Put content on a playlist page using the authoring tree below: the
-   customer's own image or video when they have one, `media generate` when an
-   informational screen (poster, menu board, announcement, opening hours,
-   wayfinding) needs making, and local compose only for its named exceptions.
-5. Write a playlist that places `med_…` ids (and iframe/application primitives
+3. Put content on a playlist page using the authoring tree below. Choose by
+   what the page is.
+4. Write a playlist that places `med_…` ids (and iframe/application primitives
    when the page needs them).
-6. Assign that playlist to a screen with `screen assign` and the current
+5. Assign that playlist to a screen with `screen assign` and the current
    `--if-match` revision.
 
-Text never travels on the playlist wire. It is either drawn into a generated
-still by the image model or painted locally by compose; either way the result
-is a raster placed as `image`. Do not emit native `text`, `box`, or `line` on
-the playlist wire.
-
-## First run: enrol and pair
-
-Every account command needs a credential. Until one exists, authenticated
-commands fail with `error.code` `not_enrolled` (exit 3) and an
-`error.next.command` you can run directly. Enrolment is an explicit step; no
-other command enrols as a side effect.
-
-### Enrol
-
-```bash
-screenrig --json agent enroll --email owner@example.com --name "Office MacBook Codex"
-screenrig --json agent status
-```
-
-- `--email ADDRESS` is required for a new enrolment. The address is unverified
-  contact metadata for the account, not authentication or recovery authority.
-  The CLI keeps it only in private retry state and never prints it.
-- `--name NAME` labels this installation in the dashboard Agents view.
-  `--open-dashboard` opens the account dashboard after enrolment succeeds.
-- If the server asks for a beta key, pass the global `--beta-key KEY` flag (or
-  set `SCREENRIG_BETA_KEY`). It is sent as `beta_key` and omitted when unset.
-- Enrolment is idempotent: running `agent enroll` again with the same email on
-  an installation that already holds an active agent succeeds and returns that
-  agent. It does not create a second account. A 409 `email_conflict` is
-  terminal for that address; report it and use `agent connect` to join the
-  existing account instead. Never retry it automatically.
-- The result is `data.status` `active` with `data.agent`. No token appears in
-  any envelope; the credential is written to the user-private config file.
-- `agent status` never enrols. `data.status` is one of `not_enrolled`,
-  `connecting` (a connection is waiting for approval; `phase` and
-  `expires_at` say where it stands), `active`, or `disconnected`.
-  `connection_ready` is true only when the account holds a persisted
-  dashboard passkey that can approve another agent; `false` right after a
-  fresh enrolment is normal.
-
-### Add another installation to the same account
-
-```bash
-screenrig --json agent connect --name "Studio Automation" --print-url --timeout 300000
-```
-
-`agent connect` needs a human. The CLI opens (or with `--print-url` writes to
-stderr) a dashboard approval URL, then blocks waiting for a signed-in
-dashboard user to approve with a fresh passkey. Tell the user to open that
-URL and approve; you cannot complete it yourself. When `--timeout MS` expires
-before approval, the command returns 408 `timeout` with the detail "Retry
-agent connect to resume the same request": the pending connection is kept, and
-running `agent connect` again resumes it. `agent status` shows `connecting`
-meanwhile. A cancelled or expired connection clears the local pending state;
-start again. Do not copy `config.json` between machines; each installation
-gets its own revocable credential through this flow.
-
-### Disconnect
-
-```bash
-screenrig --json agent disconnect --yes
-```
-
-Revokes only the calling agent on the server first, then removes the local
-credential. Screens, content, and other agents are untouched. Disconnecting
-the last active agent is refused with `agent_lockout_risk`; `--allow-lockout`
-overrides it only when the user has confirmed a registered dashboard passkey
-or accepts losing the account. Without a stored credential the command is a
-`usage_error` and changes nothing.
-
-### Pair a native player
-
-```bash
-screenrig --json screen pair ABC234 --label "Lobby"
-```
-
-A native player (Qt, Android, Apple, Windows) shows a pairing code on the
-glass as six characters with a dash, `ABC-234`. Type it into `screen pair`
-without the dash: the command accepts exactly six characters. Reading the
-code off the glass always works; some players also put the undashed code in
-their own operation log as `params.pairing_code` on the `pairing.start` row,
-so an agent watching that log can pair without a person at the screen. See
-"Read a player's operation log" below for where each player writes it and
-what to do when the row does not carry the code. Do not confuse the pairing
-code with the public locator on the homepage handoff, which is a different
-clock: a native pairing code stays
-claimable for 72 hours unclaimed, and a successful claim opens a fresh 72-hour
-collection window for the player; the public locator lasts 30 minutes. The
-server owns those clocks; the CLI does not time the code locally.
-
-Success returns the new `data.screen` (`id` `scr_…`, `state`
-`pairing_pending`) and the player comes online within seconds; `screen show`
-reports `online: true` once it has. `--label` names the screen at pairing
-time; `screen update --name` renames later. The revision moves on its own
-when the player first reports its surface, so refetch before `--if-match`.
-A code the server cannot find is 404 `not_found` with "Pairing session was
-not found or is no longer claimable": re-read the six characters on the
-glass, or wait for the player to show a fresh code.
-
-### Read a player's operation log
-
-A player's operation log is a separate stream from the CLI's. Each process
-writes to its own sink; there is no combined feed and no API that returns a
-player's log. Follow the sink belonging to the player you are pairing or
-debugging. Every line is one v1 NDJSON object with `tag`, optional resource
-`id`, optional scalar `params`, and `correlation_id` pairing a start with its
-finish.
-
-| Player | Where it writes | How to read it |
-|---|---|---|
-| Linux/Wayland native player | Unix socket, `SCREENRIG_PLAYER_LOG_SOCKET` when set, else `$XDG_RUNTIME_DIR/screenrig-player-log.sock`, else `/tmp/screenrig-player-log.sock` | Listen on that path, then start the player |
-| Apple native player | Unix socket, `SCREENRIG_PLAYER_LOG_SOCKET` when set, else `screenrig-player-log.sock` in the player's Application Support directory | Listen on that path, then start the player |
-| Android player | Android system log, tag `ScreenRigOp` at info | `adb logcat -s ScreenRigOp:I` on the confirmed device serial |
-| Windows player | `Trace` / `Debug` output | A debug output viewer attached to the running player |
-| Browser player | One NDJSON object per `console.debug` line | The browser devtools console |
-
-The two socket players connect as **clients** and never create the socket
-themselves. A consumer must already be listening on that path when the player
-starts, or the lines are dropped silently; a missing listener never breaks
-playback. Start a listener first, then start or restart the player:
-
-```bash
-socat -u UNIX-LISTEN:"$XDG_RUNTIME_DIR/screenrig-player-log.sock",fork -
-```
-
-To pair from the log, watch for the `pairing.start` row and read
-`params.pairing_code`. Not every player publishes it: some deliberately keep
-the code out of their log, and on those the row arrives with no
-`pairing_code` at all. When the row is absent or carries no code after the
-player has shown a code on screen, stop waiting and ask the person at the
-screen to read the six characters. Do not screenshot the player to hunt for
-the code, and never copy any other field out of a log line: pairing material
-beyond that one code, session credentials, `Authorization` headers, signed
-URLs, and object keys are not yours to print, store, or relay.
-
-### Open the dashboard
-
-```bash
-screenrig --json dashboard
-screenrig --json dashboard --print-url
-```
-
-`dashboard` mints one link and opens it. The link is single use and stops
-being claimable ten minutes after it is minted; a fresh one is one more
-`dashboard` call away, so let one expire rather than keeping it. The
-credential rides the URL fragment, so the whole URL is a secret: the CLI
-prints it only when the opener cannot start a browser or you passed
-`--print-url` because the browser is on another machine. Hand that line to
-the user the way you would a password; never write it to a file or a log.
+Do not emit native `text`, `box`, or `line` on the playlist wire. Presentable
+copy lives in the generated still. Deck copy is composed locally, uploaded,
+and placed as `image`.
 
 ## Playlist authoring
 
-How to put content on a playlist page. The order of preference is fixed: use
-the customer's own media when they have it; generate the artefact when they
-need one made; compose only for the exceptions named in step 3. Do not wire
-an external image API as the default.
+### Image-model layout
 
-1. **You already have the image or video.** Easiest path: `media upload`
-   (declare → PUT exact bytes → commit) and reference `med_…` on the
-   playlist. Do it yourself. No compositor. No generate.
+`media generate` as the whole page is **image-model layout**: the model
+paints art, hierarchy, and type together. That sets the presentable quality bar.
+
+Local `compose render` is a **slide-deck renderer**: measured type, tables,
+named regions. It is not in the same quality class. Do not compose a
+presentable poster hoping it will match generate.
+
+Generating an atmosphere plate and composing type onto it throws away the
+image-model layout. Do not do that.
+
+Compose and generate are not interchangeable layout tools. Pick generate
+when the page must look presentable.
+
+How to put content on a playlist page. Choose by what the page is. Do not
+generate an atmosphere plate and compose type onto it. Do not compose a
+presentable poster as named regions + cards.
+
+1. **You already have the image or video.** `media upload` and place
+   `med_…`. No compose. No generate.
 
 ```bash
 screenrig --json media upload ./lobby.jpg --tag LobbyPhoto
 screenrig --json media list --tag LobbyPhoto --primitive image
 ```
 
-2. **You need an informational screen made**: a poster, a menu board, an
-   announcement, opening hours, a wayfinding notice, a promotion. Reach for
-   `media generate` first. It draws the entire finished artefact, all of the
-   text included, in an art style chosen for the business, and returns a
-   ready `med_…` to place as one `image`. Nothing is layered on top of it.
-   Read "Generate the artefact" below before writing the prompt. Generating
-   with a model you already prefer and then `media upload` is also valid.
+2. **Anything presentable** — posters, announcements, restaurant menus,
+   event art, product stills, public-facing rich static pages. `media
+   generate` as the **whole page**. Put every fact and all copy in the
+   prompt so the image model typesets it. ScreenRig generate is the default. Own-gen-then-upload remains valid
+   only if you already have a preferred model. Do not compose this page. Do
+   not generate atmosphere-only stills for later overlay.
 
 ```bash
-screenrig --json media generate --prompt "…" --aspect-ratio 16:9 --quality medium --tag SpringMenu
+screenrig --json media generate --prompt "Finished 16:9 event poster with all copy typeset in the image. Headline: Community Supper. Date: Saturday 17 October, 19:00. Location: Main Hall. Call to action: Reserve at the welcome desk. Warm editorial food photography with cream type. No other text." --aspect-ratio 16:9 --quality high --tag CommunitySupper
 ```
 
-3. **The page genuinely needs local composition.** Compose (`compose
-   render`) is local, unbilled, and right for exactly these cases: several
-   live primitives on one page (a `video` or `iframe`/`webapp` hole with
-   copy beside it); dense data that must be exact and cannot be proofread
-   item by item on a generated still (a long timetable or stock list copied
-   from the customer's source); and iterating a layout without spending
-   credits. Compose writes region stills and holes; upload the stills and
-   place them as `image`. Wanting animation is not a reason to compose: a
-   generated still takes `enter`, `motion`, and page transitions exactly
-   like any other image.
+`--prompt` is required (1 to 4000 characters). `--aspect-ratio` defaults to
+`16:9` (`1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`). `--quality`
+defaults to `medium` (`low`, `medium`, `high`). Quality changes the image
+and the price.
+
+| quality | credits | usd | when |
+|---|---|---|---|
+| `low` | 600 | $0.06 | unimportant generated stills only |
+| `medium` | 1200 | $0.12 | most cases (recommend this) |
+| `high` | 5000 | $0.50 | dense text and complex posters |
+
+Optional `--tag` is the same 1–32 letter-or-digit tag as upload. The command
+blocks until `201` MediaGeneration `{ media, usage }`. `data.media.id` /
+`data.media_id` is `med_…`. There is no 202 poll and no client PUT. Envelope
+`usage` shows credits and usd for the chosen tier. A 402 /
+`payment_required` means stop; do not retry generate. Never print pixels or
+the prompt. Place the returned `med_…` on the playlist as one full-page
+`image`. The POST stores a lossy WebP in the account media store; the CLI does
+not re-upload. Fetch content only to inspect.
+
+3. **Slide-deck-like experiences** — title/body/table slides, internal
+   decks, measured type that must stay editable as compose JSON. Local
+   unbilled `compose render`.
 
 ```bash
 screenrig --json compose catalog
@@ -330,6 +205,17 @@ screenrig --json media upload ./exec-intro/left.png --tag ExecIntro
 plate (`fit` `region` or `ink`). `cards` (plural) is an array of items. Region
 `video`, `iframe`, and `webapp` are holes, not painted PNGs.
 
+4. **Live objects** — a playing video, iframe, or webapp as the page (or as
+   playlist primitives). Write playlist primitives. Upload the video if you
+   have it. Do not local-render stills merely to attach `enter` / `motion`.
+   Animation is not a reason to compose.
+
+```bash
+screenrig --json media upload ./clip.mp4 --tag LobbyClip
+```
+
+Then write a `video`, `iframe`, or `application` primitive. See Playlist
+writes and Putting a web app on a screen.
 If you find yourself composing text over a generated image, stop: that is
 the inverted workflow. Put the copy in the prompt and regenerate so the
 model draws the words as part of the artwork.
@@ -365,8 +251,8 @@ want.
 
 A strong prompt names, in this order:
 
-- **The business and the venue type.** "A menu board for Bella Trattoria, a
-  sit-down Italian restaurant"; "a window poster for Northgate Books, an
+- **The business and the venue type.** "A menu board for fictional Example Cafe, a
+  sit-down Italian restaurant"; "a window poster for fictional Example Books, an
   independent bookshop". The model takes its conventions from the genre.
 - **The art style**, chosen to suit that business and varied across
   businesses so four artefacts for four venues do not look like one
@@ -399,13 +285,13 @@ belongs in compose or a web application.
 Quick-service menu board, `16:9`, `high` because the text is dense:
 
 ```bash
-screenrig --json media generate --aspect-ratio 16:9 --quality high --tag BurgerBoard --prompt "Landscape 16:9 menu board artwork for Hank's Burger Counter, a quick-service burger stand. Full bleed, artwork only. Style: bold retro American diner signage, flat vector shapes, thick outlines, slight halftone texture. Palette: mustard yellow #E8B324 background, ketchup red #C8281E accents, cream #FFF6E0 type, charcoal #1E1E1E outlines. Layout: restaurant name as a large arched headline top centre, then three columns. Column one, BURGERS: Classic Smash, double patty, American cheese, pickles, \$9; Bacon Deluxe, smoked bacon, cheddar, onion jam, \$11; Garden Stack, grilled halloumi, roasted pepper, herb mayo, \$10. Column two, SIDES: Skin-on Fries \$4; Onion Rings \$5; Slaw \$3. Column three, DRINKS: Vanilla Shake \$6; Root Beer Float \$5; Lemonade \$3. Footer line: Order at the counter, we call your number. Typography: condensed heavy sans for headings, clean rounded sans for items, prices right-aligned and bold. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
+screenrig --json media generate --aspect-ratio 16:9 --quality high --tag BurgerBoard --prompt "Landscape 16:9 menu board artwork for Example Burger Counter, a quick-service burger stand. Full bleed, artwork only. Style: bold retro American diner signage, flat vector shapes, thick outlines, slight halftone texture. Palette: mustard yellow #E8B324 background, ketchup red #C8281E accents, cream #FFF6E0 type, charcoal #1E1E1E outlines. Layout: restaurant name as a large arched headline top centre, then three columns. Column one, BURGERS: Classic Smash, double patty, American cheese, pickles, \$9; Bacon Deluxe, smoked bacon, cheddar, onion jam, \$11; Garden Stack, grilled halloumi, roasted pepper, herb mayo, \$10. Column two, SIDES: Skin-on Fries \$4; Onion Rings \$5; Slaw \$3. Column three, DRINKS: Vanilla Shake \$6; Root Beer Float \$5; Lemonade \$3. Footer line: Order at the counter, we call your number. Typography: condensed heavy sans for headings, clean rounded sans for items, prices right-aligned and bold. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
 ```
 
 Store event poster, `9:16`, `medium`:
 
 ```bash
-screenrig --json media generate --aspect-ratio 9:16 --quality medium --tag AuthorNight --prompt "Portrait 9:16 event poster artwork for Northgate Books, an independent bookshop. Full bleed, artwork only. Style: two-colour risograph print, grainy ink, slightly off-register overlap, generous margins, mid-century book-jacket feel. Palette: paper white #F4EFE6, teal ink #1B6F79, coral ink #E4633C. Copy, exactly this and nothing else: headline 'Author Night'; subhead 'Maya Okafor reads from The Tide Clock'; date line 'Thursday 24 September, 7 pm'; line 'Free entry, signed copies available'; footer 'Northgate Books, 12 Market Row'. Illustration: one stylised open book with waves rising from its pages, placed behind the headline. Typography: tall geometric display type for the headline, small caps for the date, humanist serif for the rest. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
+screenrig --json media generate --aspect-ratio 9:16 --quality medium --tag AuthorNight --prompt "Portrait 9:16 event poster artwork for fictional Example Books, an independent bookshop. Full bleed, artwork only. Style: two-colour risograph print, grainy ink, slightly off-register overlap, generous margins, mid-century book-jacket feel. Palette: paper white #F4EFE6, teal ink #1B6F79, coral ink #E4633C. Copy, exactly this and nothing else: headline 'Author Night'; subhead 'Guest Author reads from Sample Title'; date line 'Thursday 24 September, 7 pm'; line 'Free entry, signed copies available'; footer 'fictional Example Books, Main Hall'. Illustration: one stylised open book with waves rising from its pages, placed behind the headline. Typography: tall geometric display type for the headline, small caps for the date, humanist serif for the rest. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
 ```
 
 The same brief in a different venue asks for a different style: the same
@@ -684,26 +570,17 @@ whose permissions are too broad.
 
 ## Local compose
 
-Compose is authoring path 3, the exception path. It paints named regions of
-type and imagery into local PNGs, and it is right for three kinds of page:
-several live primitives on one page, such as a `video` or `iframe`/`webapp`
-hole with copy beside it; dense data that must be exact and cannot be
-proofread item by item on a generated still, such as a long timetable or
-stock list copied from the customer's source; and iterating a layout without
-spending credits. It is local and unbilled.
+Compose is authoring path 3: slide-deck-like experiences — title/body/table
+slides, internal decks, measured type that must stay editable as compose
+JSON. It is local and unbilled. Presentable posters, menus, event art, and
+other public-facing rich static pages are generated finished stills, not
+composed pages.
 
-It is not the tool for a poster, a menu board, an announcement, or any other
-informational screen a viewer should read as one printed piece: those are
-generated as one artefact (see "Generate the artefact"). Choosing compose to
-make a slide-deck-looking page should be unusual, and wanting animation is
-not a reason: `enter`, `motion`, and transitions apply to a generated still
-exactly as to a composed one. Never compose text over a generated poster.
-
-When a page does belong in compose, read
+When composing a slide-deck page, read
 [Composition and visual direction](references/composition.md) before
-choosing a layout. It covers reference research, useful density, independent
-artwork, readability, and playlist-wide visual review; most of it also
-sharpens a generation prompt.
+choosing a layout. Compose visual guidance is for slide-deck pages. Overlay
+is a compose mechanic for decks; it is not the presentable-poster path.
+Animation is not a reason to compose.
 
 Write JSON, `compose render`, look at the PNGs, iterate. Compose is not billed.
 Uploads and playlist writes are billed. Iterate `compose render` and read
@@ -898,7 +775,11 @@ require server checks. Raster QA alone never proves the playlist is valid.
 
 ### Slide, overlay, and wordmark
 
-For text over images or video, put copy in a `card` so the plate brings type
+Overlay is a compose mechanic for slide-deck pages and live video. It is not
+the presentable-poster path. A presentable poster, menu, or event still is
+one generated image with the copy typeset in the still.
+
+For deck text over images or video, put copy in a `card` so the plate brings type
 forward. Default `card.fit` `region` fills the region (a column, a half).
 `fit: "ink"` hugs the measured type plus 24 px; use it for lower thirds and
 short copy so a two-line `bottom` card does not paint a full-width opaque
@@ -958,20 +839,21 @@ Page `logo` is the identity mark: 32 px inset from the chosen corner, contain
 inside 200×100, never upscaled. Prefer `logo` over a hand-placed playlist
 wordmark when composing the still.
 
-Playlist: photo `layer` 0 + overlay `layer` 1 on a 1920×1080 canvas. Use
-`content_fit: "fill"` for a matching-aspect full-canvas overlay; preserve the
-photo proportions with `contain` or intentional `cover` cropping. Eight-digit
-hex is how the page stays transparent and the plate keeps alpha. Layered
-region PNGs can sit as image primitives at their manifest rects. Inspect with
-`--combined`; default agent output stays layered.
+For a deck overlay playlist: photo `layer` 0 + overlay `layer` 1 on a
+1920×1080 canvas. Use `content_fit: "fill"` for a matching-aspect full-canvas
+overlay; preserve the photo proportions with `contain` or intentional `cover`
+cropping. Eight-digit hex is how the page stays transparent and the plate
+keeps alpha. Layered region PNGs can sit as image primitives at their
+manifest rects. Inspect with `--combined`; default agent output stays layered.
+A presentable poster is one generated `image` primitive, not photo plus overlay.
 
 ## Playlist writes
 
 Four wire primitives exist: `image`, `video`, `iframe`, and `application`.
 Static is `image`, motion is `video`, and web is `iframe` or `application`.
-Do not author native `text`, `box`, or `line` on the wire. Text reaches the
-wire only as pixels inside an `image`: a generated still, or a locally
-composed one uploaded with `media upload`.
+Do not author native `text`, `box`, or `line` on the wire. Presentable copy
+lives in the generated still. Deck copy and chrome are composed locally,
+uploaded as `image`, and used as one image primitive.
 
 A full page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
 and `primitives`. A primitive is flat: `id`, a `primitive` field naming one of
@@ -1055,7 +937,8 @@ Use `data.media_id` from `media upload` or `media generate` (same value as
 `media list --tag TAG` is the filename → id map. Do not re-upload a generated
 still; `media download` it when a composed page needs the file.
 
-Photo plus overlay still:
+Deck photo plus overlay still. Presentable posters are one generated `image`,
+not this two-layer shape.
 
 ```json
 {
@@ -1120,11 +1003,11 @@ present. Those delays are contract constants, not author fields and not CLI
 flags. Do not send duration or delay inside `enter`; `stagger` is the only
 extra author field.
 
-To slide a headline in over video, compose the text and its translucent
-plate into a transparent PNG, place that image above the video's layer, and
-apply `enter` to the overlay image. Keep the background independent. A
-generated poster does not need this: apply `enter` to the poster image
-itself rather than composing text over it.
+To slide deck text in over a still or video, compose the text and its translucent
+plate into a transparent PNG, place that image above the background's layer,
+and apply `enter` to the overlay image. Keep the background independent.
+This is a deck or live-video mechanic, not the presentable-poster path.
+Animation is not a reason to compose a presentable page.
 The same mechanism works for independent foreground artwork with alpha.
 Leave transparent breathing room around moving ink within its raster and
 primitive rect so entry motion does not clip its edges; do not stretch the
