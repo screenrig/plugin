@@ -34,10 +34,21 @@ jobs:
           test "${repository}" = screenrig/cli
           install -d "${RUNNER_TEMP}/screenrig-cli-source"
           git -C "${RUNNER_TEMP}/screenrig-cli-source" init --quiet
-          git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --no-tags --depth=1 \
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --depth=1 \
             "https://github.com/${repository}.git" "${commit}"
           git -C "${RUNNER_TEMP}/screenrig-cli-source" checkout --quiet --detach FETCH_HEAD
           test "$(git -C "${RUNNER_TEMP}/screenrig-cli-source" rev-parse HEAD)" = "${commit}"
+          # Fetch the vYY.MM.* tag for this CLI commit and apply the same stamp
+          # the CLI distributing job used, so the hash does not drift. The first
+          # stamped CLI tarball invalidates the sha256 in components.lock.json
+          # until ops re-locks. Do not invent a SHA.
+          cli_version="$(python3 scripts/calver.py cli-stamp --repository "${repository}" --commit "${commit}")"
+          if [ -n "${cli_version}" ]; then
+            export SCREENRIG_VERSION="${cli_version}"
+            git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --depth=1 \
+              "https://github.com/${repository}.git" \
+              "refs/tags/v${cli_version}:refs/tags/v${cli_version}" || true
+          fi
           npm --prefix "${RUNNER_TEMP}/screenrig-cli-source" ci
           npm --prefix "${RUNNER_TEMP}/screenrig-cli-source" run build
           install -d "${RUNNER_TEMP}/screenrig-cli"
@@ -54,10 +65,44 @@ jobs:
           python3 scripts/check-public-repo.py
           PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-public-dependencies.py
       - name: Package deterministic plugin artifact
+        if: github.ref != 'refs/heads/main'
         run: >-
           tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0
           --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig -cf - .
           | gzip -n -9 > "${RUNNER_TEMP}/screenrig-plugin.tar.gz"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: github.ref != 'refs/heads/main'
+        with:
+          name: screenrig-plugin
+          path: ${{ runner.temp }}/screenrig-plugin.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  distribute:
+    if: github.repository == 'screenrig/plugin' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Tag this commit and stamp the distributing artifact
+        run: |
+          version="$(python3 scripts/calver.py tag)"
+          staging="${RUNNER_TEMP}/screenrig-plugin-stamp"
+          install -d "${staging}"
+          cp -a plugins/screenrig "${staging}/screenrig"
+          cp .claude-plugin/marketplace.json "${staging}/marketplace.json"
+          python3 scripts/calver.py stamp --version "${version}" \
+            --marketplace "${staging}/marketplace.json" \
+            --plugin-root "${staging}/screenrig"
+          tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0 \
+            --numeric-owner --mode=u=rwX,go=rX -C "${staging}/screenrig" -cf - . \
+            | gzip -n -9 > "${RUNNER_TEMP}/screenrig-plugin.tar.gz"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: screenrig-plugin

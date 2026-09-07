@@ -12,13 +12,21 @@ agent workflow.
 - `skills/screenrig/`, `build/plugin.json`, root marketplace manifests, root
   public files, and `components.lock.json` are canonical inputs.
 - `components.lock.json` pins the exact `screenrig/cli` commit, artifact
-  filename, and SHA-256.
+  filename, and SHA-256. That lock is not a product version and does not
+  store CalVer. The first CLI tarball that stamps CalVer into package.json
+  will not match the locked sha256 until ops re-locks; do not invent a SHA.
+- Distributed plugin versions are CalVer `YY.MM.SERIAL` (UTC). Tags are
+  `vYY.MM.N`. Committed `.claude-plugin/marketplace.json` stays `0.1.2`;
+  CI stamps generated `plugin.json` in the artifact. Local and pull-request
+  trees use `YY.MM.0-dev`. Plugin CI fetches the CLI commit's `vYY.MM.*`
+  tag and applies the same stamp so the rebuilt tarball hash does not drift.
 - `scripts/build-plugin.py` defines generation of `plugins/screenrig/`.
 - `scripts/validate-plugin.py` and `scripts/check-public-repo.py` define the
   public/reproducibility boundary.
 - This repository publishes an artifact and never deploys ScreenRig.
   **Deploys are independent** (operating rule): this repository's `main`
-  Action publishes the `screenrig-plugin.tar.gz` CI artifact only. No
+  Action tags CalVer `vYY.MM.N` and publishes the stamped
+  `screenrig-plugin.tar.gz` CI artifact only. No
   marketplace publish unless the user asks later. Do not pack siblings.
   Do not dispatch backend. Do not copy deploy tokens between repos.
   Coordinated multi-repo deploy is rare and only for a breaking contract

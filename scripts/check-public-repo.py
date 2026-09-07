@@ -14,8 +14,19 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLE = ROOT / "plugins" / "screenrig" if (ROOT / "plugins" / "screenrig").is_dir() else ROOT
-EXPECTED_PLUGIN_VERSION = "0.1.2"
-EXPECTED_CLI_VERSION = "0.1.0"
+PLUGIN_PLACEHOLDER = "0.1.2"
+CLI_PLACEHOLDER = "0.1.0"
+PRODUCT_VERSION = re.compile(r"^\d{2}\.(?:0[1-9]|1[0-2])\.(?:0-dev|[1-9]\d*)$")
+
+
+def is_plugin_version(value: object) -> bool:
+    return isinstance(value, str) and (value == PLUGIN_PLACEHOLDER or PRODUCT_VERSION.fullmatch(value) is not None)
+
+
+def is_cli_version(value: object) -> bool:
+    return isinstance(value, str) and (value == CLI_PLACEHOLDER or PRODUCT_VERSION.fullmatch(value) is not None)
+
+
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 TEXT_SUFFIXES = {"", ".d.ts", ".js", ".json", ".md", ".py", ".sh", ".toml", ".yaml", ".yml"}
@@ -51,25 +62,27 @@ def check_metadata(errors: list[str]) -> None:
         manifest = load(ROOT / relative, errors)
         expected = {
             "name": "screenrig",
-            "version": EXPECTED_PLUGIN_VERSION,
             "repository": PLUGIN_REPOSITORY,
             "license": "Apache-2.0",
         }
         for field, value in expected.items():
             if manifest.get(field) != value:
                 errors.append(f"{relative} {field!r} must be {value!r}")
+        if not is_plugin_version(manifest.get("version")):
+            errors.append(f"{relative} version must be 0.1.2, YY.MM.N, or YY.MM.0-dev")
 
     package_path = BUNDLE / "cli" / "package.json"
     package = load(package_path, errors)
     expected_package = {
         "name": "screenrig",
-        "version": EXPECTED_CLI_VERSION,
         "private": False,
         "license": "Apache-2.0",
     }
     for field, value in expected_package.items():
         if package.get(field) != value:
             errors.append(f"{package_path.relative_to(ROOT)} {field!r} must be {value!r}")
+    if not is_cli_version(package.get("version")):
+        errors.append(f"{package_path.relative_to(ROOT)} version must be 0.1.0, YY.MM.N, or YY.MM.0-dev")
     repository = package.get("repository")
     if not isinstance(repository, dict) or repository.get("url") != CLI_REPOSITORY:
         errors.append(f"{package_path.relative_to(ROOT)} repository.url must be {CLI_REPOSITORY}")
@@ -137,16 +150,25 @@ def check_public_tree(errors: list[str]) -> None:
         for fact in (
             "fetch-depth: 0",
             "scripts/package-release.sh",
-            "git -C \"${RUNNER_TEMP}/screenrig-cli-source\" fetch --no-tags --depth=1",
+            "git -C \"${RUNNER_TEMP}/screenrig-cli-source\" fetch --depth=1",
+            "python3 scripts/calver.py cli-stamp",
+            "SCREENRIG_VERSION",
             "npm --prefix \"${RUNNER_TEMP}/screenrig-cli-source\" run build",
             "--cli-artifact",
             "--cli-source",
             "python3 scripts/validate-plugin.py",
             "name: screenrig-plugin",
             "gitleaks\" git",
+            "contents: write",
+            "python3 scripts/calver.py tag",
+            "github.ref == 'refs/heads/main'",
         ):
             if fact not in workflow:
                 errors.append(f"public CI is missing required gate: {fact}")
+        if "github.run_number" in workflow:
+            errors.append("public CI must not use github.run_number for CalVer")
+    if (ROOT / "plugins" / "screenrig").is_dir() and not (ROOT / "scripts" / "calver.py").is_file():
+        errors.append("missing public root file: scripts/calver.py")
     for required in (
         "skills/screenrig/SKILL.md",
         "skills/screenrig/scripts/screenrig",
@@ -265,7 +287,7 @@ def run_smoke(errors: list[str]) -> None:
             or result.stderr
             or payload.get("ok") is not True
             or not isinstance(data, dict)
-            or data.get("version") != EXPECTED_CLI_VERSION
+            or not is_cli_version(data.get("version"))
         ):
             errors.append(f"public smoke failed: {' '.join(command)}")
 
