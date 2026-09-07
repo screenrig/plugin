@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, upload existing media, compose stills, generate public-facing stills, write playlists, or assign content to screens.
+description: Operate screenRIG screens, applications, media, playlists, playback, events, feedback, comments, and application K/V with the bundled screenRIG CLI. Use when an agent needs to install the official screenRIG plugin, upload existing media, generate finished posters and menu boards, compose stills for mixed pages, write playlists, or assign content to screens.
 ---
 
 # screenRIG
@@ -106,6 +106,8 @@ Work in this order. Do not skip `version` or `doctor`.
 ```bash
 screenrig --json version
 screenrig --json doctor
+screenrig --json agent enroll --email ADDRESS --name "Office MacBook Codex"
+screenrig --json screen pair ABC234
 # then put content on a playlist page using the authoring tree below
 screenrig --json playlist create ./playlist.json
 screenrig --json screen list
@@ -113,23 +115,178 @@ screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match R
 ```
 
 1. Prepend the plugin scripts directory to `PATH` and require `screenrig --json version`.
-2. Run `doctor`. Read `data.checks`. Name missing toolchain parts before the
+2. Run `doctor`. Read `data.status` and `data.checks`. On a fresh install the
+   `token` row is `warn`, not `fail`, and `data.next.command` is
+   `screenrig agent enroll --email ADDRESS`: that is the expected first-run
+   result, not a broken install. Name missing toolchain parts before the
    first `media upload`.
-3. Put content on a playlist page using the authoring tree below. Do not always
-   compose first. Do not always generate first.
-4. Write a playlist that places `med_…` ids (and iframe/application primitives
+3. Enrol once (`agent enroll`) and pair each native player (`screen pair`) as
+   described under "First run: enrol and pair".
+4. Put content on a playlist page using the authoring tree below: the
+   customer's own image or video when they have one, `media generate` when an
+   informational screen (poster, menu board, announcement, opening hours,
+   wayfinding) needs making, and local compose only for its named exceptions.
+5. Write a playlist that places `med_…` ids (and iframe/application primitives
    when the page needs them).
-5. Assign that playlist to a screen with `screen assign` and the current
+6. Assign that playlist to a screen with `screen assign` and the current
    `--if-match` revision.
 
-Copy and chrome are compose-local only. Raster stills, upload them, and place
-`image`. Do not emit native `text`, `box`, or `line` on the playlist wire.
+Text never travels on the playlist wire. It is either drawn into a generated
+still by the image model or painted locally by compose; either way the result
+is a raster placed as `image`. Do not emit native `text`, `box`, or `line` on
+the playlist wire.
+
+## First run: enrol and pair
+
+Every account command needs a credential. Until one exists, authenticated
+commands fail with `error.code` `not_enrolled` (exit 3) and an
+`error.next.command` you can run directly. Enrolment is an explicit step; no
+other command enrols as a side effect.
+
+### Enrol
+
+```bash
+screenrig --json agent enroll --email owner@example.com --name "Office MacBook Codex"
+screenrig --json agent status
+```
+
+- `--email ADDRESS` is required for a new enrolment. The address is unverified
+  contact metadata for the account, not authentication or recovery authority.
+  The CLI keeps it only in private retry state and never prints it.
+- `--name NAME` labels this installation in the dashboard Agents view.
+  `--open-dashboard` opens the account dashboard after enrolment succeeds.
+- If the server asks for a beta key, pass the global `--beta-key KEY` flag (or
+  set `SCREENRIG_BETA_KEY`). It is sent as `beta_key` and omitted when unset.
+- Enrolment is idempotent: running `agent enroll` again with the same email on
+  an installation that already holds an active agent succeeds and returns that
+  agent. It does not create a second account. A 409 `email_conflict` is
+  terminal for that address; report it and use `agent connect` to join the
+  existing account instead. Never retry it automatically.
+- The result is `data.status` `active` with `data.agent`. No token appears in
+  any envelope; the credential is written to the user-private config file.
+- `agent status` never enrols. `data.status` is one of `not_enrolled`,
+  `connecting` (a connection is waiting for approval; `phase` and
+  `expires_at` say where it stands), `active`, or `disconnected`.
+  `connection_ready` is true only when the account holds a persisted
+  dashboard passkey that can approve another agent; `false` right after a
+  fresh enrolment is normal.
+
+### Add another installation to the same account
+
+```bash
+screenrig --json agent connect --name "Studio Automation" --print-url --timeout 300000
+```
+
+`agent connect` needs a human. The CLI opens (or with `--print-url` writes to
+stderr) a dashboard approval URL, then blocks waiting for a signed-in
+dashboard user to approve with a fresh passkey. Tell the user to open that
+URL and approve; you cannot complete it yourself. When `--timeout MS` expires
+before approval, the command returns 408 `timeout` with the detail "Retry
+agent connect to resume the same request": the pending connection is kept, and
+running `agent connect` again resumes it. `agent status` shows `connecting`
+meanwhile. A cancelled or expired connection clears the local pending state;
+start again. Do not copy `config.json` between machines; each installation
+gets its own revocable credential through this flow.
+
+### Disconnect
+
+```bash
+screenrig --json agent disconnect --yes
+```
+
+Revokes only the calling agent on the server first, then removes the local
+credential. Screens, content, and other agents are untouched. Disconnecting
+the last active agent is refused with `agent_lockout_risk`; `--allow-lockout`
+overrides it only when the user has confirmed a registered dashboard passkey
+or accepts losing the account. Without a stored credential the command is a
+`usage_error` and changes nothing.
+
+### Pair a native player
+
+```bash
+screenrig --json screen pair ABC234 --label "Lobby"
+```
+
+A native player (Qt, Android, Apple, Windows) shows a pairing code on the
+glass as six characters with a dash, `ABC-234`. Type it into `screen pair`
+without the dash: the command accepts exactly six characters. Reading the
+code off the glass always works; some players also put the undashed code in
+their own operation log as `params.pairing_code` on the `pairing.start` row,
+so an agent watching that log can pair without a person at the screen. See
+"Read a player's operation log" below for where each player writes it and
+what to do when the row does not carry the code. Do not confuse the pairing
+code with the public locator on the homepage handoff, which is a different
+clock: a native pairing code stays
+claimable for 72 hours unclaimed, and a successful claim opens a fresh 72-hour
+collection window for the player; the public locator lasts 30 minutes. The
+server owns those clocks; the CLI does not time the code locally.
+
+Success returns the new `data.screen` (`id` `scr_…`, `state`
+`pairing_pending`) and the player comes online within seconds; `screen show`
+reports `online: true` once it has. `--label` names the screen at pairing
+time; `screen update --name` renames later. The revision moves on its own
+when the player first reports its surface, so refetch before `--if-match`.
+A code the server cannot find is 404 `not_found` with "Pairing session was
+not found or is no longer claimable": re-read the six characters on the
+glass, or wait for the player to show a fresh code.
+
+### Read a player's operation log
+
+A player's operation log is a separate stream from the CLI's. Each process
+writes to its own sink; there is no combined feed and no API that returns a
+player's log. Follow the sink belonging to the player you are pairing or
+debugging. Every line is one v1 NDJSON object with `tag`, optional resource
+`id`, optional scalar `params`, and `correlation_id` pairing a start with its
+finish.
+
+| Player | Where it writes | How to read it |
+|---|---|---|
+| Linux/Wayland native player | Unix socket, `SCREENRIG_PLAYER_LOG_SOCKET` when set, else `$XDG_RUNTIME_DIR/screenrig-player-log.sock`, else `/tmp/screenrig-player-log.sock` | Listen on that path, then start the player |
+| Apple native player | Unix socket, `SCREENRIG_PLAYER_LOG_SOCKET` when set, else `screenrig-player-log.sock` in the player's Application Support directory | Listen on that path, then start the player |
+| Android player | Android system log, tag `ScreenRigOp` at info | `adb logcat -s ScreenRigOp:I` on the confirmed device serial |
+| Windows player | `Trace` / `Debug` output | A debug output viewer attached to the running player |
+| Browser player | One NDJSON object per `console.debug` line | The browser devtools console |
+
+The two socket players connect as **clients** and never create the socket
+themselves. A consumer must already be listening on that path when the player
+starts, or the lines are dropped silently; a missing listener never breaks
+playback. Start a listener first, then start or restart the player:
+
+```bash
+socat -u UNIX-LISTEN:"$XDG_RUNTIME_DIR/screenrig-player-log.sock",fork -
+```
+
+To pair from the log, watch for the `pairing.start` row and read
+`params.pairing_code`. Not every player publishes it: some deliberately keep
+the code out of their log, and on those the row arrives with no
+`pairing_code` at all. When the row is absent or carries no code after the
+player has shown a code on screen, stop waiting and ask the person at the
+screen to read the six characters. Do not screenshot the player to hunt for
+the code, and never copy any other field out of a log line: pairing material
+beyond that one code, session credentials, `Authorization` headers, signed
+URLs, and object keys are not yours to print, store, or relay.
+
+### Open the dashboard
+
+```bash
+screenrig --json dashboard
+screenrig --json dashboard --print-url
+```
+
+`dashboard` mints one link and opens it. The link is single use and stops
+being claimable ten minutes after it is minted; a fresh one is one more
+`dashboard` call away, so let one expire rather than keeping it. The
+credential rides the URL fragment, so the whole URL is a secret: the CLI
+prints it only when the opener cannot start a browser or you passed
+`--print-url` because the browser is on another machine. Hand that line to
+the user the way you would a password; never write it to a file or a log.
 
 ## Playlist authoring
 
-How to put content on a playlist page. Follow this order. Do not always
-generate first. Do not always compose first. Do not wire an external image
-API as the default.
+How to put content on a playlist page. The order of preference is fixed: use
+the customer's own media when they have it; generate the artefact when they
+need one made; compose only for the exceptions named in step 3. Do not wire
+an external image API as the default.
 
 1. **You already have the image or video.** Easiest path: `media upload`
    (declare → PUT exact bytes → commit) and reference `med_…` on the
@@ -140,13 +297,28 @@ screenrig --json media upload ./lobby.jpg --tag LobbyPhoto
 screenrig --json media list --tag LobbyPhoto --primitive image
 ```
 
-2. **You do not have assets, and the page is a simple slide deck or needs
-   multiple object types on one page** (`image` | `video` | `iframe` |
-   `application` / webapp). Use the compositor (`compose render`): named
-   regions, local, unbilled. Compose writes stills (and holes for
-   iframe/webapp/region video). Upload those stills if they need to play on
-   a screen. Mixed object types are why you compose instead of a single
-   poster.
+2. **You need an informational screen made**: a poster, a menu board, an
+   announcement, opening hours, a wayfinding notice, a promotion. Reach for
+   `media generate` first. It draws the entire finished artefact, all of the
+   text included, in an art style chosen for the business, and returns a
+   ready `med_…` to place as one `image`. Nothing is layered on top of it.
+   Read "Generate the artefact" below before writing the prompt. Generating
+   with a model you already prefer and then `media upload` is also valid.
+
+```bash
+screenrig --json media generate --prompt "…" --aspect-ratio 16:9 --quality medium --tag SpringMenu
+```
+
+3. **The page genuinely needs local composition.** Compose (`compose
+   render`) is local, unbilled, and right for exactly these cases: several
+   live primitives on one page (a `video` or `iframe`/`webapp` hole with
+   copy beside it); dense data that must be exact and cannot be proofread
+   item by item on a generated still (a long timetable or stock list copied
+   from the customer's source); and iterating a layout without spending
+   credits. Compose writes region stills and holes; upload the stills and
+   place them as `image`. Wanting animation is not a reason to compose: a
+   generated still takes `enter`, `motion`, and page transitions exactly
+   like any other image.
 
 ```bash
 screenrig --json compose catalog
@@ -158,37 +330,174 @@ screenrig --json media upload ./exec-intro/left.png --tag ExecIntro
 plate (`fit` `region` or `ink`). `cards` (plural) is an array of items. Region
 `video`, `iframe`, and `webapp` are holes, not painted PNGs.
 
-3. **You want public-facing compelling messages** — posters, announcements,
-   restaurant menus, rich static pieces. Generate a still with an advanced
-   image model yourself and upload, or call ScreenRig `media generate`.
-   **ScreenRig generate is the recommended approach for most of these use
-   cases.** There is a charge by quality. Most static content should use
-   generate when it works. The POST stores the PNG in the account media
-   store and returns `med_…`; the CLI does not re-upload. Fetch content only
-   to inspect. Own-gen-then-upload remains valid when you already have a
-   preferred model.
+If you find yourself composing text over a generated image, stop: that is
+the inverted workflow. Put the copy in the prompt and regenerate so the
+model draws the words as part of the artwork.
+
+## Generate the artefact
+
+`media generate` is the default tool for any informational screen. It sends
+one prompt to the backend image model and stores the finished still in the
+account media store: the whole poster or menu board, headline, body copy,
+items, prices, and decoration drawn together in one art style. The result
+should look like a real poster hanging in the store or a real menu board on
+a restaurant television, quick service or sit down, not a slide. Nothing is
+layered on top of it. If you are adding text over a generated image, you
+have used the wrong tool; put the words in the prompt.
+
+Each call is billed, so make the prompt complete the first time.
+
+### Write the prompt
+
+Vague prompts give generic results. State the copy; do not leave it to the
+model.
+
+**Describe the artwork, never the screen it will play on.** The model draws
+what you name. Ask for a menu "on a television above the till" and it draws a
+television, bezel and all, and you have put a picture of a screen on a screen.
+Never mention a television, monitor, display, screen, kiosk, wall, or where
+the sign hangs. Say what the piece is — "landscape 16:9 menu board artwork",
+"portrait 9:16 event poster artwork" — and close every prompt by ruling the
+device out: no television, screen, frame, bezel, border, or mounting, artwork
+filling the image edge to edge. Check the result for a border or a rounded
+corner before you place it; that is the model drawing furniture you did not
+want.
+
+A strong prompt names, in this order:
+
+- **The business and the venue type.** "A menu board for Bella Trattoria, a
+  sit-down Italian restaurant"; "a window poster for Northgate Books, an
+  independent bookshop". The model takes its conventions from the genre.
+- **The art style**, chosen to suit that business and varied across
+  businesses so four artefacts for four venues do not look like one
+  template: letterpress, chalkboard, mid-century travel poster, Swiss grid,
+  hand-painted shop sign, neon diner, risograph, editorial photography,
+  botanical illustration, brutalist type.
+- **The palette**, as named colours or hex values.
+- **The exact copy**: the headline, every section name, every item with its
+  description and price, the dates and times, the address or call to
+  action. Spell prices and times the way they must appear (`€14`,
+  `7:30 pm`). Say "no other text" so the model does not invent filler.
+- **The typography feel**: "condensed sans headline, humanist serif body";
+  "tall Didone display type"; "hand-lettered script for the title only".
+- **The aspect ratio in words** as well as the `--aspect-ratio` flag, naming
+  the artwork and never the device: "landscape 16:9 menu board artwork";
+  "portrait 9:16 poster artwork". Never write "television", "screen", or
+  "display" here; that is the phrasing that makes the model draw one.
+- **What to exclude**: "no photographs", "no people", "no logos", "no
+  watermark", "no placeholder text", and the device exclusion above: no
+  television, screen, frame, bezel, border, or mounting, artwork filling the
+  image edge to edge.
+
+Write for a viewer at distance: few words, large type, one clear hierarchy.
+A menu board carrying twelve dishes with descriptions and prices is the dense
+end of what works well; forty rows of tabular data is not a poster and
+belongs in compose or a web application.
+
+### Two worked prompts
+
+Quick-service menu board, `16:9`, `high` because the text is dense:
 
 ```bash
-screenrig --json media generate --prompt "A dusk lobby photograph, warm tungsten, no people" --aspect-ratio 16:9 --quality medium --tag LobbyDusk
+screenrig --json media generate --aspect-ratio 16:9 --quality high --tag BurgerBoard --prompt "Landscape 16:9 menu board artwork for Hank's Burger Counter, a quick-service burger stand. Full bleed, artwork only. Style: bold retro American diner signage, flat vector shapes, thick outlines, slight halftone texture. Palette: mustard yellow #E8B324 background, ketchup red #C8281E accents, cream #FFF6E0 type, charcoal #1E1E1E outlines. Layout: restaurant name as a large arched headline top centre, then three columns. Column one, BURGERS: Classic Smash, double patty, American cheese, pickles, \$9; Bacon Deluxe, smoked bacon, cheddar, onion jam, \$11; Garden Stack, grilled halloumi, roasted pepper, herb mayo, \$10. Column two, SIDES: Skin-on Fries \$4; Onion Rings \$5; Slaw \$3. Column three, DRINKS: Vanilla Shake \$6; Root Beer Float \$5; Lemonade \$3. Footer line: Order at the counter, we call your number. Typography: condensed heavy sans for headings, clean rounded sans for items, prices right-aligned and bold. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
 ```
 
-`--prompt` is required (1 to 4000 characters). `--aspect-ratio` defaults to
-`16:9` (`1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`). `--quality`
-defaults to `medium` (`low`, `medium`, `high`). Quality changes the image
-and the price.
+Store event poster, `9:16`, `medium`:
+
+```bash
+screenrig --json media generate --aspect-ratio 9:16 --quality medium --tag AuthorNight --prompt "Portrait 9:16 event poster artwork for Northgate Books, an independent bookshop. Full bleed, artwork only. Style: two-colour risograph print, grainy ink, slightly off-register overlap, generous margins, mid-century book-jacket feel. Palette: paper white #F4EFE6, teal ink #1B6F79, coral ink #E4633C. Copy, exactly this and nothing else: headline 'Author Night'; subhead 'Maya Okafor reads from The Tide Clock'; date line 'Thursday 24 September, 7 pm'; line 'Free entry, signed copies available'; footer 'Northgate Books, 12 Market Row'. Illustration: one stylised open book with waves rising from its pages, placed behind the headline. Typography: tall geometric display type for the headline, small caps for the date, humanist serif for the rest. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
+```
+
+The same brief in a different venue asks for a different style: the same
+author night at a university library reads better as a Swiss grid in black,
+white, and one signal colour; at a children's bookshop as a bright
+hand-painted sign. Change the style with the business, not just the colours.
+A sit-down trattoria menu wants cream stock, serif headings, thin gold rules,
+and olive motifs; a burger counter wants the diner board above. Different
+businesses, different pictures.
+
+### Quality and cost
 
 | quality | credits | usd | when |
 |---|---|---|---|
-| `low` | 600 | $0.06 | backgrounds, unimportant images |
-| `medium` | 1200 | $0.12 | most cases (recommend this) |
-| `high` | 5000 | $0.50 | high-density text (restaurant menus), complex posters |
+| `low` | 600 | $0.06 | backgrounds and unimportant images |
+| `medium` | 1200 | $0.12 | the default for most work |
+| `high` | 5000 | $0.50 | artefacts carrying a lot of text, such as a restaurant menu |
 
-Optional `--tag` is the same 1–32 letter-or-digit tag as upload. The command
-blocks until `201` MediaGeneration `{ media, usage }`. `data.media.id` /
-`data.media_id` is `med_…`. There is no 202 poll and no client PUT. Envelope
-`usage` shows credits and usd for the chosen tier. A 402 /
-`payment_required` means stop; do not retry generate. Never print pixels or
-the prompt. Place the returned `med_…` on the playlist.
+Medium is the default for most work. High is for artefacts carrying a lot of
+text, such as a restaurant menu, where every item must come out legible. Low
+is for backgrounds and unimportant images. Quality changes the image and the
+price. `--quality` defaults to `medium`. A 402 / `payment_required` means
+stop; do not retry generate, and point money at
+https://screenrig.ai/pricing/.
+
+### Budget for the blocking call
+
+`media generate` is one blocking call and it is slow on purpose: the image is
+drawn while the request is open. The command blocks until the server returns
+`201` MediaGeneration; there is no 202 poll and no client PUT. Expect about
+15 s at `low`, 35 s at `medium`, and 80 s at `high`. Do not treat a slow call
+as a hang, and allow at least three minutes in any wrapper that imposes a
+timeout of its own.
+
+Do not pass `--timeout` on generate. The CLI budgets 150 s for this call by
+default, above the server's own budget, so plain `screenrig --json media
+generate …` completes at `high`. Under `--json` the command writes one
+`media_generate_started` line to stderr before it blocks, carrying `quality`,
+`typical_seconds`, and `timeout_ms` and never the prompt; `--no-progress`
+suppresses it. The success envelope reports `elapsed_ms` beside `media_id`.
+
+If generate times out or the connection drops, do not assume nothing
+happened: the still may have been created and billed. Re-run the *identical*
+command. The CLI persists the idempotency key before the request goes out and
+replays the request under it, so a still that was created comes back instead
+of a second one being billed; changing the prompt, aspect ratio, quality, or
+tag starts a fresh key, and a server answer clears the stored one. Or run the
+`media list` command named in `error.next.command` on the timeout problem to
+see what the account actually holds. `--idempotency-key KEY` still pins the
+key explicitly when you want to name it.
+
+### Read the result
+
+`--prompt` is required (1 to 4000 characters). `--aspect-ratio` defaults to
+`16:9` (`1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`). Optional `--tag`
+is the same 1–32 letter-or-digit tag as upload. Success is `201` with
+`{ media, usage }`: `data.media.id` / `data.media_id` is `med_…`, and
+`usage` shows credits and usd for the chosen tier. Never print pixels or the
+prompt.
+
+What generate stores: a lossy WebP (quality 90) at the exact aspect size with
+a 1080 px short edge, so `16:9` is 1920×1080, `9:16` 1080×1920, `1:1`
+1080×1080, `4:3` 1440×1080, `3:4` 1080×1440, `3:2` 1620×1080, and `2:3`
+1080×1620. The vendor canvas is centre-cropped and resampled to that size.
+The filename is distinctive per generation, `generated-16x9-1a2b3c4d.webp`,
+with the suffix taken from the media id; a generated still has no
+`source_filename`. Read `data.media.width` / `height` from the envelope.
+
+Place the returned `med_…` on the playlist as one full-canvas `image`
+primitive with `content_fit` `contain`; the still already is the page. Then
+proof it: `media download <id> --output FILE` writes the stored rendition to
+disk (verified against the row's `bytes` and `sha256`) so you can read it
+with vision before it goes on glass, and `screen screenshot` shows it in
+place afterwards. Check every item, price, and date against the copy you
+sent. A misspelling or a missing dish is fixed by sharpening the prompt and
+regenerating, not by composing a correction over the top. Never print the
+downloaded bytes.
+
+```bash
+screenrig --json media download med_EXAMPLE --output ./burger-board.webp
+```
+
+`--output` is a file path, not a directory; the default is `./<id>.<ext>` in
+the current directory with the extension from the content type. An existing
+file is overwritten. The envelope is `media_id`, `path`, `bytes`, `sha256`,
+`content_type`, `primitive`, `filename`, optional `source_filename`, and
+`width` / `height`. It never carries pixels.
+
+Downloading also lets a generated still serve as a region `image` inside a
+`compose render` spec for the exception cases in step 3, for example a
+`low`-quality generated background behind a live video hole. That is compose
+using a generated picture, not text layered over a generated poster.
 
 ## Output, configuration, and credential state
 
@@ -252,6 +561,20 @@ Read `data.status` and `data.checks`. Each check is `pass`, `warn`, or `fail`.
 Only `fail` changes the exit code. `data.status` is the worst row. A success
 envelope with `data.status` `warn` is a usable host, not a broken install.
 
+Run `doctor` before enrolling. On a fresh install the `token` row is `warn`
+with detail `(none); this installation is not enrolled`, the row carries
+`next.command` `screenrig agent enroll --email ADDRESS`, and the same `next`
+is repeated at `data.next`. A disconnected installation or one with a pending
+approval warns the same way with `screenrig agent connect`. `fail` is
+reserved for damage: a config file other users can read
+(`config_permissions`), a Node below 20, a missing `ffmpeg`/`ffprobe` or
+`libx264`, or a control plane that does not answer. Read the `ready` row's
+detail too: a `warn` there names each degraded server dependency and prints
+the server's own sentence for it verbatim (for example that application
+upload is unavailable and `POST /api/v1/applications` answers 503
+`dependency_unavailable` until the workers run). Relay that sentence to the
+user instead of attempting the `app upload` and reporting the 503.
+
 A build that reports `ffmpeg` and `ffprobe` converts media before upload.
 
 On a build that converts:
@@ -259,7 +582,16 @@ On a build that converts:
 - `media upload <file>` encodes video to an H.264 (High profile) MP4 by
   default and images to lossy WebP, then uploads the converted bytes.
   Stills are quality 90, keep alpha (`yuva` / `-alpha_q 100`), bound each
-  edge to 3840 px, never upscale, and never write lossless VP8L.
+  edge to 3840 px, never upscale, and never write lossless VP8L. An oversize
+  source (for example 9000×9000) is accepted and scaled down to 3840 on its
+  longest edges, not rejected; the envelope then carries an `image_resized`
+  warning naming the source and delivered sizes, and `data.transcode` carries
+  `source_width` / `source_height` beside `width` / `height`. Tell the user
+  when their still was resized.
+- `--content-type TYPE` is checked against the file's bytes before anything
+  runs. A declared type the container contradicts (`photo.png --content-type
+  video/mp4`) fails locally with `usage_error` naming both types; nothing is
+  transcoded or uploaded. Omit `--content-type` when the extension is right.
 - Optional `--tag TAG` stores a 1 to 32 letter-or-digit tag on the ready
   object. Hyphens are rejected; `ExecIntro2026` is valid and `exec-intro`
   is not. `media list --tag TAG [--primitive image|video]` filters by that tag
@@ -310,9 +642,22 @@ the media is a native player (Qt/GStreamer or Android/MediaCodec).
 
 The filename is the human-readable handle. Ask once for a distinctive name
 before uploading. The CLI only warns (`generic_filename`); it will not rename.
-When `media upload` succeeds, the ready id is `data.media_id`. The same value
-is `data.id` and `data.operation.result.media_id`. After a tagged upload,
-`media list --tag TAG` is the filename → id map.
+The CLI declares the caller's file name as `source_filename`, and the server
+keeps it on the ready object and derives the stored `filename` from it when
+the extension changed: `photo.png` transcoded to WebP is stored as
+`photo.png.webp`, `photo.jpg` as `photo.jpg.webp`, and a source `photo.webp`
+stays `photo.webp`. Distinct sources no longer collide. `media list` and
+`media show` return both `filename` and `source_filename`; use
+`source_filename` when the user names a file. When `media upload` succeeds,
+the ready id is `data.media_id`. The same value is `data.id` and
+`data.operation.result.media_id`. `data.upload.filename` is the name the
+server stored, so `photo.png` reads back as `photo.png.webp`;
+`data.upload.declared_filename` is what the CLI sent and
+`data.upload.source_filename` is the caller's original. Quote
+`source_filename` to the user and carry `filename` when you mean the stored
+object. Dimensions of the accepted object are under `data.transcode.width` /
+`height`. After a tagged upload, `media list --tag TAG` is the filename → id
+map.
 
 For many local files, point bulk work at `media upload-batch --state`; do
 not loop `media upload` by hand. The manifest is
@@ -326,21 +671,39 @@ local bytes. Items already present with a `media_id` are reported as
 screenrig --json media upload-batch ./images.json --state ./upload-state.json
 ```
 
+The envelope carries `data.items[]`, one row per item that reached the
+account, in manifest order, each with `path`, `source_filename`, `sha256`,
+`outcome` (`accepted` or `resumed`), and `media_id`. Read the ids from there;
+a batch no longer needs a follow-up `media list --tag` to learn what it
+created. `data.failed[]` carries the items that did not land, with their
+problem code and status.
+
 Run `doctor --json` for local diagnostics. Use
 `doctor --repair-config --json` only to repair an existing credential file
 whose permissions are too broad.
 
 ## Local compose
 
-Compose is authoring path 2: a simple slide deck, or mixed object types on
-one page. It is local and unbilled. It is not the first choice when you
-already have the image or video, and it is not the recommended path for a
-public-facing poster or menu.
+Compose is authoring path 3, the exception path. It paints named regions of
+type and imagery into local PNGs, and it is right for three kinds of page:
+several live primitives on one page, such as a `video` or `iframe`/`webapp`
+hole with copy beside it; dense data that must be exact and cannot be
+proofread item by item on a generated still, such as a long timetable or
+stock list copied from the customer's source; and iterating a layout without
+spending credits. It is local and unbilled.
 
-When composing signage pages—including posters, ads, menus, schedules, and
-video-backed pages—read [Composition and visual direction](references/composition.md)
-before choosing a layout. It covers reference research, useful density, independent artwork,
-readability, and playlist-wide visual review.
+It is not the tool for a poster, a menu board, an announcement, or any other
+informational screen a viewer should read as one printed piece: those are
+generated as one artefact (see "Generate the artefact"). Choosing compose to
+make a slide-deck-looking page should be unusual, and wanting animation is
+not a reason: `enter`, `motion`, and transitions apply to a generated still
+exactly as to a composed one. Never compose text over a generated poster.
+
+When a page does belong in compose, read
+[Composition and visual direction](references/composition.md) before
+choosing a layout. It covers reference research, useful density, independent
+artwork, readability, and playlist-wide visual review; most of it also
+sharpens a generation prompt.
 
 Write JSON, `compose render`, look at the PNGs, iterate. Compose is not billed.
 Uploads and playlist writes are billed. Iterate `compose render` and read
@@ -383,7 +746,14 @@ type on a card does not get the automatic shadow.
 On 1920×1080 mid, body wish is about 45 px and title wish is 86 px. A region
 then applies one scale (about 0.65–1.35) so type fills the box; a single line
 is not grown. Footer stays on the bottom edge. If the region holds image or a
-placeholder, type stays at scale 1 and media takes the leftover.
+placeholder, type stays at scale 1 and media takes the leftover. Copy that
+still does not fit at the minimum scale is a `usage_error` naming the region
+(`bottom.card` for an ink plate) and no PNG is written for that page; shorten
+the copy, drop a block, or use a taller region. Regions that sit side by side
+with the same top and height (`left` and `right`, or the three thirds) form a
+row: with automatic vertical alignment they share one type scale and one
+starting line, so menu column titles sit on one baseline whatever each
+column's body length.
 
 `card` (singular) is a plate. `card.fit` is `region` (default: fill the whole
 region rect) or `ink` (hug measured type plus 24 px pad, placed with the
@@ -532,7 +902,9 @@ For text over images or video, put copy in a `card` so the plate brings type
 forward. Default `card.fit` `region` fills the region (a column, a half).
 `fit: "ink"` hugs the measured type plus 24 px; use it for lower thirds and
 short copy so a two-line `bottom` card does not paint a full-width opaque
-band. Default fill is the page background + B3. Override with `card.fill`.
+band. The type is sized inside the plate's padding, so the plate contains
+every line, title and body alike. Default fill is the page background + B3.
+Override with `card.fill`.
 Keep text opaque. Check contrast over changing bright and dark frames; a
 poor type-on-plate contrast warns (`card_low_contrast`) and does not block
 render. Do not wrap every region in a card.
@@ -597,8 +969,9 @@ region PNGs can sit as image primitives at their manifest rects. Inspect with
 
 Four wire primitives exist: `image`, `video`, `iframe`, and `application`.
 Static is `image`, motion is `video`, and web is `iframe` or `application`.
-Do not author native `text`, `box`, or `line` on the wire. Compose copy and
-chrome locally, upload the still as `image`, and use that image primitive.
+Do not author native `text`, `box`, or `line` on the wire. Text reaches the
+wire only as pixels inside an `image`: a generated still, or a locally
+composed one uploaded with `media upload`.
 
 A full page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
 and `primitives`. A primitive is flat: `id`, a `primitive` field naming one of
@@ -680,7 +1053,7 @@ swipe types, object `enter`, and object `motion` sparingly.
 Use `data.media_id` from `media upload` or `media generate` (same value as
 `data.id`). Do not invent one. After a tagged upload or generate,
 `media list --tag TAG` is the filename → id map. Do not re-upload a generated
-still.
+still; `media download` it when a composed page needs the file.
 
 Photo plus overlay still:
 
@@ -747,9 +1120,11 @@ present. Those delays are contract constants, not author fields and not CLI
 flags. Do not send duration or delay inside `enter`; `stagger` is the only
 extra author field.
 
-To slide text in over a still or video, compose the text and its translucent
-plate into a transparent PNG, place that image above the background's layer,
-and apply `enter` to the overlay image. Keep the background independent.
+To slide a headline in over video, compose the text and its translucent
+plate into a transparent PNG, place that image above the video's layer, and
+apply `enter` to the overlay image. Keep the background independent. A
+generated poster does not need this: apply `enter` to the poster image
+itself rather than composing text over it.
 The same mechanism works for independent foreground artwork with alpha.
 Leave transparent breathing room around moving ink within its raster and
 primitive rect so entry motion does not clip its edges; do not stretch the
@@ -901,8 +1276,17 @@ The export destination must not exist. The bundle contains
 `screenrig-bundle.json`, `playlist.json`, and content-addressed
 `media/<sha256>.<canonical-ext>` files. Export snapshots dynamic `all` and `tag`
 selectors to exact `id` or `ids` selectors. Application primitives stop export
-before any media download. Import creates a new playlist by default. Updating
-requires both `--update` and the current `--if-match` revision.
+before any media download. Import creates a new playlist by default. Playlist
+names are unique per account, so importing an account's own export unchanged
+is refused with 409 `resource_conflict` ("playlist name is already in use");
+that problem's `error.next` names the two ways forward. `--name NAME` (1 to
+120 characters) imports the bundle as a new playlist under that name;
+`--update ID --if-match REVISION` replaces the existing playlist instead.
+Updating requires both `--update` and the current `--if-match` revision.
+
+```bash
+screenrig --json playlist import ./lobby-bundle --name "Lobby loop (copy)"
+```
 
 ## Putting a web app on a screen
 
@@ -1056,7 +1440,10 @@ values default to 10000 on the server.
 
 `playback list` returns daily playback aggregates for this account. One row
 per screen, media, and UTC day. Newest days first. `--screen-id`,
-`--media-id`, and `--day YYYY-MM-DD` filter the caller's own rows.
+`--media-id`, and `--day YYYY-MM-DD` filter the caller's own rows. Each row
+carries the server-resolved `filename` and `primitive` (`image` or `video`);
+`primitive` is absent on rows last aggregated before players reported image
+starts, so do not require it.
 
 ## Comments
 
@@ -1096,6 +1483,16 @@ JSON stream of envelopes.
 An `application.event` line leads its details with `code` and `primitive_id`,
 the id of the primitive that emitted it.
 
+`events list` returns one page of `items`, oldest first, plus `next_cursor`.
+While newer events already exist, `next_cursor` is the cursor of the last
+returned event: pass it back as `--after CURSOR` for the next page. At the end
+of the history it is `null`; stop there. `null` is the normal end, not an
+error. `--limit` defaults to 50 and accepts 1 through 200; the CLI forwards
+it unchanged, so a value outside that range is the server's 400
+`invalid_request` with `error.errors[].field` equal to `limit`. There is no
+silent cap. Every row carries `type`, a snake_case `tag`, and `id` when a
+resource is involved (`scr_…`, `pl_…`, `med_…`, `op_…`).
+
 `events follow` reconnects on disconnect or a transient failure, with
 backoff, and resumes from the last SSE id via `--after`. `--timeout` ends the
 whole follow, including backoff; 401, 403, 404, and other non-transient 4xx
@@ -1127,6 +1524,10 @@ feedback is about. Probe support through `capabilities.features.feedback`;
 
 ```text
 account show
+agent enroll --email ADDRESS [--name NAME] [--open-dashboard]
+agent connect [--name NAME] [--print-url] [--timeout MS]
+agent status
+agent disconnect --yes [--allow-lockout]
 dashboard [--print-url]
 app pack <directory> [--output FILE]
 app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
@@ -1134,12 +1535,14 @@ app update <id> <directory> --if-match REVISION [--no-wait] [--poll-ms MS]
 app list
 app show <id>
 media generate --prompt TEXT [--aspect-ratio RATIO] [--quality low|medium|high] [--tag TAG]
+                [--no-progress]
 media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                     [--no-transcode] [--codec h264|hevc] [--max-fps N]
                     [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
 media upload-batch <manifest.json> --state FILE [--concurrency N]
                    [--no-transcode] [--tag TAG] [--no-progress]
 media show <id>
+media download <id> [--output FILE]
 media list [--tag TAG] [--primitive image|video]
 media update <id> (--tag TAG | --clear-tag) --if-match REVISION
 media delete <id> --if-match REVISION
@@ -1152,10 +1555,11 @@ playlist validate <file>
 playlist create <file>
 playlist update <id> <file> --if-match REVISION
 playlist export <id> --output DIRECTORY
-playlist import <directory> [--update ID --if-match REVISION]
+playlist import <directory> [--name NAME] [--update ID --if-match REVISION]
 playlist show <id>
 playlist list
 playlist delete <id> --if-match REVISION
+screen pair CODE [--label LABEL]
 screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE]
                    --if-match REVISION
 screen list [--state archived]
@@ -1194,6 +1598,10 @@ feedback list [--kind bug|feature]
 doctor [--repair-config]
 version
 ```
+
+Global flags go before the command: `--json`, `--api-url URL`, `--config
+PATH`, `--request-id ID`, `--idempotency-key KEY`, `--timeout MS`, and
+`--beta-key KEY` (enrolment only).
 
 On `revision_conflict`, fetch the resource, reapply the intended change, and
 retry with the returned revision. On an ambiguous transport failure, reuse the

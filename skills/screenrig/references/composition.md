@@ -1,5 +1,18 @@
 # Composition and visual direction
 
+Read this when a page belongs in local compose: several live primitives on one
+page, such as a video or web hole with copy beside it; dense data that must be
+exact and cannot be proofread item by item on a generated still; or iterating a
+layout without spending credits. A poster, menu board, announcement, or other
+informational screen is generated as one finished artefact instead — see
+"Generate the artefact" in the main skill — and text is never composed over a
+generated image.
+
+The direction below applies to both paths. Everything about genre, density,
+hierarchy, and review is as useful for writing a generation prompt as for
+authoring a compose spec; only the mechanics (regions, cards, rasters) are
+compose-only.
+
 Make signage that belongs in its real setting: a persuasive event poster, an
 orderable restaurant menu, or an inviting moving welcome. A technically valid
 title/body/footer slide can still look like generic PowerPoint. Choose the

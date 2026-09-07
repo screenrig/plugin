@@ -59,23 +59,39 @@ agent workflow.
   Grok `--trust` named and `GROK_PLUGIN_ROOT` lookup. After install, prepend
   `$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts` to `PATH` once, then run
   `screenrig --json version`, `doctor`, the playlist authoring tree, playlist,
-  and `screen assign`. Do not export `SR`. Do not teach always compose first
-  or always generate first. Compose is local stills.
-  Do not teach `agent enroll`, `screen pair`, `browser setup`, `screen
-  provision`, `ABC-234`, or playlist text-slot template tutorials.
+  and `screen assign`. Do not export `SR`. Teach the order of preference in
+  the authoring-tree bullet below: the customer's own media first,
+  `media generate` for an informational screen, compose for its exceptions.
+  Compose is local stills.
+  Teach first run honestly: `doctor` warns (not fails) on a fresh install
+  and names `agent enroll --email ADDRESS`; `agent enroll`, `agent status`,
+  `agent connect` (a human approves in a dashboard browser; 408 `timeout`
+  means retry to resume), `agent disconnect --yes`, and `screen pair CODE`
+  (six undashed characters read from the glass) are documented in the
+  skill's "First run: enrol and pair" section. Do not teach `browser setup`,
+  `screen provision`, the dashed `ABC-234` form as `screen pair` input, or
+  playlist text-slot template tutorials.
 - Keep `--json` envelopes. Never teach a token flag or pasted bearer. The
   credential is a user-private file.
 - Meter usage in credits. Standard is prepaid. HTTP 402 / `payment_required`
   means do not retry billed commands; point money at
   https://screenrig.ai/pricing/. Write in a feature-complete voice.
-- Teach the playlist authoring tree: existing assets → `media upload`; a
-  simple slide deck or mixed object types (`image` | `video` | `iframe` |
-  `application`) → local unbilled `compose render`; public-facing posters,
-  announcements, and menus → `media generate` (recommended) or own-gen-then-upload.
-  `media generate` is billed per still by `--quality`: low $0.06 (600 credits)
-  for backgrounds, medium $0.12 (1200 credits) for most cases, high $0.50
-  (5000 credits) for high-density text. Quality changes the image and the
-  price. Do not teach emitting
+- Teach the playlist authoring tree in this order of preference: existing
+  customer assets → `media upload`; any informational screen that must be
+  made (poster, menu board, announcement, opening hours, wayfinding) →
+  `media generate` as the default, or own-gen-then-upload; local unbilled
+  `compose render` only for its exceptions — mixed live primitives on one
+  page (`image` | `video` | `iframe` | `application`), data that must be
+  exact, and layout iteration without spend. `media generate` draws the
+  finished artefact including all of its text; never teach layering text
+  over a generated still, and never teach animation as a reason to compose
+  instead of generate. `media generate` is billed per still by `--quality`:
+  low $0.06 (600 credits) for backgrounds, medium $0.12 (1200 credits) as
+  the default for most work, high $0.50 (5000 credits) for artefacts
+  carrying a lot of text such as a restaurant menu. Quality changes the
+  image and the price. The call blocks for tens of seconds and scales with
+  the tier; teach budgeting the global `--timeout` rather than treating it
+  as a hang. Do not teach emitting
   native `text`, `box`, or `line` on the playlist wire. Compose is local and
   not billed.
 - The category word is **primitive**, never placement, kind, or type. Four
@@ -105,6 +121,13 @@ This plugin does not emit the operation log. The CLI does, through optional
 `log_socket` in the same user config as the token. Canonical skill source
 teaches credential state in `skills/screenrig/SKILL.md` under Output,
 configuration, and credential state.
+
+Players emit their own separate logs. The skill documents where each player
+family writes (socket path and env override, Android log tag, Windows trace
+output, browser console) so an agent can read `params.pairing_code` off a
+`pairing.start` row where a player publishes it, and says to fall back to the
+code on the glass where one does not. Keep that generic: no operator host
+paths, no local listener service, no internal tooling names.
 
 Never print credentials, cookies, `Authorization` headers, signed URLs,
 object keys, or pixels.

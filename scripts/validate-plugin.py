@@ -418,12 +418,15 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             re.IGNORECASE,
         ),
     }
+    # `agent enroll`, `agent connect`, `agent status`, `agent disconnect`, and
+    # `screen pair` are taught on purpose (UAT round 1, R1-020): first run is
+    # the one thing a customer's agent must do and the skill has to say how.
+    # The homepage handoff (`browser setup`, `screen provision`) and the dashed
+    # public-locator form as `screen pair` input stay out of the skill.
     skill_forbidden = {
-        "agent enroll": re.compile(r"\bagent\s+enroll\b", re.IGNORECASE),
-        "screen pair": re.compile(r"\bscreen\s+pair\b", re.IGNORECASE),
         "browser setup": re.compile(r"\bbrowser\s+setup\b", re.IGNORECASE),
         "screen provision": re.compile(r"\bscreen\s+provision\b", re.IGNORECASE),
-        "handoff code": re.compile(r"\bABC-234\b|\bABC234\b"),
+        "dashed pair input": re.compile(r"\bscreen\s+pair\s+[A-Z0-9]{3}-[A-Z0-9]{3}\b", re.IGNORECASE),
         "playlist templates": re.compile(r"\bplaylist\s+templates\b", re.IGNORECASE),
         "coming soon": re.compile(r"coming[- ]soon", re.IGNORECASE),
     }
