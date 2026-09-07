@@ -644,21 +644,26 @@ screenrig --json media list --tag TAG --primitive image
 `compose catalog` prints the fail-closed page language: page keys
 `width`/`height`/`font`/`background`/`brand`/`text`/`image`/`video`/`motion`/`pages`/`viewing`/`logo`,
 regions `fullpage|left|right|left-third|middle-third|right-third|middle-half|top-half|bottom-half|top|bottom`,
-and inner fields `title|subtitle|text|footer|image|video|iframe|webapp|cards|card|table`
+and inner fields `eyebrow|title|subtitle|text|footer|image|video|iframe|webapp|cards|card|table`
 plus `enter`/`stagger`/`motion`/`align`/`valign`/`fill`/`color`/`z`/`shadow`/`outline`.
 Author only catalog fields. Unknown keys fail the whole spec. Do not author
 `fontSize`. Do not author `x`/`y`. Do not author Frame trees, recipes, or
 `.layout.json`. On the page, `text` is the copy color. In a
 region, `text` is body copy (a string or an array of lines). Type size is
 procedural from `min(width, height)` and optional `viewing` `near|mid|far`
-(default `mid`). Titles default to `brand`. Body (`subtitle`, `text`, `footer`)
-defaults to `text`. Optional region or `card` `color` overrides every role in
-that box. Text over a page `image` or `video` with no `fill` gets a 1 px
-unblurred drop shadow (`#000000E6` on light type, `#FFFFFFE6` on dark type).
-Set `shadow` to `"none"` or `{ x, y, color }` to override. `outline` is
-`{ width: 0.5-12, color }` and is off unless set. A card plate is backing, so
-type on a card does not get the automatic shadow.
-On 1920×1080 mid, body wish is about 45 px and title wish is 86 px. A region
+(default `mid`). Parse order is `eyebrow`, `title`, `subtitle`, `text`, then
+image/cards/table, footer last. `eyebrow` is the kicker above the headline and
+defaults to `brand`. Region `title` defaults to page `text`. Body `text` uses
+muted (mixed from `text` toward `background`). `subtitle` and `footer` use
+`text`. Card-item titles, prices, and table headers stay `brand`. Optional
+region or `card` `color` overrides every role in that box. Text over a page
+`image` or `video` with no `fill` gets a 1 px unblurred drop shadow
+(`#000000E6` on light type, `#FFFFFFE6` on dark type). Set `shadow` to
+`"none"` or `{ x, y, color, blur? }` to override (`blur` 0–32, omit is 0).
+`outline` is `{ width: 0.5-12, color }` and is off unless set. A card plate is
+backing, so type on a card does not get the automatic shadow.
+On 1920×1080 mid, body wish is about 45 px, title wish is 130 px, and eyebrow
+wish is 32 px. A region
 then applies one scale (about 0.65–1.35) so type fills the box; a single line
 is not grown. Footer stays on the bottom edge. If the region holds image or a
 placeholder, type stays at scale 1 and media takes the leftover. Copy that
@@ -673,7 +678,7 @@ column's body length.
 `card` (singular) is a plate. `card.fit` is `region` (default: fill the whole
 region rect) or `ink` (hug measured type plus 24 px pad, placed with the
 region's `align`/`valign`). Default fill is the page background + B3 (30%
-transparency). Override with `card.fill`. Inner fields: `title`, `subtitle`,
+transparency). Override with `card.fill`. Inner fields: `eyebrow`, `title`, `subtitle`,
 `text`, `footer`, `image`, `cards`, `table`, `fill`, `color`, `fit`. `cards`
 (plural) is `[{ title, subtitle?, text?, price?, image? }]` and can sit inside
 `card`. No nested `card`. Sibling `title`/`text`/`cards` are not allowed next
@@ -742,8 +747,9 @@ enter/motion enums, viewing, installed fonts, and examples in this language.
 
 ### Compose a deck with fewer corrective steps
 
-Prefer region `title`/`text`/`cards`/`table` for titles, copy, cards and
-tables so type fitting, font checks and safe-area diagnostics still run.
+Prefer region `eyebrow`/`title`/`text`/`cards`/`table` for kickers, titles,
+copy, cards and tables so type fitting, font checks and safe-area diagnostics
+still run.
 Keep illustrations as image assets in a region. A deck is `{ "pages": [ {
 "id": "intro", ...page overrides, regions } ] }`. `compose render` of that
 file is enough. `compose batch` adds a contact sheet and `--only ID`.
@@ -832,24 +838,63 @@ Codes worth acting on:
   adjacent playlist pages show the same media at the same rects; vary the
   layout or content when the repeat is accidental.
 
-### Slide, overlay, and wordmark
+### Overlay family (slide-deck pages)
 
 Overlay is a compose mechanic for slide-deck pages and live video. It is not
 the presentable-poster path. A presentable poster, menu, or event still is
 one generated image with the copy typeset in the still.
 
-For deck text over images or video, put copy in a `card` so the plate brings type
-forward. Default `card.fit` `region` fills the region (a column, a half).
-`fit: "ink"` hugs the measured type plus 24 px; use it for lower thirds and
-short copy so a two-line `bottom` card does not paint a full-width opaque
-band. The type is sized inside the plate's padding, so the plate contains
-every line, title and body alike. Default fill is the page background + B3.
-Override with `card.fill`.
-Keep text opaque. Check contrast over changing bright and dark frames; a
-poor type-on-plate contrast warns (`card_low_contrast`) and does not block
-render. Do not wrap every region in a card.
+Named regions are the only compose language. Copy catalog examples; do not
+invent Frame trees, recipes, `fontSize`, `x`, or `y`. Do not put deck copy
+through `playlist templates` or template `slots` — those still
+`vectorChromeError`.
 
-Overlay still (transparent page, ink-fit lower third):
+Photo or video is page `image` or `video`, at rest. Copy is a named region.
+`overlay-left`, `overlay-right`, and `overlay-bottom` add a `card`.
+`overlay-title` and `overlay-still` do not. Enter lives on the copy region,
+from the layout side (page may override). The mark is page `logo`, at rest —
+not a third raster.
+
+`compose catalog` examples name the family:
+
+| example | rails | copy | enter |
+|---|---|---|---|
+| `overlay-title` | page `image` | `left` type, no card | `fade-right` |
+| `overlay-left` | page `image` | `left` card, `fit` `region` | `fade-right` |
+| `overlay-right` | page `image` | `right` card, `fit` `region` | `fade-left` |
+| `overlay-bottom` | page `image` or `video` | `bottom` card, `fit` `region` | `fade-up` |
+| `overlay-still` | no photo | `fullpage` type, no card | `fade-in` |
+| `overlay` | page `video` | `bottom` card, `fit` `ink` | `fade-up` |
+
+`card.fit: "region"` for left/right panels and full-width bands. `fit: "ink"`
+only for a snug lower third. Default fill is the page background + B3.
+Override with `card.fill` when that wash is too thin; keep text opaque.
+Do not wrap every region. Boardroom titles use `overlay-title`: type on
+`left`, `valign` bottom, no card. Lone stills and diagrams use `overlay-still`:
+`fullpage` with `enter: "fade-in"` and no copy card.
+
+```json
+{
+  "width": 1920,
+  "height": 1080,
+  "background": "#2A3547",
+  "brand": "#F8B334",
+  "text": "#F4F7FA",
+  "image": "./still.jpg",
+  "left": {
+    "enter": "fade-right",
+    "card": {
+      "fit": "region",
+      "fill": "#2A3547E6",
+      "eyebrow": "THE LOW END",
+      "title": "RAM is shrinking",
+      "text": "What, when, where, and the next action."
+    }
+  }
+}
+```
+
+Snug lower third (`overlay` in the catalog):
 
 ```json
 {
@@ -872,33 +917,11 @@ Overlay still (transparent page, ink-fit lower third):
 ```
 
 Author the overlay at the full slide resolution (1920×1080 in this example),
-so the type ramp stays at the intended scale. A `bottom` card with
-`fit: "region"` is a full-width band; that is not the default for short copy.
-Keep any separate wordmark clear of the copy and preserve its proportions.
+so the type ramp stays at the intended scale. Page `logo` is the identity
+mark: 32 px inset from the chosen corner, contain inside 200×100, never
+upscaled. Prefer `logo` over a hand-placed playlist wordmark.
 
-For a side rail, put a `card` in `left` or `right`. Do not author `x`/`y`.
-
-```json
-{
-  "width": 1920,
-  "height": 1080,
-  "background": "#00000000",
-  "brand": "#C9A227",
-  "text": "#FFFFFF",
-  "left": {
-    "card": {
-      "title": "Side title",
-      "text": "What, when, where, and the next action."
-    }
-  }
-}
-```
-
-Page `logo` is the identity mark: 32 px inset from the chosen corner, contain
-inside 200×100, never upscaled. Prefer `logo` over a hand-placed playlist
-wordmark when composing the still.
-
-For a deck overlay playlist: photo `layer` 0 + overlay `layer` 1 on a
+For a deck overlay playlist: photo or video `layer` 0 + overlay `layer` 1 on a
 1920×1080 canvas. Use `content_fit: "fill"` for a matching-aspect full-canvas
 overlay; preserve the photo proportions with `contain` or intentional `cover`
 cropping. Eight-digit hex is how the page stays transparent and the plate
