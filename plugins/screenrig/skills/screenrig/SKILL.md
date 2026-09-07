@@ -298,6 +298,16 @@ model draws the words as part of the artwork.
 
 ## Generate the artefact
 
+**Choose the aspect from the target screen before generating.** Run
+`screenrig --json screen show <screen_id>` and use the reported playback
+surface width and height to determine its orientation and ratio. If no surface
+observation is available, confirm the intended screen orientation instead of
+guessing from the content genre. Generate at that screen ratio: never generate
+portrait artwork for a landscape screen, and never landscape artwork for a
+portrait screen. Do this before writing a prompt or copying an example. With
+`content_fit: "contain"`, a 9:16 artefact on a 16:9 screen occupies roughly a
+third to a half of the width and looks broken on a shop television.
+
 `media generate` is the default tool for any informational screen. It sends
 one prompt to the backend image model and stores the finished still in the
 account media store: the whole poster or menu board, headline, body copy,
@@ -318,9 +328,10 @@ model.
 what you name. Ask for a menu "on a television above the till" and it draws a
 television, bezel and all, and you have put a picture of a screen on a screen.
 Never mention a television, monitor, display, screen, kiosk, wall, or where
-the sign hangs. Say what the piece is — "landscape 16:9 menu board artwork",
-"portrait 9:16 event poster artwork" — and close every prompt by ruling the
-device out: no television, screen, frame, bezel, border, or mounting, artwork
+the sign hangs. Say what the piece is — use "landscape 16:9 menu board
+artwork" when the target screen is landscape, or "portrait 9:16 event poster
+artwork" only when the target screen is portrait — and close every prompt by
+ruling the device out: no television, screen, frame, bezel, border, or mounting, artwork
 filling the image edge to edge. Check the result for a border or a rounded
 corner before you place it; that is the model drawing furniture you did not
 want.
@@ -343,8 +354,9 @@ A strong prompt names, in this order:
 - **The typography feel**: "condensed sans headline, humanist serif body";
   "tall Didone display type"; "hand-lettered script for the title only".
 - **The aspect ratio in words** as well as the `--aspect-ratio` flag, naming
-  the artwork and never the device: "landscape 16:9 menu board artwork";
-  "portrait 9:16 poster artwork". Never write "television", "screen", or
+  the artwork and never the device: use "landscape 16:9 menu board artwork"
+  when the target screen is landscape; use "portrait 9:16 poster artwork"
+  only when the target screen is portrait. Never write "television", "screen", or
   "display" here; that is the phrasing that makes the model draw one.
 - **What to exclude**: "no photographs", "no people", "no logos", "no
   watermark", "no placeholder text", and the device exclusion above: no
@@ -364,10 +376,10 @@ Quick-service menu board, `16:9`, `high` because the text is dense:
 screenrig --json media generate --aspect-ratio 16:9 --quality high --tag BurgerBoard --prompt "Landscape 16:9 menu board artwork for Example Burger Counter, a quick-service burger stand. Full bleed, artwork only. Style: bold retro American diner signage, flat vector shapes, thick outlines, slight halftone texture. Palette: mustard yellow #E8B324 background, ketchup red #C8281E accents, cream #FFF6E0 type, charcoal #1E1E1E outlines. Layout: restaurant name as a large arched headline top centre, then three columns. Column one, BURGERS: Classic Smash, double patty, American cheese, pickles, \$9; Bacon Deluxe, smoked bacon, cheddar, onion jam, \$11; Garden Stack, grilled halloumi, roasted pepper, herb mayo, \$10. Column two, SIDES: Skin-on Fries \$4; Onion Rings \$5; Slaw \$3. Column three, DRINKS: Vanilla Shake \$6; Root Beer Float \$5; Lemonade \$3. Footer line: Order at the counter, we call your number. Typography: condensed heavy sans for headings, clean rounded sans for items, prices right-aligned and bold. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
 ```
 
-Store event poster, `9:16`, `medium`:
+Store event poster for a landscape screen, `16:9`, `medium`:
 
 ```bash
-screenrig --json media generate --aspect-ratio 9:16 --quality medium --tag AuthorNight --prompt "Portrait 9:16 event poster artwork for fictional Example Books, an independent bookshop. Full bleed, artwork only. Style: two-colour risograph print, grainy ink, slightly off-register overlap, generous margins, mid-century book-jacket feel. Palette: paper white #F4EFE6, teal ink #1B6F79, coral ink #E4633C. Copy, exactly this and nothing else: headline 'Author Night'; subhead 'Guest Author reads from Sample Title'; date line 'Thursday 24 September, 7 pm'; line 'Free entry, signed copies available'; footer 'fictional Example Books, Main Hall'. Illustration: one stylised open book with waves rising from its pages, placed behind the headline. Typography: tall geometric display type for the headline, small caps for the date, humanist serif for the rest. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
+screenrig --json media generate --aspect-ratio 16:9 --quality medium --tag AuthorNight --prompt "Landscape 16:9 event poster artwork for fictional Example Books, an independent bookshop. Full bleed, artwork only. Style: two-colour risograph print, grainy ink, slightly off-register overlap, generous margins, mid-century book-jacket feel. Palette: paper white #F4EFE6, teal ink #1B6F79, coral ink #E4633C. Copy, exactly this and nothing else: headline 'Author Night'; subhead 'Guest Author reads from Sample Title'; date line 'Thursday 24 September, 7 pm'; line 'Free entry, signed copies available'; footer 'fictional Example Books, Main Hall'. Illustration: one stylised open book with waves rising from its pages, placed behind the headline. Typography: tall geometric display type for the headline, small caps for the date, humanist serif for the rest. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
 ```
 
 The same brief in a different venue asks for a different style: the same

@@ -247,6 +247,8 @@ def check_package() -> None:
     forbidden_packaged = [path for path in (PLUGIN / "cli" / "dist").rglob("*") if path.is_file() and ".test." in path.name]
     if forbidden_packaged:
         errors.append("packaged CLI contains test output")
+    package = load(PLUGIN / "cli" / "package.json")
+    cli_version = package.get("version")
     if wrapper.is_file():
         with tempfile.TemporaryDirectory(prefix="screenrig-plugin-config-") as temporary:
             result = subprocess.run(
@@ -270,11 +272,10 @@ def check_package() -> None:
             result.returncode != 0
             or envelope.get("ok") is not True
             or not isinstance(data, dict)
-            or not is_cli_version(data.get("version"))
+            or data.get("version") != cli_version
             or result.stderr
         ):
             errors.append("packaged skill wrapper did not execute the bundled CLI with clean JSON output")
-    package = load(PLUGIN / "cli" / "package.json")
     repository = package.get("repository") or {}
     if (
         not is_cli_version(package.get("version"))

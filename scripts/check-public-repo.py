@@ -266,6 +266,8 @@ def check_history(errors: list[str]) -> None:
 
 
 def run_smoke(errors: list[str]) -> None:
+    package = load(BUNDLE / "cli" / "package.json", errors)
+    cli_version = package.get("version")
     commands = (
         ["node", str((BUNDLE / "cli" / "dist" / "bin.js").relative_to(ROOT)), "--json", "version"],
         [str((BUNDLE / "skills" / "screenrig" / "scripts" / "screenrig").relative_to(ROOT)), "--json", "version"],
@@ -294,7 +296,7 @@ def run_smoke(errors: list[str]) -> None:
             or result.stderr
             or payload.get("ok") is not True
             or not isinstance(data, dict)
-            or not is_cli_version(data.get("version"))
+            or data.get("version") != cli_version
         ):
             errors.append(f"public smoke failed: {' '.join(command)}")
 
