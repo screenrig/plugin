@@ -1,0 +1,17 @@
+{
+  "name": "screenrig",
+  "version": "26.09.2",
+  "description": "Operate ScreenRig screens, media, playlists, and applications with the bundled CLI.",
+  "author": {
+    "name": "ScreenRig"
+  },
+  "homepage": "https://screenrig.ai",
+  "repository": "https://github.com/screenrig/plugin",
+  "license": "Apache-2.0",
+  "keywords": [
+    "screenrig",
+    "digital-signage",
+    "kiosk",
+    "agent-cli"
+  ]
+}
