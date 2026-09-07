@@ -178,6 +178,50 @@ def check_package() -> None:
                 errors.append(f"canonical launcher is missing resolve fact: {fact}")
         if "SCREENRIG_CLI" in canonical_text:
             errors.append("canonical launcher must not add a SCREENRIG_CLI override")
+    freshness = ROOT / "skills" / "screenrig" / "scripts" / "screenrig-plugin-freshness"
+    if not freshness.is_file():
+        errors.append("skills/screenrig/scripts/screenrig-plugin-freshness: canonical helper missing")
+    else:
+        if not stat.S_IMODE(freshness.stat().st_mode) & 0o111:
+            errors.append("skills/screenrig/scripts/screenrig-plugin-freshness: must be executable")
+        freshness_text = freshness.read_text(encoding="utf-8")
+        for fact in (
+            "https://raw.githubusercontent.com/screenrig/plugin/main/.claude-plugin/marketplace.json",
+            "plugins[0].version",
+            "continue_installed",
+            "published_version_unavailable",
+            "GROK_PLUGIN_ROOT",
+            "CLAUDE_PLUGIN_ROOT",
+            "CODEX_PLUGIN_ROOT",
+        ):
+            if fact not in freshness_text:
+                errors.append(f"canonical plugin-freshness helper is missing fact: {fact}")
+        if "npm i -g" in freshness_text or "SCREENRIG_TOKEN" in freshness_text:
+            errors.append("canonical plugin-freshness helper must not teach a global install or token")
+        helper_test = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "test-plugin-freshness.py")],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if helper_test.returncode != 0:
+            errors.append("plugin-freshness helper tests failed")
+            if helper_test.stderr.strip():
+                errors.append(helper_test.stderr.strip())
+        skill_commands = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "test-skill-commands.py")],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if skill_commands.returncode != 0:
+            errors.append("skill-vs-binary command check failed")
+            if skill_commands.stderr.strip():
+                errors.append(skill_commands.stderr.strip())
         dirname = shutil.which("dirname")
         if dirname is None:
             errors.append("cannot exercise the wrapper's missing-Node.js preflight: dirname is unavailable")
@@ -345,6 +389,9 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "package-relative launcher",
             "No codec fallback",
             "Native Players, not a browser in a box",
+            "plugins[0].version",
+            "refresh the plugin when either is stale",
+            "Skill text and the bundled CLI update together",
         ],
         "skills/screenrig/SKILL.md": [
             "Signage and Kiosk infrastructure for AI Agents",
@@ -383,6 +430,21 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "H.264 MP4 by default",
             "fails `media upload` alone",
             "globally installed command",
+            "screenrig-plugin-freshness --json",
+            "https://raw.githubusercontent.com/screenrig/plugin/main/.claude-plugin/marketplace.json",
+            "plugins[0].version",
+            "Codex marketplace entries stay version-free",
+            "data.action === \"keep\"",
+            "data.action === \"refresh\"",
+            "data.action === \"continue_installed\"",
+            "versions match. Do not reinstall",
+            "published version could not be read",
+            "claude plugin update screenrig@screenrig --scope user",
+            "grok plugin update screenrig",
+            "codex plugin marketplace upgrade --json",
+            "Skill text and the bundled CLI travel together",
+            "Do not PATH-swap in a local checkout",
+            "Do not `npm i -g screenrig`",
         ],
     }
     for relative, facts in required_marketplace.items():
@@ -390,8 +452,12 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         for fact in facts:
             if fact not in text:
                 errors.append(f"{relative}: required marketplace fact missing: {fact}")
-    if "request ID for support" in (ROOT / "skills/screenrig/SKILL.md").read_text(encoding="utf-8"):
+    skill_source = ROOT / "skills/screenrig/SKILL.md"
+    skill_raw = skill_source.read_text(encoding="utf-8") if skill_source.is_file() else ""
+    if "request ID for support" in skill_raw:
         errors.append("skills/screenrig/SKILL.md: nonexistent support recovery path remains")
+    if "New skill text does not upgrade its executable" in skill_raw:
+        errors.append("skills/screenrig/SKILL.md: obsolete skill-text-does-not-upgrade rule remains")
 
     readme_forbidden = {
         "credential-flow prose": re.compile(r"\benroll(?:s|ed|ing|ment)?\b", re.IGNORECASE),
@@ -477,6 +543,9 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
                 errors.append(f"skills/screenrig/SKILL.md: Commands list must not teach {taught}")
         if "--preset signage-1080p30|signage-4k30" not in commands_text or "--no-audio" not in commands_text:
             errors.append("skills/screenrig/SKILL.md: Commands list missing media upload --preset / --no-audio")
+        for taught in ("media generate", "media download"):
+            if taught not in commands_text:
+                errors.append(f"skills/screenrig/SKILL.md: Commands list missing {taught}")
 
 
 def main() -> int:

@@ -66,8 +66,10 @@ agent workflow.
   install is this plugin: Claude, Codex, and Grok marketplace commands, with
   Grok `--trust` named and `GROK_PLUGIN_ROOT` lookup. After install, prepend
   `$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts` to `PATH` once, then run
-  `screenrig --json version`, `doctor`, the playlist authoring tree, playlist,
-  and `screen assign`. Do not export `SR`. Teach choose by what the page is.
+  `screenrig --json version`, `screenrig-plugin-freshness --json`, `doctor`,
+  the playlist authoring tree, playlist, and `screen assign`. Refresh the
+  installed plugin when that helper reports `data.action` `refresh`. Do not
+  export `SR`. Teach choose by what the page is.
   Compose is local unbilled stills for slide-deck-like pages.
   Do not teach `agent enroll`, `screen pair`, `browser setup`, `screen
   provision`, `ABC-234`, or playlist text-slot template tutorials.

@@ -1,0 +1,270 @@
+#!/usr/bin/env node
+"use strict";
+
+const fs = require("fs");
+const http = require("http");
+const https = require("https");
+const path = require("path");
+const { spawnSync } = require("child_process");
+const { URL } = require("url");
+
+const DEFAULT_MARKETPLACE_URL =
+  "https://raw.githubusercontent.com/screenrig/plugin/main/.claude-plugin/marketplace.json";
+const FETCH_TIMEOUT_MS = 8000;
+const FETCH_MAX_BYTES = 256 * 1024;
+const VERSION_TIMEOUT_MS = 15000;
+
+function nonempty(value) {
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : "";
+}
+
+function pluginRootFromEnv(env) {
+  return (
+    nonempty(env.SCREENRIG_PLUGIN_ROOT) ||
+    nonempty(env.GROK_PLUGIN_ROOT) ||
+    nonempty(env.CODEX_PLUGIN_ROOT) ||
+    nonempty(env.CLAUDE_PLUGIN_ROOT) ||
+    nonempty(env.PLUGIN_ROOT)
+  );
+}
+
+function readJsonFile(file) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function versionField(value) {
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : "";
+}
+
+function readPluginVersion(pluginRoot) {
+  const files = [
+    path.join(pluginRoot, ".claude-plugin", "plugin.json"),
+    path.join(pluginRoot, ".codex-plugin", "plugin.json"),
+    path.join(pluginRoot, "plugin.json"),
+  ];
+  for (const file of files) {
+    const parsed = readJsonFile(file);
+    const version = parsed ? versionField(parsed.version) : "";
+    if (version) {
+      return version;
+    }
+  }
+  return "";
+}
+
+function versionFromScreenrig(command, env) {
+  const result = spawnSync(command, ["--json", "version"], {
+    encoding: "utf8",
+    env,
+    timeout: VERSION_TIMEOUT_MS,
+    windowsHide: true,
+  });
+  if (!result || result.error || result.status !== 0 || !result.stdout) {
+    return "";
+  }
+  try {
+    const envelope = JSON.parse(result.stdout);
+    if (!envelope || envelope.ok !== true || !envelope.data || typeof envelope.data !== "object") {
+      return "";
+    }
+    return versionField(envelope.data.version);
+  } catch {
+    return "";
+  }
+}
+
+function readCliVersion(pluginRoot, env) {
+  const sibling = path.join(__dirname, "screenrig");
+  const fromSibling = fs.existsSync(sibling) ? versionFromScreenrig(sibling, env) : "";
+  if (fromSibling) {
+    return fromSibling;
+  }
+  const fromPath = versionFromScreenrig("screenrig", env);
+  if (fromPath) {
+    return fromPath;
+  }
+  const parsed = readJsonFile(path.join(pluginRoot, "cli", "package.json"));
+  return parsed ? versionField(parsed.version) : "";
+}
+
+function publishedVersionFromBody(body) {
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return "";
+  }
+  const plugins = parsed && parsed.plugins;
+  if (!Array.isArray(plugins) || plugins.length < 1 || !plugins[0] || typeof plugins[0] !== "object") {
+    return "";
+  }
+  return versionField(plugins[0].version);
+}
+
+function allowedMarketplaceUrl(url) {
+  if (url.protocol === "file:") {
+    return true;
+  }
+  if (url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost")) {
+    return true;
+  }
+  return url.protocol === "https:" && url.hostname === "raw.githubusercontent.com";
+}
+
+function fetchUrl(urlString, redirects) {
+  return new Promise((resolve, reject) => {
+    let url;
+    try {
+      url = new URL(urlString);
+    } catch {
+      reject(new Error("invalid_url"));
+      return;
+    }
+    if (!allowedMarketplaceUrl(url)) {
+      reject(new Error("unavailable"));
+      return;
+    }
+    if (url.protocol === "file:") {
+      try {
+        resolve(fs.readFileSync(url, "utf8"));
+      } catch {
+        reject(new Error("unavailable"));
+      }
+      return;
+    }
+    const remaining = redirects === undefined ? 3 : redirects;
+    const transport = url.protocol === "https:" ? https : http;
+    const request = transport.get(
+      url,
+      {
+        headers: { Accept: "application/json", "User-Agent": "screenrig-plugin-freshness" },
+        timeout: FETCH_TIMEOUT_MS,
+      },
+      (response) => {
+        const status = response.statusCode || 0;
+        if (status >= 300 && status < 400 && response.headers.location && remaining > 0) {
+          response.resume();
+          fetchUrl(new URL(response.headers.location, url).href, remaining - 1).then(resolve, reject);
+          return;
+        }
+        if (status !== 200) {
+          response.resume();
+          reject(new Error("unavailable"));
+          return;
+        }
+        const chunks = [];
+        let size = 0;
+        response.on("data", (chunk) => {
+          size += chunk.length;
+          if (size > FETCH_MAX_BYTES) {
+            request.destroy();
+            reject(new Error("unavailable"));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        response.on("end", () => {
+          resolve(Buffer.concat(chunks).toString("utf8"));
+        });
+        response.on("error", () => reject(new Error("unavailable")));
+      },
+    );
+    request.on("timeout", () => {
+      request.destroy();
+      reject(new Error("unavailable"));
+    });
+    request.on("error", () => reject(new Error("unavailable")));
+  });
+}
+
+function writeEnvelope(payload, code) {
+  process.stdout.write(`${JSON.stringify(payload)}\n`);
+  process.exitCode = code;
+}
+
+function usageError(detail) {
+  writeEnvelope(
+    {
+      ok: false,
+      error: {
+        type: "https://screenrig.ai/problems/usage-error",
+        title: "Usage error",
+        status: 400,
+        detail,
+        code: "usage_error",
+        errors: [],
+      },
+    },
+    2,
+  );
+}
+
+function success(data, warnings) {
+  writeEnvelope({ ok: true, data, warnings: warnings || [] }, 0);
+}
+
+async function main() {
+  const argv = process.argv.slice(2);
+  if (!argv.includes("--json") || argv.some((arg) => arg !== "--json")) {
+    usageError("screenrig-plugin-freshness requires --json and no other arguments.");
+    return;
+  }
+
+  const env = process.env;
+  const pluginRoot = pluginRootFromEnv(env);
+  if (!pluginRoot) {
+    usageError("plugin root is empty; install the official plugin and repeat lookup.");
+    return;
+  }
+
+  const installedPluginVersion = readPluginVersion(pluginRoot);
+  const installedCliVersion = readCliVersion(pluginRoot, env);
+  const marketplaceUrl = nonempty(env.SCREENRIG_PUBLISHED_MARKETPLACE_URL) || DEFAULT_MARKETPLACE_URL;
+
+  let publishedVersion = "";
+  try {
+    publishedVersion = publishedVersionFromBody(await fetchUrl(marketplaceUrl));
+  } catch {
+    publishedVersion = "";
+  }
+
+  if (!publishedVersion) {
+    success(
+      {
+        action: "continue_installed",
+        stale: false,
+        published_unavailable: true,
+        published_version: null,
+        installed_plugin_version: installedPluginVersion || null,
+        installed_cli_version: installedCliVersion || null,
+      },
+      [
+        {
+          code: "published_version_unavailable",
+          message: "The published plugin version could not be read from GitHub. Continue with the installed copy.",
+        },
+      ],
+    );
+    return;
+  }
+
+  const stale =
+    installedPluginVersion !== publishedVersion || installedCliVersion !== publishedVersion;
+  success({
+    action: stale ? "refresh" : "keep",
+    stale,
+    published_unavailable: false,
+    published_version: publishedVersion,
+    installed_plugin_version: installedPluginVersion || null,
+    installed_cli_version: installedCliVersion || null,
+  });
+}
+
+main().catch(() => {
+  usageError("screenrig-plugin-freshness failed unexpectedly.");
+});

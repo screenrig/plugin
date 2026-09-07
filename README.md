@@ -66,6 +66,12 @@ That package-relative launcher is the entry point for every ScreenRig command.
 It runs the reviewed CLI pinned by this repository and never fetches mutable
 code.
 
+Installed agents compare the installed plugin and bundled CLI versions to the
+published CalVer on GitHub `main` (`.claude-plugin/marketplace.json`
+`plugins[0].version`) and refresh the plugin when either is stale. Skill text
+and the bundled CLI update together. Do not install a global `screenrig` from a
+package registry.
+
 ## Four primitives
 
 A playlist page carries `primitives`, and every one of them names its family in

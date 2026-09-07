@@ -65,13 +65,6 @@ named repository or install `screenrig` from a global package source. Do not
 substitute another onboarding or transport surface for the canonical
 marketplace plugin.
 
-Canonical skill source can lead the pinned installed CLI during repository
-development. New skill text does not upgrade its executable. Check the selected
-CLI's `--help` or `compose catalog` before relying on newly added commands.
-When explicitly testing a CLI source checkout, follow that checkout's agent
-guide for its built executable; do not replace the installed plugin cache with
-a mutable local build.
-
 Use the CLI packaged with this skill. It requires Node.js 20.11 or newer.
 Resolve the installed plugin root, prepend its scripts directory to `PATH`
 once, then invoke `screenrig`. Do not export `SR`. Do not install a global
@@ -115,6 +108,71 @@ executable.
 Use `--json` for agent work. Branch on `ok`, `error.status`, and `error.code`;
 do not parse prose.
 
+## Detect and refresh
+
+Every time this skill loads and you are about to use screenRIG, compare the
+installed plugin and bundled CLI to the published plugin version on GitHub
+`main`. Skill text and the bundled CLI travel together. Do not PATH-swap in a
+local checkout. Do not `npm i -g screenrig`. Do not install a global package.
+
+After PATH prepend and a successful `screenrig --json version`, run:
+
+```bash
+screenrig-plugin-freshness --json
+```
+
+Branch on `ok` and `data.action`. Do not parse prose.
+
+The helper reads installed plugin metadata (`plugin.json` / marketplace plugin
+entry) and the bundled CLI version, then fetches the published CalVer from
+public GitHub `main` only:
+
+`https://raw.githubusercontent.com/screenrig/plugin/main/.claude-plugin/marketplace.json`
+
+Use `plugins[0].version`. Codex marketplace entries stay version-free; do not
+invent a Codex version field. Compare the padded CalVer strings
+(`YY.MM.SERIAL`, example `26.09.1`). Installed `0.1.2` versus published
+`26.09.1` is stale.
+
+- `data.action === "keep"`: versions match. Do not reinstall.
+- `data.action === "refresh"`: installed plugin version or bundled CLI version
+  differs from that published CalVer. Refresh the plugin so skill text and the
+  bundled CLI update together.
+- `data.action === "continue_installed"`: the GitHub fetch failed. Continue
+  with the installed copy and tell the user the published version could not be
+  read. Do not block the user's task. Do not substitute another source.
+
+When refreshing, probe this host for a native plugin update command and use
+it only if that command exists. Do not invent flags. Commands probed on
+current hosts:
+
+```bash
+# Claude Code (probe `claude plugin update --help` first)
+claude plugin update screenrig@screenrig --scope user
+
+# Grok (probe `grok plugin update --help` first)
+grok plugin update screenrig
+
+# Codex has no plugin-update subcommand on current hosts. Probe
+# `codex plugin marketplace upgrade --help`, then:
+codex plugin marketplace upgrade --json
+codex plugin add screenrig@screenrig --json
+```
+
+If `claude plugin update --help` requires `-y` when stdin or stdout is not a
+TTY, pass `-y`. Grok `--trust` stays on install, not on update, unless that
+host's `--help` names it.
+
+If a probed update command is missing, re-run the exact canonical marketplace
+add and install commands above. Grok install must keep `--trust`. Refresh
+updates skill text and the bundled CLI together. After refresh, re-resolve
+the plugin root, prepend scripts to PATH, and require a successful
+`screenrig --json version` envelope before any other command.
+
+When explicitly testing a CLI source checkout, follow that checkout's agent
+guide for its built executable; do not replace the installed plugin cache with
+a mutable local build.
+
 ## After install
 
 Work in this order. Do not skip `version` or `doctor`.
@@ -128,7 +186,7 @@ screenrig --json screen list
 screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match REVISION
 ```
 
-1. Prepend the plugin scripts directory to `PATH` and require `screenrig --json version`.
+1. Prepend the plugin scripts directory to `PATH`, require `screenrig --json version`, then run `screenrig-plugin-freshness --json` and refresh when `data.action` is `refresh`.
 2. Run `doctor`. Read `data.status` and `data.checks`. On a fresh install the
    `token` row is `warn`, not `fail`: that is the expected first-run
    result, not a broken install. Name missing toolchain parts before the
