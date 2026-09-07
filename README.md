@@ -112,8 +112,10 @@ This is the canonical public marketplace source. It carries the ScreenRig skill
 and one generated plugin containing the current `screenrig/cli` `main` CLI.
 
 - `skills/screenrig/` and the root marketplace manifests are canonical.
-- `components.lock.json` records the `screenrig/cli` commit, artifact filename,
-  and SHA-256 of the CLI that was just bundled. It is provenance, not a freeze.
+- `components.lock.json` records the SHA-256 of the CLI tarball just packed.
+  That checksum is provenance of this build, not a freeze of which SHA to
+  fetch. Pack sibling `../cli` or current `screenrig/cli` `main`. Do not
+  refetch a pinned CLI SHA.
 - `plugins/screenrig/` is generated. Change canonical inputs and rebuild; do not
   edit it directly.
 - CI packs `screenrig/cli` `main`, rebuilds and validates the bundle, scans the

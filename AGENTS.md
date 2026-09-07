@@ -9,21 +9,24 @@ for this plugin's bundled launcher in an agent workflow.
 
 ## Sources of truth
 
-- `skills/screenrig/`, `build/plugin.json`, root marketplace manifests, root
-  public files, and `components.lock.json` are canonical inputs.
-- `components.lock.json` records provenance of the CLI that was just bundled:
-  `screenrig/cli` commit, artifact filename, and SHA-256. It is not a freeze
-  that CI may refetch instead of `main`, and it is not a product version.
-  Do not invent a SHA; hash the tarball you packed.
+- `skills/screenrig/`, `build/plugin.json`, root marketplace manifests, and
+  root public files are canonical inputs.
+- `components.lock.json` is provenance of the CLI tarball just packed:
+  artifact filename and SHA-256, plus the commit that produced those bytes.
+  It is not a freeze of which SHA to fetch, not a rebuild input, and not a
+  product version. Pack sibling `../cli` or current `screenrig/cli` `main`.
+  Do not refetch a SHA from this file. Do not invent a digest; hash the
+  tarball you packed.
 - Distributed plugin versions are CalVer `YY.MM.SERIAL` (UTC). Tags are
   `vYY.MM.N`. Committed `.claude-plugin/marketplace.json` is the published
-  CalVer (currently `26.09.1`); CI stamps generated `plugin.json` in the
+  CalVer (currently `26.09.3`); CI stamps generated `plugin.json` in the
   distributing artifact. Local and pull-request trees use `YY.MM.0-dev`.
   Plugin CI packs `screenrig/cli` `main` and, when that HEAD is tagged
   `vYY.MM.N`, applies the same stamp so the tarball hash is stable.
 - `scripts/build-plugin.py` defines generation of `plugins/screenrig/`.
-  Locally it may pack sibling `../cli`. CI clones and packs
-  `https://github.com/screenrig/cli` `main`.
+  Locally it packs sibling `../cli` when that directory exists. CI clones
+  and packs `https://github.com/screenrig/cli` `main`. It never fetches a
+  commit recorded in `components.lock.json`.
 - `scripts/validate-plugin.py` and `scripts/check-public-repo.py` define the
   public/reproducibility boundary. Skill Commands must exist in the bundled
   CLI usage; `media generate` and `media download` are required.
@@ -41,10 +44,11 @@ for this plugin's bundled launcher in an agent workflow.
 
 - Never edit `plugins/screenrig/` independently. Change canonical inputs and
   regenerate from current `screenrig/cli` `main` (or the sibling checkout).
-- Local `build-plugin.py` may pack sibling `../cli` when that directory
-  exists. After packing, write `components.lock.json` as provenance of that
-  tarball. Official rebuild: `python3 scripts/build-plugin.py --cli-artifact
-  <tarball> --write-lock --cli-commit <sha>`.
+- Local `build-plugin.py` packs sibling `../cli` when that directory exists.
+  After packing, write `components.lock.json` as provenance of that tarball.
+  Do not refetch a pinned CLI SHA. Rebuild from a packed tarball:
+  `python3 scripts/build-plugin.py --cli-artifact <tarball> --write-lock
+  --cli-commit <sha-that-produced-the-tarball>`.
 - Keep Codex and Claude marketplace metadata, generated manifests, public
   README, and skill behavior aligned at regeneration time. Canonical skill
   source may lead the generated `plugins/screenrig/` copy until rebuild.
@@ -164,8 +168,9 @@ python3 scripts/test-skill-commands.py
 python3 scripts/test-plugin-freshness.py
 ```
 
-`components.lock.json` must match the tarball just packed. These gates do not
-prove marketplace installation/loading, live API use, native hardware, or
+`components.lock.json` must match the tarball just packed. That match is
+provenance of this build, not a freeze of which SHA to fetch. These gates do
+not prove marketplace installation/loading, live API use, native hardware, or
 production deployment.
 
 ## Completion evidence

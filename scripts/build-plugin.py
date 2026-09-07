@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Build the committed ScreenRig Codex and Claude plugin from canonical sources."""
+"""Build the committed ScreenRig Codex and Claude plugin from canonical sources.
+
+Pack sibling ``../cli`` or a ``--cli-artifact`` from current ``screenrig/cli``
+``main``. ``components.lock.json`` is provenance of the tarball just packed
+(filename, SHA-256, and the commit that produced those bytes). It is not a
+freeze of which SHA to fetch. Do not refetch a commit from that file.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +34,7 @@ PLUGINS = ROOT / "plugins"
 PLUGIN_NAME = "screenrig"
 CLI_REPOSITORY = "screenrig/cli"
 CLI_ARTIFACT_NAME = "screenrig-cli.tgz"
+# Provenance of the tarball just packed. Never a fetch pin.
 LOCK_PATH = ROOT / "components.lock.json"
 LOCK_SCHEMA = "screenrig.plugin-components-lock/v1"
 CLI_RUNTIME_LOCK = "runtime-dependencies.lock.json"
@@ -99,6 +106,7 @@ def sha256_file(path: Path) -> str:
 
 
 def write_component_lock(commit: str, artifact: Path) -> None:
+    """Record provenance of ``artifact``. ``commit`` is the SHA that produced it."""
     if not re.fullmatch(r"[0-9a-f]{40}", commit) or set(commit) == {"0"}:
         raise BuildError("CLI commit is invalid")
     payload = {
@@ -211,10 +219,11 @@ def npm_package_files(cli_root: Path) -> list[str]:
 
 
 def verify_cli_artifact(artifact: Path) -> None:
+    """Require recorded provenance to match the tarball just packed, not a fetch pin."""
     lock = load_json(LOCK_PATH)
     cli = lock.get("cli")
     if lock.get("schema") != LOCK_SCHEMA or lock.get("state") != "resolved" or not isinstance(cli, dict):
-        raise BuildError("plugin component lock is unresolved or invalid")
+        raise BuildError("CLI tarball provenance is unresolved or invalid")
     repository = cli.get("repository")
     commit = cli.get("commit")
     recorded = cli.get("artifact")
@@ -223,11 +232,11 @@ def verify_cli_artifact(artifact: Path) -> None:
     if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit) or set(commit) == {"0"}:
         raise BuildError("plugin CLI commit is invalid")
     if not isinstance(recorded, dict) or recorded.get("file") != artifact.name:
-        raise BuildError("plugin CLI artifact filename differs from the component lock")
+        raise BuildError("CLI tarball filename differs from recorded provenance")
     digest = sha256_file(artifact)
     if recorded.get("sha256") != digest:
         raise BuildError(
-            "plugin CLI artifact digest differs from the component lock; "
+            "CLI tarball digest differs from recorded provenance; "
             "pack current screenrig/cli main and rebuild with --write-lock"
         )
 
@@ -428,9 +437,16 @@ def compare(expected: Path, actual: Path) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--cli-artifact", type=Path)
-    parser.add_argument("--write-lock", action="store_true")
-    parser.add_argument("--cli-commit")
+    parser.add_argument("--cli-artifact", type=Path, help="tarball packed from sibling ../cli or current screenrig/cli main")
+    parser.add_argument(
+        "--write-lock",
+        action="store_true",
+        help="record provenance of the tarball just packed; not a fetch pin",
+    )
+    parser.add_argument(
+        "--cli-commit",
+        help="commit that produced the packed tarball, recorded as provenance only",
+    )
     args = parser.parse_args()
     if args.write_lock and args.check:
         print("build-plugin: --write-lock cannot be combined with --check", file=sys.stderr)

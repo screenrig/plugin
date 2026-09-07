@@ -30,6 +30,8 @@ jobs:
           filename="screenrig-cli.tgz"
           test "$(jq -r .state components.lock.json)" = resolved
           test "$(jq -r .cli.repository components.lock.json)" = "${repository}"
+          # Pack current main. Do not refetch a SHA from components.lock.json;
+          # that file is provenance of the tarball just packed.
           install -d "${RUNNER_TEMP}/screenrig-cli-source"
           git -C "${RUNNER_TEMP}/screenrig-cli-source" init --quiet
           git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --depth=1 \
@@ -61,9 +63,9 @@ jobs:
           locked="$(jq -r .cli.artifact.sha256 components.lock.json)"
           if [ "${packed}" != "${locked}" ]; then
             if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
-              echo "Committed marketplace CLI is behind screenrig/cli main" >&2
+              echo "Committed CLI tarball provenance differs from current screenrig/cli main" >&2
               echo "packed ${packed}" >&2
-              echo "locked ${locked}" >&2
+              echo "recorded ${locked}" >&2
               exit 1
             fi
             python3 scripts/build-plugin.py --cli-artifact "${artifact}" --write-lock --cli-commit "${commit}"
