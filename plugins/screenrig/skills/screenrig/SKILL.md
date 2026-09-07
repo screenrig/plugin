@@ -16,6 +16,22 @@ Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut 
 This skill is the operative contract. Use the bundled CLI. Do not invent commands, flags, or
 onboarding surfaces.
 
+## More information
+
+This skill remains the CLI contract. The pages below are extra product and docs
+context, not a replacement for the commands and flags here.
+
+- Docs hub: `https://screenrig.ai/docs/`
+- Agent index: `https://screenrig.ai/llms.txt`
+- Expanded agent context: `https://screenrig.ai/llms-full.txt`
+
+When asked what screenRIG is, how it is priced, which Players exist, or similar
+product questions, fetch `https://screenrig.ai/llms.txt` first. Fetch
+`https://screenrig.ai/llms-full.txt` if more detail is needed.
+
+Install: `https://screenrig.ai/docs/start/`
+Meter: `https://screenrig.ai/pricing/`
+
 ## Canonical marketplace
 
 The only supported installation source is the public screenRIG marketplace at
@@ -106,8 +122,6 @@ Work in this order. Do not skip `version` or `doctor`.
 ```bash
 screenrig --json version
 screenrig --json doctor
-screenrig --json agent enroll --email ADDRESS --name "Office MacBook Codex"
-screenrig --json screen pair ABC234
 # then put content on a playlist page using the authoring tree below
 screenrig --json playlist create ./playlist.json
 screenrig --json screen list
@@ -116,8 +130,7 @@ screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match R
 
 1. Prepend the plugin scripts directory to `PATH` and require `screenrig --json version`.
 2. Run `doctor`. Read `data.status` and `data.checks`. On a fresh install the
-   `token` row is `warn`, not `fail`, and `data.next.command` is
-   `screenrig agent enroll --email ADDRESS`: that is the expected first-run
+   `token` row is `warn`, not `fail`: that is the expected first-run
    result, not a broken install. Name missing toolchain parts before the
    first `media upload`.
 3. Put content on a playlist page using the authoring tree below. Choose by
@@ -413,20 +426,19 @@ The CLI exit-status table is stable and separate from `error.code`:
 | 5 | conflict | 12 | configuration |
 | 6 | precondition | 13 | operation failed |
 
-For example, local `usage_error` exits 2, `not_enrolled` exits 3, HTTP 404
-exits 4, 409 exits 5, 412 exits 6, 429 exits 7, and 408/504 exit 11. Branch on
-the more specific `error.code` whenever one is present.
+For example, local `usage_error` exits 2, an unauthenticated installation
+exits 3, HTTP 404 exits 4, 409 exits 5, 412 exits 6, 429 exits 7, and
+408/504 exit 11. Branch on the more specific `error.code` whenever one is
+present.
 
-### Secret dashboard and connection URLs
+### Secret dashboard URLs
 
 The URL minted by `dashboard --print-url` is a credential. Under `--json` it
 appears on **stdout** inside `data.url`, where ordinary agent stdout capture
 may log it. Route it only to the intended browser, exclude that command's
 stdout from logs, and never paste, persist, or repeat the URL. If `dashboard`
 cannot open a browser, its fallback can put the same field on stdout even
-without `--print-url`. By contrast, `agent connect` delivers its approval URL
-on **stderr** (as a JSON line under `--json`). Treat the relevant stream as
-sensitive for either command.
+without `--print-url`. Treat that stream as sensitive.
 
 Never pass a bearer, token flag, or pasted secret on the command line. The
 credential is a user-private file outside the
@@ -485,11 +497,7 @@ Read `data.status` and `data.checks`. Each check is `pass`, `warn`, or `fail`.
 Only `fail` changes the exit code. `data.status` is the worst row. A success
 envelope with `data.status` `warn` is a usable host, not a broken install.
 
-Run `doctor` before enrolling. On a fresh install the `token` row is `warn`
-with detail `(none); this installation is not enrolled`, the row carries
-`next.command` `screenrig agent enroll --email ADDRESS`, and the same `next`
-is repeated at `data.next`. A disconnected installation or one with a pending
-approval warns the same way with `screenrig agent connect`. `fail` is
+On a fresh install the `token` row is `warn`, not `fail`. `fail` is
 reserved for damage: a config file other users can read
 (`config_permissions`), a Node below 20, a missing `ffmpeg`/`ffprobe` or
 `libx264`, or a control plane that does not answer. Read the `ready` row's
@@ -644,21 +652,26 @@ screenrig --json media list --tag TAG --primitive image
 `compose catalog` prints the fail-closed page language: page keys
 `width`/`height`/`font`/`background`/`brand`/`text`/`image`/`video`/`motion`/`pages`/`viewing`/`logo`,
 regions `fullpage|left|right|left-third|middle-third|right-third|middle-half|top-half|bottom-half|top|bottom`,
-and inner fields `title|subtitle|text|footer|image|video|iframe|webapp|cards|card|table`
+and inner fields `eyebrow|title|subtitle|text|footer|image|video|iframe|webapp|cards|card|table`
 plus `enter`/`stagger`/`motion`/`align`/`valign`/`fill`/`color`/`z`/`shadow`/`outline`.
 Author only catalog fields. Unknown keys fail the whole spec. Do not author
 `fontSize`. Do not author `x`/`y`. Do not author Frame trees, recipes, or
 `.layout.json`. On the page, `text` is the copy color. In a
 region, `text` is body copy (a string or an array of lines). Type size is
 procedural from `min(width, height)` and optional `viewing` `near|mid|far`
-(default `mid`). Titles default to `brand`. Body (`subtitle`, `text`, `footer`)
-defaults to `text`. Optional region or `card` `color` overrides every role in
-that box. Text over a page `image` or `video` with no `fill` gets a 1 px
-unblurred drop shadow (`#000000E6` on light type, `#FFFFFFE6` on dark type).
-Set `shadow` to `"none"` or `{ x, y, color }` to override. `outline` is
-`{ width: 0.5-12, color }` and is off unless set. A card plate is backing, so
-type on a card does not get the automatic shadow.
-On 1920×1080 mid, body wish is about 45 px and title wish is 86 px. A region
+(default `mid`). Parse order is `eyebrow`, `title`, `subtitle`, `text`, then
+image/cards/table, footer last. `eyebrow` is the kicker above the headline and
+defaults to `brand`. Region `title` defaults to page `text`. Body `text` uses
+muted (mixed from `text` toward `background`). `subtitle` and `footer` use
+`text`. Card-item titles, prices, and table headers stay `brand`. Optional
+region or `card` `color` overrides every role in that box. Text over a page
+`image` or `video` with no `fill` gets a 1 px unblurred drop shadow
+(`#000000E6` on light type, `#FFFFFFE6` on dark type). Set `shadow` to
+`"none"` or `{ x, y, color, blur? }` to override (`blur` 0–32, omit is 0).
+`outline` is `{ width: 0.5-12, color }` and is off unless set. A card plate is
+backing, so type on a card does not get the automatic shadow.
+On 1920×1080 mid, body wish is about 45 px, title wish is 130 px, and eyebrow
+wish is 32 px. A region
 then applies one scale (about 0.65–1.35) so type fills the box; a single line
 is not grown. Footer stays on the bottom edge. If the region holds image or a
 placeholder, type stays at scale 1 and media takes the leftover. Copy that
@@ -673,7 +686,7 @@ column's body length.
 `card` (singular) is a plate. `card.fit` is `region` (default: fill the whole
 region rect) or `ink` (hug measured type plus 24 px pad, placed with the
 region's `align`/`valign`). Default fill is the page background + B3 (30%
-transparency). Override with `card.fill`. Inner fields: `title`, `subtitle`,
+transparency). Override with `card.fill`. Inner fields: `eyebrow`, `title`, `subtitle`,
 `text`, `footer`, `image`, `cards`, `table`, `fill`, `color`, `fit`. `cards`
 (plural) is `[{ title, subtitle?, text?, price?, image? }]` and can sit inside
 `card`. No nested `card`. Sibling `title`/`text`/`cards` are not allowed next
@@ -742,8 +755,9 @@ enter/motion enums, viewing, installed fonts, and examples in this language.
 
 ### Compose a deck with fewer corrective steps
 
-Prefer region `title`/`text`/`cards`/`table` for titles, copy, cards and
-tables so type fitting, font checks and safe-area diagnostics still run.
+Prefer region `eyebrow`/`title`/`text`/`cards`/`table` for kickers, titles,
+copy, cards and tables so type fitting, font checks and safe-area diagnostics
+still run.
 Keep illustrations as image assets in a region. A deck is `{ "pages": [ {
 "id": "intro", ...page overrides, regions } ] }`. `compose render` of that
 file is enough. `compose batch` adds a contact sheet and `--only ID`.
@@ -832,24 +846,63 @@ Codes worth acting on:
   adjacent playlist pages show the same media at the same rects; vary the
   layout or content when the repeat is accidental.
 
-### Slide, overlay, and wordmark
+### Overlay family (slide-deck pages)
 
 Overlay is a compose mechanic for slide-deck pages and live video. It is not
 the presentable-poster path. A presentable poster, menu, or event still is
 one generated image with the copy typeset in the still.
 
-For deck text over images or video, put copy in a `card` so the plate brings type
-forward. Default `card.fit` `region` fills the region (a column, a half).
-`fit: "ink"` hugs the measured type plus 24 px; use it for lower thirds and
-short copy so a two-line `bottom` card does not paint a full-width opaque
-band. The type is sized inside the plate's padding, so the plate contains
-every line, title and body alike. Default fill is the page background + B3.
-Override with `card.fill`.
-Keep text opaque. Check contrast over changing bright and dark frames; a
-poor type-on-plate contrast warns (`card_low_contrast`) and does not block
-render. Do not wrap every region in a card.
+Named regions are the only compose language. Copy catalog examples; do not
+invent Frame trees, recipes, `fontSize`, `x`, or `y`. Do not put deck copy
+through `playlist templates` or template `slots` — those still
+`vectorChromeError`.
 
-Overlay still (transparent page, ink-fit lower third):
+Photo or video is page `image` or `video`, at rest. Copy is a named region.
+`overlay-left`, `overlay-right`, and `overlay-bottom` add a `card`.
+`overlay-title` and `overlay-still` do not. Enter lives on the copy region,
+from the layout side (page may override). The mark is page `logo`, at rest —
+not a third raster.
+
+`compose catalog` examples name the family:
+
+| example | rails | copy | enter |
+|---|---|---|---|
+| `overlay-title` | page `image` | `left` type, no card | `fade-right` |
+| `overlay-left` | page `image` | `left` card, `fit` `region` | `fade-right` |
+| `overlay-right` | page `image` | `right` card, `fit` `region` | `fade-left` |
+| `overlay-bottom` | page `image` or `video` | `bottom` card, `fit` `region` | `fade-up` |
+| `overlay-still` | no photo | `fullpage` type, no card | `fade-in` |
+| `overlay` | page `video` | `bottom` card, `fit` `ink` | `fade-up` |
+
+`card.fit: "region"` for left/right panels and full-width bands. `fit: "ink"`
+only for a snug lower third. Default fill is the page background + B3.
+Override with `card.fill` when that wash is too thin; keep text opaque.
+Do not wrap every region. Boardroom titles use `overlay-title`: type on
+`left`, `valign` bottom, no card. Lone stills and diagrams use `overlay-still`:
+`fullpage` with `enter: "fade-in"` and no copy card.
+
+```json
+{
+  "width": 1920,
+  "height": 1080,
+  "background": "#2A3547",
+  "brand": "#F8B334",
+  "text": "#F4F7FA",
+  "image": "./still.jpg",
+  "left": {
+    "enter": "fade-right",
+    "card": {
+      "fit": "region",
+      "fill": "#2A3547E6",
+      "eyebrow": "THE LOW END",
+      "title": "RAM is shrinking",
+      "text": "What, when, where, and the next action."
+    }
+  }
+}
+```
+
+Snug lower third (`overlay` in the catalog):
 
 ```json
 {
@@ -872,33 +925,11 @@ Overlay still (transparent page, ink-fit lower third):
 ```
 
 Author the overlay at the full slide resolution (1920×1080 in this example),
-so the type ramp stays at the intended scale. A `bottom` card with
-`fit: "region"` is a full-width band; that is not the default for short copy.
-Keep any separate wordmark clear of the copy and preserve its proportions.
+so the type ramp stays at the intended scale. Page `logo` is the identity
+mark: 32 px inset from the chosen corner, contain inside 200×100, never
+upscaled. Prefer `logo` over a hand-placed playlist wordmark.
 
-For a side rail, put a `card` in `left` or `right`. Do not author `x`/`y`.
-
-```json
-{
-  "width": 1920,
-  "height": 1080,
-  "background": "#00000000",
-  "brand": "#C9A227",
-  "text": "#FFFFFF",
-  "left": {
-    "card": {
-      "title": "Side title",
-      "text": "What, when, where, and the next action."
-    }
-  }
-}
-```
-
-Page `logo` is the identity mark: 32 px inset from the chosen corner, contain
-inside 200×100, never upscaled. Prefer `logo` over a hand-placed playlist
-wordmark when composing the still.
-
-For a deck overlay playlist: photo `layer` 0 + overlay `layer` 1 on a
+For a deck overlay playlist: photo or video `layer` 0 + overlay `layer` 1 on a
 1920×1080 canvas. Use `content_fit: "fill"` for a matching-aspect full-canvas
 overlay; preserve the photo proportions with `contain` or intentional `cover`
 cropping. Eight-digit hex is how the page stays transparent and the plate
@@ -1361,7 +1392,7 @@ Take `--playlist-id` from `data.id` of the `playlist create` result. Take
 `screen show` return. `revision_conflict` means refetch and retry. Do not
 invent the revision.
 
-`screen pair`, `screen assign`, and `screen show` return the screen's
+`screen assign` and `screen show` return the screen's
 `manifest_revision` and `content_access_generation`. `manifest_revision`
 bumps when that screen's resolved runtime manifest changes. After `playlist update`
 or a screen assignment, compare `screen show` with the earlier value: a bump proves
@@ -1406,20 +1437,35 @@ asset or pixel-quality proof. Do not print pixels.
 
 ### Player operation logs
 
-For a player that is already running, use a sink that already owns its output:
+This plugin does not emit the operation log. The CLI does, through optional
+`log_socket` in the same user config as the token. The CLI connects as a
+client to an already-listening Unix domain socket at that path and writes
+one NDJSON object per line. There is no `--log-socket` flag and no
+`SCREENRIG_LOG_SOCKET` override. If the field is absent or empty, commands
+work unchanged. Connect failure never fails the command.
 
-- A deployment-provided merged NDJSON listener. In this development
-  workspace/deployment the listener is followed with `screenrig-logd follow`;
-  that name is deployment-specific, not a plugin or CLI command and not
-  guaranteed on another host.
-- The player's own `<player-state-dir>/dev-log.jsonl`, the player-owned fallback
-  when no merged listener is available.
+Each CLI line includes `v` (`1`), `ts`, `event_id`, `correlation_id`,
+`run_id`, `command`, `kind` (`http` or `local`), `phase`, `op`, and `tag`.
+Nested work also carries `parent_correlation_id`. Optional `id` is an
+associated resource (`scr_…`, `pl_…`, `med_…`). Optional `params` is small
+scalars. Join request/response and start/finish rows on `correlation_id`.
+Prefer `tag`, `id`, `phase`, and `params` over dumping whole logs.
+
+Players emit their own separate logs:
+
+- Qt and Apple: a Unix-socket client. Override the path with
+  `SCREENRIG_PLAYER_LOG_SOCKET`.
+- Android: the `ScreenRigOp` log tag.
+- Windows: Trace and Debug output.
+- Browser: `console.debug`.
+- Fallback for a player that is already running: the player's own
+  `<player-state-dir>/dev-log.jsonl`.
 
 The Unix-socket route is useful only when you own the player's start and have
 arranged its listener/socket before launch; it is not the first route for an
-already-running player. Pair rows on `correlation_id` and prefer `tag`, `id`,
-`phase`, and `params` over dumping whole logs. Never print credentials,
-pairing material, signed URLs, object keys, or pixels from a log line.
+already-running player. Join rows on `correlation_id`. Never print
+credentials, provisioning material, signed URLs, object keys, or pixels from
+a log line.
 
 `screen toast` is the agent mark on a live wall. `--level` is `info`,
 `alert`, or `error`. Omitted `--level` defaults to `info`. Production glass
@@ -1518,10 +1564,7 @@ feedback is about. Probe support through `capabilities.features.feedback`;
 
 ```text
 account show
-agent enroll --email ADDRESS [--name NAME] [--open-dashboard]
-agent connect [--name NAME] [--print-url] [--timeout MS]
 agent status
-agent disconnect --yes [--allow-lockout]
 dashboard [--print-url]
 app pack <directory> [--output FILE]
 app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
@@ -1533,6 +1576,7 @@ media generate --prompt TEXT [--aspect-ratio RATIO] [--quality low|medium|high] 
 media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                     [--no-transcode] [--codec h264|hevc] [--max-fps N]
                     [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
+                    [--preset signage-1080p30|signage-4k30] [--no-audio]
 media upload-batch <manifest.json> --state FILE [--concurrency N]
                    [--no-transcode] [--tag TAG] [--no-progress]
 media show <id>
@@ -1553,7 +1597,6 @@ playlist import <directory> [--name NAME] [--update ID --if-match REVISION]
 playlist show <id>
 playlist list
 playlist delete <id> --if-match REVISION
-screen pair CODE [--label LABEL]
 screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE]
                    --if-match REVISION
 screen list [--state archived]
@@ -1594,8 +1637,7 @@ version
 ```
 
 Global flags go before the command: `--json`, `--api-url URL`, `--config
-PATH`, `--request-id ID`, `--idempotency-key KEY`, `--timeout MS`, and
-`--beta-key KEY` (enrolment only).
+PATH`, `--request-id ID`, `--idempotency-key KEY`, and `--timeout MS`.
 
 On `revision_conflict`, fetch the resource, reapply the intended change, and
 retry with the returned revision. On an ambiguous transport failure, reuse the

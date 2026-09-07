@@ -21,8 +21,19 @@ PLUGIN = ROOT / "plugins" / "screenrig"
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 CLI_RUNTIME_LOCK = "runtime-dependencies.lock.json"
-PLUGIN_VERSION = "0.1.2"
-CLI_VERSION = "0.1.0"
+PLUGIN_PLACEHOLDER = "0.1.2"
+CLI_PLACEHOLDER = "0.1.0"
+PRODUCT_VERSION = re.compile(r"^\d{2}\.(?:0[1-9]|1[0-2])\.(?:0-dev|[1-9]\d*)$")
+
+
+def is_plugin_version(value: object) -> bool:
+    return isinstance(value, str) and (value == PLUGIN_PLACEHOLDER or PRODUCT_VERSION.fullmatch(value) is not None)
+
+
+def is_cli_version(value: object) -> bool:
+    return isinstance(value, str) and (value == CLI_PLACEHOLDER or PRODUCT_VERSION.fullmatch(value) is not None)
+
+
 CLI_SOURCE_FILES = (
     "src/commands.ts",
     "src/client.ts",
@@ -110,8 +121,8 @@ def check_marketplaces() -> None:
     if entry.get("name") != "screenrig" or entry.get("source") != "./plugins/screenrig":
         errors.append(".claude-plugin/marketplace.json: invalid ScreenRig source")
     version = entry.get("version")
-    if version != PLUGIN_VERSION:
-        errors.append(f".claude-plugin/marketplace.json: version must be {PLUGIN_VERSION}")
+    if not is_plugin_version(version):
+        errors.append(".claude-plugin/marketplace.json: version must be 0.1.2, YY.MM.N, or YY.MM.0-dev")
     if entry.get("repository") != PLUGIN_REPOSITORY or entry.get("license") != "Apache-2.0":
         errors.append(".claude-plugin/marketplace.json: public repository/license metadata drift")
     for platform in ("codex", "claude"):
@@ -215,14 +226,14 @@ def check_package() -> None:
             result.returncode != 0
             or envelope.get("ok") is not True
             or not isinstance(data, dict)
-            or data.get("version") != CLI_VERSION
+            or not is_cli_version(data.get("version"))
             or result.stderr
         ):
             errors.append("packaged skill wrapper did not execute the bundled CLI with clean JSON output")
     package = load(PLUGIN / "cli" / "package.json")
     repository = package.get("repository") or {}
     if (
-        package.get("version") != CLI_VERSION
+        not is_cli_version(package.get("version"))
         or package.get("private") is not False
         or package.get("license") != "Apache-2.0"
         or not isinstance(repository, dict)
@@ -318,7 +329,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "NEARLY FREE: PAY PER BYTE NOT PER SCREEN",
             "$0.09/GB bandwidth, $0.14/GB-month storage",
             "No per-device price",
-            "https://screenrig.ai/skill/SKILL.md",
+            "I authorize you to install the official screenRIG plugin from https://github.com/screenrig/plugin.",
             "https://github.com/screenrig/plugin",
             "claude plugin marketplace add https://github.com/screenrig/plugin.git --scope user",
             "claude plugin install screenrig@screenrig --scope user",
@@ -395,7 +406,9 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         readme_text = readme.read_text(encoding="utf-8")
         for label, pattern in readme_forbidden.items():
             if pattern.search(readme_text):
-                errors.append(f"{readme.relative_to(ROOT)}: {label} belongs in the skill, not the README")
+                errors.append(f"{readme.relative_to(ROOT)}: {label} must not appear in the README")
+        if "https://screenrig.ai/skill/SKILL.md" in readme_text:
+            errors.append(f"{readme.relative_to(ROOT)}: site skill URL is not the agent contract")
     forbidden = {
         "account create": re.compile(r"\baccount create\b", re.IGNORECASE),
         "automatic enrollment": re.compile(
@@ -418,16 +431,19 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             re.IGNORECASE,
         ),
     }
-    # `agent enroll`, `agent connect`, `agent status`, `agent disconnect`, and
-    # `screen pair` are taught on purpose (UAT round 1, R1-020): first run is
-    # the one thing a customer's agent must do and the skill has to say how.
-    # The homepage handoff (`browser setup`, `screen provision`) and the dashed
-    # public-locator form as `screen pair` input stay out of the skill.
+    # Do not teach `agent enroll`, `screen pair`, `agent connect`,
+    # `agent disconnect`, `browser setup`, `screen provision`, `ABC-234`, or
+    # `playlist templates` as a path. `agent status` stays. A "do not use"
+    # mention of playlist templates is allowed; a Commands-list entry is not.
     skill_forbidden = {
+        "agent enroll": re.compile(r"\bagent\s+enroll\b", re.IGNORECASE),
+        "agent connect": re.compile(r"\bagent\s+connect\b", re.IGNORECASE),
+        "agent disconnect": re.compile(r"\bagent\s+disconnect\b", re.IGNORECASE),
+        "screen pair": re.compile(r"\bscreen\s+pair\b", re.IGNORECASE),
         "browser setup": re.compile(r"\bbrowser\s+setup\b", re.IGNORECASE),
         "screen provision": re.compile(r"\bscreen\s+provision\b", re.IGNORECASE),
-        "dashed pair input": re.compile(r"\bscreen\s+pair\s+[A-Z0-9]{3}-[A-Z0-9]{3}\b", re.IGNORECASE),
-        "playlist templates": re.compile(r"\bplaylist\s+templates\b", re.IGNORECASE),
+        "ABC-234": re.compile(r"\bABC-?234\b", re.IGNORECASE),
+        "screenrig-logd": re.compile(r"\bscreenrig-logd\b", re.IGNORECASE),
         "coming soon": re.compile(r"coming[- ]soon", re.IGNORECASE),
     }
     for root in audit_paths:
@@ -443,6 +459,24 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
     for label, pattern in skill_forbidden.items():
         if pattern.search(skill_text):
             errors.append(f"skills/screenrig/SKILL.md: stale {label} language")
+    commands_match = re.search(r"## Commands\s+```text\n(.*?)```", skill_text, re.S)
+    commands_text = commands_match.group(1) if commands_match else ""
+    if not commands_match:
+        errors.append("skills/screenrig/SKILL.md: Commands list missing")
+    else:
+        for taught in (
+            "agent enroll",
+            "agent connect",
+            "agent disconnect",
+            "screen pair",
+            "browser setup",
+            "screen provision",
+            "playlist templates",
+        ):
+            if re.search(rf"(?m)^{re.escape(taught)}\b", commands_text, re.IGNORECASE):
+                errors.append(f"skills/screenrig/SKILL.md: Commands list must not teach {taught}")
+        if "--preset signage-1080p30|signage-4k30" not in commands_text or "--no-audio" not in commands_text:
+            errors.append("skills/screenrig/SKILL.md: Commands list missing media upload --preset / --no-audio")
 
 
 def main() -> int:

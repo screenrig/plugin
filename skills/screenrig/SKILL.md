@@ -16,6 +16,22 @@ Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut 
 This skill is the operative contract. Use the bundled CLI. Do not invent commands, flags, or
 onboarding surfaces.
 
+## More information
+
+This skill remains the CLI contract. The pages below are extra product and docs
+context, not a replacement for the commands and flags here.
+
+- Docs hub: `https://screenrig.ai/docs/`
+- Agent index: `https://screenrig.ai/llms.txt`
+- Expanded agent context: `https://screenrig.ai/llms-full.txt`
+
+When asked what screenRIG is, how it is priced, which Players exist, or similar
+product questions, fetch `https://screenrig.ai/llms.txt` first. Fetch
+`https://screenrig.ai/llms-full.txt` if more detail is needed.
+
+Install: `https://screenrig.ai/docs/start/`
+Meter: `https://screenrig.ai/pricing/`
+
 ## Canonical marketplace
 
 The only supported installation source is the public screenRIG marketplace at
@@ -106,8 +122,6 @@ Work in this order. Do not skip `version` or `doctor`.
 ```bash
 screenrig --json version
 screenrig --json doctor
-screenrig --json agent enroll --email ADDRESS --name "Office MacBook Codex"
-screenrig --json screen pair ABC234
 # then put content on a playlist page using the authoring tree below
 screenrig --json playlist create ./playlist.json
 screenrig --json screen list
@@ -116,8 +130,7 @@ screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match R
 
 1. Prepend the plugin scripts directory to `PATH` and require `screenrig --json version`.
 2. Run `doctor`. Read `data.status` and `data.checks`. On a fresh install the
-   `token` row is `warn`, not `fail`, and `data.next.command` is
-   `screenrig agent enroll --email ADDRESS`: that is the expected first-run
+   `token` row is `warn`, not `fail`: that is the expected first-run
    result, not a broken install. Name missing toolchain parts before the
    first `media upload`.
 3. Put content on a playlist page using the authoring tree below. Choose by
@@ -413,20 +426,19 @@ The CLI exit-status table is stable and separate from `error.code`:
 | 5 | conflict | 12 | configuration |
 | 6 | precondition | 13 | operation failed |
 
-For example, local `usage_error` exits 2, `not_enrolled` exits 3, HTTP 404
-exits 4, 409 exits 5, 412 exits 6, 429 exits 7, and 408/504 exit 11. Branch on
-the more specific `error.code` whenever one is present.
+For example, local `usage_error` exits 2, an unauthenticated installation
+exits 3, HTTP 404 exits 4, 409 exits 5, 412 exits 6, 429 exits 7, and
+408/504 exit 11. Branch on the more specific `error.code` whenever one is
+present.
 
-### Secret dashboard and connection URLs
+### Secret dashboard URLs
 
 The URL minted by `dashboard --print-url` is a credential. Under `--json` it
 appears on **stdout** inside `data.url`, where ordinary agent stdout capture
 may log it. Route it only to the intended browser, exclude that command's
 stdout from logs, and never paste, persist, or repeat the URL. If `dashboard`
 cannot open a browser, its fallback can put the same field on stdout even
-without `--print-url`. By contrast, `agent connect` delivers its approval URL
-on **stderr** (as a JSON line under `--json`). Treat the relevant stream as
-sensitive for either command.
+without `--print-url`. Treat that stream as sensitive.
 
 Never pass a bearer, token flag, or pasted secret on the command line. The
 credential is a user-private file outside the
@@ -485,11 +497,7 @@ Read `data.status` and `data.checks`. Each check is `pass`, `warn`, or `fail`.
 Only `fail` changes the exit code. `data.status` is the worst row. A success
 envelope with `data.status` `warn` is a usable host, not a broken install.
 
-Run `doctor` before enrolling. On a fresh install the `token` row is `warn`
-with detail `(none); this installation is not enrolled`, the row carries
-`next.command` `screenrig agent enroll --email ADDRESS`, and the same `next`
-is repeated at `data.next`. A disconnected installation or one with a pending
-approval warns the same way with `screenrig agent connect`. `fail` is
+On a fresh install the `token` row is `warn`, not `fail`. `fail` is
 reserved for damage: a config file other users can read
 (`config_permissions`), a Node below 20, a missing `ffmpeg`/`ffprobe` or
 `libx264`, or a control plane that does not answer. Read the `ready` row's
@@ -1384,7 +1392,7 @@ Take `--playlist-id` from `data.id` of the `playlist create` result. Take
 `screen show` return. `revision_conflict` means refetch and retry. Do not
 invent the revision.
 
-`screen pair`, `screen assign`, and `screen show` return the screen's
+`screen assign` and `screen show` return the screen's
 `manifest_revision` and `content_access_generation`. `manifest_revision`
 bumps when that screen's resolved runtime manifest changes. After `playlist update`
 or a screen assignment, compare `screen show` with the earlier value: a bump proves
@@ -1429,20 +1437,35 @@ asset or pixel-quality proof. Do not print pixels.
 
 ### Player operation logs
 
-For a player that is already running, use a sink that already owns its output:
+This plugin does not emit the operation log. The CLI does, through optional
+`log_socket` in the same user config as the token. The CLI connects as a
+client to an already-listening Unix domain socket at that path and writes
+one NDJSON object per line. There is no `--log-socket` flag and no
+`SCREENRIG_LOG_SOCKET` override. If the field is absent or empty, commands
+work unchanged. Connect failure never fails the command.
 
-- A deployment-provided merged NDJSON listener. In this development
-  workspace/deployment the listener is followed with `screenrig-logd follow`;
-  that name is deployment-specific, not a plugin or CLI command and not
-  guaranteed on another host.
-- The player's own `<player-state-dir>/dev-log.jsonl`, the player-owned fallback
-  when no merged listener is available.
+Each CLI line includes `v` (`1`), `ts`, `event_id`, `correlation_id`,
+`run_id`, `command`, `kind` (`http` or `local`), `phase`, `op`, and `tag`.
+Nested work also carries `parent_correlation_id`. Optional `id` is an
+associated resource (`scr_…`, `pl_…`, `med_…`). Optional `params` is small
+scalars. Join request/response and start/finish rows on `correlation_id`.
+Prefer `tag`, `id`, `phase`, and `params` over dumping whole logs.
+
+Players emit their own separate logs:
+
+- Qt and Apple: a Unix-socket client. Override the path with
+  `SCREENRIG_PLAYER_LOG_SOCKET`.
+- Android: the `ScreenRigOp` log tag.
+- Windows: Trace and Debug output.
+- Browser: `console.debug`.
+- Fallback for a player that is already running: the player's own
+  `<player-state-dir>/dev-log.jsonl`.
 
 The Unix-socket route is useful only when you own the player's start and have
 arranged its listener/socket before launch; it is not the first route for an
-already-running player. Pair rows on `correlation_id` and prefer `tag`, `id`,
-`phase`, and `params` over dumping whole logs. Never print credentials,
-pairing material, signed URLs, object keys, or pixels from a log line.
+already-running player. Join rows on `correlation_id`. Never print
+credentials, provisioning material, signed URLs, object keys, or pixels from
+a log line.
 
 `screen toast` is the agent mark on a live wall. `--level` is `info`,
 `alert`, or `error`. Omitted `--level` defaults to `info`. Production glass
@@ -1541,10 +1564,7 @@ feedback is about. Probe support through `capabilities.features.feedback`;
 
 ```text
 account show
-agent enroll --email ADDRESS [--name NAME] [--open-dashboard]
-agent connect [--name NAME] [--print-url] [--timeout MS]
 agent status
-agent disconnect --yes [--allow-lockout]
 dashboard [--print-url]
 app pack <directory> [--output FILE]
 app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
@@ -1556,6 +1576,7 @@ media generate --prompt TEXT [--aspect-ratio RATIO] [--quality low|medium|high] 
 media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                     [--no-transcode] [--codec h264|hevc] [--max-fps N]
                     [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
+                    [--preset signage-1080p30|signage-4k30] [--no-audio]
 media upload-batch <manifest.json> --state FILE [--concurrency N]
                    [--no-transcode] [--tag TAG] [--no-progress]
 media show <id>
@@ -1576,7 +1597,6 @@ playlist import <directory> [--name NAME] [--update ID --if-match REVISION]
 playlist show <id>
 playlist list
 playlist delete <id> --if-match REVISION
-screen pair CODE [--label LABEL]
 screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE]
                    --if-match REVISION
 screen list [--state archived]
@@ -1617,8 +1637,7 @@ version
 ```
 
 Global flags go before the command: `--json`, `--api-url URL`, `--config
-PATH`, `--request-id ID`, `--idempotency-key KEY`, `--timeout MS`, and
-`--beta-key KEY` (enrolment only).
+PATH`, `--request-id ID`, `--idempotency-key KEY`, and `--timeout MS`.
 
 On `revision_conflict`, fetch the resource, reapply the intended change, and
 retry with the returned revision. On an ambiguous transport failure, reuse the

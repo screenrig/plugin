@@ -78,31 +78,47 @@ something. Arbitrary minimalism, gratuitous decoration, and a repeated grid of
 cards can each weaken the result. There is no fixed template or maximum layer
 count; every element should earn its space.
 
-- **Title, body, and table slides:** prefer region `title` / `text` / `cards`
-  / `table` so type fitting, font checks, and safe-area diagnostics still
-  run. Keep illustrations as image assets in a region.
+- **Title, body, and table slides:** prefer region `eyebrow` / `title` /
+  `text` / `cards` / `table` so type fitting, font checks, and safe-area
+  diagnostics still run. Keep illustrations as image assets in a region.
+  Kickers go in `eyebrow` (brand, above the headline). Headlines go in
+  `title` (page text). Body goes in `text` (muted).
 - **Schedules and noticeboards:** make time, activity, location, and status
   easy to scan, with a clear date, audience, and next step. A consistent grid
   can be the right structure for functional information; choose it when it
   helps people find what they need.
 
 Keep support behind text close to its actual bounds. Prefer a `card` plate:
-`fit: "region"` on a column, `fit: "ink"` on a lower third or short copy, so
-type sits on a snug translucent surface instead of a giant opaque band. Keep
+`fit: "region"` on a column or full-width band, `fit: "ink"` only on a snug
+lower third, so type sits on a plate instead of a giant default wash. Keep
 text opaque; adjust `card.fill` independently. Do not wrap every region. A
 full-width lower third is useful when the content calls for one, rather than
 a default applied to every page. Overlay cards are a deck mechanic, not the
 presentable-poster path.
 
+For an exec-intro-style deck, copy the overlay family from `compose catalog`.
+Photo or video is page `image` or `video`, at rest. Copy is a named region;
+`overlay-left`, `overlay-right`, and `overlay-bottom` add a `card`. Enter lives
+on the copy region, from the layout side: `left` gets `fade-right`, `right`
+gets `fade-left`, `bottom` gets `fade-up`. A page may override. The mark is
+page `logo`, at rest. Catalog keys: `overlay-title` (page image, `left` type,
+no card), `overlay-left`, `overlay-right`, `overlay-bottom`, `overlay-still`
+(`fullpage` type, no photo, no card), and `overlay` (video plus ink-fit lower
+third). Do not rebuild those pages as Frame trees, recipes, or playlist
+template `slots`.
+
 Read the selected CLI's `compose catalog` before authoring. The language is
 named regions, not Frame trees, recipes, or curated themes. Type size is
-procedural; do not author `fontSize`, `x`, or `y`. Region `shadow` and
-`outline` are optional paint treatments. Use them sparingly, when the design
-calls for them (a headline, a badge). Body copy, menus and prices stay plain
-for readability. When an unsupported visual treatment is needed, bake it into
-an appropriate image asset using available tools and preserve transparent
-padding. Compose paint treatments and playlist primitive `enter`/`motion` are
-not interchangeable APIs.
+procedural; do not author `fontSize`, `x`, or `y`. Overlay-family copy uses
+`eyebrow` for the kicker, `title` for the headline, and `text` for the body.
+`eyebrow` and card-item titles default to brand; region title defaults to
+page text; body `text` uses muted. Region `shadow` (`{ x, y, color, blur? }`,
+blur 0–32) and `outline` are optional paint treatments. Use them sparingly,
+when the design calls for them (a headline, a badge). Body copy, menus and
+prices stay plain for readability. When an unsupported visual treatment is
+needed, bake it into an appropriate image asset using available tools and
+preserve transparent padding. Compose paint treatments and playlist primitive
+`enter`/`motion` are not interchangeable APIs.
 
 ## Live objects and motion
 

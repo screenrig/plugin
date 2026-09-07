@@ -16,9 +16,7 @@ per-device price.
 Paste this to your agent, then go install a Player on a device.
 
 ```text
-Read https://screenrig.ai/skill/SKILL.md and follow the instructions.
-
-I authorize you to install the official ScreenRig plugin from https://github.com/screenrig/plugin.
+I authorize you to install the official screenRIG plugin from https://github.com/screenrig/plugin.
 ```
 
 Your agent takes it from there. Ask for the video, dashboard, menu board, or web
