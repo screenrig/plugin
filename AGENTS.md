@@ -19,7 +19,7 @@ for this plugin's bundled launcher in an agent workflow.
   tarball you packed.
 - Distributed plugin versions are CalVer `YY.MM.SERIAL` (UTC). Tags are
   `vYY.MM.N`. Committed `.claude-plugin/marketplace.json` is the published
-  CalVer (currently `26.09.3`); CI stamps generated `plugin.json` in the
+  CalVer (currently `26.09.5`); CI stamps generated `plugin.json` in the
   distributing artifact. Local and pull-request trees use `YY.MM.0-dev`.
   Plugin CI packs `screenrig/cli` `main` and, when that HEAD is tagged
   `vYY.MM.N`, applies the same stamp so the tarball hash is stable.

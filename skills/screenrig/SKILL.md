@@ -217,21 +217,34 @@ Generating an atmosphere plate and composing type onto it throws away the
 image-model layout. Do not do that.
 
 Compose and generate are not interchangeable layout tools. Pick generate
-when the page must look presentable.
+when the page must look presentable and you do not have official art to preserve.
 
 How to put content on a playlist page. Choose by what the page is. Do not
 generate an atmosphere plate and compose type onto it. Do not compose a
 presentable poster as named regions + cards.
 
-1. **You already have the image or video.** `media upload` and place
-   `med_…`. No compose. No generate.
+1. **You already have the image or video.** Official venue logos, official
+   show key art, and other brand photography count: fetch the PNG/JPEG from
+   the brand, `media upload`, and place `med_…`. No compose. No generate.
 
 ```bash
 screenrig --json media upload ./lobby.jpg --tag LobbyPhoto
 screenrig --json media list --tag LobbyPhoto --primitive image
 ```
 
-2. **Anything presentable** — posters, announcements, restaurant menus,
+2. **Official assets that are not yet the page.** A studio poster, venue
+   mark, or show key art plus live copy (times, prices, ratings) that must
+   sit with it. Generate cannot take those files in and will invent a
+   lookalike. Compose cannot do a poster case: `logo` is max 200×100,
+   regions are halves and thirds, and times become body copy. Raster a
+   finished still locally at canvas size — HTML in a 1920×1080 viewport
+   is fine — then `media upload` as in path 1. HTML is not a playlist
+   primitive. The still is the page. Lock the chrome in one template so
+   a loop of pages matches; only the poster and the live fields change.
+   This is not generating an atmosphere plate and overlaying type: the
+   picture is source art you must preserve, flattened into one upload.
+
+3. **Anything presentable** — posters, announcements, restaurant menus,
    event art, product stills, public-facing rich static pages. `media
    generate` as the **whole page**. Put every fact and all copy in the
    prompt so the image model typesets it. ScreenRig generate is the default. Own-gen-then-upload remains valid
@@ -262,7 +275,7 @@ the prompt. Place the returned `med_…` on the playlist as one full-page
 `image`. The POST stores a lossy WebP in the account media store; the CLI does
 not re-upload. Fetch content only to inspect.
 
-3. **Slide-deck-like experiences** — title/body/table slides, internal
+4. **Slide-deck-like experiences** — title/body/table slides, internal
    decks, measured type that must stay editable as compose JSON. Local
    unbilled `compose render`.
 
@@ -281,7 +294,7 @@ write two playlist primitives directly, with side-by-side `rect` values. Use
 compose only when that mixed page also needs deck-like copy or chrome painted
 into a still.
 
-4. **Live objects** — a playing video, iframe, or webapp as the page (or as
+5. **Live objects** — a playing video, iframe, or webapp as the page (or as
    playlist primitives). Write playlist primitives. Upload the video if you
    have it. Do not local-render stills merely to attach `enter` / `motion`.
    Animation is not a reason to compose.
@@ -358,10 +371,17 @@ A strong prompt names, in this order:
   when the target screen is landscape; use "portrait 9:16 poster artwork"
   only when the target screen is portrait. Never write "television", "screen", or
   "display" here; that is the phrasing that makes the model draw one.
-- **What to exclude**: "no photographs", "no people", "no logos", "no
-  watermark", "no placeholder text", and the device exclusion above: no
-  television, monitor, display, screen, kiosk, bezel, frame, wall, mount, or
-  mockup, artwork filling the image edge to edge.
+- **What to exclude**: "no watermark", "no placeholder text", "no other text",
+  and the device exclusion above. Do not put "no photographs", "no people",
+  or "no logos" on every prompt. Those belong only when this artefact is
+  non-photographic illustration. Never invent a trademark or a lookalike
+  mark: if the brief is a real brand, obtain the official PNG and composite
+  or upload it (path 1) or raster it with live copy (path 2), or typeset
+  the name in the chosen type and omit the mark. Photographs and people belong when the style is photographic
+  and you have a source you may use (a user photo, official key art, or an
+  authorized local scratch demo of official photography); otherwise prefer
+  illustration. Do not invent a celebrity likeness. Keep the closer short
+  so the exclusion list cannot typeset as a visible caption.
 
 Write for a viewer at distance: few words, large type, one clear hierarchy.
 A menu board carrying twelve dishes with descriptions and prices is the dense
@@ -373,13 +393,13 @@ belongs in compose or a web application.
 Quick-service menu board, `16:9`, `high` because the text is dense:
 
 ```bash
-screenrig --json media generate --aspect-ratio 16:9 --quality high --tag BurgerBoard --prompt "Landscape 16:9 menu board artwork for Example Burger Counter, a quick-service burger stand. Full bleed, artwork only. Style: bold retro American diner signage, flat vector shapes, thick outlines, slight halftone texture. Palette: mustard yellow #E8B324 background, ketchup red #C8281E accents, cream #FFF6E0 type, charcoal #1E1E1E outlines. Layout: restaurant name as a large arched headline top centre, then three columns. Column one, BURGERS: Classic Smash, double patty, American cheese, pickles, \$9; Bacon Deluxe, smoked bacon, cheddar, onion jam, \$11; Garden Stack, grilled halloumi, roasted pepper, herb mayo, \$10. Column two, SIDES: Skin-on Fries \$4; Onion Rings \$5; Slaw \$3. Column three, DRINKS: Vanilla Shake \$6; Root Beer Float \$5; Lemonade \$3. Footer line: Order at the counter, we call your number. Typography: condensed heavy sans for headings, clean rounded sans for items, prices right-aligned and bold. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
+screenrig --json media generate --aspect-ratio 16:9 --quality high --tag BurgerBoard --prompt "Landscape 16:9 menu board artwork for Example Burger Counter, a quick-service burger stand. Full bleed, artwork only. Style: bold retro American diner signage, flat vector shapes, thick outlines, slight halftone texture. Palette: mustard yellow #E8B324 background, ketchup red #C8281E accents, cream #FFF6E0 type, charcoal #1E1E1E outlines. Layout: restaurant name as a large arched headline top centre, then three columns. Column one, BURGERS: Classic Smash, double patty, American cheese, pickles, \$9; Bacon Deluxe, smoked bacon, cheddar, onion jam, \$11; Garden Stack, grilled halloumi, roasted pepper, herb mayo, \$10. Column two, SIDES: Skin-on Fries \$4; Onion Rings \$5; Slaw \$3. Column three, DRINKS: Vanilla Shake \$6; Root Beer Float \$5; Lemonade \$3. Footer line: Order at the counter, we call your number. Typography: condensed heavy sans for headings, clean rounded sans for items, prices right-aligned and bold. Flat vector only, no photo, no watermark, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
 ```
 
 Store event poster for a landscape screen, `16:9`, `medium`:
 
 ```bash
-screenrig --json media generate --aspect-ratio 16:9 --quality medium --tag AuthorNight --prompt "Landscape 16:9 event poster artwork for fictional Example Books, an independent bookshop. Full bleed, artwork only. Style: two-colour risograph print, grainy ink, slightly off-register overlap, generous margins, mid-century book-jacket feel. Palette: paper white #F4EFE6, teal ink #1B6F79, coral ink #E4633C. Copy, exactly this and nothing else: headline 'Author Night'; subhead 'Guest Author reads from Sample Title'; date line 'Thursday 24 September, 7 pm'; line 'Free entry, signed copies available'; footer 'fictional Example Books, Main Hall'. Illustration: one stylised open book with waves rising from its pages, placed behind the headline. Typography: tall geometric display type for the headline, small caps for the date, humanist serif for the rest. No photographs, no people, no logos, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
+screenrig --json media generate --aspect-ratio 16:9 --quality medium --tag AuthorNight --prompt "Landscape 16:9 event poster artwork for fictional Example Books, an independent bookshop. Full bleed, artwork only. Style: two-colour risograph print, grainy ink, slightly off-register overlap, generous margins, mid-century book-jacket feel. Palette: paper white #F4EFE6, teal ink #1B6F79, coral ink #E4633C. Copy, exactly this and nothing else: headline 'Author Night'; subhead 'Guest Author reads from Sample Title'; date line 'Thursday 24 September, 7 pm'; line 'Free entry, signed copies available'; footer 'fictional Example Books, Main Hall'. Illustration: one stylised open book with waves rising from its pages, placed behind the headline. Typography: tall geometric display type for the headline, small caps for the date, humanist serif for the rest. Risograph illustration only, no photo, no watermark, no other text. Do not draw a television, screen, frame, bezel, border, or mounting: the artwork fills the whole image, edge to edge."
 ```
 
 The same brief in a different venue asks for a different style: the same
@@ -475,7 +495,7 @@ file is overwritten. The envelope is `media_id`, `path`, `bytes`, `sha256`,
 `width` / `height`. It never carries pixels.
 
 Downloading also lets a generated still serve as a region `image` inside a
-`compose render` spec for the exception cases in step 3, for example a
+`compose render` spec for the exception cases in step 4, for example a
 `low`-quality generated background behind a live video hole. That is compose
 using a generated picture, not text layered over a generated poster.
 
@@ -686,7 +706,7 @@ whose permissions are too broad.
 
 ## Local compose
 
-Compose is authoring path 3: slide-deck-like experiences — title/body/table
+Compose is authoring path 4: slide-deck-like experiences — title/body/table
 slides, internal decks, measured type that must stay editable as compose
 JSON. It is local and unbilled. Presentable posters, menus, event art, and
 other public-facing rich static pages are generated finished stills, not
