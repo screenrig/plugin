@@ -179,8 +179,8 @@ and the price.
 | quality | credits | usd | when |
 |---|---|---|---|
 | `low` | 600 | $0.06 | unimportant generated stills only |
-| `medium` | 1200 | $0.12 | most cases (recommend this) |
-| `high` | 5000 | $0.50 | dense text and complex posters |
+| `medium` | 1200 | $0.12 | most work, including typical menus (recommend this) |
+| `high` | 5000 | $0.50 | genuinely text-dense artefacts with many rows of small type |
 
 Optional `--tag` is the same 1–32 letter-or-digit tag as upload. The command
 blocks until `201` MediaGeneration `{ media, usage }`. `data.media.id` /
@@ -204,6 +204,11 @@ screenrig --json media upload ./exec-intro/left.png --tag ExecIntro
 `--output` is a directory, not a `.png` / `.webp` / `.jpg` file. `card` is a
 plate (`fit` `region` or `ink`). `cards` (plural) is an array of items. Region
 `video`, `iframe`, and `webapp` are holes, not painted PNGs.
+
+A mixed page with an image beside a video and no copy needs no compose step:
+write two playlist primitives directly, with side-by-side `rect` values. Use
+compose only when that mixed page also needs deck-like copy or chrome painted
+into a still.
 
 4. **Live objects** — a playing video, iframe, or webapp as the page (or as
    playlist primitives). Write playlist primitives. Upload the video if you
@@ -272,8 +277,8 @@ A strong prompt names, in this order:
   "display" here; that is the phrasing that makes the model draw one.
 - **What to exclude**: "no photographs", "no people", "no logos", "no
   watermark", "no placeholder text", and the device exclusion above: no
-  television, screen, frame, bezel, border, or mounting, artwork filling the
-  image edge to edge.
+  television, monitor, display, screen, kiosk, bezel, frame, wall, mount, or
+  mockup, artwork filling the image edge to edge.
 
 Write for a viewer at distance: few words, large type, one clear hierarchy.
 A menu board carrying twelve dishes with descriptions and prices is the dense
@@ -307,14 +312,15 @@ businesses, different pictures.
 | quality | credits | usd | when |
 |---|---|---|---|
 | `low` | 600 | $0.06 | backgrounds and unimportant images |
-| `medium` | 1200 | $0.12 | the default for most work |
-| `high` | 5000 | $0.50 | artefacts carrying a lot of text, such as a restaurant menu |
+| `medium` | 1200 | $0.12 | the default for most work, including typical menus |
+| `high` | 5000 | $0.50 | genuinely text-dense artefacts with many rows of small type |
 
-Medium is the default for most work. High is for artefacts carrying a lot of
-text, such as a restaurant menu, where every item must come out legible. Low
-is for backgrounds and unimportant images. Quality changes the image and the
-price. `--quality` defaults to `medium`. A 402 / `payment_required` means
-stop; do not retry generate, and point money at
+Medium is the default for most work, including a typical menu. Use high only
+when the artefact is genuinely text-dense — for example, many rows of small
+type that cannot be simplified while keeping the brief. Choose by density,
+not by genre. Low is for backgrounds and unimportant images. Quality changes
+the image and the price. `--quality` defaults to `medium`. A 402 /
+`payment_required` means stop; do not retry generate, and point money at
 https://screenrig.ai/pricing/.
 
 ### Budget for the blocking call
@@ -360,6 +366,11 @@ The filename is distinctive per generation, `generated-16x9-1a2b3c4d.webp`,
 with the suffix taken from the media id; a generated still has no
 `source_filename`. Read `data.media.width` / `height` from the envelope.
 
+Match `--aspect-ratio` to the screen content viewport where the still will
+play. With `content_fit: "contain"`, a 9:16 artefact on a 16:9 screen is
+pillarboxed to about one third of the screen width; that is useful evidence of
+orientation, not a usable landscape layout.
+
 Place the returned `med_…` on the playlist as one full-canvas `image`
 primitive with `content_fit` `contain`; the still already is the page. Then
 proof it: `media download <id> --output FILE` writes the stored rendition to
@@ -389,6 +400,33 @@ using a generated picture, not text layered over a generated poster.
 
 Use `--json` envelopes. Branch on `ok`, `error.status`, `error.code`, and
 `warnings[].code`. Do not parse prose.
+
+The CLI exit-status table is stable and separate from `error.code`:
+
+| exit | category | exit | category |
+|---:|---|---:|---|
+| 0 | success | 7 | rate limited |
+| 1 | unexpected | 8 | other client / 4xx |
+| 2 | usage | 9 | server / 5xx |
+| 3 | authentication or authorization | 10 | network |
+| 4 | not found | 11 | timeout |
+| 5 | conflict | 12 | configuration |
+| 6 | precondition | 13 | operation failed |
+
+For example, local `usage_error` exits 2, `not_enrolled` exits 3, HTTP 404
+exits 4, 409 exits 5, 412 exits 6, 429 exits 7, and 408/504 exit 11. Branch on
+the more specific `error.code` whenever one is present.
+
+### Secret dashboard and connection URLs
+
+The URL minted by `dashboard --print-url` is a credential. Under `--json` it
+appears on **stdout** inside `data.url`, where ordinary agent stdout capture
+may log it. Route it only to the intended browser, exclude that command's
+stdout from logs, and never paste, persist, or repeat the URL. If `dashboard`
+cannot open a browser, its fallback can put the same field on stdout even
+without `--print-url`. By contrast, `agent connect` delivers its approval URL
+on **stderr** (as a JSON line under `--json`). Treat the relevant stream as
+sensitive for either command.
 
 Never pass a bearer, token flag, or pasted secret on the command line. The
 credential is a user-private file outside the
@@ -773,6 +811,27 @@ means local shape and cross-field semantics are valid; authorization, media
 readiness, dynamic selector counts, durations and remote availability still
 require server checks. Raster QA alone never proves the playlist is valid.
 
+Codes worth acting on:
+
+- `safe_margin`: non-full-bleed ink or a primitive sits within 4% of an edge;
+  move it inward unless it is intentionally full bleed.
+- `motion_overuse`: the page has more than one persistent motion or too many
+  entrance effects; keep one moving element and remove decorative motion.
+- `too_small_for_distance`: measured x-height is below the selected
+  `near`/`mid`/`far` floor; shorten the copy or give it a larger region, and
+  keep `viewing` honest.
+- `text_outside_safe_area`: with `--safe-area`, measured text crosses the 5%
+  margin; change the named-region layout or shorten copy until it clears it.
+  There is no authorable `inset` field.
+- `image_resized`: upload accepted an oversize still but reduced its delivered
+  dimensions; inspect the reported output size and proof that rendition.
+- `page_ready_timeout`: a player candidate did not become ready before its
+  deadline; inspect the running player's operation log and fix the failing
+  application, iframe, or page readiness path before retrying.
+- `adjacent_repeat`: adjacent compose pages reuse the same region set, or
+  adjacent playlist pages show the same media at the same rects; vary the
+  layout or content when the repeat is accidental.
+
 ### Slide, overlay, and wordmark
 
 Overlay is a compose mechanic for slide-deck pages and live video. It is not
@@ -859,6 +918,12 @@ A full page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
 and `primitives`. A primitive is flat: `id`, a `primitive` field naming one of
 the four, that primitive's own fields, then `rect`, `layer`, `content_fit`,
 optional `enter`, and optional `motion`. There is no nested content object.
+
+Keep the authored playlist JSON as the source of truth. `playlist show` is an
+inspection payload, not a guaranteed write document: the server may add
+resolved/defaulted fields such as `advance.max_ms` and
+`selector.one_at_a_time`. Do not feed a show payload directly to `playlist
+create` or `playlist update`; edit and submit the authored file instead.
 
 Image and video primitives require a `selector`. `iframe` and `application`
 do not take one. Do not put `media_id` on the primitive itself; it belongs
@@ -1220,15 +1285,25 @@ do not create a replacement application just to bypass the conflict.
 
 ### 2. Write the application primitive
 
+Application-controlled page fragment:
+
 ```json
 {
-  "id": "board",
-  "primitive": "application",
-  "release_id": "rel_01EXAMPLERELEASE00000000",
-  "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
-  "layer": 0,
-  "content_fit": "fill",
-  "controller": true
+  "id": "board-page",
+  "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+  "transition": { "type": "crossfade", "duration_ms": 200 },
+  "advance": { "mode": "application", "max_ms": 60000 },
+  "primitives": [
+    {
+      "id": "board",
+      "primitive": "application",
+      "release_id": "rel_01EXAMPLERELEASE00000000",
+      "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+      "layer": 0,
+      "content_fit": "fill",
+      "controller": true
+    }
+  ]
 }
 ```
 
@@ -1242,7 +1317,8 @@ do not create a replacement application just to bypass the conflict.
 
 ### 3. Choose how the page advances
 
-Use `duration` when the app never signals that it is finished:
+Use `duration` when the app never signals that it is finished, and omit
+`controller` from its primitive:
 
 ```json
 { "mode": "duration", "after_ms": 15000 }
@@ -1266,9 +1342,11 @@ when the UI promises that an event was accepted, and handle its rejection;
 plain `emit(code)` is a send attempt. Choose a shorter duration only for a
 preview that is supposed to rotate regardless of input.
 
-On an `application` page exactly one primitive must carry `controller: true`,
-and it must be an `application` primitive. `media_end` forbids `application`
-and `iframe` primitives on that page.
+`controller` is legal only on an `application` primitive whose page uses
+`advance.mode: "application"`. In that mode exactly one application primitive
+must carry `controller: true`. Do not set `controller` on a `duration` or
+`media_end` page, and never set it on an `iframe`. `media_end` also forbids
+`application` and `iframe` primitives on that page.
 
 ### 4. Create the playlist and assign it to a screen
 
@@ -1282,6 +1360,15 @@ Take `--playlist-id` from `data.id` of the `playlist create` result. Take
 `--if-match` from the screen's current `revision`, which both `screen list` and
 `screen show` return. `revision_conflict` means refetch and retry. Do not
 invent the revision.
+
+`screen pair`, `screen assign`, and `screen show` return the screen's
+`manifest_revision` and `content_access_generation`. `manifest_revision`
+bumps when that screen's resolved runtime manifest changes. After `playlist update`
+or a screen assignment, compare `screen show` with the earlier value: a bump proves
+the changed manifest reached that screen's control-plane state, while the
+glass or player log still proves rendering. `content_access_generation` bumps
+when runtime content access is invalidated or regranted, including archive,
+unarchive, and public-id rotation; it is not a playlist-content version.
 
 Looking at the screen stays the only proof of layout. `screen screenshot <id>`
 blocks on a WebP. Do not print pixels.
@@ -1313,7 +1400,26 @@ read-only.
 
 `screen screenshot <id>` blocks until a still WebP is on disk. The default
 path is `./<id>.webp`. `--timeout` defaults to 35000 ms and `--poll-ms`
-defaults to 500 ms. There is no `--no-wait`. Do not print pixels.
+defaults to 500 ms. There is no `--no-wait`. The returned still is a 960×540
+quarter-resolution WebP: use it for layout proof, not as a full-resolution
+asset or pixel-quality proof. Do not print pixels.
+
+### Player operation logs
+
+For a player that is already running, use a sink that already owns its output:
+
+- A deployment-provided merged NDJSON listener. In this development
+  workspace/deployment the listener is followed with `screenrig-logd follow`;
+  that name is deployment-specific, not a plugin or CLI command and not
+  guaranteed on another host.
+- The player's own `<player-state-dir>/dev-log.jsonl`, the player-owned fallback
+  when no merged listener is available.
+
+The Unix-socket route is useful only when you own the player's start and have
+arranged its listener/socket before launch; it is not the first route for an
+already-running player. Pair rows on `correlation_id` and prefer `tag`, `id`,
+`phase`, and `params` over dumping whole logs. Never print credentials,
+pairing material, signed URLs, object keys, or pixels from a log line.
 
 `screen toast` is the agent mark on a live wall. `--level` is `info`,
 `alert`, or `error`. Omitted `--level` defaults to `info`. Production glass
@@ -1356,6 +1462,11 @@ screenrig --json kv get --application-id app_EXAMPLE lobby
 screenrig --json kv list --application-id app_EXAMPLE
 screenrig --json kv delete --application-id app_EXAMPLE lobby --if-match REVISION
 ```
+
+`kv get` returns the stored bytes only as `data.value_base64`, including when
+`data.content_type` is `application/json`. Base64-decode it in the caller,
+then parse JSON only when the content type says it is JSON. `kv list` omits
+values.
 
 ## Events
 
