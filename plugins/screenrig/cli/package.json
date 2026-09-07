@@ -1,6 +1,6 @@
 {
   "name": "screenrig",
-  "version": "26.09.0-dev",
+  "version": "26.09.3",
   "private": false,
   "description": "ScreenRig control-plane CLI for agent-driven digital signage and kiosk operations.",
   "homepage": "https://screenrig.ai",
