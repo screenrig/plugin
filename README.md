@@ -77,8 +77,8 @@ package registry.
 A playlist page carries `primitives`, and every one of them names its family in
 a `primitive` field. There are four:
 
-- `image` — a still the native Player paints on the glass.
-- `video` — H.264, native decode. No codec fallback.
+- `image` — a still the native Player paints on the glass. Takes a selector.
+- `video` — H.264, native decode. No codec fallback. Takes a selector.
 - `iframe` — a page already on the web.
 - `application` — a static directory packed by the CLI. Players sync, then
   paint from disk.
