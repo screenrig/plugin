@@ -306,6 +306,16 @@ def cli_input(
         yield extract_cli_artifact(artifact, temp / "package"), artifact, commit, write_lock
 
 
+def stamp_bundled_cli_version(cli_root: Path, release_version: str) -> None:
+    """Skill text and the bundled CLI travel together; freshness compares both to plugin CalVer."""
+    path = cli_root / "package.json"
+    package = load_json(path)
+    if package.get("version") == release_version:
+        return
+    package["version"] = release_version
+    path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
+
+
 def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version: str) -> None:
     base = {
         "name": PLUGIN_NAME,
@@ -406,6 +416,7 @@ def build(
                 raise BuildError(f"npm package file is missing: {relative}")
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
+        stamp_bundled_cli_version(cli_root, release_version)
         if should_write:
             if not commit:
                 raise BuildError("--write-lock requires --cli-commit or a sibling ../cli checkout")
