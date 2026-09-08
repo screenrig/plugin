@@ -1415,6 +1415,24 @@ async function enrollForCommand(args, runtime, resolved, options = {}) {
                             },
                         }, err.exitCode, err.warnings);
                     }
+                    if (err instanceof CliError && err.problem.code === "invalid_request" && betaKey === undefined) {
+                        const namesBeta = err.problem.errors.some((item) => {
+                            if (!item || typeof item !== "object")
+                                return false;
+                            return item.field === "beta_key";
+                        });
+                        const legacyGate = err.problem.detail === "Enrollment request is invalid.";
+                        if (namesBeta || legacyGate) {
+                            throw new CliError({
+                                ...err.problem,
+                                detail: namesBeta ? err.problem.detail : "Enrollment requires the control-plane beta key.",
+                                next: err.problem.next ?? {
+                                    command: "screenrig --json --beta-key KEY agent enroll --email ADDRESS",
+                                    reason: "The control plane gates enrollment. Retry the same email with the enrollment beta key.",
+                                },
+                            }, err.exitCode, err.warnings);
+                        }
+                    }
                     throw err;
                 }
                 requirePrivateNoStore(response.headers, "Enrollment response");
