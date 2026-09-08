@@ -76,6 +76,13 @@ marketplace listing unless the user asks.
   `scripts/validate-plugin.py`. Do not drop a required fact. Do not introduce
   enroll, pairing, MCP, global npm install, or “coming soon”.
 
+## Local workspace logs
+
+When plugin or bundled-CLI stdout is captured through `rig start` in the
+developer workspace, it is appended to `../logs/YY-MM-DD/plugin.log`
+(example `../logs/26-09-08/plugin.log`). Rig deletes date folders older
+than 7 days. The `logs/` directory is not a git repository.
+
 ## Follow operation logs
 
 This plugin does not emit the operation log. The bundled CLI does, through
