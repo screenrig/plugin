@@ -356,11 +356,16 @@ A strong prompt names, in this order:
 - **The business and the venue type.** "A menu board for fictional Example Cafe, a
   sit-down Italian restaurant"; "a window poster for fictional Example Books, an
   independent bookshop". The model takes its conventions from the genre.
-- **The art style**, chosen to suit that business and varied across
-  businesses so four artefacts for four venues do not look like one
-  template: letterpress, chalkboard, mid-century travel poster, Swiss grid,
-  hand-painted shop sign, neon diner, risograph, editorial photography,
-  botanical illustration, brutalist type.
+- **The art style.** If the user named one, use it. If they did not, still
+  pick one and write it into the prompt: a treatment that fits that venue
+  and artefact. A weekly grocery flyer stays a flyer; a gig night can be a
+  silkscreen concert poster; a taverna dinner can be a mid-century travel
+  print. Vary at will when a different treatment fits the content. Do not
+  force a different style on every page of a loop; a campaign or brand can
+  share one look. Named treatments include letterpress, chalkboard,
+  mid-century travel poster, Swiss grid, hand-painted shop sign, neon
+  diner, risograph, silkscreen gig poster, woodcut, Art Deco showcard,
+  editorial photography, botanical illustration, and brutalist type.
 - **The palette**, as named colours or hex values.
 - **The exact copy**: the headline, every section name, every item with its
   description and price, the dates and times, the address or call to

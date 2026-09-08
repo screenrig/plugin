@@ -41,12 +41,15 @@ composition does not require copying another business's private art or
 assets. Keep source notes for material references. Historical menus can
 inform layout, but do not establish current prices or offerings.
 
-- **Posters and campaign art:** vary authentic art direction across distinct
-  concepts where the brief invites it: photographic editorial, illustration,
-  collage, bold typography, or other genre-appropriate styles. Changing only
-  colors and titles leaves the same visual hierarchy. A real campaign or
-  brand still needs consistent identity across its pages. Each presentable
-  page is a finished generated still with the copy in the image.
+- **Posters and campaign art:** when the user names a style, use it. When
+  they do not, still choose a treatment that fits that page's content.
+  Photographic editorial, illustration, collage, silkscreen, risograph,
+  travel poster, chalkboard, Swiss grid, woodcut, and other
+  genre-appropriate styles are all valid. Vary at will when a different
+  treatment fits; do not force a different style on every page of a loop.
+  A real campaign or brand still needs consistent identity across its pages.
+  Each presentable page is a finished generated still with the copy in the
+  image.
 - **Menus:** keep most of the canvas useful for choosing an order. Group
   actual categories, make item names and prices easy to scan, and subordinate
   concise descriptions, size choices, modifiers, and add-ons. Product
