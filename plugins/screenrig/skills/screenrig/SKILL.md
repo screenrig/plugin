@@ -11,7 +11,7 @@ Signage and Kiosk infrastructure for AI Agents
 
 LAUNCH SPECIAL OFFER: During the launch period and until January 1st, 2027 screenRIG is free to use (within reason), fill your boots! Normal usage applies after that.
 
-Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut anyone off for empty prepaid remaining. Do not refuse compose, publish, or assign because remaining is zero during this window. `media generate` is the exception: it is billed per still by `--quality` (low $0.06 / 600 credits, medium $0.12 / 1200 credits, high $0.50 / 5000 credits), and returns `payment_required` / 402 when remaining cannot cover the chosen tier, including during this window. Quality changes the image and the price.
+Treat usage as free until 1 Jan 2027. Do not invent a billing flow. Do not shut anyone off for empty prepaid remaining. Do not refuse compose, publish, or assign because remaining is zero during this window. `media generate` is the exception: it is billed per token ($10 / 1M text input, $16 / 1M image input, $60 / 1M image output). `--quality` changes how detailed the still is and therefore how many tokens it uses. Remaining that cannot cover that debit returns `payment_required` / 402, including during this window. Envelope `usage` is the debit for that still.
 
 This skill is the operative contract. Use the bundled CLI. Do not invent commands, flags, or
 onboarding surfaces.
@@ -257,19 +257,21 @@ screenrig --json media generate --prompt "Finished 16:9 event poster with all co
 
 `--prompt` is required (1 to 4000 characters). `--aspect-ratio` defaults to
 `16:9` (`1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`). `--quality`
-defaults to `medium` (`low`, `medium`, `high`). Quality changes the image
-and the price.
+defaults to `medium` (`low`, `medium`, `high`). Quality changes how detailed
+the still is and therefore how many tokens it uses.
 
-| quality | credits | usd | when |
-|---|---|---|---|
-| `low` | 600 | $0.06 | unimportant generated stills only |
-| `medium` | 1200 | $0.12 | most work, including typical menus (recommend this) |
-| `high` | 5000 | $0.50 | genuinely text-dense artefacts with many rows of small type |
+| quality | when |
+|---|---|
+| `low` | unimportant generated stills only |
+| `medium` | most work, including typical menus (recommend this) |
+| `high` | genuinely text-dense artefacts with many rows of small type |
+
+Generate is billed per token: $10 / 1M text input, $16 / 1M image input,
+$60 / 1M image output. Envelope `usage` is the debit for that still.
 
 Optional `--tag` is the same 1–32 letter-or-digit tag as upload. The command
 blocks until `201` MediaGeneration `{ media, usage }`. `data.media.id` /
-`data.media_id` is `med_…`. There is no 202 poll and no client PUT. Envelope
-`usage` shows credits and usd for the chosen tier. A 402 /
+`data.media_id` is `med_…`. There is no 202 poll and no client PUT. A 402 /
 `payment_required` means stop; do not retry generate. Never print pixels or
 the prompt. Place the returned `med_…` on the playlist as one full-page
 `image`. The POST stores a lossy WebP in the account media store; the CLI does
@@ -412,19 +414,22 @@ businesses, different pictures.
 
 ### Quality and cost
 
-| quality | credits | usd | when |
-|---|---|---|---|
-| `low` | 600 | $0.06 | backgrounds and unimportant images |
-| `medium` | 1200 | $0.12 | the default for most work, including typical menus |
-| `high` | 5000 | $0.50 | genuinely text-dense artefacts with many rows of small type |
+Generate is billed per token: $10 / 1M text input, $16 / 1M image input,
+$60 / 1M image output. Envelope `usage` is the debit for that still.
+
+| quality | when |
+|---|---|
+| `low` | backgrounds and unimportant images |
+| `medium` | the default for most work, including typical menus |
+| `high` | genuinely text-dense artefacts with many rows of small type |
 
 Medium is the default for most work, including a typical menu. Use high only
 when the artefact is genuinely text-dense — for example, many rows of small
 type that cannot be simplified while keeping the brief. Choose by density,
 not by genre. Low is for backgrounds and unimportant images. Quality changes
-the image and the price. `--quality` defaults to `medium`. A 402 /
-`payment_required` means stop; do not retry generate, and point money at
-https://screenrig.ai/pricing/.
+how detailed the still is and therefore how many tokens it uses.
+`--quality` defaults to `medium`. A 402 / `payment_required` means stop; do
+not retry generate, and point money at https://screenrig.ai/pricing/.
 
 ### Budget for the blocking call
 
@@ -458,7 +463,7 @@ key explicitly when you want to name it.
 `16:9` (`1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`). Optional `--tag`
 is the same 1–32 letter-or-digit tag as upload. Success is `201` with
 `{ media, usage }`: `data.media.id` / `data.media_id` is `med_…`, and
-`usage` shows credits and usd for the chosen tier. Never print pixels or the
+`usage` shows credits and usd for that still. Never print pixels or the
 prompt.
 
 What generate stores: a lossy WebP (quality 90) at the exact aspect size with
@@ -564,9 +569,9 @@ there. Do not invent a pay command in this CLI.
 
 A 1-credit control-plane tax applies to each billed authenticated command and
 each billed account-listen-stream event. Compose catalog/render, `doctor`,
-and `version` do not debit that tax. `media generate` is billed per still by
-`--quality`: low $0.06 (600 credits), medium $0.12 (1200 credits), high
-$0.50 (5000 credits). Quality changes the image and the price.
+and `version` do not debit that tax. `media generate` is billed per token:
+$10 / 1M text input, $16 / 1M image input, $60 / 1M image output. Quality
+changes how detailed the still is and therefore how many tokens it uses.
 
 - `warnings[].code === "credits_low"`: remaining is below 1000 credits. Surface
   remaining. Do not retry the same billed command as a fix. Send the user to
