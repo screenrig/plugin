@@ -62,10 +62,10 @@ Commands:
   account show
   agent enroll --email ADDRESS [--name NAME] [--open-dashboard]
   agent connect [--name NAME] [--print-url] [--timeout MS]
+    Approval expires after 24 hours; --timeout defaults to 86400000 ms.
+    Retry agent connect to resume after an interrupted wait.
   agent status
   agent disconnect --yes [--allow-lockout]
-  auth status                         (deprecated alias for agent status)
-  auth revoke --yes [--allow-lockout] (deprecated alias for agent disconnect)
   dashboard [--print-url]
   app pack <directory> [--output FILE]
   app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
@@ -484,9 +484,6 @@ export async function dispatch(args, runtime) {
     if (group === "agent" && action === "status") {
         return agentStatus(args, runtime, resolved);
     }
-    if (group === "auth" && (action === "status" || action === undefined)) {
-        return agentStatus(args, runtime, resolved, true);
-    }
     if (group === "agent" && action === "connect") {
         return loggerOf(runtime).withLocal({ op: "agent.connect", message: "agent connect" }, () => agentConnect(args, runtime, resolved));
     }
@@ -494,10 +491,7 @@ export async function dispatch(args, runtime) {
         return loggerOf(runtime).withLocal({ op: "agent.enroll", message: "agent enroll" }, () => agentEnroll(args, runtime, resolved));
     }
     if (group === "agent" && action === "disconnect") {
-        return agentDisconnect(args, runtime, resolved, false);
-    }
-    if (group === "auth" && action === "revoke") {
-        return agentDisconnect(args, runtime, resolved, true);
+        return agentDisconnect(args, runtime, resolved);
     }
     if (isAuthenticatedCommand(group, action) && !resolved.token) {
         if (resolved.agentConnection) {
@@ -578,22 +572,16 @@ export async function dispatch(args, runtime) {
     if (group === "feedback") {
         return feedbackCommand(args, runtime, resolved, action);
     }
-    if (group === "agent" || group === "auth") {
+    if (group === "agent") {
         throw usageError("Unknown agent command. Use agent enroll, connect, status, or disconnect.", {
             command: "screenrig --help",
-            reason: "List implemented agent identity commands and deprecated auth aliases.",
+            reason: "List implemented agent identity commands.",
         });
     }
     throw usageError(`Unknown command: ${args.positionals.join(" ")}`, {
         command: "screenrig --help",
         reason: "List implemented commands.",
     });
-}
-function deprecatedWarning(command) {
-    return {
-        code: "deprecated_command",
-        message: `The auth command is deprecated. Use screenrig agent ${command}.`,
-    };
 }
 function safeAgentSummary(agent) {
     return {
@@ -610,11 +598,10 @@ function safeAgentSummary(agent) {
         metered_credits: agent.metered_credits,
     };
 }
-async function agentStatus(args, runtime, resolved, deprecated = false) {
+async function agentStatus(args, runtime, resolved) {
     if (args.positionals.length > 2) {
-        throw usageError(`${deprecated ? "auth" : "agent"} status does not accept positional arguments.`);
+        throw usageError("agent status does not accept positional arguments.");
     }
-    const warnings = deprecated ? [deprecatedWarning("status")] : [];
     if (resolved.agentConnection) {
         const connection = resolved.agentConnection;
         const data = {
@@ -624,14 +611,13 @@ async function agentStatus(args, runtime, resolved, deprecated = false) {
             ...(connection.expires_at ? { expires_at: connection.expires_at } : {}),
         };
         return {
-            envelope: successEnvelope(data, { warnings }),
+            envelope: successEnvelope(data),
             exitCode: ExitCode.Success,
             human: humanLines("Agent connection", [
                 ["status", "connecting"],
                 ["phase", data.phase],
                 ["connection_id", connection.connection_id],
                 ["expires_at", connection.expires_at],
-                ...(deprecated ? [["deprecated", "use screenrig agent status"]] : []),
             ]),
         };
     }
@@ -639,13 +625,12 @@ async function agentStatus(args, runtime, resolved, deprecated = false) {
         const local = resolved.lastAgent;
         const status = local ? "disconnected" : "not_enrolled";
         return {
-            envelope: successEnvelope({ status, ...(local ? { agent: local } : {}) }, { warnings }),
+            envelope: successEnvelope({ status, ...(local ? { agent: local } : {}) }),
             exitCode: ExitCode.Success,
             human: humanLines("Agent", [
                 ["status", status],
                 ["id", local?.id],
                 ["name", local?.name],
-                ...(deprecated ? [["deprecated", "use screenrig agent status"]] : []),
             ]),
         };
     }
@@ -657,7 +642,7 @@ async function agentStatus(args, runtime, resolved, deprecated = false) {
         const agent = self.agent;
         const status = agent.state === "active" ? "active" : agent.state === "revoked" ? "disconnected" : "connecting";
         return {
-            envelope: successEnvelope({ status, connection_ready: self.connection_ready, agent: safeAgentSummary(agent) }, { request_id: client.requestId, warnings }),
+            envelope: successEnvelope({ status, connection_ready: self.connection_ready, agent: safeAgentSummary(agent) }, { request_id: client.requestId }),
             exitCode: ExitCode.Success,
             human: humanLines("Agent", [
                 ["status", status],
@@ -668,7 +653,6 @@ async function agentStatus(args, runtime, resolved, deprecated = false) {
                 ["version", agent.version],
                 ["connection_ready", self.connection_ready ? "true" : "false"],
                 ["last_used_at", agent.last_used_at],
-                ...(deprecated ? [["deprecated", "use screenrig agent status"]] : []),
             ]),
         };
     }
@@ -676,13 +660,12 @@ async function agentStatus(args, runtime, resolved, deprecated = false) {
         if (!(err instanceof CliError) || err.problem.code !== "unauthorized")
             throw err;
         return {
-            envelope: successEnvelope({ status: "disconnected", credential_accepted: false, local_cleanup_required: true }, { warnings }),
+            envelope: successEnvelope({ status: "disconnected", credential_accepted: false, local_cleanup_required: true }),
             exitCode: ExitCode.Success,
             human: humanLines("Agent", [
                 ["status", "disconnected"],
                 ["credential_accepted", "false"],
                 ["next", "run screenrig agent disconnect --yes to complete local cleanup before reconnecting"],
-                ...(deprecated ? [["deprecated", "use screenrig agent status"]] : []),
             ]),
         };
     }
@@ -759,11 +742,8 @@ async function startOrResumeAgentConnection(args, runtime, resolved, requestedNa
                 reason: "Use another private config path to connect a separate installation.",
             });
         }
-        if (current?.agent_connection?.expires_at
-            && Date.parse(current.agent_connection.expires_at) <= runtime.now().getTime()) {
-            const { agent_connection: _expired, token: _pending, agent_id: _agent, ...rest } = current;
-            current = rest;
-        }
+        // Approval can extend expiry while this installation is offline. Keep the
+        // recipient key until the server confirms this connection is terminal.
         let pending = current?.agent_connection;
         if (pending?.name && requestedName && pending.name !== requestedName) {
             throw usageError("The pending agent connection has a different --name. Resume it without changing the name.");
@@ -967,16 +947,16 @@ async function agentConnect(args, runtime, resolved) {
     if (args.positionals.length !== 2)
         throw usageError("agent connect does not accept positional arguments.");
     requireFlagValue(args, "name", "Office MacBook Codex");
-    requireFlagValue(args, "timeout", "600000");
+    requireFlagValue(args, "timeout", "86400000");
     const name = flagString(args.flags, "name");
     if (name && name.length > 80)
         throw usageError("agent connect --name is at most 80 characters.");
     const requestedTimeout = flagNumber(args.flags, "timeout");
     if (flagString(args.flags, "timeout") !== undefined && requestedTimeout === undefined) {
-        throw usageError("agent connect --timeout must be an integer from 1 to 600000 milliseconds.");
+        throw usageError("agent connect --timeout must be an integer from 1 to 86400000 milliseconds.");
     }
-    if (requestedTimeout !== undefined && (!Number.isInteger(requestedTimeout) || requestedTimeout <= 0 || requestedTimeout > 600_000)) {
-        throw usageError("agent connect --timeout must be an integer from 1 to 600000 milliseconds.");
+    if (requestedTimeout !== undefined && (!Number.isInteger(requestedTimeout) || requestedTimeout <= 0 || requestedTimeout > 86_400_000)) {
+        throw usageError("agent connect --timeout must be an integer from 1 to 86400000 milliseconds.");
     }
     let current = await currentAgentConnectionConfig(resolved, runtime);
     let connection;
@@ -1017,15 +997,14 @@ async function agentConnect(args, runtime, resolved) {
                 printed = true;
             }
         }
-        const expiresIn = Date.parse(connection.expires_at ?? "") - runtime.now().getTime();
-        const timeoutMs = Math.max(1, Math.min(requestedTimeout ?? 600_000, Number.isFinite(expiresIn) ? expiresIn : 600_000));
+        const timeoutMs = requestedTimeout ?? 86_400_000;
         let status;
         try {
             status = await waitForAgentConnectionApproval(args, runtime, resolved, connection, timeoutMs);
         }
         catch (err) {
-            if (err instanceof CliError && err.problem.code === "agent_connection_cancelled") {
-                return clearDefinitivePendingAgentFailure(runtime, resolved, connection, err, "The pending agent connection was cancelled while waiting for dashboard approval.");
+            if (err instanceof CliError && ["agent_connection_cancelled", "agent_connection_expired", "agent_connection_invalid"].includes(err.problem.code)) {
+                return clearDefinitivePendingAgentFailure(runtime, resolved, connection, err, "The server reports that this pending agent connection is no longer available.");
             }
             throw err;
         }
@@ -1115,13 +1094,12 @@ async function agentConnect(args, runtime, resolved) {
         ]),
     };
 }
-async function agentDisconnect(args, runtime, resolved, deprecated) {
-    const invokedName = deprecated ? "auth revoke" : "agent disconnect";
-    const warnings = deprecated ? [deprecatedWarning("disconnect")] : [];
+async function agentDisconnect(args, runtime, resolved) {
+    const invokedName = "agent disconnect";
     if (args.positionals.length !== 2)
         throw usageError(`${invokedName} does not accept positional arguments.`);
     if (!flagBool(args.flags, "yes")) {
-        throw usageError(`${invokedName} requires --yes. It revokes only this agent and preserves the account, screens, content, and other agents.${deprecated ? " This command is deprecated; use screenrig agent disconnect." : ""}`, {
+        throw usageError(`${invokedName} requires --yes. It revokes only this agent and preserves the account, screens, content, and other agents.`, {
             command: "screenrig agent disconnect --yes",
             reason: "Run only after explicitly accepting revocation of this installation.",
         });
@@ -1147,7 +1125,7 @@ async function agentDisconnect(args, runtime, resolved, deprecated) {
     try {
         response = await client.call({
             method: "POST",
-            path: deprecated ? "/api/v1/account/credential/revoke" : "/api/v1/agents/self/disconnect",
+            path: "/api/v1/agents/self/disconnect",
             ...(request.allow_last_agent ? { body: request } : {}),
         });
     }
@@ -1206,13 +1184,12 @@ async function agentDisconnect(args, runtime, resolved, deprecated) {
             account_preserved: true,
             screens_preserved: true,
             other_agents_preserved: true,
-        }, { request_id: client.requestId, warnings }),
+        }, { request_id: client.requestId }),
         exitCode: ExitCode.Success,
         human: humanLines("Agent disconnected", [
             ["local_credential", "removed"],
             ["account_screens_and_other_agents", "preserved"],
             ["reconnect", "run screenrig agent connect and approve with an existing dashboard passkey"],
-            ...(deprecated ? [["deprecated", "use screenrig agent disconnect --yes"]] : []),
         ]),
     };
 }
@@ -1325,7 +1302,7 @@ async function dashboardCommand(args, runtime, resolved) {
     const link = validateDashboardLink(response.body, resolved.apiUrl);
     const opened = printMode ? false : await (runtime.openUrl?.(link.url) ?? Promise.resolve(false));
     // Falling back is the only reason to print an unasked-for URL: the link
-    // expires in ten minutes, and a link nobody can reach is worse than one line
+    // expires in 24 hours, and a link nobody can reach is worse than one line
     // of sensitive output the operator already chose to produce.
     const printed = printMode || !opened;
     const data = {
@@ -1345,7 +1322,7 @@ async function dashboardCommand(args, runtime, resolved) {
         human: humanLines(title, [
             ...(printed ? [["url", link.url]] : []),
             ["expires_at", link.expiresAt],
-            ["validity", "single use, ten minutes from mint"],
+            ["validity", "single use, 24 hours from mint"],
             ["reissue", "run screenrig dashboard again for a fresh link"],
             ...(printMode ? [] : [["opened", opened ? "true" : "false"]]),
         ]),
@@ -1419,11 +1396,9 @@ async function enrollForCommand(args, runtime, resolved, options = {}) {
                                 return false;
                             return item.field === "beta_key";
                         });
-                        const legacyGate = err.problem.detail === "Enrollment request is invalid.";
-                        if (namesBeta || legacyGate) {
+                        if (namesBeta) {
                             throw new CliError({
                                 ...err.problem,
-                                detail: namesBeta ? err.problem.detail : "Enrollment requires the control-plane beta key.",
                                 next: err.problem.next ?? {
                                     command: "screenrig --json --beta-key KEY agent enroll --email ADDRESS",
                                     reason: "The control plane gates enrollment. Retry the same email with the enrollment beta key.",

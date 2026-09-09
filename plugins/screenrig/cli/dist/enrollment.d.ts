@@ -23,7 +23,7 @@ export declare function ensureCredential(options: {
     runtime: EnrollmentRuntime;
     enroll: (state: EnrollmentState) => Promise<EnrollmentCredential>;
     verify: (token: string, accountId?: string) => Promise<void>;
-    /** Exact validated, trimmed contact address for a new or legacy pending enrollment. */
+    /** Exact validated, trimmed contact address for a new or pending enrollment. */
     enrollmentEmail?: string;
     generateClientId?: () => string;
     generateIdempotencyKey?: () => string;
