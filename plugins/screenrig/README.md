@@ -2,14 +2,25 @@
 
 **Signage and Kiosk infrastructure for AI Agents**
 
-## NEARLY FREE: PAY PER BYTE NOT PER SCREEN
+Your agent creates it. screenRIG puts it on the screen. You supply the
+content, screen devices, and network; screenRIG supplies the hosted
+publishing infrastructure, Player, media handling, application releases, and
+playback evidence.
+
+## Start free. Pay for what you use.
 
 Pretty much all the digital signage and kiosk vendors out there are clunky
 human-oriented SaaS that charge you per screen. We don't. We want you to use it
 and pay for what you use. Start for free.
 
 $0.09/GB bandwidth, $0.14/GB-month storage. Pennies a month per screen. No
-per-device price.
+per-screen subscription. No per-device price.
+
+Usage is free within reason until 1 January 2027. Image generation is metered
+separately: `media generate` is billed per token ($10 / 1M text input,
+$16 / 1M image input, $60 / 1M image output). Quality (`low`, `medium`,
+`high`; default `medium`) changes how detailed the still is and therefore how
+many tokens it uses, not a fixed per-image price.
 
 ## Start
 
@@ -77,7 +88,7 @@ package registry.
 A playlist page carries `primitives`, and every one of them names its family in
 a `primitive` field. There are four:
 
-- `image` — a still the native Player paints on the glass. Takes a selector.
+- `image` — a still the Player paints on the glass. Takes a selector.
 - `video` — H.264, native decode. No codec fallback. Takes a selector.
 - `iframe` — a page already on the web.
 - `application` — a static directory packed by the CLI. Players sync, then
@@ -87,24 +98,32 @@ a `primitive` field. There are four:
 is `id`, `ids`, `all`, or `tag`. `iframe` and `application` take no selector:
 an iframe carries its `src`, and an application pins a `release_id`.
 
-A scene puts these four on one canvas. Copy and chrome compose locally on the
-agent machine with `compose catalog` and `compose render`: the agent renders a
-PNG, looks at it, iterates, then publishes the still. Local compose is not
-billed. The agent can also screenshot a live screen to check its own work.
+A scene puts these four on one canvas. Choose by what the page is:
+
+1. Existing image or video → `media upload`. No compose. No generate.
+2. Anything presentable → `media generate` as the whole page. Put every fact
+   and all copy in the prompt. Do not compose a presentable poster as named
+   regions + cards. Do not generate atmosphere-only stills for later overlay.
+3. Slide-deck-like experiences → local unbilled `compose catalog` and
+   `compose render`. Use compose for slide-deck-like pages. Animation is not
+   a reason to compose.
+4. Live objects → write playlist primitives.
+
+The agent can also screenshot a live screen to check its own work.
 
 ## Players
 
-Native Players, not a browser in a box. Install one on the device, then your
-agent puts the screen on the glass.
+The Player web app (PWA) is available today. Install it on the device that
+drives your screen, keep it in the foreground, then your agent puts the
+content on the glass. Native platform names (Amazon Signage Stick, Apple TV,
+Google Play, Linux, macOS, Raspberry Pi, Windows) describe product direction,
+not public downloads or store listings.
 
-Amazon Signage Stick, Google Play, AppleTV, macOS, Windows, Raspberry Pi,
-Linux, and PWA.
+## Don't build the stack yourself
 
-Sized for 1–2 GB glass. ESP32 and e-ink are fine.
-
-## Don't build a player
-
-Isolated origins and H.264 are the product.
+Isolated origins and H.264 are part of that hosted publishing infrastructure.
+You build the screen experience; screenRIG supplies publishing, Player, media,
+apps, and evidence behind it.
 
 ## This repository
 

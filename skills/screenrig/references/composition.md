@@ -21,7 +21,7 @@ ScreenRig generate is the default.
 Own-gen-then-upload remains valid only when a preferred model is already in
 use.
 
-Do not compose a presentable poster as named regions and cards. Do not
+Do not compose a presentable poster as named regions + cards. Do not
 generate an atmosphere plate and overlay type. Do not local-render a
 presentable page in order to attach `enter` or `motion`.
 

@@ -63,10 +63,21 @@ marketplace listing unless the user asks.
 - Never write MCP. `validate-plugin.py` rejects MCP manifests.
 - Teach the playlist authoring tree. Choose by what the page is:
   1. Existing image or video → `media upload`. No compose. No generate.
-  2. Anything presentable → `media generate` as the whole page.
+  2. Anything presentable → `media generate` as the whole page. Put every
+     fact and all copy in the prompt. Do not compose a presentable poster as
+     named regions + cards. Do not generate atmosphere-only stills for later
+     overlay. Generate is billed per token ($10 / 1M text input, $16 / 1M
+     image input, $60 / 1M image output). Quality changes detail and token
+     usage, not a fixed per-image price. Generate stores `med_…`; the caller
+     does not re-upload.
   3. Slide-deck-like experiences → local unbilled `compose render`.
   4. Live objects → write playlist primitives. Animation is not a reason to
      compose.
+- Position the product as hosted publishing infrastructure the agent already
+  operates: the user supplies content, devices, and network; screenRIG
+  supplies Player, media, apps, and playback evidence. The available Player
+  is the PWA. Native platform names are product direction, not public
+  downloads or store listings.
 - The category word is **primitive**. Four wire primitives: `image`, `video`,
   `iframe`, `application`. Image and video take a `selector`; iframe and
   application do not.
@@ -74,7 +85,8 @@ marketplace listing unless the user asks.
 - Root `README.md` is the public marketing face and is fact-gated. Required
   marketplace strings and forbidden patterns live in
   `scripts/validate-plugin.py`. Do not drop a required fact. Do not introduce
-  enroll, pairing, MCP, global npm install, or “coming soon”.
+  enroll, pairing, MCP, or global npm install. Do not promise native Players
+  as available; do not use the phrase “coming soon” in the README.
 
 ## Local workspace logs
 
