@@ -250,4 +250,3 @@ problem code and status.
 Run `doctor --json` for local diagnostics. Use
 `doctor --repair-config --json` only to repair an existing credential file
 whose permissions are too broad.
-

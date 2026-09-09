@@ -107,4 +107,3 @@ screenrig --json feedback list [--kind bug|feature]
 characters and a body is at most 4000. `--command` is the command the
 feedback is about. Probe support through `capabilities.features.feedback`;
 `doctor` reports that check.
-

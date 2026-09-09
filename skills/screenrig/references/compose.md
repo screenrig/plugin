@@ -329,4 +329,3 @@ cropping. Eight-digit hex is how the page stays transparent and the plate
 keeps alpha. Layered region PNGs can sit as image primitives at their
 manifest rects. Inspect with `--combined`; default agent output stays layered.
 A presentable poster is one generated `image` primitive, not photo plus overlay.
-

@@ -152,4 +152,3 @@ screenrig --json kv delete --application-id app_EXAMPLE lobby --if-match REVISIO
 `data.content_type` is `application/json`. Base64-decode it in the caller,
 then parse JSON only when the content type says it is JSON. `kv list` omits
 values.
-

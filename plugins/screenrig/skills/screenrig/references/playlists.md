@@ -334,4 +334,3 @@ Updating requires both `--update` and the current `--if-match` revision.
 ```bash
 screenrig --json playlist import ./lobby-bundle --name "Lobby loop (copy)"
 ```
-

@@ -126,5 +126,3 @@ add and install commands above. Grok install must keep `--trust`. Refresh
 updates skill text and the bundled CLI together. After refresh, re-resolve
 the plugin root, prepend scripts to PATH, and require a successful
 `screenrig --json version` envelope before any other command.
-
-
