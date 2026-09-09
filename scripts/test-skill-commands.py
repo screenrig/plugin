@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SKILL = ROOT / "skills" / "screenrig" / "SKILL.md"
+SKILL = ROOT / "skills" / "screenrig" / "references" / "commands.md"
 LAUNCHER = ROOT / "plugins" / "screenrig" / "skills" / "screenrig" / "scripts" / "screenrig"
 REQUIRED_COMMANDS = ("media generate", "media download")
 COMMAND_LINE = re.compile(r"^([a-z]+(?: [a-z][a-z0-9-]*)*)\b")

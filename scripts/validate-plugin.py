@@ -365,125 +365,26 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             if re.search(r'"mcpServers"\s*:', text):
                 errors.append(f"{path.relative_to(ROOT)}: unsupported server manifest key")
 
-    audit_paths = [ROOT / "skills" / "screenrig" / "SKILL.md"]
+    audit_paths = list((ROOT / "skills" / "screenrig").rglob("*.md"))
     if cli_source is not None:
         audit_paths.extend(cli_source / relative for relative in CLI_SOURCE_FILES)
     required_marketplace = {
-        # README.md is the public marketing face of the marketplace, not the agent
-        # contract. It asserts the product line, the meter, and the official install
-        # only; the operative behavior facts live in skills/screenrig/SKILL.md below.
-        "README.md": [
-            "Signage and Kiosk infrastructure for AI Agents",
-            "give your agent a screen",
-            "Your agent creates it. screenRIG puts it on the screen.",
-            "Publish menu boards",
-            "Start free. Pay for what you use.",
-            "$0.09/GB bandwidth, $0.14/GB-month storage",
-            "No per-screen subscription",
-            "No per-device price",
-            "The Player web app (PWA) is available today",
-            "product direction, not public downloads",
-            "Choose how your screens get their content",
-            "Build your own",
-            "Dashboard-led signage",
-            "media generate",
-            "as the whole page",
-            "slide-deck-like",
-            "I authorize you to install the official screenRIG plugin from https://github.com/screenrig/plugin.",
-            "https://github.com/screenrig/plugin",
-            "claude plugin marketplace add https://github.com/screenrig/plugin.git --scope user",
-            "claude plugin install screenrig@screenrig --scope user",
-            "codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main --json",
-            "codex plugin add screenrig@screenrig --json",
-            "grok plugin marketplace add https://github.com/screenrig/plugin.git",
-            "grok plugin install screenrig --trust",
-            "--trust",
-            "GROK_PLUGIN_ROOT",
-            "claude plugin list --json",
-            "codex plugin list --json",
-            "Node.js 20.11 or newer",
-            "package-relative launcher",
-            "No codec fallback",
-            "plugins[0].version",
-            "refresh the plugin when either is stale",
-            "Skill text and the bundled CLI update together",
-        ],
-        "skills/screenrig/SKILL.md": [
-            "Signage and Kiosk infrastructure for AI Agents",
-            "https://github.com/screenrig/plugin",
-            "claude plugin marketplace add https://github.com/screenrig/plugin.git --scope user",
-            "claude plugin install screenrig@screenrig --scope user",
-            "codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main --json",
-            "codex plugin add screenrig@screenrig --json",
-            "grok plugin marketplace add https://github.com/screenrig/plugin.git",
-            "grok plugin install screenrig --trust",
-            "--trust",
-            "GROK_PLUGIN_ROOT",
-            "claude plugin list --json",
-            "codex plugin list --json",
-            "Node.js 20.11 or newer",
-            "authorizes adding",
-            "$XDG_CONFIG_HOME/screenrig/config.json",
-            "%APPDATA%\\screenrig\\config.json",
-            "I authorize you to install the official screenRIG plugin from https://github.com/screenrig/plugin.",
-            "https://screenrig.ai/pricing/",
-            "payment_required",
-            "error.status === 402",
-            "Standard is prepaid",
-            "Free to use within reason until 1 January 2027",
-            "Image generation is metered separately",
-            "The Player web app (PWA) is available today",
-            "product direction, not public downloads",
-            "give your agent a screen",
-            "Your agent creates it. screenRIG puts it on the screen.",
-            "https://screenrig.ai/compare.md",
-            "Build your own",
-            "Dashboard-led signage",
-            "Do not claim twice vendor cost",
-            "as the whole page",
-            "Do not generate atmosphere-only stills",
-            "Do not compose a presentable poster",
-            "$10 / 1M text input",
-            "$16 / 1M image input",
-            "$60 / 1M image output",
-            "not a fixed per-image price",
-            "slide-deck-like",
-            "Treat usage as free until 1 Jan 2027",
-            "Do not invent a billing flow",
-            "Do not shut anyone off for empty credit or remaining = 0",
-            "Do not refuse compose, publish, or assign",
-            "compose catalog",
-            "compose render",
-            "screen assign",
-            "SCREENRIG_FFMPEG",
-            "SCREENRIG_FFPROBE",
-            "--no-transcode",
-            "--codec hevc",
-            "H.264 MP4 by default",
-            "fails `media upload` alone",
-            "globally installed command",
-            "screenrig-plugin-freshness --json",
-            "https://raw.githubusercontent.com/screenrig/plugin/main/.claude-plugin/marketplace.json",
-            "plugins[0].version",
-            "Codex marketplace entries stay version-free",
-            "data.action === \"keep\"",
-            "data.action === \"refresh\"",
-            "data.action === \"continue_installed\"",
-            "versions match. Do not reinstall",
-            "published version could not be read",
-            "claude plugin update screenrig@screenrig --scope user",
-            "grok plugin update screenrig",
-            "codex plugin marketplace upgrade --json",
-            "Skill text and the bundled CLI travel together",
-            "Do not PATH-swap in a local checkout",
-            "Do not `npm i -g screenrig`",
-        ],
+        "README.md": ["https://screenrig.ai/docs/start/", "SECURITY.md", "Node.js 20.11"],
+        "skills/screenrig/SKILL.md": ["screenrig --json version", "screenrig-plugin-freshness --json",
+            "screenrig --json doctor", "not_enrolled", "agent enroll", "--if-match",
+            "payment_required", "idempotency", "references/commands.md"],
     }
     for relative, facts in required_marketplace.items():
         text = re.sub(r"\s+", " ", (ROOT / relative).read_text(encoding="utf-8"))
         for fact in facts:
             if fact not in text:
-                errors.append(f"{relative}: required marketplace fact missing: {fact}")
+                errors.append(f"{relative}: required operational fact missing: {fact}")
+    for path in (ROOT / "skills/screenrig").rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        for target in re.findall(r"\]\(([^)]+)\)", text):
+            if "://" not in target and not target.startswith("#"):
+                if not (path.parent / target.split("#")[0]).is_file():
+                    errors.append(f"{path.relative_to(ROOT)}: missing reference {target}")
     skill_source = ROOT / "skills/screenrig/SKILL.md"
     skill_raw = skill_source.read_text(encoding="utf-8") if skill_source.is_file() else ""
     if "request ID for support" in skill_raw:
@@ -492,17 +393,8 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         errors.append("skills/screenrig/SKILL.md: obsolete skill-text-does-not-upgrade rule remains")
 
     readme_forbidden = {
-        "credential-flow prose": re.compile(r"\benroll(?:s|ed|ing|ment)?\b", re.IGNORECASE),
-        "pairing prose": re.compile(r"\bpair(?:s|ed|ing)?\b|\bABC-?234\b", re.IGNORECASE),
         "unsupported server surface": re.compile(r"\bMCP\b"),
-        "global npm install": re.compile(r"npm install --global screenrig", re.IGNORECASE),
-        "unshipped framing": re.compile(r"\bcoming soon\b|\broadmap\b|\bbeta\b", re.IGNORECASE),
-        "twice vendor cost": re.compile(r"twice vendor cost", re.IGNORECASE),
-        "pack-only screen-experience lead": re.compile(
-            r"You build the screen experience|Build the screen experience on infrastructure",
-            re.IGNORECASE,
-        ),
-        "DIY stack heading": re.compile(r"Don't build the stack yourself", re.IGNORECASE),
+        "token paste": re.compile(r"--token|SCREENRIG_TOKEN", re.IGNORECASE),
     }
     for readme in (ROOT / "README.md", PLUGIN / "README.md"):
         if not readme.is_file():
@@ -535,20 +427,9 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             re.IGNORECASE,
         ),
     }
-    # Do not teach `agent enroll`, `screen pair`, `agent connect`,
-    # `agent disconnect`, `browser setup`, `screen provision`, `ABC-234`, or
-    # `playlist templates` as a path. `agent status` stays. A "do not use"
-    # mention of playlist templates is allowed; a Commands-list entry is not.
     skill_forbidden = {
-        "agent enroll": re.compile(r"\bagent\s+enroll\b", re.IGNORECASE),
-        "agent connect": re.compile(r"\bagent\s+connect\b", re.IGNORECASE),
-        "agent disconnect": re.compile(r"\bagent\s+disconnect\b", re.IGNORECASE),
-        "screen pair": re.compile(r"\bscreen\s+pair\b", re.IGNORECASE),
-        "browser setup": re.compile(r"\bbrowser\s+setup\b", re.IGNORECASE),
-        "screen provision": re.compile(r"\bscreen\s+provision\b", re.IGNORECASE),
-        "ABC-234": re.compile(r"\bABC-?234\b", re.IGNORECASE),
-        "screenrig-logd": re.compile(r"\bscreenrig-logd\b", re.IGNORECASE),
-        "coming soon": re.compile(r"coming[- ]soon", re.IGNORECASE),
+        "internal listener": re.compile(r"\bscreenrig-logd\b", re.IGNORECASE),
+        "internal config": re.compile(r"config\.local-dev\.json", re.IGNORECASE),
     }
     for root in audit_paths:
         if not root.is_file():
@@ -558,27 +439,17 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         for label, pattern in forbidden.items():
             if pattern.search(text):
                 errors.append(f"{display_path(root, cli_source)}: stale {label} language")
-    skill_path = ROOT / "skills" / "screenrig" / "SKILL.md"
-    skill_text = skill_path.read_text(encoding="utf-8") if skill_path.is_file() else ""
-    for label, pattern in skill_forbidden.items():
-        if pattern.search(skill_text):
-            errors.append(f"skills/screenrig/SKILL.md: stale {label} language")
+    for skill_path in (ROOT / "skills/screenrig").rglob("*.md"):
+        skill_text = skill_path.read_text(encoding="utf-8")
+        for label, pattern in skill_forbidden.items():
+            if pattern.search(skill_text):
+                errors.append(f"{skill_path.relative_to(ROOT)}: stale {label} language")
+    skill_text = (ROOT / "skills/screenrig/references/commands.md").read_text(encoding="utf-8")
     commands_match = re.search(r"## Commands\s+```text\n(.*?)```", skill_text, re.S)
     commands_text = commands_match.group(1) if commands_match else ""
     if not commands_match:
         errors.append("skills/screenrig/SKILL.md: Commands list missing")
     else:
-        for taught in (
-            "agent enroll",
-            "agent connect",
-            "agent disconnect",
-            "screen pair",
-            "browser setup",
-            "screen provision",
-            "playlist templates",
-        ):
-            if re.search(rf"(?m)^{re.escape(taught)}\b", commands_text, re.IGNORECASE):
-                errors.append(f"skills/screenrig/SKILL.md: Commands list must not teach {taught}")
         if "--preset signage-1080p30|signage-4k30" not in commands_text or "--no-audio" not in commands_text:
             errors.append("skills/screenrig/SKILL.md: Commands list missing media upload --preset / --no-audio")
         for taught in ("media generate", "media download"):

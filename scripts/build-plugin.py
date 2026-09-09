@@ -43,6 +43,7 @@ PUBLIC_FILES = (
     ".gitleaks.toml",
     "LICENSE",
     "README.md",
+    "CONTRIBUTING.md",
     "SECURITY.md",
     "scripts/check-public-repo.py",
 )

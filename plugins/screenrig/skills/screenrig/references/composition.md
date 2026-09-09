@@ -1,29 +1,6 @@
-# Composition and visual direction
+# Visual design and review
 
-Choose by what the page is.
-
-`media generate` as the whole page is image-model layout: the model paints
-art, hierarchy, and type together. That is the presentable quality bar. Local
-`compose render` is a slide-deck renderer. It is not in the same quality
-class. Compose and generate are not interchangeable layout tools. Pick
-generate when the page must look presentable.
-
-Posters, restaurant menus, event art, product stills, and other pages that
-must look presentable are generated finished stills. Compose visual guidance
-in this file is for slide-deck pages. Animation is not a reason to compose.
-
-## Presentable pages are generated finished stills
-
-A persuasive event poster, an orderable restaurant menu, an announcement, or
-a product still is one `media generate` image for the **whole page**. Put
-every fact and all copy in the prompt so the image model typesets it.
-ScreenRig generate is the default.
-Own-gen-then-upload remains valid only when a preferred model is already in
-use.
-
-Do not compose a presentable poster as named regions + cards. Do not
-generate an atmosphere plate and overlay type. Do not local-render a
-presentable page in order to attach `enter` or `motion`.
+Choose the content path from the main skill first. This reference covers design and inspection.
 
 When establishing a visual direction, inspect a few strong comparable
 screens, posters, or menus using available browsing and image-viewing tools.
@@ -48,8 +25,6 @@ inform layout, but do not establish current prices or offerings.
   genre-appropriate styles are all valid. Vary at will when a different
   treatment fits; do not force a different style on every page of a loop.
   A real campaign or brand still needs consistent identity across its pages.
-  Each presentable page is a finished generated still with the copy in the
-  image.
 - **Menus:** keep most of the canvas useful for choosing an order. Group
   actual categories, make item names and prices easy to scan, and subordinate
   concise descriptions, size choices, modifiers, and add-ons. Product
@@ -57,16 +32,12 @@ inform layout, but do not establish current prices or offerings.
   Keep branding compact; do not turn every menu into a large logo and three
   decorative dishes. Preserve consistent type, price alignment, and grouping
   within one restaurant system; different restaurant genres can need
-  different structures and densities. A presentable menu is a generated
-  finished still, not a compose card grid.
+  different structures and densities.
 - **Events and promotions:** make what, when, where, and the next action
   legible in the generated still, alongside the expressive imagery. A poster
   needs those facts on the page, not a title and one line. Use the user's
-  facts. For a requested demo, invent coherent fictional details; do not
-  present invented dates, offers, or prices as a real business's information.
+  facts and identify any fictional demo content.
 
-Iterate the generate prompt when the still is wrong. Do not switch a
-presentable page to compose to save a generation.
 
 ## Compose for slide-deck pages
 
@@ -145,7 +116,7 @@ design that calls for it; one moving element per page is the norm. Prefer a
 panning background or one accent over several moving objects. Do not animate
 everything or enforce a quota. Keep foreground raster padding and primitive
 bounds large enough for clean motion without changing the artwork's intended
-scale. The main skill's Page motion section defines supported `enter` types,
+scale. The [playlist reference](playlists.md) motion section defines supported `enter` types,
 `enter.stagger`, persistent `motion` (`spin`, `path`, `drift`), fixed timing,
 and review mechanics.
 
@@ -158,7 +129,7 @@ live objects must remain separate primitives before writing the playlist.
 Honor the requested canvas and orientation, including a 1920×1080 target shown
 in a window on a larger monitor. Plan source density for the intended display
 viewport and preserve logos with `contain`; never stretch a mark to fill a box.
-The main skill's Local compose section covers resolution diagnostics and
+The [compose reference](compose.md) covers resolution diagnostics and
 scaling mechanics for deck pages.
 
 Review the whole playlist locally for rhythm, repeated adjacent hierarchies,
