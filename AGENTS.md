@@ -9,8 +9,9 @@ deployment. The separately published `screenrig` npm package is the official
 developer-shell distribution. It is never a substitute for this plugin's
 bundled launcher in an agent workflow.
 
-The workspace [`../AGENTS.md`](../AGENTS.md) is the shared working agreement.
-This file outranks it on anything local here.
+This is a public maintainer guide. In the internal multi-repository workspace,
+the optional parent AGENTS.md adds shared operational rules; this repository
+does not require that file for standalone contribution.
 
 ## Sources of truth
 
@@ -57,47 +58,16 @@ marketplace listing unless the user asks.
   `PATH` once, then run `screenrig --json version`,
   `screenrig-plugin-freshness --json`, `doctor`, then content work. Do not
   export `SR`. Do not teach `npm i -g screenrig`.
-- Do not teach `agent enroll`, `screen pair`, `browser setup`,
-  `screen provision`, `ABC-234`, or playlist text-slot template tutorials.
+- Teach implemented account enrollment, connection and Player pairing in the
+  operating skill, without making them the marketplace sales pitch.
 - Keep `--json` envelopes. Never teach a token flag or pasted bearer.
 - Never write MCP. `validate-plugin.py` rejects MCP manifests.
-- Teach the playlist authoring tree. Choose by what the page is:
-  1. Existing image or video → `media upload`. No compose. No generate.
-  2. Anything presentable → `media generate` as the whole page. Put every
-     fact and all copy in the prompt. Do not compose a presentable poster as
-     named regions + cards. Do not generate atmosphere-only stills for later
-     overlay. Generate is billed per token ($10 / 1M text input, $16 / 1M
-     image input, $60 / 1M image output). Quality changes detail and token
-     usage, not a fixed per-image price. Generate stores `med_…`; the caller
-     does not re-upload.
-  3. Slide-deck-like experiences → local unbilled `compose render`.
-  4. Live objects → write playlist primitives. Animation is not a reason to
-     compose.
-- Lead marketplace README and skill with the human homepage line: **give
-  your agent a screen**. Then the homepage body: your agent creates it;
-  screenRIG puts it on the screen. Do not lead with pack-only “Build the
-  screen experience on infrastructure” or “You supply content / we host”
-  framing. Compare is the human three-column table (screenRIG / Build your
-  own / Dashboard-led signage), not DIY or legacy checklist prose. Do not
-  claim “twice vendor cost”. The available Player is the PWA. Native
-  platform names are product direction, not public downloads or store
-  listings.
-- The category word is **primitive**. Four wire primitives: `image`, `video`,
-  `iframe`, `application`. Image and video take a `selector`; iframe and
-  application do not.
-- Screenshotting is in v1. Do not print pixels.
-- Root `README.md` is the public marketing face and is fact-gated. Required
-  marketplace strings and forbidden patterns live in
-  `scripts/validate-plugin.py`. Do not drop a required fact. Do not introduce
-  enroll, pairing, MCP, or global npm install. Do not promise native Players
-  as available; do not use the phrase “coming soon” in the README.
-
-## Local workspace logs
-
-When plugin or bundled-CLI stdout is captured through `rig start` in the
-developer workspace, it is appended to `../logs/YY-MM-DD/plugin.log`
-(example `../logs/26-09-08/plugin.log`). Rig deletes date folders older
-than 7 days. The `logs/` directory is not a git repository.
+- Keep the skill operational: launcher, first-use account state, supported task
+  paths, errors and verification. Put detailed command families in references.
+- The README addresses prospective users; CONTRIBUTING.md addresses maintainers.
+  Neither defines API or billing behavior. Validators check supported commands,
+  references and security boundaries, not exact marketing slogans.
+- Native platform names are not download or store-availability claims.
 
 ## Follow operation logs
 
