@@ -73,11 +73,15 @@ marketplace listing unless the user asks.
   3. Slide-deck-like experiences → local unbilled `compose render`.
   4. Live objects → write playlist primitives. Animation is not a reason to
      compose.
-- Position the product as hosted publishing infrastructure the agent already
-  operates: the user supplies content, devices, and network; screenRIG
-  supplies Player, media, apps, and playback evidence. The available Player
-  is the PWA. Native platform names are product direction, not public
-  downloads or store listings.
+- Lead marketplace README and skill with the human homepage line: **give
+  your agent a screen**. Then the homepage body: your agent creates it;
+  screenRIG puts it on the screen. Do not lead with pack-only “Build the
+  screen experience on infrastructure” or “You supply content / we host”
+  framing. Compare is the human three-column table (screenRIG / Build your
+  own / Dashboard-led signage), not DIY or legacy checklist prose. Do not
+  claim “twice vendor cost”. The available Player is the PWA. Native
+  platform names are product direction, not public downloads or store
+  listings.
 - The category word is **primitive**. Four wire primitives: `image`, `video`,
   `iframe`, `application`. Image and video take a `selector`; iframe and
   application do not.

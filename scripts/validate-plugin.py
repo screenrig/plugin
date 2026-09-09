@@ -371,12 +371,18 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         # only; the operative behavior facts live in skills/screenrig/SKILL.md below.
         "README.md": [
             "Signage and Kiosk infrastructure for AI Agents",
+            "give your agent a screen",
+            "Your agent creates it. screenRIG puts it on the screen.",
+            "Publish menu boards",
             "Start free. Pay for what you use.",
             "$0.09/GB bandwidth, $0.14/GB-month storage",
             "No per-screen subscription",
             "No per-device price",
             "The Player web app (PWA) is available today",
             "product direction, not public downloads",
+            "Choose how your screens get their content",
+            "Build your own",
+            "Dashboard-led signage",
             "media generate",
             "as the whole page",
             "slide-deck-like",
@@ -425,7 +431,12 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             "Image generation is metered separately",
             "The Player web app (PWA) is available today",
             "product direction, not public downloads",
-            "You supply the content, screen devices, and network",
+            "give your agent a screen",
+            "Your agent creates it. screenRIG puts it on the screen.",
+            "https://screenrig.ai/compare.md",
+            "Build your own",
+            "Dashboard-led signage",
+            "Do not claim twice vendor cost",
             "as the whole page",
             "Do not generate atmosphere-only stills",
             "Do not compose a presentable poster",
@@ -483,6 +494,12 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         "unsupported server surface": re.compile(r"\bMCP\b"),
         "global npm install": re.compile(r"npm install --global screenrig", re.IGNORECASE),
         "unshipped framing": re.compile(r"\bcoming soon\b|\broadmap\b|\bbeta\b", re.IGNORECASE),
+        "twice vendor cost": re.compile(r"twice vendor cost", re.IGNORECASE),
+        "pack-only screen-experience lead": re.compile(
+            r"You build the screen experience|Build the screen experience on infrastructure",
+            re.IGNORECASE,
+        ),
+        "DIY stack heading": re.compile(r"Don't build the stack yourself", re.IGNORECASE),
     }
     for readme in (ROOT / "README.md", PLUGIN / "README.md"):
         if not readme.is_file():

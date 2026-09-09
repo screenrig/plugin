@@ -1,11 +1,12 @@
 # ScreenRig
 
+**give your agent a screen**
+
 **Signage and Kiosk infrastructure for AI Agents**
 
-Your agent creates it. screenRIG puts it on the screen. You supply the
-content, screen devices, and network; screenRIG supplies the hosted
-publishing infrastructure, Player, media handling, application releases, and
-playback evidence.
+Your agent creates it. screenRIG puts it on the screen. Publish menu boards,
+videos, dashboards, and kiosk apps through the official screenRIG plugin.
+Built for AI agents, from the first prompt to the next update.
 
 ## Start free. Pay for what you use.
 
@@ -119,11 +120,23 @@ content on the glass. Native platform names (Amazon Signage Stick, Apple TV,
 Google Play, Linux, macOS, Raspberry Pi, Windows) describe product direction,
 not public downloads or store listings.
 
-## Don't build the stack yourself
+## Compare
 
-Isolated origins and H.264 are part of that hosted publishing infrastructure.
-You build the screen experience; screenRIG supplies publishing, Player, media,
-apps, and evidence behind it.
+Choose how your screens get their content. Compare agent-operated signage, a
+custom stack, and a dashboard-led product against the workflow you need.
+
+| Decision | screenRIG | Build your own | Dashboard-led signage |
+| --- | --- | --- | --- |
+| Primary operator | An agent using the official plugin and bundled CLI. | The tools and workflows you build. | Usually a person using the vendor editor; agent support varies. |
+| Content model | Images, video, web pages, and applications on a playlist canvas. | You define and maintain the model. | Templates, playlists, and integrations vary by vendor. |
+| Infrastructure | Hosted control plane and content delivery. | Your team owns hosting, delivery, updates, and recovery. | The vendor operates its service. |
+| Pricing basis | Account usage, with no per-screen subscription; tier limits apply. | Infrastructure costs plus engineering and operations. | Often screen subscriptions; check the vendor's current terms. |
+| Verification | Screenshots, playback records, and account events. | You build the observability you need. | Device monitoring and reporting vary by product. |
+| Best fit | Agent-operated signage and custom kiosk apps. | Specialized requirements that justify owning the stack. | Teams that want a visual editor and a human publishing workflow. |
+
+Choose screenRIG when your agent should create or upload content, publish a
+playlist, update the screen, and verify the result through one documented tool
+surface.
 
 ## This repository
 
