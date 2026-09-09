@@ -339,9 +339,12 @@ def check_package() -> None:
     packaged_commands = PLUGIN / "cli" / "dist" / "commands.js"
     if packaged_commands.is_file():
         commands_text = packaged_commands.read_text(encoding="utf-8")
-        for fact in ("auth revoke --yes", "/api/v1/account/credential/revoke"):
+        for fact in ("agent disconnect --yes", "/api/v1/agents/self/disconnect"):
             if fact not in commands_text:
                 errors.append(f"packaged CLI credential lifecycle missing: {fact}")
+        for stale in ("auth revoke --yes", "/api/v1/account/credential/revoke"):
+            if stale in commands_text:
+                errors.append(f"packaged CLI still teaches dropped auth alias: {stale}")
     cli_readme = PLUGIN / "cli" / "README.md"
     if not cli_readme.is_file():
         errors.append("packaged CLI README is missing")
