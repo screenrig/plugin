@@ -76,6 +76,8 @@ export function createCommandTree(argv = [], execute) {
             throw error;
         });
         for (const option of command.options) {
+            if (option.long === "--expect-rev")
+                option.description += " (--if-match alias)";
             // Commander handles the built-in version option before emitting option events.
             if (option.long !== "--version")
                 protectOption(command, option, tokens, seen);

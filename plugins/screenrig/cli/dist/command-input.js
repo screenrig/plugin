@@ -13,4 +13,19 @@ export function flagNumber(flags, name) {
     const n = Number(value);
     return Number.isFinite(n) ? n : undefined;
 }
+/** Normalize the legacy spelling before Commander validation; never inspect operands. */
+export function normalizeRevisionArgs(argv) {
+    let ended = false;
+    return argv.map((arg) => {
+        if (arg === "--")
+            ended = true;
+        if (ended)
+            return arg;
+        if (arg === "--if-match")
+            return "--expect-rev";
+        if (arg.startsWith("--if-match="))
+            return "--expect-rev=" + arg.slice(11);
+        return arg;
+    });
+}
 //# sourceMappingURL=command-input.js.map

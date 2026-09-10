@@ -11,8 +11,12 @@ export class ApiClient {
     timeoutMs;
     creditsOwner;
     logger;
+    writeRecovery;
+    requestedKey;
     constructor(options) {
         this.transport = options.transport;
+        this.writeRecovery = options.writeRecovery;
+        this.requestedKey = options.idempotencyKey;
         this.token = options.token;
         this.timeoutMs = options.timeoutMs ?? 30_000;
         this.creditsOwner = options.creditsOwner;
@@ -44,7 +48,9 @@ export class ApiClient {
         if (idempotencyKey !== undefined && !isValidIdempotencyKey(idempotencyKey)) {
             throw usageError("Invalid per-request idempotency key.");
         }
-        const headers = this.headers(idempotent === true, req.headers, idempotencyKey);
+        const recovery = idempotent === true && idempotencyKey === undefined ? this.writeRecovery : undefined;
+        const pending = await recovery?.prepare(transportRequest, this.requestedKey);
+        const headers = this.headers(idempotent === true, req.headers, pending?.key ?? idempotencyKey);
         const extraType = req.headers?.["content-type"];
         const summary = requestSummary(req.body, extraType);
         const keys = queryKeys(req.query);
@@ -69,6 +75,11 @@ export class ApiClient {
         catch (err) {
             span.error(err);
             throw err;
+        }
+        // Definite refusals need reconciliation, not automatic replay of a stale key.
+        // Keep ambiguous timeouts and conflicts (which can mean work is in progress).
+        if (pending && response.status >= 400 && response.status < 500 && ![408, 409].includes(response.status)) {
+            await recovery.clear(pending);
         }
         const remaining = this.token ? parseCreditsRemainingHeader(response.headers) : undefined;
         const requestId = response.headers["x-request-id"] ?? this.requestId;

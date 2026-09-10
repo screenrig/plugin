@@ -1,3 +1,4 @@
+import { normalizeRevisionArgs } from "./command-input.js";
 import { CommanderError } from "commander";
 import { createCommandTree } from "./command-tree.js";
 import { handleVersion } from "./commands.js";
@@ -7,6 +8,7 @@ import { ExitCode } from "./exit-codes.js";
 /** Run one native Commander action and return its result to the output boundary. */
 export async function executeCommand(argv, runtime) {
     let result;
+    argv = normalizeRevisionArgs(argv);
     const tree = createCommandTree(argv, async (handler, args) => {
         result = await handler(args, runtime);
     });

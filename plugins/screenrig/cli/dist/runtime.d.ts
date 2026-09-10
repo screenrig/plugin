@@ -4,6 +4,8 @@ import type { ConfigFs } from "./config.js";
 import type { OperationLogger } from "./log/types.js";
 import { type OpenPath, type OpenUrl } from "./open-url.js";
 export interface CliRuntime {
+    stdin?: AsyncIterable<Uint8Array | string>;
+    isStdinTty?: () => boolean;
     argv: string[];
     env: NodeJS.Dict<string>;
     stdout: Writable;
