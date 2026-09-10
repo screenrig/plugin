@@ -15,7 +15,21 @@ checker = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checker)
 
 
+REVIEWED_CLI_PRODUCTION_DEPENDENCIES = {
+    "@napi-rs/canvas",
+    "ajv",
+    "ajv-formats",
+    "commander",
+}
+
+
 class DependencyBoundaryTests(unittest.TestCase):
+    def test_allowlist_is_the_reviewed_production_set(self):
+        self.assertEqual(
+            set(checker.ALLOWED_CLI_PRODUCTION_DEPENDENCIES),
+            REVIEWED_CLI_PRODUCTION_DEPENDENCIES,
+        )
+
     def check_with(self, mutation=None):
         original_load = checker.load
 
@@ -48,6 +62,10 @@ class DependencyBoundaryTests(unittest.TestCase):
     def test_missing_dependency_rejected(self):
         errors = self.change_dependencies(lambda value: value["dependencies"].pop("ajv"))
         self.assertTrue(any("missing ['ajv']" in error for error in errors))
+
+    def test_missing_commander_rejected(self):
+        errors = self.change_dependencies(lambda value: value["dependencies"].pop("commander"))
+        self.assertTrue(any("missing ['commander']" in error for error in errors))
 
     def test_malformed_dependencies_rejected(self):
         errors = self.change_dependencies(lambda value: value.update(dependencies=[]))
