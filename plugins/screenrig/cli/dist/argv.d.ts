@@ -1,12 +1,8 @@
+import type { ParsedArgs } from "./command-input.js";
 import { type HelpDocument } from "./help.js";
-export interface ParsedArgs {
-    command: string[];
-    flags: Record<string, string | boolean>;
-    positionals: string[];
+export { flagString, flagBool, flagNumber, type ParsedArgs } from "./command-input.js";
+/** Inspect the same native command tree without executing an application handler. */
+export declare function parseArgv(argv: string[]): ParsedArgs & {
     help?: HelpDocument;
-}
-export declare function parseArgv(argv: string[]): ParsedArgs;
-export declare function flagString(flags: Record<string, string | boolean>, name: string): string | undefined;
-export declare function flagBool(flags: Record<string, string | boolean>, name: string): boolean;
-export declare function flagNumber(flags: Record<string, string | boolean>, name: string): number | undefined;
+};
 //# sourceMappingURL=argv.d.ts.map

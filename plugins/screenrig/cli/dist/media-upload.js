@@ -9,7 +9,7 @@ import { assertDeclaredTypeMatchesBytes } from "./media/sniff.js";
 import { readWebpContainer } from "./media/webp.js";
 import { CliError, networkError, usageError } from "./problems.js";
 import { fetchSignedRawPut } from "./runtime.js";
-const MEDIA_PUT_NOT_READY = "Private media upload did not complete because the service is not ready. Run screenrig --json doctor and check the ready result before retrying.";
+const MEDIA_PUT_NOT_READY = "Private media upload did not complete because the service is not ready. Run screenrig doctor and check the ready result before retrying.";
 export const SUPPORTED_MEDIA_CONTENT_TYPES = [
     "image/png",
     "image/jpeg",

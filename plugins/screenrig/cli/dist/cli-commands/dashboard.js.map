@@ -1,0 +1,1 @@
+{"version":3,"file":"dashboard.js","sourceRoot":"","sources":["../../src/cli-commands/dashboard.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,eAAe,EAAE,MAAM,gBAAgB,CAAC;AAGjD,MAAM,UAAU,yBAAyB,CAAC,IAAa,EAAE,IAAyB;IAChF,IAAI,CAAC,OAAO,CAAC,WAAW,CAAC,CAAC,WAAW,CAAC,4BAA4B,CAAC;SAChE,MAAM,CAAC,aAAa,EAAE,gCAAgC,CAAC;SACvD,MAAM,CAAC,IAAI,CAAC,eAAe,CAAC,CAAC,CAAC;AACnC,CAAC"}

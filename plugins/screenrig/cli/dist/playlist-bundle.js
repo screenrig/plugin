@@ -898,7 +898,7 @@ function rethrowNameConflict(error, state) {
         ...error.problem,
         detail: `${error.problem.detail} Playlist names are unique per account, and this bundle's name is already taken.`,
         next: {
-            command: `screenrig --json playlist import ${state.directory} --name NAME`,
+            command: `screenrig playlist import ${state.directory} --name NAME`,
             reason: "Import as a new playlist under a different name, or replace the existing one with --update ID --if-match REVISION.",
         },
     }, error.exitCode, error.warnings);

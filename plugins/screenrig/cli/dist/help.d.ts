@@ -32,5 +32,4 @@ export declare function leafCommandPaths(command: Command): string[];
 /** JSON discovery and human help both read the actual Commander command tree. */
 export declare function describeHelp(command: Command): HelpDocument;
 export declare function commandHelp(path?: readonly string[]): HelpDocument;
-export declare const ROOT_HELP: string;
 //# sourceMappingURL=help.d.ts.map
