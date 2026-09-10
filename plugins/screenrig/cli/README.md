@@ -17,11 +17,11 @@ published.
 
 ```sh
 npm install --global screenrig@<YY.MM.SERIAL>
-screenrig --json version
+screenrig version
 ```
 
 Node.js 20.11 or newer is required. `media upload` additionally requires ffmpeg
-and ffprobe; the other commands do not. Run `screenrig --json doctor` to inspect
+and ffprobe; the other commands do not. Run `screenrig doctor` to inspect
 the optional media toolchain before an upload.
 
 This global package is the official developer-shell distribution. It is not the
@@ -29,8 +29,17 @@ agent install. Do not substitute it for the plugin launcher.
 
 ## What it does
 
-Commands return JSON envelopes an agent can branch on. Customer surface is
-content (`app`, `media`, `compose`), playlists, and screens. Full reference:
+Operational commands return JSON envelopes by default, including errors with
+nonzero exit codes. `--json` remains accepted for compatibility. Use `--human`
+for explicit human-readable output; it cannot be combined with `--json`.
+Output format never changes based on terminal detection. Progress goes to stderr;
+`events follow` writes NDJSON (one envelope per line) without a trailing summary.
+An empty follow session returns one envelope with `data.items: []`.
+
+Help, including bare command groups, stays human-readable by default; use
+`--json --help` for structured discovery. Authoring files remain JSON.
+
+The customer surface is content (`app`, `media`, `compose`), playlists, and screens. Full reference:
 [https://screenrig.ai/docs/cli.md](https://screenrig.ai/docs/cli.md).
 
 Discover commands progressively with `screenrig --help`, `screenrig screen --help`,
@@ -79,10 +88,17 @@ command.
 
 ## Develop
 
-Commander 14 owns argument parsing, command selection, and help rendering while
-supporting Node 20.11. The command tree feeds both human and JSON help. The adapter
-keeps parser diagnostics inside the CLI error envelope and only forwards explicit
-options to handlers, including the existing `no-*` boolean flags.
+Commander 14 supports Node 20.11 and owns parsing, command selection, and help.
+Add commands in `src/cli-commands/`: each group registers native Commander commands
+with their arguments, options, descriptions, validation hooks, and bound handlers.
+There is no separate command schema or path-based dispatcher. Shared option
+parsers live beside these modules; human and JSON help read the registered tree.
+
+`src/program.ts` awaits Commander actions with `parseAsync`. The output boundary
+keeps one CLI envelope per invocation, and shared handler setup handles config,
+authentication, and logging. Only explicitly supplied options reach handlers,
+including the existing `no-*` switches. `parseArgv` is an inspection helper for
+tests; execution runs through Commander actions.
 
 ```sh
 npm ci

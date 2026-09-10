@@ -1,5 +1,5 @@
 import { commandPath, createCommandTree, findCommand } from "./command-tree.js";
-import { NOTES } from "./help-text.js";
+import { commandNotes } from "./cli-commands/notes.js";
 import { usageError } from "./problems.js";
 export { CREDIT_HELP } from "./help-text.js";
 /** Canonical and alias paths of every descendant leaf, in tree order. */
@@ -30,8 +30,7 @@ function commandInventory(command) {
 export function describeHelp(command) {
     const helper = command.createHelp();
     const path = commandPath(command);
-    const note = NOTES[path.join(" ")];
-    const notes = note ? [note] : [];
+    const notes = commandNotes(command);
     const inventory = commandInventory(command);
     const describeOption = (option) => ({
         name: option.long, type: (option.negate || option.isBoolean()) ? "boolean" : "value", description: option.description, required: option.mandatory,
@@ -57,5 +56,4 @@ export function commandHelp(path = []) {
         throw usageError("Unknown help topic.");
     return describeHelp(command);
 }
-export const ROOT_HELP = commandHelp().usage;
 //# sourceMappingURL=help.js.map

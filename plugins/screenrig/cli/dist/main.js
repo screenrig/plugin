@@ -1,5 +1,4 @@
-import { parseArgv } from "./argv.js";
-import { dispatch } from "./commands.js";
+import { executeCommand } from "./program.js";
 import { applyCreditsLowToSuccess, observedCreditsRemaining } from "./credits.js";
 import { errorEnvelope } from "./envelope.js";
 import { ExitCode } from "./exit-codes.js";
@@ -25,16 +24,20 @@ function applyLogSinkToSuccess(result, dropped) {
     return { ...result, envelope: { ...result.envelope, warnings }, human };
 }
 export async function run(runtime = processRuntime()) {
-    const json = runtime.argv.includes("--json");
+    // Only switches before the end-of-options marker select presentation.
+    const end = runtime.argv.indexOf("--");
+    const options = end < 0 ? runtime.argv : runtime.argv.slice(0, end);
+    const explicitJson = options.includes("--json");
+    const json = explicitJson || !options.includes("--human");
     try {
-        const args = parseArgv(runtime.argv);
-        const dispatched = applyCreditsLowToSuccess(await dispatch(args, runtime), observedCreditsRemaining(runtime));
+        const dispatched = applyCreditsLowToSuccess(await executeCommand(runtime.argv, runtime), observedCreditsRemaining(runtime));
         runtime.logger?.endRun();
         const result = applyLogSinkToSuccess(dispatched, runtime.logger?.droppedLines() ?? 0);
-        if (json || args.flags.json === true) {
-            if (result.human) {
-                runtime.stdout.write(`${JSON.stringify(result.envelope)}\n`);
-            }
+        if (result.output === "stream") {
+            return result.exitCode;
+        }
+        if (json && (result.output !== "help" || explicitJson)) {
+            runtime.stdout.write(`${JSON.stringify(result.envelope)}\n`);
         }
         else if (result.human) {
             runtime.stdout.write(`${result.human}\n`);

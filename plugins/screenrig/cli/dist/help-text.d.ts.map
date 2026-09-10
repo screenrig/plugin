@@ -1,1 +1,1 @@
-{"version":3,"file":"help-text.d.ts","sourceRoot":"","sources":["../src/help-text.ts"],"names":[],"mappings":"AAEA,eAAO,MAAM,WAAW,4xBAA4xB,CAAC;AAErzB,eAAO,MAAM,SAAS,EAAE,MAAM,CAAC,MAAM,EAAE,MAAM,CAmB5C,CAAC;AAEF,eAAO,MAAM,gBAAgB,EAAE,MAAM,CAAC,MAAM,EAAE,MAAM,CAkBnD,CAAC;AAEF,eAAO,MAAM,KAAK,EAAE,MAAM,CAAC,MAAM,EAAE,MAAM,CAOxC,CAAC"}
+{"version":3,"file":"help-text.d.ts","sourceRoot":"","sources":["../src/help-text.ts"],"names":[],"mappings":"AAAA,eAAO,MAAM,WAAW,4xBAA4xB,CAAC"}
