@@ -159,6 +159,8 @@ export function fetchSignedRawPut(fetchImpl = fetch) {
 export function processRuntime() {
     return {
         argv: process.argv.slice(2),
+        stdin: process.stdin,
+        isStdinTty: () => process.stdin.isTTY === true,
         env: process.env,
         stdout: process.stdout,
         stderr: process.stderr,

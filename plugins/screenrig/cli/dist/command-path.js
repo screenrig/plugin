@@ -19,7 +19,7 @@ export function invocationFlags(command) {
         for (const option of current.options) {
             if (current.getOptionValueSource(option.attributeName()) !== "cli")
                 continue;
-            flags[option.long.slice(2)] = option.negate ? true : current.getOptionValue(option.attributeName());
+            flags[option.long === "--expect-rev" ? "if-match" : option.long.slice(2)] = option.negate ? true : current.getOptionValue(option.attributeName());
         }
     }
     return flags;

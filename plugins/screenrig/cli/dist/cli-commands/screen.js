@@ -1,7 +1,12 @@
 import { positiveInteger, revision, toastDuration } from "./options.js";
-import { handleScreenPair, handleScreenProvision, handleScreenUpdate, handleScreenList, handleScreenShow, handleScreenAssign, handleScreenSetTimezone, handleScreenArchive, handleScreenUnarchive, handleScreenDelete, handleScreenRotatePublicId, handleScreenToast, handleScreenScreenshot } from "../commands.js";
+import { handleScreenPublish, handleScreenPair, handleScreenProvision, handleScreenUpdate, handleScreenList, handleScreenShow, handleScreenAssign, handleScreenSetTimezone, handleScreenArchive, handleScreenUnarchive, handleScreenDelete, handleScreenRotatePublicId, handleScreenToast, handleScreenScreenshot } from "../commands.js";
 export function registerScreenCommands(root, bind) {
     const screen = root.command("screen").description("Pair, configure, and inspect screens");
+    screen.command("publish").description("Create a prepared playlist and assign it, with resumable recovery")
+        .argument("<id>", "Screen identifier")
+        .argument("<file>", "Prepared playlist file, or - for stdin")
+        .requiredOption("--expect-rev <REVISION>", "Expected screen revision", revision)
+        .action(bind(handleScreenPublish));
     screen.command("pair").description("Claim a Player pairing code")
         .argument("<code>", "Player pairing code")
         .option("--label <LABEL>", "Set the screen label")
@@ -16,7 +21,7 @@ export function registerScreenCommands(root, bind) {
         .option("--name <NAME>", "Set the screen name")
         .option("--playlist-id <ID>", "Select the playlist to assign")
         .option("--timezone <ZONE>", "Set an IANA timezone")
-        .requiredOption("--if-match <REVISION>", "Require the current resource revision (required)", revision)
+        .requiredOption("--expect-rev <REVISION>", "Require the current resource revision (required)", revision)
         .action(bind(handleScreenUpdate));
     screen.command("list").description("List screens")
         .option("--state <archived>", "List archived screens")
@@ -27,28 +32,28 @@ export function registerScreenCommands(root, bind) {
     screen.command("assign").description("Assign a playlist to a screen")
         .argument("<id>", "Screen identifier")
         .requiredOption("--playlist-id <ID>", "Select the playlist to assign (required)")
-        .requiredOption("--if-match <REVISION>", "Require the current resource revision (required)", revision)
+        .requiredOption("--expect-rev <REVISION>", "Require the current resource revision (required)", revision)
         .action(bind(handleScreenAssign));
     screen.command("set-timezone").description("Set a screen's timezone")
         .argument("<id>", "Screen identifier")
         .requiredOption("--timezone <ZONE>", "Set an IANA timezone (required)")
-        .requiredOption("--if-match <REVISION>", "Require the current resource revision (required)", revision)
+        .requiredOption("--expect-rev <REVISION>", "Require the current resource revision (required)", revision)
         .action(bind(handleScreenSetTimezone));
     screen.command("archive").description("Archive a screen")
         .argument("<id>", "Screen identifier")
-        .requiredOption("--if-match <REVISION>", "Require the current resource revision (required)", revision)
+        .requiredOption("--expect-rev <REVISION>", "Require the current resource revision (required)", revision)
         .action(bind(handleScreenArchive));
     screen.command("unarchive").description("Restore an archived screen")
         .argument("<id>", "Screen identifier")
-        .requiredOption("--if-match <REVISION>", "Require the current resource revision (required)", revision)
+        .requiredOption("--expect-rev <REVISION>", "Require the current resource revision (required)", revision)
         .action(bind(handleScreenUnarchive));
     screen.command("delete").description("Delete a screen")
         .argument("<id>", "Screen identifier")
-        .requiredOption("--if-match <REVISION>", "Require the current resource revision (required)", revision)
+        .requiredOption("--expect-rev <REVISION>", "Require the current resource revision (required)", revision)
         .action(bind(handleScreenDelete));
     screen.command("rotate-public-id").description("Rotate a screen's public identifier")
         .argument("<id>", "Screen identifier")
-        .requiredOption("--if-match <REVISION>", "Require the current resource revision (required)", revision)
+        .requiredOption("--expect-rev <REVISION>", "Require the current resource revision (required)", revision)
         .action(bind(handleScreenRotatePublicId));
     screen.command("toast").description("Show a temporary screen message")
         .argument("<id>", "Screen identifier")

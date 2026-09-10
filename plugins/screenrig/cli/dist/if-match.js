@@ -4,7 +4,7 @@ export function quotedRevision(raw) {
     const match = POSITIVE_INTEGER.exec(raw);
     const digits = match?.[1] ?? match?.[2];
     if (!digits) {
-        throw usageError("--if-match must be a positive integer, optionally wrapped in double quotes.");
+        throw usageError("--expect-rev must be a positive integer, optionally wrapped in double quotes.");
     }
     return `"${digits}"`;
 }
