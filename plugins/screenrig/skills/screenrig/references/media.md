@@ -5,7 +5,7 @@ Use the authoring choice in the main skill before opening this reference.
 ## Generate a finished still
 
 Use the task selection in the main skill. Choose the intended aspect ratio from
-`screenrig --json screen show SCREEN_ID` or the user's supplied dimensions before
+`screenrig screen show SCREEN_ID` or the user's supplied dimensions before
 generation. If the screen has no observation, confirm its orientation. Fit and
 cropping are deliberate choices; a source image's aspect need not match a canvas
 when the design intentionally contains or crops it.
@@ -29,7 +29,7 @@ Use a consistent campaign style rather than forcing variation on every page.
 For example, a fictional bookshop announcement:
 
 ```bash
-screenrig --json media generate --aspect-ratio 16:9 --quality medium --tag AuthorNight --prompt "Landscape 16:9 event poster artwork for fictional Example Books. Full bleed. Two-colour risograph style: paper white, teal and coral. Exact copy: 'Author Night', 'Guest Author reads from Sample Title', 'Thursday 24 September, 7 pm', 'Free entry', 'Fictional Example Books, Main Hall'. Large readable headline, clear time and location, open-book illustration. Artwork only, no display device or additional text."
+screenrig media generate --aspect-ratio 16:9 --quality medium --tag AuthorNight --prompt "Landscape 16:9 event poster artwork for fictional Example Books. Full bleed. Two-colour risograph style: paper white, teal and coral. Exact copy: 'Author Night', 'Guest Author reads from Sample Title', 'Thursday 24 September, 7 pm', 'Free entry', 'Fictional Example Books, Main Hall'. Large readable headline, clear time and location, open-book illustration. Artwork only, no display device or additional text."
 ```
 
 Read [visual design](composition.md) when establishing a layout or reviewing a
@@ -60,8 +60,8 @@ as a hang, and allow at least three minutes in any wrapper that imposes a
 timeout of its own.
 
 Do not pass `--timeout` on generate. The CLI budgets 150 s for this call by
-default, above the server's own budget, so plain `screenrig --json media
-generate …` completes at `high`. Under `--json` the command writes one
+default, above the server's own budget, so plain `screenrig media
+generate …` completes at `high`. With default JSON output the command writes one
 `media_generate_started` line to stderr before it blocks, carrying `quality`,
 `typical_seconds`, and `timeout_ms` and never the prompt; `--no-progress`
 suppresses it. The success envelope reports `elapsed_ms` beside `media_id`.
@@ -109,7 +109,7 @@ regenerating, not by composing a correction over the top. Never print the
 downloaded bytes.
 
 ```bash
-screenrig --json media download med_EXAMPLE --output ./burger-board.webp
+screenrig media download med_EXAMPLE --output ./burger-board.webp
 ```
 
 `--output` is a file path, not a directory; the default is `./<id>.<ext>` in
@@ -126,7 +126,7 @@ using a generated picture, not text layered over a generated poster.
 ## Doctor
 
 ```bash
-screenrig --json doctor
+screenrig doctor
 ```
 
 Read `data.status` and `data.checks`. Each check is `pass`, `warn`, or `fail`.
@@ -237,7 +237,7 @@ local bytes. Items already present with a `media_id` are reported as
 `resumed`. Do not share one state file across accounts.
 
 ```bash
-screenrig --json media upload-batch ./images.json --state ./upload-state.json
+screenrig media upload-batch ./images.json --state ./upload-state.json
 ```
 
 The envelope carries `data.items[]`, one row per item that reached the
@@ -247,6 +247,6 @@ a batch no longer needs a follow-up `media list --tag` to learn what it
 created. `data.failed[]` carries the items that did not land, with their
 problem code and status.
 
-Run `doctor --json` for local diagnostics. Use
-`doctor --repair-config --json` only to repair an existing credential file
+Run `doctor` for local diagnostics. Use
+`doctor --repair-config` only to repair an existing credential file
 whose permissions are too broad.

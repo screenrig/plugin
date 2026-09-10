@@ -18,7 +18,7 @@ launcher on this shell's PATH. Never substitute a global or source-checkout bina
 SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
 if [ -n "$SCREENRIG_PLUGIN_ROOT" ]; then
   PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
-  screenrig --json version
+  screenrig version
 fi
 ```
 
@@ -31,7 +31,7 @@ Require a successful version envelope, then run:
 
 ```bash
 screenrig-plugin-freshness --json
-screenrig --json doctor
+screenrig doctor
 ```
 
 For freshness, `keep` means continue, `refresh` means update the plugin using the
@@ -49,7 +49,7 @@ For a new account, obtain the user's contact email and use the supported explici
 step:
 
 ```bash
-screenrig --json agent enroll --email ADDRESS
+screenrig agent enroll --email ADDRESS
 ```
 
 Use the user's actual address. For an existing account, use `agent connect` and
@@ -62,8 +62,8 @@ shows a setup code, use `screen pair CODE` with that code. A missing screen is n
 reason to assign to another screen or invent an identifier.
 
 ```bash
-screenrig --json screen list
-screenrig --json screen show SCREEN_ID
+screenrig screen list
+screenrig screen show SCREEN_ID
 ```
 
 ## Choose the content path
@@ -110,7 +110,12 @@ provides a compact reference for supported operations.
 
 ## Responses, retries and secrets
 
-Use `--json`. Branch on `ok`, `error.status`, `error.code` and `warnings[].code`,
+Operational commands return JSON envelopes by default; `--json` remains a
+compatible explicit choice. Use `--human` only for manual inspection, never
+together with `--json`. Help and bare command groups are readable by default;
+`--json --help` returns structured help. Progress stays on stderr; parse stdout
+separately. `events follow` emits one JSON envelope per line (NDJSON).
+Branch on `ok`, `error.status`, `error.code` and `warnings[].code`,
 not prose. Follow an applicable `error.next.command` without inventing flags.
 On a revision conflict, refetch and reconcile the intended change. After an
 ambiguous write, retry with the same idempotency key and same request, not a new write.

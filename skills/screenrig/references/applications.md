@@ -17,7 +17,7 @@ reaches `window.screenrig` at runtime with no build step and no dependency to
 install.
 
 ```bash
-screenrig --json app upload ./lobby-board --name "Lobby board"
+screenrig app upload ./lobby-board --name "Lobby board"
 ```
 
 `app upload` waits for the publication operation by default. Read three fields
@@ -35,8 +35,8 @@ first immutable release. To repair or improve the same app, read its current
 revision with `app show`, then publish a new release:
 
 ```bash
-screenrig --json app show app_EXAMPLE
-screenrig --json app update app_EXAMPLE ./lobby-board --if-match 3
+screenrig app show app_EXAMPLE
+screenrig app update app_EXAMPLE ./lobby-board --if-match 3
 ```
 
 `app update` preserves application identity, name, and application K/V. It uses
@@ -115,9 +115,9 @@ must carry `controller: true`. Do not set `controller` on a `duration` or
 ### 4. Create the playlist and assign it to a screen
 
 ```bash
-screenrig --json playlist create ./lobby-board.json
-screenrig --json screen list
-screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match 3
+screenrig playlist create ./lobby-board.json
+screenrig screen list
+screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match 3
 ```
 
 Take `--playlist-id` from `data.id` of the `playlist create` result. Take
@@ -142,10 +142,10 @@ blocks on a WebP. Do not print pixels.
 Application K/V is binary-safe. Use exactly one value mode.
 
 ```bash
-screenrig --json kv set --application-id app_EXAMPLE lobby --json-value '{"open":true}'
-screenrig --json kv get --application-id app_EXAMPLE lobby
-screenrig --json kv list --application-id app_EXAMPLE
-screenrig --json kv delete --application-id app_EXAMPLE lobby --if-match REVISION
+screenrig kv set --application-id app_EXAMPLE lobby --json-value '{"open":true}'
+screenrig kv get --application-id app_EXAMPLE lobby
+screenrig kv list --application-id app_EXAMPLE
+screenrig kv delete --application-id app_EXAMPLE lobby --if-match REVISION
 ```
 
 `kv get` returns the stored bytes only as `data.value_base64`, including when

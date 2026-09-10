@@ -42,7 +42,7 @@ package.
 SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
 if [ -n "$SCREENRIG_PLUGIN_ROOT" ]; then
   PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
-  screenrig --json version
+  screenrig version
 fi
 ```
 
@@ -50,7 +50,7 @@ An empty root means use the lookup below before running the CLI; do not add
 `/skills/screenrig/scripts` to PATH. The plugin launcher is scoped to this
 shell session, so a new shell may need the same root lookup and PATH setup.
 
-Require a successful screenRIG JSON envelope from `--json version` before any
+Require a successful screenRIG JSON envelope from `version` before any
 other command.
 
 If `SCREENRIG_PLUGIN_ROOT` is empty after installation, recover it without
@@ -64,7 +64,7 @@ entry whose `pluginId` is `screenrig@screenrig`, and use its `source.path`.
 4. For Grok, run `grok plugin list` and use the installed screenRIG plugin
 path, then export it as `GROK_PLUGIN_ROOT` for this session.
 5. Prepend `<plugin-root>/skills/screenrig/scripts` to `PATH` and run
-`screenrig --json version`. Require a successful screenRIG JSON envelope
+`screenrig version`. Require a successful screenRIG JSON envelope
 before the requested command. Do not export `SR`.
 
 If there is no matching entry, run the exact canonical marketplace add/install
@@ -73,8 +73,14 @@ report the failing runtime command and the canonical repository URL to the
 user. Do not substitute a globally installed command or download an
 executable.
 
-Use `--json` for agent work. Branch on `ok`, `error.status`, and `error.code`;
-do not parse prose.
+Operational commands use JSON by default. If an older installed bundle returns
+prose, add `--json` until the plugin is updated. The separate
+`screenrig-plugin-freshness` helper still requires `--json`.
+
+Use `--human` only for manual text output; it cannot be combined with `--json`.
+Help and bare command groups are readable by default, with structured discovery
+available through `--json --help`. Branch on `ok`, `error.status`, and
+`error.code`; do not parse prose. Keep stdout separate from progress on stderr.
 
 ## Detect and refresh
 
@@ -83,7 +89,7 @@ installed plugin and bundled CLI to the published plugin version on GitHub
 `main`. Skill text and the bundled CLI travel together. Do not PATH-swap in a
 local checkout. Do not `npm i -g screenrig`. Do not install a global package.
 
-After PATH prepend and a successful `screenrig --json version`, run:
+After PATH prepend and a successful `screenrig version`, run:
 
 ```bash
 screenrig-plugin-freshness --json
@@ -125,4 +131,4 @@ If a probed update command is missing, re-run the exact canonical marketplace
 add and install commands above. Grok install must keep `--trust`. Refresh
 updates skill text and the bundled CLI together. After refresh, re-resolve
 the plugin root, prepend scripts to PATH, and require a successful
-`screenrig --json version` envelope before any other command.
+`screenrig version` envelope before any other command.

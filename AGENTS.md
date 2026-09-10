@@ -34,6 +34,10 @@ does not require that file for standalone contribution.
 
 - Never edit `plugins/screenrig/` independently. Change canonical inputs and
   regenerate.
+- For documentation-only updates, `scripts/build-plugin.py --docs-only`
+  refreshes canonical public files and skills in an existing bundle. Check with
+  `--docs-only --check`. It preserves the CLI, manifests and provenance; full
+  artifact generation and validation are still required before release.
 - After packing, write `components.lock.json` as provenance of that tarball.
   Do not refetch a pinned CLI SHA.
 - Keep Codex and Claude marketplace metadata, generated manifests, public
@@ -55,12 +59,16 @@ marketplace listing unless the user asks.
   marketplace commands, with Grok `--trust` named and `GROK_PLUGIN_ROOT`
   lookup.
 - After install, prepend `$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts` to
-  `PATH` once, then run `screenrig --json version`,
+  `PATH` once, then run `screenrig version`,
   `screenrig-plugin-freshness --json`, `doctor`, then content work. Do not
   export `SR`. Do not teach `npm i -g screenrig`.
 - Teach implemented account enrollment, connection and Player pairing in the
   operating skill, without making them the marketplace sales pitch.
-- Keep `--json` envelopes. Never teach a token flag or pasted bearer.
+- Operational commands use JSON envelopes by default with the JSON-default CLI;
+  `--json` remains compatible and `--human` opts into manual text output. Help
+  stays readable unless `--json` is explicit. Do not combine the output flags.
+  Keep explicit `--json` for the separate freshness helper and scripts that
+  must remain compatible with older bundles. Never teach a token flag or pasted bearer.
 - Never write MCP. `validate-plugin.py` rejects MCP manifests.
 - Keep the skill operational: launcher, first-use account state, supported task
   paths, errors and verification. Put detailed command families in references.
@@ -79,11 +87,12 @@ host paths, no local listener service, no internal tooling names.
 
 ```sh
 python3 scripts/check-public-repo.py
-plugins/screenrig/skills/screenrig/scripts/screenrig --json version
+plugins/screenrig/skills/screenrig/scripts/screenrig version
 python3 scripts/build-plugin.py --check --cli-artifact <current-cli-tarball>
 python3 scripts/validate-plugin.py --cli-artifact <current-cli-tarball>
 python3 scripts/test-skill-commands.py
 python3 scripts/test-plugin-freshness.py
+python3 scripts/test-docs-only.py
 ```
 
 These gates do not prove marketplace installation, live API use, native
