@@ -1,7 +1,9 @@
+import { type HelpDocument } from "./help.js";
 export interface ParsedArgs {
     command: string[];
     flags: Record<string, string | boolean>;
     positionals: string[];
+    help?: HelpDocument;
 }
 export declare function parseArgv(argv: string[]): ParsedArgs;
 export declare function flagString(flags: Record<string, string | boolean>, name: string): string | undefined;
