@@ -301,7 +301,7 @@ owns it. `{"days": ["fri"], "start": "22:00", "end": "02:00"}` runs Friday
 22:00 through Saturday 02:00.
 
 ```bash
-screenrig --json screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match 3
+screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match 3
 ```
 
 `--timezone` is an IANA identifier such as `America/Los_Angeles` or
@@ -314,9 +314,9 @@ Use a `screenrig.playlist-bundle/v1` directory to move one playlist and every
 referenced image or video rendition together.
 
 ```bash
-screenrig --json playlist export pl_EXAMPLE --output ./lobby-bundle
-screenrig --json playlist import ./lobby-bundle
-screenrig --json playlist import ./lobby-bundle --update pl_TARGET --if-match REVISION
+screenrig playlist export pl_EXAMPLE --output ./lobby-bundle
+screenrig playlist import ./lobby-bundle
+screenrig playlist import ./lobby-bundle --update pl_TARGET --if-match REVISION
 ```
 
 The export destination must not exist. The bundle contains
@@ -332,5 +332,5 @@ that problem's `error.next` names the two ways forward. `--name NAME` (1 to
 Updating requires both `--update` and the current `--if-match` revision.
 
 ```bash
-screenrig --json playlist import ./lobby-bundle --name "Lobby loop (copy)"
+screenrig playlist import ./lobby-bundle --name "Lobby loop (copy)"
 ```

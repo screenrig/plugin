@@ -15,3 +15,17 @@ belong here. The source and generated skill must travel with the same CLI bundle
 
 Skill validation checks command availability, references, launcher/version flow,
 error handling and secret boundaries. It does not require marketing sentences.
+
+The canonical skill's operational examples target JSON-default CLI output.
+`--json` stays compatible, `--human` selects manual text, and help remains
+readable by default. Runtime helpers retain explicit `--json` for
+compatibility; the freshness helper itself still requires it. Normal skill
+examples use the default, including version bootstrap.
+
+For documentation-only work, `python3 scripts/build-plugin.py --docs-only`
+refreshes canonical public files and skills in the existing generated bundle.
+Verify those copies with `python3 scripts/build-plugin.py --docs-only --check`.
+This preserves the bundled CLI, manifests and artifact provenance; it does not
+establish that the executable supports newly documented behavior. Before
+release, run the full build and validation against the CLI artifact containing
+the documented changes.

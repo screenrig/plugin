@@ -81,8 +81,13 @@ doctor [--repair-config]
 version
 ```
 
-Global flags go before the command: `--json`, `--api-url URL`, `--config
-PATH`, `--request-id ID`, `--idempotency-key KEY`, and `--timeout MS`.
+Operational commands default to JSON envelopes. `--json` remains supported;
+`--human` selects text and conflicts with `--json`. Help and bare command groups
+remain readable by default; use `screenrig --json --help` for structured help.
+`events follow` emits NDJSON. Progress goes to stderr, separately from stdout.
+
+Global flags include `--json`, `--human`, `--api-url URL`, `--config PATH`,
+`--request-id ID`, `--idempotency-key KEY`, and `--timeout MS`.
 
 On `revision_conflict`, fetch the resource, reapply the intended change, and
 retry with the returned revision. On an ambiguous transport failure, reuse the
