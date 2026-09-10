@@ -1,6 +1,6 @@
 {
   "schema": "screenrig.cli-runtime-dependencies/v1",
-  "package_lock_sha256": "8db04ab04d13cd267a2355b319a679d82602548d03b38c6ead378a279d28e6d8",
+  "package_lock_sha256": "9e44ffc2146fd192724dbd8899349b49f0167fa298a82828ca1eee5cdbc97fcb",
   "packages": [
     {
       "path": "node_modules/@napi-rs/canvas",
@@ -99,6 +99,13 @@
       "version": "3.0.1",
       "resolved": "https://registry.npmjs.org/ajv-formats/-/ajv-formats-3.0.1.tgz",
       "integrity": "sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ=="
+    },
+    {
+      "path": "node_modules/commander",
+      "name": "commander",
+      "version": "14.0.3",
+      "resolved": "https://registry.npmjs.org/commander/-/commander-14.0.3.tgz",
+      "integrity": "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="
     },
     {
       "path": "node_modules/fast-deep-equal",
