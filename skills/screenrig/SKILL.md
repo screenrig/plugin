@@ -66,6 +66,13 @@ screenrig screen list
 screenrig screen show SCREEN_ID
 ```
 
+`screen show` reports the display's host details when the Player supplied them
+(platform, model, firmware, identifiers). If a screen shows a pending recovery,
+a display reporting that screen's identifiers has lost its stored identity and
+is asking to reconnect; confirm it with `screen recover SCREEN_ID` only after
+checking with the user that it is the same display. Nothing reconnects without
+that confirmation.
+
 ## Choose the content path
 
 Read the target screen's reported playback surface before choosing aspect ratio.
