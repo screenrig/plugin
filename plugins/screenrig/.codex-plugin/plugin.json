@@ -1,6 +1,6 @@
 {
   "name": "screenrig",
-  "version": "26.09.25",
+  "version": "26.09.0-dev",
   "description": "Operate ScreenRig screens, media, playlists, and applications with the bundled CLI.",
   "author": {
     "name": "ScreenRig"

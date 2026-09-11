@@ -53,7 +53,10 @@ screenrig agent enroll --email ADDRESS
 ```
 
 Use the user's actual address. For an existing account, use `agent connect` and
-complete the supported dashboard approval flow instead of creating another account.
+resume the dashboard approval flow instead of creating another account. Connection
+returns promptly by default; a pending success is not active access. Follow
+`data.next.argv` after approval and require `data.connection_complete: true`.
+See [connection behavior](references/commands.md#connect-an-existing-account).
 Consult `screenrig --help` for the installed command's arguments. Never ask the user
 to paste an account bearer into the conversation or command line.
 
@@ -111,13 +114,17 @@ shapes belong in prepared content, not additional native playlist primitives.
 
 1. Prepare and inspect the content at the intended size. Generation stores its
    returned media ID directly; do not upload it again.
-2. For full-screen images or videos, use `playlist init` to prepare the authored
-   file from media IDs and screen dimensions. For other layouts, author the file
-   using [playlists](references/playlists.md). Preview and inspect it.
+2. For full-screen pages, use `playlist init` with local media files, ready media
+   IDs, pinned application releases, or HTTPS URLs and `--screen-id`. Local files
+   upload during preparation. Follow `data.preview.argv`, inspect the result, then
+   use `data.publish.argv`. For layouts and file retry rules, read
+   [playlists](references/playlists.md).
 3. Publish a new playlist with `screen publish SCREEN_ID FILE --expect-rev REV`.
    To edit an existing playlist, obtain its file with `playlist show ID --output
    FILE`, then use `playlist update` with the returned revision. Updates affect
-   all assigned screens. See the playlist reference for partial-failure recovery.
+   all assigned screens. For an application pin change, use `playlist replace-release`
+   to review the shared-screen impact before applying it. See the playlist reference
+   for revision guards and partial-failure recovery.
 4. Request a screenshot and inspect relevant playback and events. Assignment
    readback alone does not prove physical display. Report the observed evidence.
 
