@@ -430,7 +430,7 @@ require mute. A stream never controls page advance. Use contain, cover, or fill;
 entrance motion is supported, and continuous motion is limited to path.
 
 Apple TV supports image, video, and HLS stream, but rejects playlists containing
-iframe or application. Qt web content requires Qt WebEngine, and streaming
-requires the transport plugins. HLS paths also exist on Web, Android, macOS,
-and Windows. Native distribution and device validation remain separate from
-source support. See https://screenrig.ai/docs/players.md for the platform matrix.
+iframe or application. The Linux Player supports web content, HLS, and optional
+UDP/MPEG-TS multicast. HLS is also supported on Web, Android, macOS, and Windows.
+Native Players are coming soon. See https://screenrig.ai/docs/players.md for the
+platform matrix and availability.
