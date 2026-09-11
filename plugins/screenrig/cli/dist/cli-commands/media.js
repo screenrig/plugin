@@ -1,23 +1,21 @@
-import { usageError } from "../problems.js";
 import { positiveInteger, positiveNumber, revision } from "./options.js";
 import { handleMediaGenerate, handleMediaUpload, handleMediaUploadBatch, handleMediaShow, handleMediaDownload, handleMediaList, handleMediaUpdate, handleMediaDelete } from "../commands.js";
 import { Option } from "commander";
-import { addCommandNotes } from "./notes.js";
+import { addCommandNotes, addCommandExamples, requireOptionGroup } from "./notes.js";
 import { CREDIT_HELP } from "../help-text.js";
 export function registerMediaCommands(root, bind) {
     const media = root.command("media").description("Generate, upload, and manage images and videos");
     addCommandNotes(media.command("generate").description("Generate an image from a prompt")
         .addOption(new Option("--prompt <TEXT>", "Describe the complete image to generate").conflicts("promptFile"))
         .addOption(new Option("--prompt-file <FILE>", "Read the complete prompt from a file or stdin (-)").conflicts("prompt"))
-        .option("--aspect-ratio <RATIO>", "Choose the generated image aspect ratio")
-        .option("--quality <low|medium|high>", "Choose generation quality")
+        .addOption(new Option("--aspect-ratio <RATIO>", "Choose the generated image aspect ratio").choices(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]).default("16:9"))
+        .addOption(new Option("--quality <low|medium|high>", "Choose generation quality").choices(["low", "medium", "high"]).default("medium"))
         .option("--tag <TAG>", "Set the media tag")
         .option("--no-progress", "Suppress stderr progress")
-        .hook("preAction", (command) => {
-        if (command.getOptionValue("prompt") === undefined && command.getOptionValue("promptFile") === undefined)
-            throw usageError("Provide --prompt TEXT or --prompt-file FILE.");
-    })
         .action(bind(handleMediaGenerate)), CREDIT_HELP);
+    const generate = media.commands.find((command) => command.name() === "generate");
+    requireOptionGroup(generate, "exactlyOne", ["--prompt", "--prompt-file"]);
+    addCommandExamples(generate, 'screenrig media generate --prompt "A full-screen welcome sign"', 'screenrig media generate --prompt-file prompt.txt --aspect-ratio 9:16');
     media.command("upload").description("Upload an image or video")
         .argument("<file>", "Local input file")
         .option("--content-type <TYPE>", "Declare the content MIME type")
@@ -25,12 +23,12 @@ export function registerMediaCommands(root, bind) {
         .option("--no-wait", "Return after acceptance without waiting for processing")
         .option("--poll-ms <MS>", "Set the operation polling interval", positiveInteger("poll-ms"))
         .addOption(new Option("--no-transcode", "Upload accepted source bytes unchanged").conflicts(["codec", "maxFps", "maxEdge", "webpQuality", "preset", "audio"]))
-        .addOption(new Option("--codec <h264|hevc>", "Choose the video codec (default: h264)").conflicts(["transcode"]))
+        .addOption(new Option("--codec <h264|hevc>", "Choose the video codec").choices(["h264", "hevc"]).default("h264").conflicts(["transcode"]))
         .addOption(new Option("--max-fps <N>", "Limit video frames per second").argParser(positiveNumber("max-fps")).conflicts(["transcode"]))
         .addOption(new Option("--max-edge <PIXELS>", "Limit the longest video edge").argParser(positiveInteger("max-edge")).conflicts(["transcode"]))
         .addOption(new Option("--webp-quality <1-100>", "Set WebP quality").argParser(positiveInteger("webp-quality")).conflicts(["transcode"]))
         .option("--no-progress", "Suppress stderr progress")
-        .addOption(new Option("--preset <PRESET>", "Use signage-1080p30 or signage-4k30").conflicts(["transcode"]))
+        .addOption(new Option("--preset <PRESET>", "Choose a transcoding preset").choices(["signage-1080p30", "signage-4k30"]).conflicts(["transcode"]))
         .addOption(new Option("--no-audio", "Remove the audio track when transcoding").conflicts(["transcode"]))
         .action(bind(handleMediaUpload));
     media.command("upload-batch").description("Upload a manifest with resumable state")
@@ -41,11 +39,11 @@ export function registerMediaCommands(root, bind) {
         .option("--tag <TAG>", "Set the media tag")
         .option("--no-progress", "Suppress stderr progress")
         .option("--poll-ms <MS>", "Set the operation polling interval", positiveInteger("poll-ms"))
-        .addOption(new Option("--codec <h264|hevc>", "Choose the video codec (default: h264)").conflicts(["transcode"]))
+        .addOption(new Option("--codec <h264|hevc>", "Choose the video codec").choices(["h264", "hevc"]).default("h264").conflicts(["transcode"]))
         .addOption(new Option("--max-fps <N>", "Limit video frames per second").argParser(positiveNumber("max-fps")).conflicts(["transcode"]))
         .addOption(new Option("--max-edge <PIXELS>", "Limit the longest video edge").argParser(positiveInteger("max-edge")).conflicts(["transcode"]))
         .addOption(new Option("--webp-quality <1-100>", "Set WebP quality").argParser(positiveInteger("webp-quality")).conflicts(["transcode"]))
-        .addOption(new Option("--preset <PRESET>", "Use signage-1080p30 or signage-4k30").conflicts(["transcode"]))
+        .addOption(new Option("--preset <PRESET>", "Choose a transcoding preset").choices(["signage-1080p30", "signage-4k30"]).conflicts(["transcode"]))
         .addOption(new Option("--no-audio", "Remove the audio track when transcoding").conflicts(["transcode"]))
         .action(bind(handleMediaUploadBatch));
     media.command("show").description("Inspect media")
@@ -57,7 +55,7 @@ export function registerMediaCommands(root, bind) {
         .action(bind(handleMediaDownload));
     media.command("list").description("List media")
         .option("--tag <TAG>", "Filter media by tag")
-        .option("--primitive <image|video>", "Filter by media primitive")
+        .addOption(new Option("--primitive <image|video>", "Filter by media primitive").choices(["image", "video"]))
         .action(bind(handleMediaList));
     media.command("update").description("Update a media tag")
         .argument("<id>", "Media identifier")
@@ -69,5 +67,6 @@ export function registerMediaCommands(root, bind) {
         .argument("<id>", "Media identifier")
         .requiredOption("--expect-rev <REVISION>", "Require the current resource revision (required)", revision)
         .action(bind(handleMediaDelete));
+    requireOptionGroup(media.commands.find(command => command.name() === "update"), "exactlyOne", ["--tag", "--clear-tag"]);
 }
 //# sourceMappingURL=media.js.map

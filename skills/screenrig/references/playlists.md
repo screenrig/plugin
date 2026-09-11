@@ -5,17 +5,49 @@
 For ready images and videos, prepare a full-screen playlist in playback order:
 
 ```sh
-screenrig playlist init med_POSTER med_VIDEO --name "Lobby loop" --screen scr_LOBBY --output lobby.json
+screenrig playlist init med_POSTER med_VIDEO --name "Lobby loop" --screen-id scr_LOBBY --output lobby.json
 screenrig playlist preview lobby.json --output preview --contact-sheet
 screenrig screen publish scr_LOBBY lobby.json --expect-rev 7
 ```
 
-Inspect the preview before publishing. `playlist init` reads media metadata and
-screen observations but makes no remote writes. It creates one page per media ID,
-with `contain` fit, a black background, and a 200 ms crossfade. Images last 8000 ms;
-videos are muted, do not loop, and advance on completion. Use `--duration-ms` for
-image duration and `--fit contain|cover|fill` for content fit. Override the canvas
-with both `--target-width` and `--target-height`; these also work without `--screen`.
+Inspect the document and preview before publishing. `playlist init` accepts local
+image/video files, ready `med_` IDs, pinned `rel_` application releases, and HTTPS
+iframe URLs in playback order, including mixed inputs:
+
+```sh
+screenrig playlist init ./poster.png med_VIDEO rel_APP https://example.com --name Lobby --screen-id scr_LOBBY --output lobby.json
+```
+
+Local files upload through the normal media path and wait for readiness. This
+requires ffmpeg and ffprobe unless `--no-transcode` is supplied. Preparation writes
+the local document and may upload media; it neither creates a remote playlist nor
+assigns a screen. Existing media must be ready. HTTPS URLs must contain no username
+or password and are not fetched during preparation.
+
+For retryable file preparation, choose `--idempotency-key` on the first attempt
+and reuse it with identical files and input order within the server replay window.
+Each file occurrence gets its own upload keys. Without an explicit key, a new
+invocation gets new keys. Uploaded media survives a later preparation failure;
+inspect `media list` and reuse those IDs when reconciling a partial result.
+
+Each input becomes one full-screen page with a black background and a 200 ms
+crossfade. Images and videos use `--fit contain|cover|fill` (default `contain`).
+Videos are muted, do not loop, and advance on completion. Other pages use
+`--duration-ms` (default 8000). Applications and iframes use `fill`; application
+releases are pinned with timed advancement and no controller privileges. Edit the
+document for application-controlled advancement. The static preview represents
+applications and iframes with placeholders; verify release readiness, embedding,
+and actual playback through the server and intended Player.
+
+Supply `--screen-id` to read the target dimensions and revision. The result includes
+`data.screen_id`, `data.screen_revision`, `data.preview.argv`, and `data.publish.argv`.
+Pass these argument arrays to the bundled `screenrig` launcher without shell
+splitting: they preserve paths, config, API origin, and the observed revision.
+Inspect the preview before publishing. Later screen changes still cause revision
+conflicts. Target metadata stays outside the authored document.
+
+To override the canvas, supply both `--target-width` and `--target-height`. These
+also work without a screen, in which case no publish arguments are returned.
 Unknown or multiple reported surfaces require explicit dimensions. Output files
 must not already exist.
 
@@ -51,6 +83,32 @@ remain separate. Plain `playlist show` is an inspection response; `--editable`
 without `--output` returns `data.document`, `data.playlist_id`, and `data.revision`.
 Updating a playlist affects every screen assigned to it.
 
+### Replace one application release
+
+After a successful `app update`, take `data.application.release_id` and identify the
+exact playlist, page, and application primitive to change. Preview the replacement:
+
+```sh
+screenrig playlist replace-release pl_EXISTING --page board-page --primitive board --release-id rel_NEW
+```
+
+This is a read-only impact review, not a rendered preview. Inspect
+`data.previous_release_id`, `data.release_id`, and `data.affected_screens`, including
+archived assignments. Apply the reviewed change using its `data.revision` and
+`data.impact`:
+
+```sh
+screenrig playlist replace-release pl_EXISTING --page board-page --primitive board --release-id rel_NEW --apply --expect-rev 4 --expect-impact TOKEN_FROM_PREVIEW
+```
+
+Other primitives and settings are preserved. The update affects every screen
+assigned to this shared playlist; archived screens retain the new pin for later
+use. A changed replacement, revision, or observed screen impact requires a fresh
+preview and review. Assignments may change after the snapshot: only the playlist
+revision is checked atomically by the server. The server validates release
+availability and ownership on apply. Existing pins remain unchanged until apply;
+afterward, verify manifest revisions and playback on the affected screens.
+
 Playlist validate, create, update, preview, and screen publish accept `-` as their
 input file to read stdin. JSON envelopes are never written into authored files.
 `--expect-rev` is the preferred revision spelling; `--if-match` remains a compatible
@@ -62,7 +120,7 @@ the existing 4000-character limit applies. Prompts are excluded from diagnostics
 
 ## Playlist writes
 
-Four wire primitives exist: `image`, `video`, `iframe`, and `application`.
+The workflows below use these wire primitives: `image`, `video`, `iframe`, and `application`.
 Static is `image`, motion is `video`, and web is `iframe` or `application`.
 Do not author native `text`, `box`, or `line` on the wire. Presentable copy
 lives in the generated still. Deck copy and chrome are composed locally,
@@ -75,7 +133,7 @@ size can differ from the pixel dimensions of media rendered from a compose deck.
 
 A full playlist page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
 and `primitives`. A primitive is flat: `id`, a `primitive` field naming one of
-the four, that primitive's own fields, then `rect`, `layer`, `content_fit`,
+its kind, that primitive's own fields, then `rect`, `layer`, `content_fit`,
 optional `enter`, and optional `motion`. There is no nested content object.
 
 Keep the authored playlist JSON as the source of truth. To obtain one from an

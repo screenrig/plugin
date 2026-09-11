@@ -330,4 +330,4 @@ keeps alpha. Layered region PNGs can sit as image primitives at their
 manifest rects. Inspect with `--combined`; default agent output stays layered.
 A presentable poster is one generated `image` primitive, not photo plus overlay.
 
-After uploading finished slide images, pass their media IDs in playback order to `playlist init`, inspect the preview, then use `screen publish`. See [playlists](playlists.md).
+Pass finished slide image files to `playlist init` for upload and preparation, or reuse their ready media IDs in playback order, inspect the preview, then use `screen publish`. See [playlists](playlists.md).

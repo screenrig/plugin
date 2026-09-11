@@ -84,10 +84,10 @@ def main() -> int:
         if command not in taught:
             taught.append(command)
 
-    help_result = run_launcher(["--help"])
+    help_result = run_launcher(["help", "--all"])
     usage = f"{help_result.stdout}\n{help_result.stderr}"
-    if not usage.strip():
-        errors.append("bundled CLI --help produced no usage text")
+    if help_result.returncode != 0 or not usage.strip():
+        errors.append("bundled CLI help --all did not produce a successful command inventory")
     for command in taught:
         if command not in usage:
             errors.append(f"bundled CLI usage is missing taught command {command}")

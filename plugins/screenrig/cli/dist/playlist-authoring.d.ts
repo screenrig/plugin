@@ -9,6 +9,15 @@ export declare function initializePlaylist(options: {
     durationMs: number;
     fit: string;
 }): RecordValue;
+/** Build the backend-owned write document; target metadata stays outside it. */
+export declare function preparePlaylist(options: {
+    name: string;
+    content: RecordValue[];
+    width: number;
+    height: number;
+    durationMs: number;
+    fit: string;
+}): RecordValue;
 export declare function targetDimensions(screen: unknown, width?: number, height?: number): {
     width: number;
     height: number;

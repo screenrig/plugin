@@ -1,6 +1,7 @@
+import { replacePlaylistRelease } from "./playlist-release.js";
 import { publishScreen } from "./screen-publish.js";
 import { readAuthoringJson, readAuthoringText, writeAuthoringJson } from "./authoring-input.js";
-import { editablePlaylist, initializePlaylist, targetDimensions } from "./playlist-authoring.js";
+import { editablePlaylist, preparePlaylist, targetDimensions } from "./playlist-authoring.js";
 import { WriteRecovery } from "./write-recovery.js";
 import { createHash } from "node:crypto";
 import { open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -275,7 +276,7 @@ function commandHandler(handler, authenticated = true) {
             (group === "playlist" && ["create", "update", "delete"].includes(action ?? "")) ||
             (group === "media" && ["update", "delete"].includes(action ?? "")) ||
             (group === "screen" && !["provision", "publish"].includes(action ?? "")));
-        const recovery = ordinary ? new WriteRecovery(resolved, runtime) : undefined;
+        const recovery = ordinary ? new WriteRecovery(resolved, runtime, args.command.slice(0, 2).join(" ")) : undefined;
         if (recovery)
             writeRecoveries.set(runtime, recovery);
         try {
@@ -684,6 +685,8 @@ async function waitForAgentConnectionApproval(args, runtime, resolved, connectio
     }
     catch (err) {
         if (err.name === "AbortError") {
+            if (controller.signal.aborted || returnPending)
+                return latest;
             throw timeoutError("Timed out waiting for dashboard approval. Retry agent connect to resume the same request.");
         }
         throw err;
@@ -692,6 +695,8 @@ async function waitForAgentConnectionApproval(args, runtime, resolved, connectio
         clearTimeout(timer);
     }
     if (latest?.status === "pending" || !latest) {
+        if (returnPending || latest || controller.signal.aborted)
+            return latest;
         throw timeoutError("Agent connection stream ended before approval. Retry agent connect to resume the same request.");
     }
     return latest;
@@ -818,7 +823,7 @@ async function agentConnect(args, runtime, resolved) {
     }
     let pendingToken = current?.token;
     let pendingAgentId = connection.pending_agent_id;
-    const noWait = flagBool(args.flags, "no-wait");
+    const noWait = !flagBool(args.flags, "wait");
     let opened = false;
     let printed = false;
     if (!(pendingToken && pendingAgentId)) {
@@ -842,7 +847,7 @@ async function agentConnect(args, runtime, resolved) {
         };
         if (!noWait)
             await handoff();
-        const timeoutMs = requestedTimeout ?? (noWait ? 30_000 : 86_400_000);
+        const timeoutMs = noWait ? Math.min(requestedTimeout ?? 1000, 1000) : requestedTimeout ?? 30_000;
         let status;
         try {
             status = await waitForAgentConnectionApproval(args, runtime, resolved, connection, timeoutMs, noWait);
@@ -853,19 +858,20 @@ async function agentConnect(args, runtime, resolved) {
             }
             throw err;
         }
-        if (status.status === "pending") {
-            await handoff();
+        if (!status || status.status === "pending") {
+            if (!opened && !printed)
+                await handoff();
             const next = {
                 command: "screenrig agent connect --no-wait",
                 argv: ["agent", "connect", "--no-wait", "--config", resolved.configPath, "--api-url", resolved.apiUrl],
                 reason: "Complete dashboard approval, then resume. Use argv to preserve this configuration and API origin.",
             };
             return {
-                envelope: successEnvelope({ status: "pending", connection_id: connection.connection_id,
-                    expires_at: status.expires_at, opened, approval_url_printed: printed,
+                envelope: successEnvelope({ status: "pending", request_submitted: true, connection_complete: false, status_checked: status !== undefined, connection_id: connection.connection_id,
+                    expires_at: status?.expires_at ?? connection.expires_at, opened, approval_url_printed: printed,
                     ...(printed ? { approval_url: connection.approval_url } : {}), next }),
                 exitCode: ExitCode.Success,
-                human: humanLines("Agent approval pending", [["status", "pending"], ["connection_id", connection.connection_id],
+                human: humanLines("Agent approval pending", [["status", "pending"], ["connection_complete", "false"], ["connection_id", connection.connection_id],
                     ["approval_url", printed ? connection.approval_url : undefined], ["next", next.command]]),
             };
         }
@@ -940,6 +946,8 @@ async function agentConnect(args, runtime, resolved) {
     return {
         envelope: successEnvelope({
             status: "active",
+            request_submitted: true,
+            connection_complete: true,
             agent: safeAgentSummary(agent),
             connection_id: connection.connection_id,
             opened,
@@ -2360,6 +2368,15 @@ export const handlePlaylistCreate = commandHandler(async (args, runtime, resolve
 export const handlePlaylistUpdate = commandHandler(async (args, runtime, resolved) => {
     return playlistCreateUpdateAction(args, runtime, resolved, "update");
 }, true);
+export const handlePlaylistReplaceRelease = commandHandler(async (args, runtime, resolved) => {
+    const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+    const result = await replacePlaylistRelease({ client, apiUrl: resolved.apiUrl,
+        playlistId: args.positionals[2], pageId: flagString(args.flags, "page"),
+        primitiveId: flagString(args.flags, "primitive"), releaseId: flagString(args.flags, "release-id"),
+        apply: flagBool(args.flags, "apply"), revision: flagString(args.flags, "if-match"),
+        impact: flagString(args.flags, "expect-impact"), });
+    return { envelope: successEnvelope(result, { request_id: client.requestId }), exitCode: ExitCode.Success, human: JSON.stringify(result, null, 2) };
+}, true);
 export const handlePlaylistDelete = commandHandler(async (args, runtime, resolved) => {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
@@ -2434,10 +2451,57 @@ async function assertAssignedScreensHaveZone(client, playlistId, pages) {
     }
 }
 export const handleScreenList = commandHandler(async (args, runtime, resolved) => {
-    return simpleGet(args, runtime, resolved, "/api/v1/screens", "Screens", {
-        state: screenListStateFromArgs(args),
-    });
+    const token = requireToken(resolved.token);
+    const client = clientFor(runtime, args, resolved.apiUrl, token);
+    const response = await client.call({ method: "GET", path: "/api/v1/screens", query: { state: screenListStateFromArgs(args) } });
+    const items = response.body?.items;
+    return {
+        envelope: jsonBody(response, client.requestId),
+        exitCode: ExitCode.Success,
+        human: ["Screens", ...screenTableLines(Array.isArray(items) ? items : []), JSON.stringify(response.body, null, 2)].join("\n"),
+    };
 }, true);
+/**
+ * One row per screen. The platform column appears only when at least one
+ * screen reports a host, so a fleet without native players keeps the table it
+ * had. The JSON body follows unchanged in both output modes.
+ */
+function screenTableLines(items) {
+    if (!items.length)
+        return [];
+    const withPlatform = items.some((screen) => typeof screen?.host?.platform === "string");
+    const rows = items.map((screen) => [
+        screen?.id ?? "", screen?.label ?? "", screen?.state ?? "",
+        ...(withPlatform ? [screen?.host?.platform ?? ""] : []),
+        ...(screen?.recovery_pending?.expires_at ? [`recovery pending until ${screen.recovery_pending.expires_at}`] : []),
+    ]);
+    const header = ["ID", "LABEL", "STATE", ...(withPlatform ? ["PLATFORM"] : [])];
+    const widths = header.map((cell, index) => Math.max(cell.length, ...rows.map((row) => (row[index] ?? "").length)));
+    const render = (row) => row.map((cell, index) => index < widths.length ? cell.padEnd(widths[index]) : cell).join("  ").trimEnd();
+    return [render(header), ...rows.map(render)];
+}
+/** The `Host` block `screen show` prints. Absent fields are omitted; identifiers belong to the owning account. */
+function hostLines(host, updatedAt) {
+    if (!host || typeof host !== "object")
+        return [];
+    const device = host.device ?? {};
+    return humanLines("Host", [
+        ["platform", host.platform],
+        ["host_version", host.host_version],
+        ["model", device.model],
+        ["manufacturer", device.manufacturer],
+        ["firmware", device.firmware],
+        ["serial", device.serial],
+        ["duid", device.duid],
+        ["mac", device.mac],
+        ["capabilities", Array.isArray(host.capabilities) && host.capabilities.length ? host.capabilities.join(", ") : undefined],
+        ["updated_at", updatedAt],
+    ]).split("\n");
+}
+function recoveryPendingLine(screen) {
+    const expiresAt = screen?.recovery_pending?.expires_at;
+    return expiresAt ? [`Recovery pending until ${expiresAt}`, "Confirm with screen recover <id>; nothing is rebound until then."] : [];
+}
 export const handleScreenProvision = commandHandler(async (args, runtime, resolved) => {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
@@ -2536,10 +2600,23 @@ export const handleScreenPair = commandHandler(async (args, runtime, resolved) =
     };
 }, true);
 export const handleScreenShow = commandHandler(async (args, runtime, resolved) => {
+    const token = requireToken(resolved.token);
+    const client = clientFor(runtime, args, resolved.apiUrl, token);
     const id = args.positionals[2];
     if (!id)
         throw usageError("screen show requires an id.");
-    return simpleGet(args, runtime, resolved, `/api/v1/screens/${id}`, "Screen");
+    const response = await client.call({ method: "GET", path: `/api/v1/screens/${id}` });
+    const screen = response.body;
+    return {
+        envelope: jsonBody(response, client.requestId),
+        exitCode: ExitCode.Success,
+        human: [
+            "Screen",
+            JSON.stringify(response.body, null, 2),
+            ...hostLines(screen?.host, screen?.host_updated_at),
+            ...recoveryPendingLine(screen),
+        ].join("\n"),
+    };
 }, true);
 export const handleScreenUpdate = commandHandler(async (args, runtime, resolved) => {
     const token = requireToken(resolved.token);
@@ -2684,6 +2761,62 @@ export const handleScreenRotatePublicId = commandHandler(async (args, runtime, r
         envelope: jsonBody(response, client.requestId),
         exitCode: ExitCode.Success,
         human: `Rotated public id for ${id}`,
+    };
+}, true);
+const RECOVERY_PROBLEM_MESSAGES = {
+    recovery_not_offered: {
+        detail: "No recovery is pending for this screen. A display has to start pairing and report this screen's identifiers before recovery can be confirmed.",
+        next: { command: "screenrig screen show <id>", reason: "Check recovery_pending. If the display is showing a pairing code, pair it as a new screen instead." },
+    },
+    recovery_expired: {
+        detail: "The recovery offer for this screen has expired because the display's pairing session lapsed. Nothing was rebound.",
+        next: { command: "screenrig screen show <id>", reason: "Restart pairing on the display; a new offer appears as recovery_pending." },
+    },
+    recovery_ambiguous: {
+        detail: "The display's identifiers are attached to more than one screen, so recovery cannot be offered. Nothing was rebound.",
+        next: { command: "screenrig screen pair <code>", reason: "Pair the display as a new screen, or archive the duplicate screens first." },
+    },
+};
+export const handleScreenRecover = commandHandler(async (args, runtime, resolved) => {
+    const token = requireToken(resolved.token);
+    const client = clientFor(runtime, args, resolved.apiUrl, token);
+    const id = args.positionals[2];
+    if (!id)
+        throw usageError("screen recover requires <id>.");
+    const revision = flagString(args.flags, "if-match");
+    let response;
+    try {
+        // A fresh Idempotency-Key per invocation: the client mints one when the
+        // operator did not pass --idempotency-key, and write recovery keeps it.
+        response = await client.call({
+            method: "POST",
+            path: `/api/v1/screens/${id}/recovery/confirm`,
+            idempotent: true,
+            ...(revision ? { headers: { "if-match": quotedRevision(revision) } } : {}),
+        });
+    }
+    catch (error) {
+        const mapped = error instanceof CliError ? RECOVERY_PROBLEM_MESSAGES[error.problem.code] : undefined;
+        if (!(error instanceof CliError) || !mapped)
+            throw error;
+        const next = { ...mapped.next, command: mapped.next.command.replace("<id>", id) };
+        throw new CliError({ ...error.problem, detail: mapped.detail, next: error.problem.next ?? next }, error.exitCode, error.warnings);
+    }
+    const screen = response.body;
+    return {
+        envelope: jsonBody(response, client.requestId),
+        exitCode: ExitCode.Success,
+        human: [
+            humanLines(`Recovered screen ${id}`, [
+                ["screen_id", screen?.id],
+                ["label", screen?.label],
+                ["state", screen?.state],
+                ["revision", screen?.revision === undefined ? undefined : String(screen.revision)],
+                ["public_id", screen?.public_id],
+                ["platform", screen?.host?.platform],
+            ]),
+            "The display now runs this screen with its new key; the previous key retires after a fifteen-minute grace window.",
+        ].join("\n"),
     };
 }, true);
 export const handleScreenToast = commandHandler(async (args, runtime, resolved) => {
@@ -2913,14 +3046,14 @@ async function screenScreenshot(args, runtime, client) {
 export const handleKvList = commandHandler(async (args, runtime, resolved) => {
     const applicationId = flagString(args.flags, "application-id");
     if (!applicationId)
-        throw usageError("kv commands require --application-id.");
+        throw usageError("kv commands require --app-id.");
     const key = args.positionals[2];
     return simpleGet(args, runtime, resolved, `/api/v1/applications/${applicationId}/kv`, "K/V");
 }, true);
 export const handleKvGet = commandHandler(async (args, runtime, resolved) => {
     const applicationId = flagString(args.flags, "application-id");
     if (!applicationId)
-        throw usageError("kv commands require --application-id.");
+        throw usageError("kv commands require --app-id.");
     const key = args.positionals[2];
     if (!key)
         throw usageError("kv get requires a key.");
@@ -2929,7 +3062,7 @@ export const handleKvGet = commandHandler(async (args, runtime, resolved) => {
 export const handleKvSet = commandHandler(async (args, runtime, resolved) => {
     const applicationId = flagString(args.flags, "application-id");
     if (!applicationId)
-        throw usageError("kv commands require --application-id.");
+        throw usageError("kv commands require --app-id.");
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const key = args.positionals[2];
@@ -2960,7 +3093,7 @@ export const handleKvSet = commandHandler(async (args, runtime, resolved) => {
 export const handleKvDelete = commandHandler(async (args, runtime, resolved) => {
     const applicationId = flagString(args.flags, "application-id");
     if (!applicationId)
-        throw usageError("kv commands require --application-id.");
+        throw usageError("kv commands require --app-id.");
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const key = args.positionals[2];
@@ -3053,7 +3186,7 @@ export const handleCommentDeletePlaylist = commandHandler((args, runtime, resolv
 async function operationsGet(args, runtime, resolved) {
     const id = args.positionals[2];
     if (!id)
-        throw usageError("operations get requires an id.");
+        throw usageError("operations show requires an id.");
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const operation = await client.getOperation(id);
@@ -3601,25 +3734,106 @@ async function doctor(args, runtime, resolved) {
         human: checks.map((check) => `${check.status.toUpperCase()} ${check.name}: ${check.detail}${check.next ? `\n  next: ${check.next.command}` : ""}`).join("\n"),
     };
 }
+function sanitizedPreparationApiUrl(value) {
+    const url = new URL(value);
+    url.username = "";
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+}
 export const handlePlaylistInit = commandHandler(async (args, runtime, resolved) => {
     const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
     const screenId = flagString(args.flags, "screen");
     const width = flagNumber(args.flags, "target-width"), height = flagNumber(args.flags, "target-height");
     const screen = screenId ? (await client.call({ method: "GET", path: `/api/v1/screens/${encodeURIComponent(screenId)}` })).body : undefined;
     const dimensions = targetDimensions(screen, width, height);
-    const media = [];
-    for (const id of args.positionals.slice(2)) {
-        if (!/^med_[A-Za-z0-9_-]+$/.test(id))
-            throw usageError("playlist init requires media identifiers.");
-        const response = await client.call({ method: "GET", path: `/api/v1/media/${id}` });
-        const record = response.body;
-        if (record.id !== id)
-            throw usageError("Media response identity did not match.");
-        media.push(record);
+    const target = screen;
+    if (screenId && (!target || target.id !== screenId || !Number.isSafeInteger(target.revision) || target.revision < 1)) {
+        throw usageError("Screen response has invalid identity or revision.");
     }
-    const document = initializePlaylist({ name: flagString(args.flags, "name"), media, ...dimensions, durationMs: flagNumber(args.flags, "duration-ms") ?? 8000, fit: flagString(args.flags, "fit") ?? "contain" });
-    const output = await writeAuthoringJson(flagString(args.flags, "output"), document, runtime);
-    return { envelope: successEnvelope({ output, ...dimensions, page_count: media.length }, { request_id: client.requestId }), exitCode: ExitCode.Success, human: `Playlist prepared at ${output}` };
+    const content = [];
+    const files = new Map();
+    const warnings = [];
+    for (const input of args.positionals.slice(2)) {
+        if (/^med_[A-Za-z0-9_-]+$/.test(input)) {
+            const record = (await client.call({ method: "GET", path: `/api/v1/media/${input}` })).body;
+            if (record?.id !== input)
+                throw usageError("Media response identity did not match.");
+            content.push(record);
+        }
+        else if (/^rel_[A-Za-z0-9_-]+$/.test(input)) {
+            content.push({ primitive: "application", release_id: input });
+        }
+        else if (/^[a-z][a-z0-9+.-]*:/i.test(input)) {
+            let url;
+            try {
+                url = new URL(input);
+            }
+            catch {
+                throw usageError("Provide a valid HTTPS iframe URL.");
+            }
+            if (url.protocol !== "https:" || url.username || url.password)
+                throw usageError("Iframe URLs must use HTTPS without credentials.");
+            content.push({ primitive: "iframe", src: url.href, title: url.hostname.slice(0, 200) });
+        }
+        else {
+            const sourcePath = path.resolve(runtime.cwd(), input);
+            try {
+                if (!(await stat(sourcePath)).isFile())
+                    throw new Error();
+            }
+            catch {
+                throw usageError("Each input must be a readable image/video file, media ID, release ID, or HTTPS URL.");
+            }
+            files.set(content.length, sourcePath);
+            content.push({ primitive: "image", state: "ready", id: "med_PENDING" });
+        }
+    }
+    const options = { name: flagString(args.flags, "name"), content, ...dimensions, durationMs: flagNumber(args.flags, "duration-ms") ?? 8000, fit: flagString(args.flags, "fit") ?? "contain" };
+    // Validate the entire authoring shape and reserve the output before uploading.
+    preparePlaylist(options);
+    const output = path.resolve(runtime.cwd(), flagString(args.flags, "output"));
+    let handle;
+    try {
+        handle = await open(output, "wx", 0o600);
+    }
+    catch {
+        throw usageError("Cannot create output; choose a new file in an existing directory.");
+    }
+    try {
+        for (const [index, sourcePath] of files) {
+            // Scope each occurrence to the invocation key, including repeated files.
+            // An identical retry with --idempotency-key reproduces both declare and commit keys.
+            const idempotencyKey = createHash("sha256")
+                .update(JSON.stringify(["screenrig.playlist.init.upload", client.idempotencyKey, index]))
+                .digest("base64url");
+            const uploaded = await loggerOf(runtime).withLocal({ op: "media.upload", message: "media upload" }, () => uploadMediaFile({ runtime, client, sourcePath, idempotencyKey,
+                transcodeOptions: transcodeOptionsFromArgs(args), noTranscode: flagBool(args.flags, "no-transcode"),
+                reporter: progressReporterFor(args, runtime), noWait: false,
+                timeoutMs: flagNumber(args.flags, "timeout") ?? 120_000, pollMs: flagNumber(args.flags, "poll-ms") ?? 1000 }));
+            warnings.push(...uploaded.warnings);
+            if (!uploaded.mediaId)
+                throw usageError("Upload completed without a media identifier.");
+            const record = (await client.call({ method: "GET", path: `/api/v1/media/${encodeURIComponent(uploaded.mediaId)}` })).body;
+            if (record?.id !== uploaded.mediaId)
+                throw usageError("Media response identity did not match.");
+            content[index] = record;
+        }
+        await handle.writeFile(JSON.stringify(preparePlaylist(options), null, 2) + "\n");
+    }
+    catch (error) {
+        await handle.close();
+        await rm(output, { force: true });
+        throw error;
+    }
+    await handle.close();
+    const context = ["--config", resolved.configPath, "--api-url", sanitizedPreparationApiUrl(resolved.apiUrl)];
+    return { envelope: successEnvelope({ output, ...dimensions, page_count: content.length,
+            ...(target ? { screen_id: target.id, screen_revision: target.revision } : {}),
+            preview: { argv: ["playlist", "preview", output, "--output", `${output}.preview`, "--contact-sheet", ...context] },
+            ...(target ? { publish: { argv: ["screen", "publish", target.id, output, "--expect-rev", String(target.revision), ...context], reason: "Inspect the prepared document and preview before publishing." } } : {}),
+        }, { request_id: client.requestId, warnings }), exitCode: ExitCode.Success, human: `Playlist prepared at ${output}` };
 });
 export const handleScreenPublish = commandHandler(async (args, runtime, resolved) => {
     const parsed = await readAuthoringJson(args.positionals[3], runtime);

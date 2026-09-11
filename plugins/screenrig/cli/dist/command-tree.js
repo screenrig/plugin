@@ -1,3 +1,4 @@
+import { handlerOptionName } from "./cli-commands/aliases.js";
 import { Command, Option } from "commander";
 import { commandError } from "./cli-errors.js";
 import { commandPath, findCommand, invocationFlags } from "./command-path.js";
@@ -24,9 +25,9 @@ function protectOption(command, option, argv, seen) {
         });
     }
     command.on(`option:${option.name()}`, () => {
-        if (seen.has(name))
+        if (seen.has(handlerOptionName(option)))
             throw usageError(`--${name} may be supplied only once.`);
-        seen.add(name);
+        seen.add(handlerOptionName(option));
     });
 }
 /** Fresh native commands per invocation; actions return their asynchronous work. */
@@ -46,14 +47,17 @@ export function createCommandTree(argv = [], execute) {
     let selected = root;
     let helpRequested = false;
     let versionRequested = false;
+    let inventoryRequested = false;
     const seen = new Set();
     registerCommands(root, (handler) => (...values) => {
         selected = values[values.length - 1];
         return execute?.(handler, commandInput(selected));
     });
     root.command("help [command...]")
-        .description("Discover commands and their options")
-        .action((path) => {
+        .description("Discover commands; --all lists every command")
+        .option("--all", "Include all descendant command paths")
+        .action((path, options) => {
+        inventoryRequested = options.all === true;
         const target = findCommand(root, path);
         if (!target)
             throw usageError("Unknown help topic.");
@@ -87,6 +91,6 @@ export function createCommandTree(argv = [], execute) {
         command.commands.forEach(configure);
     };
     configure(root);
-    return { root, selected: () => selected, helpRequested: () => helpRequested, versionRequested: () => versionRequested };
+    return { root, selected: () => selected, helpRequested: () => helpRequested, versionRequested: () => versionRequested, inventoryRequested: () => inventoryRequested };
 }
 //# sourceMappingURL=command-tree.js.map

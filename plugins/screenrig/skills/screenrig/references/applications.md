@@ -41,15 +41,19 @@ screenrig app update app_EXAMPLE ./lobby-board --expect-rev 3
 
 `app update` preserves application identity, name, and application K/V. It uses
 the same packer, upload limits, operation wait, and release result as upload.
-Wait for `operation.state: "succeeded"`, then explicitly replace the intended
-playlist primitive's `release_id` and update the playlist with its revision.
-Existing playlists remain pinned to their old immutable release until edited.
+Wait for `data.operation.state: "succeeded"`, then use `playlist replace-release`
+to review the exact page and primitive replacement and all affected screens. Apply
+with the returned revision and impact token; see [release replacement](playlists.md#replace-one-application-release).
+Existing playlists remain pinned until that replacement is applied.
 On a revision conflict, read the app again before deciding whether to retry;
 do not create a replacement application just to bypass the conflict.
 
 ### 2. Write the application primitive
 
-Application-controlled page fragment:
+For a timed full-screen application page, pass its `rel_` ID to `playlist init`;
+see [preparation](playlists.md#prepare-publish-and-edit-playlists). That default has
+no controller privileges. For application-controlled advancement, author this
+page fragment instead:
 
 ```json
 {
@@ -142,10 +146,10 @@ blocks on a WebP. Do not print pixels.
 Application K/V is binary-safe. Use exactly one value mode.
 
 ```bash
-screenrig kv set --application-id app_EXAMPLE lobby --json-value '{"open":true}'
-screenrig kv get --application-id app_EXAMPLE lobby
-screenrig kv list --application-id app_EXAMPLE
-screenrig kv delete --application-id app_EXAMPLE lobby --expect-rev REVISION
+screenrig kv set --app-id app_EXAMPLE lobby --json-value '{"open":true}'
+screenrig kv get --app-id app_EXAMPLE lobby
+screenrig kv list --app-id app_EXAMPLE
+screenrig kv delete --app-id app_EXAMPLE lobby --expect-rev REVISION
 ```
 
 `kv get` returns the stored bytes only as `data.value_base64`, including when

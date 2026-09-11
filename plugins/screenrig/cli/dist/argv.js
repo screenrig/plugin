@@ -18,7 +18,7 @@ export function parseArgv(argv) {
     if (tree.versionRequested())
         args.flags.version = true;
     if (tree.helpRequested()) {
-        const help = describeHelp(tree.selected());
+        const help = describeHelp(tree.selected(), tree.inventoryRequested());
         return { command: help.path.slice(0, 2), positionals: help.path, flags: { ...args.flags, help: true }, help };
     }
     return args;

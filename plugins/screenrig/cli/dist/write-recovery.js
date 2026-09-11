@@ -5,6 +5,14 @@ import { configError, usageError } from "./problems.js";
 // Server replay records last 24 hours. Stop earlier rather than silently
 // replaying a mutation after the server may have forgotten its key.
 const SAFE_REPLAY_MS = 23 * 60 * 60 * 1000;
+const commandGroups = new Set(["kv", "comment", "feedback", "operations", "app", "playlist", "media", "screen"]);
+const commandActions = new Set(["create", "update", "delete", "upload", "set", "put", "assign", "pair", "unpair", "clear", "toast", "screenshot", "reload", "restart", "cancel", "submit", "set-timezone", "archive", "unarchive", "rotate-public-id", "bug", "feature"]);
+function safeCommand(value) {
+    if (typeof value !== "string")
+        return null;
+    const parts = value.split(" ");
+    return parts.length === 2 && commandGroups.has(parts[0]) && commandActions.has(parts[1]) ? value : null;
+}
 function ledger(config) {
     const value = config.pending_writes === undefined ? {} : config.pending_writes;
     if (!value || typeof value !== "object" || Array.isArray(value) ||
@@ -15,14 +23,16 @@ function ledger(config) {
     }
     return value;
 }
-/** Per-invocation coordinator. Only hashes, keys and timestamps reach disk. */
+/** Per-invocation coordinator. Only hashes, keys, timestamps and command names reach disk. */
 export class WriteRecovery {
     resolved;
     runtime;
+    command;
     touched = new Map();
-    constructor(resolved, runtime) {
+    constructor(resolved, runtime, command) {
         this.resolved = resolved;
         this.runtime = runtime;
+        this.command = command;
     }
     async update(work) {
         const fs = { ...this.runtime.fs, env: this.runtime.env, homedir: this.runtime.homedir };
@@ -55,13 +65,14 @@ export class WriteRecovery {
             const existing = entries[fingerprint];
             const reuse = existing && (!requestedKey || requestedKey === existing.idempotency_key);
             if (reuse && this.runtime.now().getTime() - Date.parse(existing.created_at) >= SAFE_REPLAY_MS) {
-                throw usageError("This unresolved write is older than the safe replay window. Inspect the resource before explicitly supplying a new --idempotency-key for a reconciled write.");
+                throw usageError("This unresolved write is older than the safe replay window. Run screenrig recovery list and inspect the resource before using screenrig recovery reconcile ID or explicitly supplying a new --idempotency-key for a reconciled write.");
             }
             if (!existing && Object.keys(entries).length >= 256) {
-                throw configError("Too many unresolved writes. Reconcile pending writes before starting another mutation.");
+                throw configError("Too many unresolved writes. Run screenrig recovery list, inspect the remote outcome, then use screenrig recovery reconcile ID before starting another mutation.");
             }
             const key = reuse ? existing.idempotency_key : requestedKey ?? newIdempotencyKey();
-            entries[fingerprint] = reuse ? existing : { idempotency_key: key, created_at: this.runtime.now().toISOString() };
+            entries[fingerprint] = reuse ? existing : { idempotency_key: key, created_at: this.runtime.now().toISOString(),
+                ...(safeCommand(this.command) ? { command: safeCommand(this.command) } : {}) };
             return { fingerprint, key };
         });
         this.touched.set(fingerprint, pending);
@@ -86,5 +97,44 @@ export class WriteRecovery {
         });
         this.touched.clear();
     }
+}
+/** Public recovery identifiers bind one saved generation without exposing its key. */
+function recoveryId(fingerprint, entry) {
+    return "wr_" + createHash("sha256").update(JSON.stringify([fingerprint, entry.idempotency_key, entry.created_at])).digest("hex");
+}
+function describeEntry(fingerprint, entry, now) {
+    const expiry = Date.parse(entry.created_at) + SAFE_REPLAY_MS;
+    return {
+        id: recoveryId(fingerprint, entry),
+        command: safeCommand(entry.command),
+        created_at: entry.created_at,
+        replay_expires_at: new Date(expiry).toISOString(),
+        replay_status: now >= expiry ? "expired" : "within_window",
+    };
+}
+/** Local-only management; never replays or undoes a remote mutation. */
+export async function manageWriteRecovery(resolved, runtime, action, id) {
+    if (action !== "list" && (!id || !/^wr_[a-f0-9]{64}$/.test(id))) {
+        throw usageError("Use a recovery ID returned by screenrig recovery list.");
+    }
+    const fs = { ...runtime.fs, env: runtime.env, homedir: runtime.homedir };
+    return withConfigLock(resolved.configPath, fs, { sleep: runtime.sleep, now: () => runtime.now().getTime() }, async () => {
+        const config = await readConfigFile(resolved.configPath, fs);
+        const pending = ledger(config ?? { api_url: resolved.apiUrl });
+        const entries = Object.entries(pending).map(([fingerprint, entry]) => describeEntry(fingerprint, entry, runtime.now().getTime()));
+        entries.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+        if (action === "list")
+            return entries;
+        const entry = entries.find(entry => entry.id === id);
+        if (!entry)
+            throw usageError("Recovery entry is no longer pending. Run screenrig recovery list for current IDs; nothing was changed.");
+        if (action === "reconcile") {
+            const fingerprint = Object.keys(pending).find(hash => recoveryId(hash, pending[hash]) === id);
+            delete pending[fingerprint];
+            const { pending_writes: _old, ...rest } = config;
+            await writeConfigAtomic(resolved.configPath, { ...rest, ...(Object.keys(pending).length ? { pending_writes: pending } : {}) }, fs);
+        }
+        return [entry];
+    });
 }
 //# sourceMappingURL=write-recovery.js.map

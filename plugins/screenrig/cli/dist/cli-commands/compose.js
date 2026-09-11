@@ -1,7 +1,6 @@
-import { usageError } from "../problems.js";
 import { positiveInteger } from "./options.js";
 import { handleComposeCatalog, handleComposeBatch, handleComposeRender } from "../commands.js";
-import { addCommandNotes } from "./notes.js";
+import { addCommandNotes, requireOptionGroup } from "./notes.js";
 import { LOOK_AT_THE_CONTACT_SHEET } from "../playlist-preview.js";
 export function registerComposeCommands(root, bind) {
     const compose = root.command("compose").description("Render and inspect local page compositions");
@@ -15,7 +14,6 @@ export function registerComposeCommands(root, bind) {
         .option("--target-height <PX>", "Set the physical content height", positiveInteger("target-height"))
         .option("--safe-area", "Apply the display safe area")
         .option("--lint-only", "Run the command's local validation/lint mode")
-        .hook("preAction", requireTargetDimensions)
         .action(bind(handleComposeBatch)), `Render 1 to 2000 pages. ${LOOK_AT_THE_CONTACT_SHEET}`);
     addCommandNotes(compose.command("render").description("Render a composition locally")
         .argument("<file>", "Local input file")
@@ -26,13 +24,9 @@ export function registerComposeCommands(root, bind) {
         .option("--safe-area", "Apply the display safe area")
         .option("--open", "Open the result in its viewer")
         .option("--lint-only", "Run the command's local validation/lint mode")
-        .hook("preAction", requireTargetDimensions)
         .action(bind(handleComposeRender)), LOOK_AT_THE_CONTACT_SHEET);
-}
-function requireTargetDimensions(command) {
-    const width = command.getOptionValueSource("targetWidth") === "cli";
-    const height = command.getOptionValueSource("targetHeight") === "cli";
-    if (width !== height)
-        throw usageError("Provide both --target-width and --target-height.");
+    for (const command of compose.commands.filter((command) => ["batch", "render"].includes(command.name()))) {
+        requireOptionGroup(command, "together", ["--target-width", "--target-height"]);
+    }
 }
 //# sourceMappingURL=compose.js.map

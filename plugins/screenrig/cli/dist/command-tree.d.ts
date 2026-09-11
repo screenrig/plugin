@@ -7,6 +7,7 @@ export interface CommandTree {
     selected: () => Command;
     helpRequested: () => boolean;
     versionRequested: () => boolean;
+    inventoryRequested: () => boolean;
 }
 export declare function commandInput(command: Command): ParsedArgs;
 /** Fresh native commands per invocation; actions return their asynchronous work. */

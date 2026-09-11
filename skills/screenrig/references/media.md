@@ -251,4 +251,4 @@ Run `doctor` for local diagnostics. Use
 `doctor --repair-config` only to repair an existing credential file
 whose permissions are too broad.
 
-For long or exact-copy prompts, use `media generate --prompt-file FILE` (or `-` for stdin) instead of `--prompt`. For full-screen playback of ready media IDs, use `playlist init` and `screen publish`; see [playlists](playlists.md).
+For long or exact-copy prompts, use `media generate --prompt-file FILE` (or `-` for stdin) instead of `--prompt`. For full-screen playback, `playlist init` accepts ready media IDs or local files (uploading them during preparation), followed by `screen publish`; see [playlists](playlists.md).
