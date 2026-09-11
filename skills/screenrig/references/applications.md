@@ -36,7 +36,7 @@ revision with `app show`, then publish a new release:
 
 ```bash
 screenrig app show app_EXAMPLE
-screenrig app update app_EXAMPLE ./lobby-board --if-match 3
+screenrig app update app_EXAMPLE ./lobby-board --expect-rev 3
 ```
 
 `app update` preserves application identity, name, and application K/V. It uses
@@ -117,11 +117,11 @@ must carry `controller: true`. Do not set `controller` on a `duration` or
 ```bash
 screenrig playlist create ./lobby-board.json
 screenrig screen list
-screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match 3
+screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --expect-rev 3
 ```
 
 Take `--playlist-id` from `data.id` of the `playlist create` result. Take
-`--if-match` from the screen's current `revision`, which both `screen list` and
+`--expect-rev` from the screen's current `revision`, which both `screen list` and
 `screen show` return. `revision_conflict` means refetch and retry. Do not
 invent the revision.
 
@@ -145,7 +145,7 @@ Application K/V is binary-safe. Use exactly one value mode.
 screenrig kv set --application-id app_EXAMPLE lobby --json-value '{"open":true}'
 screenrig kv get --application-id app_EXAMPLE lobby
 screenrig kv list --application-id app_EXAMPLE
-screenrig kv delete --application-id app_EXAMPLE lobby --if-match REVISION
+screenrig kv delete --application-id app_EXAMPLE lobby --expect-rev REVISION
 ```
 
 `kv get` returns the stored bytes only as `data.value_base64`, including when

@@ -164,7 +164,7 @@ On a build that converts:
   object. Hyphens are rejected; `ExecIntro2026` is valid and `exec-intro`
   is not. `media list --tag TAG [--primitive image|video]` filters by that tag
   and is the reliable filename → id map after upload.
-  `media update <id> (--tag TAG | --clear-tag) --if-match REVISION` changes
+  `media update <id> (--tag TAG | --clear-tag) --expect-rev REVISION` changes
   or clears it. Untagged objects are omitted when `--tag` is present on
   `media list`.
 - The conversion runs `ffmpeg` and `ffprobe`. They must be on `PATH`, or their
@@ -250,3 +250,5 @@ problem code and status.
 Run `doctor` for local diagnostics. Use
 `doctor --repair-config` only to repair an existing credential file
 whose permissions are too broad.
+
+For long or exact-copy prompts, use `media generate --prompt-file FILE` (or `-` for stdin) instead of `--prompt`. For full-screen playback of ready media IDs, use `playlist init` and `screen publish`; see [playlists](playlists.md).

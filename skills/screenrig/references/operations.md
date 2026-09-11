@@ -5,11 +5,11 @@
 ```bash
 screenrig screen list
 screenrig screen show scr_EXAMPLE
-screenrig screen update scr_EXAMPLE --name "Lobby" --playlist-id pl_EXAMPLE --if-match REVISION
-screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match REVISION
-screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match REVISION
-screenrig screen archive scr_EXAMPLE --if-match REVISION
-screenrig screen unarchive scr_EXAMPLE --if-match REVISION
+screenrig screen update scr_EXAMPLE --name "Lobby" --playlist-id pl_EXAMPLE --expect-rev REVISION
+screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --expect-rev REVISION
+screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --expect-rev REVISION
+screenrig screen archive scr_EXAMPLE --expect-rev REVISION
+screenrig screen unarchive scr_EXAMPLE --expect-rev REVISION
 screenrig screen toast scr_EXAMPLE --text "Updated lobby loop" --level info
 screenrig screen screenshot scr_EXAMPLE --output ./lobby.webp
 ```
@@ -59,7 +59,7 @@ screenrig comment delete screen scr_EXAMPLE
 ```
 
 `--json-value` is a JSON object. `--file` reads a JSON object from disk.
-Exactly one of those on set. Last write wins; do not send `--if-match`.
+Exactly one of those on set. Last write wins; do not send `--expect-rev`.
 Unset show is `{ "comments": null }`.
 
 ## Events
