@@ -1,10 +1,69 @@
 # Playlists, motion, schedules and bundles
 
+## Prepare, publish, and edit playlists
+
+For ready images and videos, prepare a full-screen playlist in playback order:
+
+```sh
+screenrig playlist init med_POSTER med_VIDEO --name "Lobby loop" --screen scr_LOBBY --output lobby.json
+screenrig playlist preview lobby.json --output preview --contact-sheet
+screenrig screen publish scr_LOBBY lobby.json --expect-rev 7
+```
+
+Inspect the preview before publishing. `playlist init` reads media metadata and
+screen observations but makes no remote writes. It creates one page per media ID,
+with `contain` fit, a black background, and a 200 ms crossfade. Images last 8000 ms;
+videos are muted, do not loop, and advance on completion. Use `--duration-ms` for
+image duration and `--fit contain|cover|fill` for content fit. Override the canvas
+with both `--target-width` and `--target-height`; these also work without `--screen`.
+Unknown or multiple reported surfaces require explicit dimensions. Output files
+must not already exist.
+
+`screen publish <screen-id> <file>` creates a new playlist, assigns it using the
+expected **screen** revision, and reads back the assignment. It does not update an
+existing playlist by name. A name collision requires a different name or an
+explicit `playlist update`. Its JSON result reports `playlist_id`,
+`playlist_revision`, `screen_id`, `screen_revision`, `assignment_verified`, and
+`playback_verified`. Assignment verification does not prove playback; request and
+inspect a screenshot and relevant playback evidence separately.
+
+Publishing saves a private local journal automatically. After an ambiguous failure,
+repeat the identical command and input with the same config to resume. If playlist
+creation succeeded before assignment failed, the error identifies the created
+playlist. Do not delete it or start another create to recover. A revision conflict
+requires inspecting the screen and reconciling the intended assignment; an already
+created playlist can be assigned explicitly with `screen assign`. Publishing never
+silently refreshes the expected revision. Unfinished recovery stops after the
+24-hour server idempotency window; inspect and reconcile before making more writes.
+
+To edit an existing playlist:
+
+```sh
+screenrig playlist show pl_EXISTING --output lobby.json
+screenrig playlist update pl_EXISTING lobby.json --expect-rev 4
+```
+
+`playlist show --output` writes the editable `{name, pages}` document and returns
+its path, `playlist_id`, and source `revision` on stdout. Use that returned revision
+for the update. It preserves dynamic selectors, schedules, motion, and pinned
+application releases, removing server-derived media and timing fields. Comments
+remain separate. Plain `playlist show` is an inspection response; `--editable`
+without `--output` returns `data.document`, `data.playlist_id`, and `data.revision`.
+Updating a playlist affects every screen assigned to it.
+
+Playlist validate, create, update, preview, and screen publish accept `-` as their
+input file to read stdin. JSON envelopes are never written into authored files.
+`--expect-rev` is the preferred revision spelling; `--if-match` remains a compatible
+alias. Supply only one. The HTTP revision contract is unchanged.
+
+Generation accepts either `--prompt TEXT` or `--prompt-file FILE`, including
+`--prompt-file -` for stdin. The file is the complete prompt, with no trimming;
+the existing 4000-character limit applies. Prompts are excluded from diagnostics.
+
 ## Playlist writes
 
 Use five primitives: `image`, uploaded `video`, live `stream`, `iframe`, and
-`application`. Streaming is awaiting release and requires a compatible backend
-and Player.
+`application`. Streaming requires a compatible backend and Player.
 Do not author native `text`, `box`, or `line` on the wire. Presentable copy
 lives in the generated still. Deck copy and chrome are composed locally,
 uploaded as `image`, and used as one image primitive.
@@ -19,11 +78,10 @@ and `primitives`. A primitive is flat: `id`, a `primitive` field naming
 a supported kind, that primitive's own fields, then `rect`, `layer`, `content_fit`,
 optional `enter`, and optional `motion`. There is no nested content object.
 
-Keep the authored playlist JSON as the source of truth. `playlist show` is an
-inspection payload, not a guaranteed write document: the server may add
-resolved/defaulted fields such as `advance.max_ms` and
-`selector.one_at_a_time`. Do not feed a show payload directly to `playlist
-create` or `playlist update`; edit and submit the authored file instead.
+Keep the authored playlist JSON as the source of truth. To obtain one from an
+existing playlist, use `playlist show ID --output FILE`; the returned envelope
+includes the source revision. Ordinary `playlist show` remains an inspection
+response and must not be submitted as a write document.
 
 Image and video primitives require a `selector`. `stream`, `iframe`, and `application`
 do not take one. Do not put `media_id` on the primitive itself; it belongs
@@ -302,7 +360,7 @@ owns it. `{"days": ["fri"], "start": "22:00", "end": "02:00"}` runs Friday
 22:00 through Saturday 02:00.
 
 ```bash
-screenrig --json screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match 3
+screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --expect-rev 3
 ```
 
 `--timezone` is an IANA identifier such as `America/Los_Angeles` or
@@ -315,9 +373,9 @@ Use a `screenrig.playlist-bundle/v1` directory to move one playlist and every
 referenced image or video rendition together.
 
 ```bash
-screenrig --json playlist export pl_EXAMPLE --output ./lobby-bundle
-screenrig --json playlist import ./lobby-bundle
-screenrig --json playlist import ./lobby-bundle --update pl_TARGET --if-match REVISION
+screenrig playlist export pl_EXAMPLE --output ./lobby-bundle
+screenrig playlist import ./lobby-bundle
+screenrig playlist import ./lobby-bundle --update pl_TARGET --expect-rev REVISION
 ```
 
 The export destination must not exist. The bundle contains
@@ -329,11 +387,11 @@ names are unique per account, so importing an account's own export unchanged
 is refused with 409 `resource_conflict` ("playlist name is already in use");
 that problem's `error.next` names the two ways forward. `--name NAME` (1 to
 120 characters) imports the bundle as a new playlist under that name;
-`--update ID --if-match REVISION` replaces the existing playlist instead.
-Updating requires both `--update` and the current `--if-match` revision.
+`--update ID --expect-rev REVISION` replaces the existing playlist instead.
+Updating requires both `--update` and the current `--expect-rev` revision.
 
 ```bash
-screenrig --json playlist import ./lobby-bundle --name "Lobby loop (copy)"
+screenrig playlist import ./lobby-bundle --name "Lobby loop (copy)"
 ```
 
 ## Live streams

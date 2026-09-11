@@ -379,6 +379,23 @@ def verify_generated_launcher(plugin_root: Path) -> None:
         raise BuildError("generated plugin launcher did not run the bundled CLI with clean offline output")
 
 
+def copy_docs(plugin_root: Path) -> None:
+    """Refresh canonical public files and skills without changing CLI provenance."""
+    public_root = PUBLIC_ROOT if PUBLIC_ROOT.is_dir() else ROOT
+    plugin_root.mkdir(parents=True, exist_ok=True)
+    for relative in PUBLIC_FILES:
+        source = public_root / relative
+        if not source.is_file():
+            raise BuildError(f"public plugin root file is missing: {relative}")
+        destination = plugin_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    skill_target = plugin_root / "skills" / PLUGIN_NAME
+    if skill_target.exists():
+        shutil.rmtree(skill_target)
+    shutil.copytree(SKILL, skill_target)
+
+
 def build(
     output: Path,
     cli_artifact: Path | None = None,
@@ -392,16 +409,7 @@ def build(
         raise BuildError("build/plugin.json name must be screenrig")
     release_version = version()
     plugin_root = output / PLUGIN_NAME
-    public_root = PUBLIC_ROOT if PUBLIC_ROOT.is_dir() else ROOT
-    plugin_root.mkdir(parents=True, exist_ok=True)
-    for relative in PUBLIC_FILES:
-        source = public_root / relative
-        if not source.is_file():
-            raise BuildError(f"public plugin root file is missing: {relative}")
-        destination = plugin_root / relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
-    shutil.copytree(SKILL, plugin_root / "skills" / PLUGIN_NAME)
+    copy_docs(plugin_root)
 
     cli_root = plugin_root / "cli"
     with cli_input(cli_artifact, write_lock=write_lock, cli_commit=cli_commit, check=check) as (
@@ -446,9 +454,26 @@ def compare(expected: Path, actual: Path) -> list[str]:
     return changes
 
 
+def compare_docs(expected: Path, actual: Path) -> list[str]:
+    changes = compare(expected / "skills" / PLUGIN_NAME, actual / "skills" / PLUGIN_NAME)
+    for relative in PUBLIC_FILES:
+        source, target = expected / relative, actual / relative
+        if not target.is_file():
+            changes.append(f"missing {relative}")
+        elif not filecmp.cmp(source, target, shallow=False):
+            changes.append(f"changed {relative}")
+        elif file_mode(source) != file_mode(target):
+            changes.append(f"mode {relative}")
+    return changes
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--docs-only", action="store_true",
+        help="refresh canonical public files and skills in an existing bundle; preserve CLI, manifests and provenance",
+    )
     parser.add_argument("--cli-artifact", type=Path, help="tarball packed from sibling ../cli or current screenrig/cli main")
     parser.add_argument(
         "--write-lock",
@@ -460,6 +485,9 @@ def main() -> int:
         help="commit that produced the packed tarball, recorded as provenance only",
     )
     args = parser.parse_args()
+    if args.docs_only and (args.cli_artifact or args.write_lock or args.cli_commit):
+        print("build-plugin: --docs-only cannot be combined with CLI artifact or provenance options", file=sys.stderr)
+        return 2
     if args.write_lock and args.check:
         print("build-plugin: --write-lock cannot be combined with --check", file=sys.stderr)
         return 2
@@ -467,6 +495,25 @@ def main() -> int:
         print("build-plugin: --cli-commit must be a 40-character lowercase SHA-1", file=sys.stderr)
         return 2
     try:
+        if args.docs_only:
+            target = PLUGINS / PLUGIN_NAME
+            if not (target / "cli" / "package.json").is_file():
+                raise BuildError("--docs-only requires an existing generated CLI bundle")
+            if args.check:
+                with tempfile.TemporaryDirectory(prefix="screenrig-plugin-docs-") as temp:
+                    expected = Path(temp) / PLUGIN_NAME
+                    copy_docs(expected)
+                    changes = compare_docs(expected, target)
+                    if changes:
+                        print("generated ScreenRig plugin docs are stale:", file=sys.stderr)
+                        for change in changes:
+                            print(f"  {change}", file=sys.stderr)
+                        return 1
+                print("generated ScreenRig plugin docs are current; CLI bundle not checked")
+                return 0
+            copy_docs(target)
+            print("updated ScreenRig plugin docs; CLI bundle and provenance unchanged")
+            return 0
         if args.check:
             with tempfile.TemporaryDirectory(prefix="screenrig-plugin-") as temp:
                 expected = Path(temp) / "plugins"

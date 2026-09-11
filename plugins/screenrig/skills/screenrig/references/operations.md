@@ -3,15 +3,15 @@
 ## Screens
 
 ```bash
-screenrig --json screen list
-screenrig --json screen show scr_EXAMPLE
-screenrig --json screen update scr_EXAMPLE --name "Lobby" --playlist-id pl_EXAMPLE --if-match REVISION
-screenrig --json screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --if-match REVISION
-screenrig --json screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --if-match REVISION
-screenrig --json screen archive scr_EXAMPLE --if-match REVISION
-screenrig --json screen unarchive scr_EXAMPLE --if-match REVISION
-screenrig --json screen toast scr_EXAMPLE --text "Updated lobby loop" --level info
-screenrig --json screen screenshot scr_EXAMPLE --output ./lobby.webp
+screenrig screen list
+screenrig screen show scr_EXAMPLE
+screenrig screen update scr_EXAMPLE --name "Lobby" --playlist-id pl_EXAMPLE --expect-rev REVISION
+screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --expect-rev REVISION
+screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --expect-rev REVISION
+screenrig screen archive scr_EXAMPLE --expect-rev REVISION
+screenrig screen unarchive scr_EXAMPLE --expect-rev REVISION
+screenrig screen toast scr_EXAMPLE --text "Updated lobby loop" --level info
+screenrig screen screenshot scr_EXAMPLE --output ./lobby.webp
 ```
 
 `screen list` omits archived screens. `screen list --state archived` lists
@@ -52,21 +52,22 @@ value must be an object. screenRIG does not read or use it and never sends it
 to players.
 
 ```bash
-screenrig --json comment set screen scr_EXAMPLE --json-value '{"note":"lobby hours"}'
-screenrig --json comment show screen scr_EXAMPLE
-screenrig --json comment set playlist pl_EXAMPLE --page poster --file ./note.json
-screenrig --json comment delete screen scr_EXAMPLE
+screenrig comment set screen scr_EXAMPLE --json-value '{"note":"lobby hours"}'
+screenrig comment show screen scr_EXAMPLE
+screenrig comment set playlist pl_EXAMPLE --page poster --file ./note.json
+screenrig comment delete screen scr_EXAMPLE
 ```
 
 `--json-value` is a JSON object. `--file` reads a JSON object from disk.
-Exactly one of those on set. Last write wins; do not send `--if-match`.
+Exactly one of those on set. Last write wins; do not send `--expect-rev`.
 Unset show is `{ "comments": null }`.
 
 ## Events
 
-Human `events list` and `events follow` print one logfmt line per event.
-`--json events list` is one JSON page envelope. `--json events follow` is a
-JSON stream of envelopes.
+`events list` returns one JSON page envelope by default. `events follow` emits
+NDJSON: one JSON envelope per line. An empty follow emits an envelope with
+`data.items: []`. `--human events list` and `--human events follow` select one
+logfmt line per event for manual inspection. `--json` remains compatible.
 
 An `application.event` line leads its details with `code` and `primitive_id`,
 the id of the primitive that emitted it.
@@ -97,10 +98,10 @@ supplied cursor.
 ## Feedback
 
 ```bash
-screenrig --json feedback bug "Playlist stalls after assign" \
+screenrig feedback bug "Playlist stalls after assign" \
   --body-file ./report.md --command "screen assign"
-screenrig --json feedback feature "Add a dry-run flag" --body "Preview a change first."
-screenrig --json feedback list [--kind bug|feature]
+screenrig feedback feature "Add a dry-run flag" --body "Preview a change first."
+screenrig feedback list [--kind bug|feature]
 ```
 
 `--body` is inline text. `--body-file` reads a file. A title is at most 120

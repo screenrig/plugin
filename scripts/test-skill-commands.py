@@ -38,7 +38,7 @@ def taught_commands(commands_text: str) -> list[str]:
             tokens.append(part)
         if not tokens:
             continue
-        command = " ".join(tokens[:2] if len(tokens) > 1 else tokens)
+        command = " ".join(tokens)
         if command not in seen:
             seen.add(command)
             found.append(command)
@@ -84,13 +84,20 @@ def main() -> int:
         if command not in taught:
             taught.append(command)
 
-    help_result = run_launcher(["--help"])
-    usage = f"{help_result.stdout}\n{help_result.stderr}"
-    if not usage.strip():
-        errors.append("bundled CLI --help produced no usage text")
+    help_result = run_launcher(["--json", "help", "--all"])
+    try:
+        help_envelope = json.loads(help_result.stdout)
+        inventory = help_envelope["data"]["allCommands"]
+        if help_result.returncode != 0 or help_envelope.get("ok") is not True:
+            raise ValueError("help failed")
+        if not isinstance(inventory, list) or not all(isinstance(item, str) for item in inventory):
+            raise ValueError("invalid command inventory")
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        errors.append("bundled CLI help --all must return a successful structured command inventory")
+        inventory = []
     for command in taught:
-        if command not in usage:
-            errors.append(f"bundled CLI usage is missing taught command {command}")
+        if command not in inventory:
+            errors.append(f"bundled CLI inventory is missing taught command {command}")
 
     generate = run_launcher(["--json", "media", "generate"])
     combined = f"{generate.stdout}\n{generate.stderr}"

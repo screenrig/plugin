@@ -16,6 +16,7 @@ import { registerPlaybackCommands } from "./playback.js";
 import { registerFeedbackCommands } from "./feedback.js";
 import { registerDoctorCommands } from "./doctor.js";
 import { registerVersionCommands } from "./version.js";
+import { registerRecoveryCommands } from "./recovery.js";
 export function registerCommands(root, bind) {
     registerGlobalOptions(root);
     registerAccountCommands(root, bind);
@@ -35,5 +36,6 @@ export function registerCommands(root, bind) {
     registerFeedbackCommands(root, bind);
     registerDoctorCommands(root, bind);
     registerVersionCommands(root, bind);
+    registerRecoveryCommands(root, bind);
 }
 //# sourceMappingURL=index.js.map

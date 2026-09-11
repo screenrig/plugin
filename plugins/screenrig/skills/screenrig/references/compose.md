@@ -26,13 +26,13 @@ before `compose render` so the directory name is the human handle. Default
 `generic_filename` warning will not rename on upload.
 
 ```bash
-screenrig --json compose catalog
-screenrig --json compose render ./exec-intro.json --output ./exec-intro
+screenrig compose catalog
+screenrig compose render ./exec-intro.json --output ./exec-intro
 # read ./exec-intro/manifest.json and the region PNGs
 # agent reads the PNGs with vision; do not cat pixels into chat
 # iterate the JSON and re-render
-screenrig --json media upload ./exec-intro/left.png --tag TAG
-screenrig --json media list --tag TAG --primitive image
+screenrig media upload ./exec-intro/left.png --tag TAG
+screenrig media list --tag TAG --primitive image
 # playlist page: image primitives at the manifest rects, or one combined image
 # many files: media upload-batch ./images.json --state ./upload-state.json
 ```
@@ -182,8 +182,8 @@ file is enough. `compose batch` adds a contact sheet and `--only ID`.
 ```
 
 ```bash
-screenrig --json compose render ./deck.json --output ./rendered --target-width 3840 --target-height 2160 --safe-area
-screenrig --json compose batch ./deck.json --output ./rendered --target-width 3840 --target-height 2160 --safe-area
+screenrig compose render ./deck.json --output ./rendered --target-width 3840 --target-height 2160 --safe-area
+screenrig compose batch ./deck.json --output ./rendered --target-width 3840 --target-height 2160 --safe-area
 ```
 
 `compose batch` accepts 1 to 2000 pages and returns ordered page results,
@@ -207,7 +207,7 @@ Validate the separate wire playlist locally before expensive upload/publication
 work, and again after replacing draft references with accepted resource IDs:
 
 ```bash
-screenrig --json playlist validate ./playlist.json
+screenrig playlist validate ./playlist.json
 ```
 
 This uses backend-generated schema and semantics, including application
@@ -329,3 +329,5 @@ cropping. Eight-digit hex is how the page stays transparent and the plate
 keeps alpha. Layered region PNGs can sit as image primitives at their
 manifest rects. Inspect with `--combined`; default agent output stays layered.
 A presentable poster is one generated `image` primitive, not photo plus overlay.
+
+After uploading finished slide images, pass their media IDs in playback order to `playlist init`, inspect the preview, then use `screen publish`. See [playlists](playlists.md).

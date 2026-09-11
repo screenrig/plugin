@@ -95,4 +95,6 @@ export declare function formatEventLine(event: AccountEvent): string | undefined
 export declare const EVENT_STREAM_BACKOFF_MS = 250;
 export declare const EVENT_STREAM_BACKOFF_CAP_MS = 15000;
 export type { Operation };
+export declare const handlePlaylistInit: CommandHandler;
+export declare const handleScreenPublish: CommandHandler;
 //# sourceMappingURL=commands.d.ts.map

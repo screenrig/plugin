@@ -52,6 +52,12 @@ export interface ScreenRigConfig {
         idempotency_key: string;
         request_hash: string;
     };
+    /** Pending ordinary writes: hashes, keys, timestamps and command names; never payloads. */
+    pending_writes?: Record<string, {
+        idempotency_key: string;
+        created_at: string;
+        command?: string;
+    }>;
     updated_at?: string;
 }
 export declare const DEFAULT_API_URL = "https://api.screenrig.ai";

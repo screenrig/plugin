@@ -18,7 +18,7 @@ launcher on this shell's PATH. Never substitute a global or source-checkout bina
 SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
 if [ -n "$SCREENRIG_PLUGIN_ROOT" ]; then
   PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
-  screenrig --json version
+  screenrig version
 fi
 ```
 
@@ -31,7 +31,7 @@ Require a successful version envelope, then run:
 
 ```bash
 screenrig-plugin-freshness --json
-screenrig --json doctor
+screenrig doctor
 ```
 
 For freshness, `keep` means continue, `refresh` means update the plugin using the
@@ -49,7 +49,7 @@ For a new account, obtain the user's contact email and use the supported explici
 step:
 
 ```bash
-screenrig --json agent enroll --email ADDRESS
+screenrig agent enroll --email ADDRESS
 ```
 
 Use the user's actual address. For an existing account, use `agent connect` and
@@ -62,8 +62,8 @@ shows a setup code, use `screen pair CODE` with that code. A missing screen is n
 reason to assign to another screen or invent an identifier.
 
 ```bash
-screenrig --json screen list
-screenrig --json screen show SCREEN_ID
+screenrig screen list
+screenrig screen show SCREEN_ID
 ```
 
 ## Choose the content path
@@ -90,7 +90,7 @@ Keep a campaign consistent and use real supplied facts; label fictional demo fac
 ## Publish and verify
 
 The five primitives are `image`, `video`, `stream`, `iframe`, and `application`.
-Streaming is awaiting release; use it only with a compatible backend and Player.
+Use streaming only with a compatible backend and Player.
 Image and video use media selectors; stream, iframe, and application do not.
 Streams require an uploaded image fallback and a duration-based page. Apple TV
 cannot display iframe or application content. Text and
@@ -98,13 +98,15 @@ shapes belong in prepared content, not additional native playlist primitives.
 
 1. Prepare and inspect the content at the intended size. Generation stores its
    returned media ID directly; do not upload it again.
-2. Write or update the authored playlist file. Read [playlists](references/playlists.md)
-   before editing its shape, motion or schedule. Keep at least one page always eligible.
-3. Create or update the playlist, then assign it to the resolved screen. Use the
-   current revision with `--if-match` when changing an existing resource.
-4. Read back the assignment, request a screenshot, and inspect relevant playback
-   and events. Report what was observed and any remaining uncertainty. A command
-   succeeding alone does not prove physical display.
+2. For full-screen images or videos, use `playlist init` to prepare the authored
+   file from media IDs and screen dimensions. For other layouts, author the file
+   using [playlists](references/playlists.md). Preview and inspect it.
+3. Publish a new playlist with `screen publish SCREEN_ID FILE --expect-rev REV`.
+   To edit an existing playlist, obtain its file with `playlist show ID --output
+   FILE`, then use `playlist update` with the returned revision. Updates affect
+   all assigned screens. See the playlist reference for partial-failure recovery.
+4. Request a screenshot and inspect relevant playback and events. Assignment
+   readback alone does not prove physical display. Report the observed evidence.
 
 For screen controls, screenshots, comments, events and feedback, use
 [operations](references/operations.md). For app uploads, page completion and K/V,
@@ -113,7 +115,12 @@ provides a compact reference for supported operations.
 
 ## Responses, retries and secrets
 
-Use `--json`. Branch on `ok`, `error.status`, `error.code` and `warnings[].code`,
+Operational commands return JSON envelopes by default; `--json` remains a
+compatible explicit choice. Use `--human` only for manual inspection, never
+together with `--json`. Help and bare command groups are readable by default;
+`--json --help` returns structured help. Progress stays on stderr; parse stdout
+separately. `events follow` emits one JSON envelope per line (NDJSON).
+Branch on `ok`, `error.status`, `error.code` and `warnings[].code`,
 not prose. Follow an applicable `error.next.command` without inventing flags.
 On a revision conflict, refetch and reconcile the intended change. After an
 ambiguous write, retry with the same idempotency key and same request, not a new write.
