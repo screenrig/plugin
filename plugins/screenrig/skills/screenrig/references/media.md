@@ -203,11 +203,20 @@ stop. A 503 / `transport_error` on `media upload` means the service is not
 ready, not a bad PNG. Do not install software on the user's computer without
 their explicit request.
 
-`media upload` produces an H.264 MP4 by default. The available Player is the
-PWA, and it decodes H.264. `--codec hevc` opts in to H.265 for a smaller file
-at the same quality. Use it only when every screen that will play the media
-is a native-only fleet; native platform names are product direction, not
-public downloads.
+`media upload` produces an H.264 MP4 by default. `--codec hevc` opts in to
+H.265 (HEVC). Use it only when every target screen has confirmed HEVC playback;
+being a native Player is not sufficient. Each media object has one rendition,
+with no automatic H.264 fallback. Keep H.264 for mixed or unverified fleets.
+
+For Raspberry Pi 4 or 5 running the Qt Player, prefer `--codec hevc` once
+playback is verified on the target device. These models have HEVC decoding
+hardware; do not apply this recommendation to every Raspberry Pi model.
+Qt automatically selects an available decoder from the uploaded file's codec,
+so no playlist codec setting is needed. It does not transcode H.264 to HEVC,
+and automatic decoder selection does not establish hardware acceleration.
+Verify smooth playback at the intended resolution and frame rate before
+publishing broadly. The Qt Player's Raspberry Pi hardware decode path is not
+yet hardware-validated; the bundled Linux x86_64 runtime is not a Pi build.
 
 The filename is the human-readable handle. Ask once for a distinctive name
 before uploading. The CLI only warns (`generic_filename`); it will not rename.

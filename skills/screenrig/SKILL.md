@@ -87,6 +87,12 @@ require composition. Supplied finished assets do not need generation.
 For visual direction and review, read [visual design](references/composition.md).
 Keep a campaign consistent and use real supplied facts; label fictional demo facts.
 
+For video targeting a Raspberry Pi 4 or 5 running the Qt Player, prefer
+`media upload --codec hevc` once HEVC playback is confirmed on that device.
+Qt selects the decoder automatically; it does not transcode the video.
+Keep H.264 for mixed or unverified fleets. See [video codec selection](references/media.md)
+before uploading; a native Player alone does not guarantee HEVC support.
+
 ## Publish and verify
 
 The five primitives are `image`, `video`, `stream`, `iframe`, and `application`.
