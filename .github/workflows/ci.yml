@@ -78,6 +78,29 @@ jobs:
           python3 scripts/check-public-repo.py
           PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-public-dependencies.py
           python3 scripts/test-skill-commands.py
+          PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-launcher.py
+          PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-plugin-freshness.py
+      - name: Enforce plugin bundle size budget
+        run: |
+          set -euo pipefail
+          tree_bytes="$(du -sb plugins/screenrig | cut -f1)"
+          test "${tree_bytes}" -le 356515840 || {
+            echo "plugins/screenrig is ${tree_bytes} bytes, over the 340 MiB budget" >&2
+            exit 1
+          }
+          tar_bytes="$(tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0 \
+            --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig -cf - . \
+            | gzip -n -9 | wc -c)"
+          test "${tar_bytes}" -le 152043520 || {
+            echo "plugin archive is ${tar_bytes} bytes, over the 145 MiB budget" >&2
+            exit 1
+          }
+          stray="$(find plugins/screenrig -type f -size +2M ! -path '*/@napi-rs/*')"
+          test -z "${stray}" || {
+            echo "unexpectedly large bundle files:" >&2
+            printf '%s\n' "${stray}" >&2
+            exit 1
+          }
       - name: Upload rebuilt marketplace CLI when it drifted
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

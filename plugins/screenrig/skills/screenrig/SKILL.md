@@ -69,6 +69,13 @@ screenrig screen list
 screenrig screen show SCREEN_ID
 ```
 
+`screen show` reports the display's host details when the Player supplied them
+(platform, model, firmware, identifiers). If a screen shows a pending recovery,
+a display reporting that screen's identifiers has lost its stored identity and
+is asking to reconnect; confirm it with `screen recover SCREEN_ID` only after
+checking with the user that it is the same display. Nothing reconnects without
+that confirmation.
+
 ## Choose the content path
 
 Read the target screen's reported playback surface before choosing aspect ratio.
@@ -90,10 +97,19 @@ require composition. Supplied finished assets do not need generation.
 For visual direction and review, read [visual design](references/composition.md).
 Keep a campaign consistent and use real supplied facts; label fictional demo facts.
 
+For video targeting a Raspberry Pi 4 or 5 running the Qt Player, prefer
+`media upload --codec hevc` once HEVC playback is confirmed on that device.
+Qt selects the decoder automatically; it does not transcode the video.
+Keep H.264 for mixed or unverified fleets. See [video codec selection](references/media.md)
+before uploading; a native Player alone does not guarantee HEVC support.
+
 ## Publish and verify
 
-The workflows below use these playlist primitives: `image`, `video`, `iframe`, `application`.
-Image and video use media selectors; iframe and application do not. Text and
+The five primitives are `image`, `video`, `stream`, `iframe`, and `application`.
+Use streaming only with a compatible backend and Player.
+Image and video use media selectors; stream, iframe, and application do not.
+Streams require an uploaded image fallback and a duration-based page. Apple TV
+cannot display iframe or application content. Text and
 shapes belong in prepared content, not additional native playlist primitives.
 
 1. Prepare and inspect the content at the intended size. Generation stores its

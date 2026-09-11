@@ -46,6 +46,10 @@ does not require that file for standalone contribution.
   bundled `cli/dist/bin.js`. Do not add global npm resolution to the launcher.
 - The launcher preflights Node.js and nothing else. It must stay silent on
   success: stdout is clean JSON, stderr is empty.
+- The committed bundle has a size budget: tree at most 340 MiB, deterministic
+  `screenrig-plugin.tar.gz` at most 145 MiB, and no file over 2 MiB outside
+  `cli/node_modules/@napi-rs`. CI enforces it. Adding or dropping a native
+  target is a distribution decision, not a budget bump.
 - Preserve unrelated work. Do not commit, push, tag, or publish unless asked.
 
 This repository's `main` Action tags CalVer and publishes
@@ -91,6 +95,7 @@ plugins/screenrig/skills/screenrig/scripts/screenrig version
 python3 scripts/build-plugin.py --check --cli-artifact <current-cli-tarball>
 python3 scripts/validate-plugin.py --cli-artifact <current-cli-tarball>
 python3 scripts/test-skill-commands.py
+python3 scripts/test-launcher.py
 python3 scripts/test-plugin-freshness.py
 python3 scripts/test-docs-only.py
 ```
