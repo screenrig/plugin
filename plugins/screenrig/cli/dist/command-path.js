@@ -1,3 +1,4 @@
+import { handlerOptionName } from "./cli-commands/aliases.js";
 /** Canonical command names, excluding the executable and any supplied values. */
 export function commandPath(command) {
     return command.parent ? [...commandPath(command.parent), command.name()] : [];
@@ -19,7 +20,12 @@ export function invocationFlags(command) {
         for (const option of current.options) {
             if (current.getOptionValueSource(option.attributeName()) !== "cli")
                 continue;
-            flags[option.long === "--expect-rev" ? "if-match" : option.long.slice(2)] = option.negate ? true : current.getOptionValue(option.attributeName());
+            const value = current.getOptionValue(option.attributeName());
+            if (option.negate && value !== false)
+                continue;
+            if (!option.negate && option.isBoolean() && value === false)
+                continue;
+            flags[handlerOptionName(option)] = option.negate ? true : current.getOptionValue(option.attributeName());
         }
     }
     return flags;

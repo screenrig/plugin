@@ -31,8 +31,13 @@ export function editablePlaylist(value) {
     return document;
 }
 export function initializePlaylist(options) {
-    const document = { name: options.name, pages: options.media.map((media, index) => {
-            if (media.state !== "ready" || !["image", "video"].includes(media.primitive))
+    return preparePlaylist({ ...options, content: options.media });
+}
+/** Build the backend-owned write document; target metadata stays outside it. */
+export function preparePlaylist(options) {
+    const document = { name: options.name, pages: options.content.map((media, index) => {
+            const live = media.primitive === "iframe" || media.primitive === "application";
+            if (!live && (media.state !== "ready" || !["image", "video"].includes(media.primitive)))
                 throw usageError("Every media item must be a ready image or video.");
             const video = media.primitive === "video";
             return {
@@ -41,8 +46,10 @@ export function initializePlaylist(options) {
                 transition: { type: "crossfade", duration_ms: 200 },
                 advance: video ? { mode: "media_end" } : { mode: "duration", after_ms: options.durationMs },
                 primitives: [{ id: "content", primitive: media.primitive,
-                        selector: { by: "id", media_id: media.id },
-                        rect: { x: 0, y: 0, width: options.width, height: options.height }, layer: 0, content_fit: options.fit,
+                        ...(media.primitive === "iframe" ? { src: media.src, title: media.title }
+                            : media.primitive === "application" ? { release_id: media.release_id }
+                                : { selector: { by: "id", media_id: media.id } }),
+                        rect: { x: 0, y: 0, width: options.width, height: options.height }, layer: 0, content_fit: live ? "fill" : options.fit,
                         ...(video ? { muted: true, loop: false } : {}),
                     }],
             };

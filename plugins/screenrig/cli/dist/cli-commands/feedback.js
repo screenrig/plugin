@@ -1,3 +1,4 @@
+import { requireOptionGroup } from "./notes.js";
 import { handleFeedbackBug, handleFeedbackFeature, handleFeedbackList } from "../commands.js";
 import { Option } from "commander";
 export function registerFeedbackCommands(root, bind) {
@@ -17,7 +18,9 @@ export function registerFeedbackCommands(root, bind) {
         .option("--no-context", "Omit diagnostic context")
         .action(bind(handleFeedbackFeature));
     feedback.command("list").description("List submitted feedback")
-        .option("--kind <bug|feature>", "Filter feedback by kind")
+        .addOption(new Option("--kind <bug|feature>", "Filter feedback by kind").choices(["bug", "feature"]))
         .action(bind(handleFeedbackList));
+    for (const command of feedback.commands.filter(command => command.name() !== "list"))
+        requireOptionGroup(command, "exactlyOne", ["--body", "--body-file"]);
 }
 //# sourceMappingURL=feedback.js.map

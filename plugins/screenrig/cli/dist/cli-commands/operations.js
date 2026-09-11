@@ -2,7 +2,7 @@ import { positiveInteger } from "./options.js";
 import { handleOperationsGet, handleOperationsWait, handleOperationsCancel } from "../commands.js";
 export function registerOperationsCommands(root, bind) {
     const operations = root.command("operations").description("Inspect, wait for, or cancel operations");
-    operations.command("get").description("Inspect an operation")
+    operations.command("show").alias("get").description("Inspect an operation")
         .argument("<id>", "Operation identifier")
         .action(bind(handleOperationsGet));
     operations.command("wait").description("Wait for an operation to finish")

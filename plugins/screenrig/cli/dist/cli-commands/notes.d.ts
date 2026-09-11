@@ -3,7 +3,7 @@ import type { Command } from "commander";
 export declare function addCommandNotes(command: Command, note: string): void;
 export declare function commandNotes(command: Command): string[];
 export interface OptionRelationship {
-    kind: "exactlyOne" | "together";
+    kind: "exactlyOne" | "together" | "atLeastOne" | "requires";
     options: string[];
 }
 /** One definition drives both preflight validation and discovery. */

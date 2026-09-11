@@ -1,3 +1,4 @@
+import { registerGuidance } from "./guidance.js";
 import { registerGlobalOptions } from "./globals.js";
 import { registerAccountCommands } from "./account.js";
 import { registerAgentCommands } from "./agent.js";
@@ -37,5 +38,6 @@ export function registerCommands(root, bind) {
     registerDoctorCommands(root, bind);
     registerVersionCommands(root, bind);
     registerRecoveryCommands(root, bind);
+    registerGuidance(root);
 }
 //# sourceMappingURL=index.js.map

@@ -1,3 +1,4 @@
+import { handlerOptionName } from "./cli-commands/aliases.js";
 import { Command, Option } from "commander";
 import { commandError } from "./cli-errors.js";
 import { commandPath, findCommand, invocationFlags } from "./command-path.js";
@@ -24,9 +25,9 @@ function protectOption(command, option, argv, seen) {
         });
     }
     command.on(`option:${option.name()}`, () => {
-        if (seen.has(name))
+        if (seen.has(handlerOptionName(option)))
             throw usageError(`--${name} may be supplied only once.`);
-        seen.add(name);
+        seen.add(handlerOptionName(option));
     });
 }
 /** Fresh native commands per invocation; actions return their asynchronous work. */

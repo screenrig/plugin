@@ -65,6 +65,7 @@ export declare const handlePlaylistExport: CommandHandler;
 export declare const handlePlaylistImport: CommandHandler;
 export declare const handlePlaylistCreate: CommandHandler;
 export declare const handlePlaylistUpdate: CommandHandler;
+export declare const handlePlaylistReplaceRelease: CommandHandler;
 export declare const handlePlaylistDelete: CommandHandler;
 export declare const handleScreenList: CommandHandler;
 export declare const handleScreenProvision: CommandHandler;

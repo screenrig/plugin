@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { type OptionRelationship } from "./cli-commands/notes.js";
 export { CREDIT_HELP } from "./help-text.js";
 export interface HelpOption {
+    aliases: string[];
     name: string;
     type: "boolean" | "value";
     description: string;

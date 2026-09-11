@@ -21,11 +21,18 @@ export function requireOptionGroup(command, kind, names) {
     relationships.set(command, [...(relationships.get(command) ?? []), { kind, options: names }]);
     const message = kind === "exactlyOne"
         ? `Provide exactly one of ${names.join(" or ")}.`
-        : `Provide ${names.join(" and ")} together.`;
+        : kind === "atLeastOne" ? `Provide at least one of ${names.join(" or ")}.`
+            : kind === "requires" ? `${names[0]} requires ${names.slice(1).join(" and ")}.`
+                : `Provide ${names.join(" and ")} together.`;
     addCommandNotes(command, message);
     command.hook("preAction", () => {
         const count = options.filter((option) => command.getOptionValueSource(option.attributeName()) === "cli").length;
-        if (kind === "exactlyOne" ? count !== 1 : count !== 0 && count !== options.length)
+        const supplied = (index) => command.getOptionValueSource(options[index].attributeName()) === "cli";
+        const invalid = kind === "exactlyOne" ? count !== 1
+            : kind === "atLeastOne" ? count === 0
+                : kind === "requires" ? supplied(0) && options.slice(1).some((_, index) => !supplied(index + 1))
+                    : count !== 0 && count !== options.length;
+        if (invalid)
             throw usageError(message);
     });
 }
