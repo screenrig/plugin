@@ -24,7 +24,7 @@ export declare const LOGO_MAX: {
     readonly height: 100;
 };
 export declare const CARD_INK_PAD = 24;
-export declare const WIRE_PRIMITIVES: readonly ["image", "video", "iframe", "application"];
+export declare const WIRE_PRIMITIVES: readonly ["image", "video", "iframe", "application", "stream"];
 export type WirePrimitive = (typeof WIRE_PRIMITIVES)[number];
 /** Playlist PrimitiveEnter, field-for-field. */
 export interface PrimitiveEnter {

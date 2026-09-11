@@ -33,5 +33,5 @@ export const CARD_FITS = ["region", "ink"];
 export const LOGO_INSET = 32;
 export const LOGO_MAX = { width: 200, height: 100 };
 export const CARD_INK_PAD = 24;
-export const WIRE_PRIMITIVES = ["image", "video", "iframe", "application"];
+export const WIRE_PRIMITIVES = ["image", "video", "iframe", "application", "stream"];
 //# sourceMappingURL=types.js.map

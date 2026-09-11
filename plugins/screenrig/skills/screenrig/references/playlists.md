@@ -2,8 +2,9 @@
 
 ## Playlist writes
 
-Four wire primitives exist: `image`, `video`, `iframe`, and `application`.
-Static is `image`, motion is `video`, and web is `iframe` or `application`.
+Use five primitives: `image`, uploaded `video`, live `stream`, `iframe`, and
+`application`. Streaming is awaiting release and requires a compatible backend
+and Player.
 Do not author native `text`, `box`, or `line` on the wire. Presentable copy
 lives in the generated still. Deck copy and chrome are composed locally,
 uploaded as `image`, and used as one image primitive.
@@ -14,8 +15,8 @@ page's `canvas.width` and `canvas.height` define its layout coordinate system;
 size can differ from the pixel dimensions of media rendered from a compose deck.
 
 A full playlist page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
-and `primitives`. A primitive is flat: `id`, a `primitive` field naming one of
-the four, that primitive's own fields, then `rect`, `layer`, `content_fit`,
+and `primitives`. A primitive is flat: `id`, a `primitive` field naming
+a supported kind, that primitive's own fields, then `rect`, `layer`, `content_fit`,
 optional `enter`, and optional `motion`. There is no nested content object.
 
 Keep the authored playlist JSON as the source of truth. `playlist show` is an
@@ -24,7 +25,7 @@ resolved/defaulted fields such as `advance.max_ms` and
 `selector.one_at_a_time`. Do not feed a show payload directly to `playlist
 create` or `playlist update`; edit and submit the authored file instead.
 
-Image and video primitives require a `selector`. `iframe` and `application`
+Image and video primitives require a `selector`. `stream`, `iframe`, and `application`
 do not take one. Do not put `media_id` on the primitive itself; it belongs
 inside the selector. Do not send server-resolved `items`. Advance with
 `media_end`, never `video_end`.
@@ -334,3 +335,44 @@ Updating requires both `--update` and the current `--if-match` revision.
 ```bash
 screenrig --json playlist import ./lobby-bundle --name "Lobby loop (copy)"
 ```
+
+## Live streams
+
+Upload a ready image in the same account and use its ID as `fallback_media_id`.
+Use at most one stream on a page with duration advance, for example
+`advance: {"mode":"duration","after_ms":30000}`. Preview paints the fallback
+without contacting the stream. Bundle import/export does not support streams.
+
+```json
+{
+  "id": "live",
+  "primitive": "stream",
+  "sources": [
+    {"protocol": "udp-mpegts", "group": "239.10.0.1", "port": 5000},
+    {"protocol": "hls", "url": "https://example.com/live.m3u8"}
+  ],
+  "fallback_media_id": "med_fallback",
+  "muted": true,
+  "rect": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+  "layer": 0,
+  "content_fit": "contain"
+}
+```
+
+Provide one or two sources with unique protocols, in preference order. HLS uses
+public HTTPS without embedded credentials. Web playback requires CORS on the
+playlist, segments, and keys. Optional direct UDP/MPEG-TS multicast uses an IPv4
+ASM group in 239/8 and a port on Android or Qt; enable reception locally first.
+Other Players choose HLS when supplied, otherwise they receive the fallback.
+There is no multicast-to-HLS conversion.
+
+The fallback displays while connecting, stalled, unsupported, or offline. Live
+stream bytes are not cached. Muted defaults to true; browser autoplay can
+require mute. A stream never controls page advance. Use contain, cover, or fill;
+entrance motion is supported, and continuous motion is limited to path.
+
+Apple TV supports image, video, and HLS stream, but rejects playlists containing
+iframe or application. Qt web content requires Qt WebEngine, and streaming
+requires the transport plugins. HLS paths also exist on Web, Android, macOS,
+and Windows. Native distribution and device validation remain separate from
+source support. See https://screenrig.ai/docs/players.md for the platform matrix.

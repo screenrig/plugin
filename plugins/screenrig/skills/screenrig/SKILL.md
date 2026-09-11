@@ -89,8 +89,11 @@ Keep a campaign consistent and use real supplied facts; label fictional demo fac
 
 ## Publish and verify
 
-A playlist uses four primitives: `image`, `video`, `iframe`, `application`.
-Image and video use media selectors; iframe and application do not. Text and
+The five primitives are `image`, `video`, `stream`, `iframe`, and `application`.
+Streaming is awaiting release; use it only with a compatible backend and Player.
+Image and video use media selectors; stream, iframe, and application do not.
+Streams require an uploaded image fallback and a duration-based page. Apple TV
+cannot display iframe or application content. Text and
 shapes belong in prepared content, not additional native playlist primitives.
 
 1. Prepare and inspect the content at the intended size. Generation stores its
