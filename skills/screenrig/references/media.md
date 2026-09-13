@@ -208,15 +208,12 @@ H.265 (HEVC). Use it only when every target screen has confirmed HEVC playback;
 being a native Player is not sufficient. Each media object has one rendition,
 with no automatic H.264 fallback. Keep H.264 for mixed or unverified fleets.
 
-For Raspberry Pi 4 or 5 running the Qt Player, prefer `--codec hevc` once
-playback is verified on the target device. These models have HEVC decoding
-hardware; do not apply this recommendation to every Raspberry Pi model.
-Qt automatically selects an available decoder from the uploaded file's codec,
-so no playlist codec setting is needed. It does not transcode H.264 to HEVC,
-and automatic decoder selection does not establish hardware acceleration.
-Verify smooth playback at the intended resolution and frame rate before
-publishing broadly. The Qt Player's Raspberry Pi hardware decode path is not
-yet hardware-validated; the bundled Linux x86_64 runtime is not a Pi build.
+The Qt CI artifact is x86_64 Linux. There is no ARM/Pi artifact and no
+hardware-validated Pi decode path. Do not treat Raspberry Pi as a supported
+fleet. Prefer H.264 unless the operator has confirmed HEVC on a named device.
+Qt selects an available decoder from the uploaded file; it does not transcode
+H.264 to HEVC, and automatic decoder selection does not establish hardware
+acceleration.
 
 The filename is the human-readable handle. Ask once for a distinctive name
 before uploading. The CLI only warns (`generic_filename`); it will not rename.

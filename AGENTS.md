@@ -26,9 +26,10 @@ does not require that file for standalone contribution.
 - `scripts/validate-plugin.py` and `scripts/check-public-repo.py` define the
   public/reproducibility boundary. Skill commands must exist in the bundled CLI
   usage; `media generate` and `media download` are required.
-- Distributed plugin versions are CalVer `YY.MM.SERIAL` (UTC). Committed
-  `.claude-plugin/marketplace.json` is the published CalVer. Local and
-  pull-request trees use `YY.MM.0-dev`.
+- Distributed plugin versions are CalVer `YY.MM.SERIAL` (UTC). Untagged `main`
+  and pull-request trees keep `.claude-plugin/marketplace.json` at
+  `YY.MM.0-dev`. CI stamps and tags `vYY.MM.N` on a successful main pack.
+  Do not hand-edit the committed marketplace version to the last tag.
 
 ## Edit and generation rules
 

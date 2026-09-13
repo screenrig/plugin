@@ -97,11 +97,11 @@ require composition. Supplied finished assets do not need generation.
 For visual direction and review, read [visual design](references/composition.md).
 Keep a campaign consistent and use real supplied facts; label fictional demo facts.
 
-For video targeting a Raspberry Pi 4 or 5 running the Qt Player, prefer
-`media upload --codec hevc` once HEVC playback is confirmed on that device.
-Qt selects the decoder automatically; it does not transcode the video.
-Keep H.264 for mixed or unverified fleets. See [video codec selection](references/media.md)
-before uploading; a native Player alone does not guarantee HEVC support.
+The Qt CI artifact is x86_64 Linux. There is no ARM/Pi artifact and no
+hardware-validated Pi decode path. Do not treat Raspberry Pi as a supported
+fleet. Prefer H.264 unless the operator has confirmed HEVC on a named device.
+See [video codec selection](references/media.md) before uploading; a native
+Player alone does not guarantee HEVC support.
 
 ## Publish and verify
 
