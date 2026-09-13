@@ -164,7 +164,7 @@ On a build that converts:
   object. Hyphens are rejected; `ExecIntro2026` is valid and `exec-intro`
   is not. `media list --tag TAG [--primitive image|video]` filters by that tag
   and is the reliable filename → id map after upload.
-  `media update <id> (--tag TAG | --clear-tag) --expect-rev REVISION` changes
+  `media update <id> (--tag TAG | --clear-tag)` changes
   or clears it. Untagged objects are omitted when `--tag` is present on
   `media list`.
 - The conversion runs `ffmpeg` and `ffprobe`. They must be on `PATH`, or their
@@ -234,11 +234,10 @@ object. Dimensions of the accepted object are under `data.transcode.width` /
 `height`. After a tagged upload, `media list --tag TAG` is the filename → id
 map.
 
-For many local files, point bulk work at `media upload-batch --state`; do
+For many local files, use `media upload-batch`; do
 not loop `media upload` by hand. The manifest is
 `{ "items": [ { "path": "./a.png", "tag"?: "lobby", "content_type"?: "image/png" } ] }`
-with 1 to 1000 items. Paths are relative to the manifest file. `--state FILE`
-is required: a 0600 JSON file keyed by the SHA-256 of each source file's
+with 1 to 1000 items. Paths are relative to the manifest file. `--state FILE` optionally overrides the automatic private resume file beside the CLI config. The 0600 JSON file is keyed by the SHA-256 of each source file's
 local bytes. Items already present with a `media_id` are reported as
 `resumed`. Do not share one state file across accounts.
 

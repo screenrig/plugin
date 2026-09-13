@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { readInputBytes } from "./authoring-input.js";
 import { usageError } from "./problems.js";
 export const COMMENTS_MAX_BYTES = 1024;
 function isPlainObject(value) {
@@ -26,7 +25,7 @@ function stringFlag(args, name) {
     const value = args.flags[name];
     return typeof value === "string" ? value : undefined;
 }
-export async function commentsWriteFromArgs(args, cwd) {
+export async function commentsWriteFromArgs(args, cwd, runtime) {
     if (Object.hasOwn(args.flags, "value") || Object.hasOwn(args.flags, "value-base64")) {
         throw usageError("comment set accepts --json-value or --file; it does not take --value or --value-base64.");
     }
@@ -51,7 +50,7 @@ export async function commentsWriteFromArgs(args, cwd) {
     }
     let text;
     try {
-        text = await readFile(path.resolve(cwd, file), "utf8");
+        text = (await readInputBytes(file, cwd, runtime, 1048576)).toString("utf8");
     }
     catch (error) {
         throw usageError(`Cannot read comments file: ${error instanceof Error ? error.message : "read failed"}`);

@@ -7,7 +7,7 @@ export declare function publishScreen(options: {
     configPath: string;
     apiUrl: string;
     screenId: string;
-    revision: string;
+    revision?: string;
     document: any;
     requestedKey?: string;
 }): Promise<{

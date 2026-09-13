@@ -76,7 +76,7 @@ export declare function importPlaylistBundle(options: {
     runtime: CliRuntime;
     updateId?: string;
     ifMatch?: string;
-    /** Replaces the bundle's playlist name on the written playlist. Names are unique per account. */
+    /** Replaces the bundle's display name on the written playlist. */
     name?: string;
     timeoutMs?: number;
     pollMs?: number;

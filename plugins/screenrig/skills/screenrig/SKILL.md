@@ -119,11 +119,11 @@ shapes belong in prepared content, not additional native playlist primitives.
    upload during preparation. Follow `data.preview.argv`, inspect the result, then
    use `data.publish.argv`. For layouts and file retry rules, read
    [playlists](references/playlists.md).
-3. Publish a new playlist with `screen publish SCREEN_ID FILE --expect-rev REV`.
+3. Publish a new playlist with `screen publish SCREEN_ID FILE`.
    To edit an existing playlist, obtain its file with `playlist show ID --output
-   FILE`, then use `playlist update` with the returned revision. Updates affect
+   FILE`, then use `playlist update`. The revision guard is optional. Updates affect
    all assigned screens. For an application pin change, use `playlist replace-release`
-   to review the shared-screen impact before applying it. See the playlist reference
+   with `--apply` to change the pin directly; omit `--apply` for an optional shared-screen impact review. See the playlist reference
    for revision guards and partial-failure recovery.
 4. Request a screenshot and inspect relevant playback and events. Assignment
    readback alone does not prove physical display. Report the observed evidence.
@@ -142,6 +142,10 @@ together with `--json`. Help and bare command groups are readable by default;
 separately. `events follow` emits one JSON envelope per line (NDJSON).
 Branch on `ok`, `error.status`, `error.code` and `warnings[].code`,
 not prose. Follow an applicable `error.next.command` without inventing flags.
+Revision guards are optional throughout the CLI. Omit `--expect-rev` to write
+the current resource without a prior revision read. Supply it only when you want
+a stale write rejected.
+
 On a revision conflict, refetch and reconcile the intended change. After an
 ambiguous write, retry with the same idempotency key and same request, not a new write.
 Honor retry delays. Stop on an explicit permission, admission or payment refusal.

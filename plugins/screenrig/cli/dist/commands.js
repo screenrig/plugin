@@ -4,7 +4,7 @@ import { readAuthoringJson, readAuthoringText, writeAuthoringJson } from "./auth
 import { editablePlaylist, preparePlaylist, targetDimensions } from "./playlist-authoring.js";
 import { WriteRecovery } from "./write-recovery.js";
 import { createHash } from "node:crypto";
-import { open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { limitsFromCapabilities, TEMPORARY_PROTOCOL_VERSION, } from "./adapters/protocol.js";
 import { SDK_PROTOCOL_VERSION } from "./adapters/sdk-injection.js";
@@ -1350,12 +1350,12 @@ async function appUpload(args, runtime, resolved, update) {
     const dir = args.positionals[update ? 3 : 2];
     requireFlagValue(args, "if-match", "1");
     const revision = flagString(args.flags, "if-match");
-    if (!dir || (update && (!id || !revision))) {
-        throw usageError(update ? "app update requires <id> <directory> --expect-rev REVISION." : "app upload requires one directory.");
+    if (!dir || (update && !id)) {
+        throw usageError(update ? "app update requires <id> <directory>." : "app upload requires one directory.");
     }
     if (update && args.flags.name !== undefined)
         throw usageError("app update preserves the application name; omit --name.");
-    const ifMatch = update ? quotedRevision(revision) : undefined;
+    const ifMatch = update && revision ? quotedRevision(revision) : undefined;
     requireFlagValue(args, "name", "Lobby board");
     const nameHeaders = applicationNameHeaders(flagString(args.flags, "name"));
     const token = requireToken(resolved.token);
@@ -1490,13 +1490,13 @@ export const handleMediaDelete = commandHandler(async (args, runtime, resolved) 
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const id = args.positionals[2];
     const revision = flagString(args.flags, "if-match");
-    if (!id || !revision)
-        throw usageError("media delete requires <id> and --expect-rev.");
+    if (!id)
+        throw usageError("media delete requires <id>.");
     const response = await client.call({
         method: "DELETE",
         path: `/api/v1/media/${id}`,
         idempotent: true,
-        headers: { "if-match": quotedRevision(revision) },
+        headers: revision ? { "if-match": quotedRevision(revision) } : undefined,
     });
     return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Deleted media ${id}` };
 }, true);
@@ -1688,8 +1688,8 @@ async function mediaUpdate(args, client) {
     const revision = flagString(args.flags, "if-match");
     const clearTag = flagBool(args.flags, "clear-tag");
     const tag = mediaTagFromArgs(args);
-    if (!id || !revision) {
-        throw usageError("media update requires <id>, --expect-rev, and --tag TAG or --clear-tag.");
+    if (!id) {
+        throw usageError("media update requires <id>, and --tag TAG or --clear-tag.");
     }
     if (clearTag === Boolean(tag)) {
         throw usageError("media update requires exactly one of --tag TAG or --clear-tag.");
@@ -1699,7 +1699,7 @@ async function mediaUpdate(args, client) {
         method: "PATCH",
         path: `/api/v1/media/${id}`,
         idempotent: true,
-        headers: { "if-match": quotedRevision(revision) },
+        headers: revision ? { "if-match": quotedRevision(revision) } : undefined,
         body,
     });
     return {
@@ -1971,10 +1971,7 @@ async function mediaUploadBatch(args, runtime, client, resolved) {
     }
     requireFlagValue(args, "state", "./upload-state.json");
     requireFlagValue(args, "concurrency", "4");
-    const state = flagString(args.flags, "state");
-    if (!state) {
-        throw usageError("media upload-batch requires --state FILE.");
-    }
+    const state = flagString(args.flags, "state") ?? path.join(path.dirname(resolved.configPath), "upload-batches", createHash("sha256").update(JSON.stringify([resolved.apiUrl, resolved.accountId ?? resolved.token, path.resolve(runtime.cwd(), manifest)])).digest("hex") + ".json");
     const concurrency = flagNumber(args.flags, "concurrency") ?? UPLOAD_BATCH_DEFAULT_CONCURRENCY;
     if (!Number.isInteger(concurrency) ||
         concurrency < UPLOAD_BATCH_MIN_CONCURRENCY ||
@@ -2261,7 +2258,7 @@ export const handlePlaylistShow = commandHandler(async (args, runtime, resolved)
     if (resource.id !== id || !Number.isSafeInteger(resource.revision) || resource.revision < 1)
         throw usageError("Playlist response has invalid identity or revision.");
     const document = editablePlaylist(response.body);
-    const file = output ? await writeAuthoringJson(output, document, runtime) : undefined;
+    const file = output ? await writeAuthoringJson(output, document, runtime, flagBool(args.flags, "overwrite")) : undefined;
     return { envelope: successEnvelope({ playlist_id: id, revision: resource.revision, ...(file ? { output: file } : { document }) }, { request_id: client.requestId }), exitCode: ExitCode.Success, human: file ? `Editable playlist written to ${file}` : JSON.stringify(document, null, 2) };
 }, true);
 export const handlePlaylistExport = commandHandler(async (args, runtime, resolved) => {
@@ -2328,8 +2325,8 @@ async function playlistCreateUpdateAction(args, runtime, resolved, action) {
     const id = action === "update" ? args.positionals[2] : undefined;
     const file = action === "update" ? args.positionals[3] : args.positionals[2];
     const ifMatch = flagString(args.flags, "if-match");
-    if (!file || (action === "update" && (!id || !ifMatch))) {
-        throw usageError(`playlist ${action} requires ${action === "update" ? "<id> <file> --expect-rev" : "<file>"}.`);
+    if (!file || (action === "update" && !id)) {
+        throw usageError(`playlist ${action} requires ${action === "update" ? "<id> <file>" : "<file>"}.`);
     }
     let parsed;
     try {
@@ -2382,13 +2379,13 @@ export const handlePlaylistDelete = commandHandler(async (args, runtime, resolve
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const id = args.positionals[2];
     const ifMatch = flagString(args.flags, "if-match");
-    if (!id || !ifMatch)
-        throw usageError("playlist delete requires <id> and --expect-rev.");
+    if (!id)
+        throw usageError("playlist delete requires <id>.");
     const response = await client.call({
         method: "DELETE",
         path: `/api/v1/playlists/${id}`,
         idempotent: true,
-        headers: { "if-match": quotedRevision(ifMatch) },
+        headers: ifMatch ? { "if-match": quotedRevision(ifMatch) } : undefined,
     });
     return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Deleted playlist ${id}` };
 }, true);
@@ -2524,7 +2521,7 @@ export const handleScreenProvision = commandHandler(async (args, runtime, resolv
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const openMode = flagBool(args.flags, "open");
-    const printMode = flagBool(args.flags, "print-url");
+    const printMode = flagBool(args.flags, "print-url") || !openMode;
     if (openMode === printMode) {
         throw usageError("screen provision requires exactly one of --open or --print-url.");
     }
@@ -2644,8 +2641,8 @@ export const handleScreenUpdate = commandHandler(async (args, runtime, resolved)
     const name = flagString(args.flags, "name");
     const playlistId = flagString(args.flags, "playlist-id");
     const timezone = flagString(args.flags, "timezone");
-    if (!id || !ifMatch || (!name && !playlistId && !timezone)) {
-        throw usageError("screen update requires <id>, --expect-rev, and --name, --playlist-id, or --timezone.");
+    if (!id || (!name && !playlistId && !timezone)) {
+        throw usageError("screen update requires <id>, and --name, --playlist-id, or --timezone.");
     }
     // A patch that sets both a playlist and a timezone satisfies the schedule
     // rule in one request, so only check when the patch leaves the screen
@@ -2669,7 +2666,7 @@ export const handleScreenUpdate = commandHandler(async (args, runtime, resolved)
         ...(playlistId ? { playlist_id: playlistId } : {}),
         ...(timezone ? { timezone } : {}),
     };
-    const response = await client.call({ method: "PATCH", path: `/api/v1/screens/${id}`, idempotent: true, headers: { "if-match": quotedRevision(ifMatch) }, body });
+    const response = await client.call({ method: "PATCH", path: `/api/v1/screens/${id}`, idempotent: true, headers: ifMatch ? { "if-match": quotedRevision(ifMatch) } : undefined, body });
     const warnings = playlistId ? aspectMismatchWarnings(id, response.body, playlist) : [];
     return {
         envelope: jsonBody(response, client.requestId, undefined, warnings),
@@ -2683,15 +2680,15 @@ export const handleScreenAssign = commandHandler(async (args, runtime, resolved)
     const id = args.positionals[2];
     const playlistId = flagString(args.flags, "playlist-id");
     const ifMatch = flagString(args.flags, "if-match");
-    if (!id || !playlistId || !ifMatch)
-        throw usageError("screen assign requires <id> --playlist-id --expect-rev.");
+    if (!id || !playlistId)
+        throw usageError("screen assign requires <id> --playlist-id.");
     const playlist = await assertScheduledPlaylistHasZone(client, id, playlistId);
     const body = { playlist_id: playlistId };
     const response = await client.call({
         method: "PATCH",
         path: `/api/v1/screens/${id}`,
         idempotent: true,
-        headers: { "if-match": quotedRevision(ifMatch) },
+        headers: ifMatch ? { "if-match": quotedRevision(ifMatch) } : undefined,
         body,
     });
     const warnings = aspectMismatchWarnings(id, response.body, playlist);
@@ -2707,8 +2704,8 @@ export const handleScreenSetTimezone = commandHandler(async (args, runtime, reso
     const id = args.positionals[2];
     const timezone = flagString(args.flags, "timezone");
     const ifMatch = flagString(args.flags, "if-match");
-    if (!id || !timezone || !ifMatch)
-        throw usageError("screen set-timezone requires <id> --timezone --expect-rev.");
+    if (!id || !timezone)
+        throw usageError("screen set-timezone requires <id> --timezone.");
     // The zone database belongs to the server, which validates the identifier
     // against it. Sending the value unchanged keeps one authority for what a
     // real zone is, so the CLI never carries a list that can go stale.
@@ -2717,7 +2714,7 @@ export const handleScreenSetTimezone = commandHandler(async (args, runtime, reso
         method: "PATCH",
         path: `/api/v1/screens/${id}`,
         idempotent: true,
-        headers: { "if-match": quotedRevision(ifMatch) },
+        headers: ifMatch ? { "if-match": quotedRevision(ifMatch) } : undefined,
         body,
     });
     return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Set timezone ${timezone} on ${id}` };
@@ -2727,13 +2724,13 @@ async function screenArchiveUnarchiveAction(args, runtime, resolved, action) {
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const id = args.positionals[2];
     const revision = flagString(args.flags, "if-match");
-    if (!id || !revision)
-        throw usageError(`screen ${action} requires <id> and --expect-rev.`);
+    if (!id)
+        throw usageError(`screen ${action} requires <id>.`);
     const response = await client.call({
         method: "POST",
         path: `/api/v1/screens/${id}/${action}`,
         idempotent: true,
-        headers: { "if-match": quotedRevision(revision) },
+        headers: revision ? { "if-match": quotedRevision(revision) } : undefined,
     });
     return {
         envelope: jsonBody(response, client.requestId),
@@ -2752,13 +2749,13 @@ export const handleScreenDelete = commandHandler(async (args, runtime, resolved)
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const id = args.positionals[2];
     const ifMatch = flagString(args.flags, "if-match");
-    if (!id || !ifMatch)
-        throw usageError("screen delete requires <id> and --expect-rev.");
+    if (!id)
+        throw usageError("screen delete requires <id>.");
     const response = await client.call({
         method: "DELETE",
         path: `/api/v1/screens/${id}`,
         idempotent: true,
-        headers: { "if-match": quotedRevision(ifMatch) },
+        headers: ifMatch ? { "if-match": quotedRevision(ifMatch) } : undefined,
     });
     return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Deleted screen ${id}` };
 }, true);
@@ -2767,13 +2764,13 @@ export const handleScreenRotatePublicId = commandHandler(async (args, runtime, r
     const client = clientFor(runtime, args, resolved.apiUrl, token);
     const id = args.positionals[2];
     const revision = flagString(args.flags, "if-match");
-    if (!id || !revision)
-        throw usageError("screen rotate-public-id requires <id> and --expect-rev.");
+    if (!id)
+        throw usageError("screen rotate-public-id requires <id>.");
     const response = await client.call({
         method: "POST",
         path: `/api/v1/screens/${id}/public-id/rotate`,
         idempotent: true,
-        headers: { "if-match": quotedRevision(revision) },
+        headers: revision ? { "if-match": quotedRevision(revision) } : undefined,
     });
     return {
         envelope: jsonBody(response, client.requestId),
@@ -3086,7 +3083,7 @@ export const handleKvSet = commandHandler(async (args, runtime, resolved) => {
     const key = args.positionals[2];
     if (!key)
         throw usageError("kv set requires a key.");
-    const body = await kvWriteFromArgs(args, runtime.cwd());
+    const body = await kvWriteFromArgs(args, runtime.cwd(), runtime);
     const revision = flagString(args.flags, "if-match");
     const response = await client.call({
         method: "PUT",
@@ -3118,13 +3115,11 @@ export const handleKvDelete = commandHandler(async (args, runtime, resolved) => 
     if (!key)
         throw usageError("kv delete requires a key.");
     const ifMatch = flagString(args.flags, "if-match");
-    if (!ifMatch)
-        throw usageError("kv delete requires --expect-rev.");
     const response = await client.call({
         method: "DELETE",
         path: `/api/v1/applications/${applicationId}/kv/${encodeURIComponent(key)}`,
         idempotent: true,
-        headers: { "if-match": quotedRevision(ifMatch) },
+        headers: ifMatch ? { "if-match": quotedRevision(ifMatch) } : undefined,
     });
     return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: `Deleted ${key}` };
 }, true);
@@ -3165,7 +3160,7 @@ export const handleCommentShowPlaylist = commandHandler((args, runtime, resolved
 async function setComment(args, runtime, resolved, target) {
     const { id, pageId, pathName } = commentTarget(args, target);
     const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
-    const body = await commentsWriteFromArgs(args, runtime.cwd());
+    const body = await commentsWriteFromArgs(args, runtime.cwd(), runtime);
     const response = await client.call({
         method: "PUT",
         path: pathName,
@@ -3761,10 +3756,11 @@ function sanitizedPreparationApiUrl(value) {
     return url.toString().replace(/\/$/, "");
 }
 export const handlePlaylistInit = commandHandler(async (args, runtime, resolved) => {
-    const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+    let existingClient;
+    const remote = () => existingClient ??= clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
     const screenId = flagString(args.flags, "screen");
     const width = flagNumber(args.flags, "target-width"), height = flagNumber(args.flags, "target-height");
-    const screen = screenId ? (await client.call({ method: "GET", path: `/api/v1/screens/${encodeURIComponent(screenId)}` })).body : undefined;
+    const screen = screenId ? (await remote().call({ method: "GET", path: `/api/v1/screens/${encodeURIComponent(screenId)}` })).body : undefined;
     const dimensions = targetDimensions(screen, width, height);
     const target = screen;
     if (screenId && (!target || target.id !== screenId || !Number.isSafeInteger(target.revision) || target.revision < 1)) {
@@ -3775,7 +3771,7 @@ export const handlePlaylistInit = commandHandler(async (args, runtime, resolved)
     const warnings = [];
     for (const input of args.positionals.slice(2)) {
         if (/^med_[A-Za-z0-9_-]+$/.test(input)) {
-            const record = (await client.call({ method: "GET", path: `/api/v1/media/${input}` })).body;
+            const record = (await remote().call({ method: "GET", path: `/api/v1/media/${input}` })).body;
             if (record?.id !== input)
                 throw usageError("Media response identity did not match.");
             content.push(record);
@@ -3812,28 +3808,31 @@ export const handlePlaylistInit = commandHandler(async (args, runtime, resolved)
     // Validate the entire authoring shape and reserve the output before uploading.
     preparePlaylist(options);
     const output = path.resolve(runtime.cwd(), flagString(args.flags, "output"));
+    await mkdir(path.dirname(output), { recursive: true });
+    const overwrite = flagBool(args.flags, "overwrite");
+    const destination = overwrite ? `${output}.${crypto.randomUUID()}.tmp` : output;
     let handle;
     try {
-        handle = await open(output, "wx", 0o600);
+        handle = await open(destination, "wx", 0o600);
     }
     catch {
-        throw usageError("Cannot create output; choose a new file in an existing directory.");
+        throw usageError("Cannot create output; choose a new file or use --overwrite.");
     }
     try {
         for (const [index, sourcePath] of files) {
             // Scope each occurrence to the invocation key, including repeated files.
             // An identical retry with --idempotency-key reproduces both declare and commit keys.
             const idempotencyKey = createHash("sha256")
-                .update(JSON.stringify(["screenrig.playlist.init.upload", client.idempotencyKey, index]))
+                .update(JSON.stringify(["screenrig.playlist.init.upload", remote().idempotencyKey, index]))
                 .digest("base64url");
-            const uploaded = await loggerOf(runtime).withLocal({ op: "media.upload", message: "media upload" }, () => uploadMediaFile({ runtime, client, sourcePath, idempotencyKey,
+            const uploaded = await loggerOf(runtime).withLocal({ op: "media.upload", message: "media upload" }, () => uploadMediaFile({ runtime, client: remote(), sourcePath, idempotencyKey,
                 transcodeOptions: transcodeOptionsFromArgs(args), noTranscode: flagBool(args.flags, "no-transcode"),
                 reporter: progressReporterFor(args, runtime), noWait: false,
                 timeoutMs: flagNumber(args.flags, "timeout") ?? 120_000, pollMs: flagNumber(args.flags, "poll-ms") ?? 1000 }));
             warnings.push(...uploaded.warnings);
             if (!uploaded.mediaId)
                 throw usageError("Upload completed without a media identifier.");
-            const record = (await client.call({ method: "GET", path: `/api/v1/media/${encodeURIComponent(uploaded.mediaId)}` })).body;
+            const record = (await remote().call({ method: "GET", path: `/api/v1/media/${encodeURIComponent(uploaded.mediaId)}` })).body;
             if (record?.id !== uploaded.mediaId)
                 throw usageError("Media response identity did not match.");
             content[index] = record;
@@ -3842,17 +3841,19 @@ export const handlePlaylistInit = commandHandler(async (args, runtime, resolved)
     }
     catch (error) {
         await handle.close();
-        await rm(output, { force: true });
+        await rm(destination, { force: true });
         throw error;
     }
     await handle.close();
+    if (overwrite)
+        await rename(destination, output);
     const context = ["--config", resolved.configPath, "--api-url", sanitizedPreparationApiUrl(resolved.apiUrl)];
     return { envelope: successEnvelope({ output, ...dimensions, page_count: content.length,
             ...(target ? { screen_id: target.id, screen_revision: target.revision } : {}),
             preview: { argv: ["playlist", "preview", output, "--output", `${output}.preview`, "--contact-sheet", ...context] },
-            ...(target ? { publish: { argv: ["screen", "publish", target.id, output, "--expect-rev", String(target.revision), ...context], reason: "Inspect the prepared document and preview before publishing." } } : {}),
-        }, { request_id: client.requestId, warnings }), exitCode: ExitCode.Success, human: `Playlist prepared at ${output}` };
-});
+            ...(target ? { publish: { argv: ["screen", "publish", target.id, output, ...context], reason: "Inspect the prepared document and preview before publishing." } } : {}),
+        }, { request_id: existingClient?.requestId, warnings }), exitCode: ExitCode.Success, human: `Playlist prepared at ${output}` };
+}, false);
 export const handleScreenPublish = commandHandler(async (args, runtime, resolved) => {
     const parsed = await readAuthoringJson(args.positionals[3], runtime);
     const document = parsed && typeof parsed === "object" && Array.isArray(parsed.pages) ? { ...parsed, pages: expandPlaylistPages(parsed.pages) } : parsed;

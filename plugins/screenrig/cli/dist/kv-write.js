@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { readInputBytes } from "./authoring-input.js";
 import { usageError } from "./problems.js";
 export const KV_VALUE_BASE64_MAX_LENGTH = 1_398_104;
 function canonicalize(value) {
@@ -42,9 +41,9 @@ function stringFlag(args, name) {
     return typeof value === "string" ? value : undefined;
 }
 function checkedContentType(args) {
-    const contentType = stringFlag(args, "content-type");
+    const contentType = stringFlag(args, "content-type") ?? "application/octet-stream";
     if (!contentType || contentType.length > 127) {
-        throw usageError("--file and --value-base64 require --content-type with 1 to 127 characters.");
+        throw usageError("--content-type must contain 1 to 127 characters.");
     }
     return contentType;
 }
@@ -54,7 +53,7 @@ function checkedLength(valueBase64) {
     }
     return valueBase64;
 }
-export async function kvWriteFromArgs(args, cwd) {
+export async function kvWriteFromArgs(args, cwd, runtime) {
     if (Object.hasOwn(args.flags, "value")) {
         throw usageError("--value used the retired JSON-unsafe contract; use --json-value, --file, or --value-base64.");
     }
@@ -68,7 +67,7 @@ export async function kvWriteFromArgs(args, cwd) {
         const input = stringFlag(args, mode);
         if (input === undefined || input.length === 0)
             throw usageError("--json-value requires a JSON value.");
-        if (Object.hasOwn(args.flags, "content-type")) {
+        if (Object.hasOwn(args.flags, "content-type") && stringFlag(args, "content-type")?.toLowerCase() !== "application/json") {
             throw usageError("--json-value always uses application/json; omit --content-type.");
         }
         const valueBase64 = Buffer.from(canonicalJson(input), "utf8").toString("base64");
@@ -86,7 +85,7 @@ export async function kvWriteFromArgs(args, cwd) {
         throw usageError("--file requires a path.");
     let bytes;
     try {
-        bytes = await readFile(path.resolve(cwd, file));
+        bytes = await readInputBytes(file, cwd, runtime, 1048576);
     }
     catch (error) {
         throw usageError(`Cannot read K/V file: ${error instanceof Error ? error.message : "read failed"}`);

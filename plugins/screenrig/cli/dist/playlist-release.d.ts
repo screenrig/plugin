@@ -21,7 +21,21 @@ export declare function replacePlaylistRelease(options: {
     primitive_id: string;
     previous_release_id: any;
     release_id: string;
-    affected_screens: Pick<Screen, "id" | "state" | "label" | "revision">[];
+    affected_screens: Pick<Screen, "id" | "state" | "label" | "revision">[] | undefined;
+    consequence: string;
+} | {
+    impact: string;
+    applied: boolean;
+    unchanged: boolean;
+    playlist: unknown;
+    playlist_id: string;
+    playlist_name: any;
+    revision: number;
+    page_id: string;
+    primitive_id: string;
+    previous_release_id: any;
+    release_id: string;
+    affected_screens: Pick<Screen, "id" | "state" | "label" | "revision">[] | undefined;
     consequence: string;
 } | {
     impact: string;
@@ -34,7 +48,7 @@ export declare function replacePlaylistRelease(options: {
     primitive_id: string;
     previous_release_id: any;
     release_id: string;
-    affected_screens: Pick<Screen, "id" | "state" | "label" | "revision">[];
+    affected_screens: Pick<Screen, "id" | "state" | "label" | "revision">[] | undefined;
     consequence: string;
 }>;
 //# sourceMappingURL=playlist-release.d.ts.map

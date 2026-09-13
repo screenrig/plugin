@@ -758,8 +758,6 @@ export async function importPlaylistBundle(options) {
         if (trimmed.length === 0 || trimmed.length > 120)
             throw usageError("playlist import --name must be 1 to 120 characters.");
     }
-    if (options.updateId && !options.ifMatch)
-        throw usageError("playlist import --update requires --expect-rev REVISION.");
     if (!options.updateId && options.ifMatch)
         throw usageError("playlist import --expect-rev requires --update PLAYLIST_ID.");
     if (options.updateId && !options.updateId.startsWith("pl_"))
@@ -882,13 +880,7 @@ export async function importPlaylistBundle(options) {
         await bundle.close();
     }
 }
-/**
- * Playlist names are unique per account, so importing an account's own export
- * unchanged is refused with 409 `resource_conflict`. The problem gains a
- * `next` that names the two ways forward: import under another name, or
- * replace the existing playlist. The mapping stays truthful: all media was
- * reused or confirmed before the write, and the write itself did not happen.
- */
+/** Retain actionable recovery for older servers that still reject duplicate names. */
 function rethrowNameConflict(error, state) {
     if (!(error instanceof CliError) || error.problem.status !== 409 || error.problem.code !== "resource_conflict")
         return;
@@ -896,10 +888,10 @@ function rethrowNameConflict(error, state) {
         return;
     throw new CliError({
         ...error.problem,
-        detail: `${error.problem.detail} Playlist names are unique per account, and this bundle's name is already taken.`,
+        detail: error.problem.detail,
         next: {
             command: `screenrig playlist import ${state.directory} --name NAME`,
-            reason: "Import as a new playlist under a different name, or replace the existing one with --update ID --expect-rev REVISION.",
+            reason: "Import as a new playlist under a different name, or replace the existing one with --update ID; --expect-rev is optional.",
         },
     }, error.exitCode, error.warnings);
 }

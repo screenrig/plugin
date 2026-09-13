@@ -5,11 +5,11 @@
 ```bash
 screenrig screen list
 screenrig screen show scr_EXAMPLE
-screenrig screen update scr_EXAMPLE --name "Lobby" --playlist-id pl_EXAMPLE --expect-rev REVISION
-screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --expect-rev REVISION
-screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --expect-rev REVISION
-screenrig screen archive scr_EXAMPLE --expect-rev REVISION
-screenrig screen unarchive scr_EXAMPLE --expect-rev REVISION
+screenrig screen update scr_EXAMPLE --name "Lobby" --playlist-id pl_EXAMPLE
+screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE
+screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles
+screenrig screen archive scr_EXAMPLE
+screenrig screen unarchive scr_EXAMPLE
 screenrig screen toast scr_EXAMPLE --text "Updated lobby loop" --level info
 screenrig screen screenshot scr_EXAMPLE --output ./lobby.webp
 ```

@@ -7,7 +7,7 @@ For ready images and videos, prepare a full-screen playlist in playback order:
 ```sh
 screenrig playlist init med_POSTER med_VIDEO --name "Lobby loop" --screen-id scr_LOBBY --output lobby.json
 screenrig playlist preview lobby.json --output preview --contact-sheet
-screenrig screen publish scr_LOBBY lobby.json --expect-rev 7
+screenrig screen publish scr_LOBBY lobby.json
 ```
 
 Inspect the document and preview before publishing. `playlist init` accepts local
@@ -42,19 +42,15 @@ and actual playback through the server and intended Player.
 Supply `--screen-id` to read the target dimensions and revision. The result includes
 `data.screen_id`, `data.screen_revision`, `data.preview.argv`, and `data.publish.argv`.
 Pass these argument arrays to the bundled `screenrig` launcher without shell
-splitting: they preserve paths, config, API origin, and the observed revision.
-Inspect the preview before publishing. Later screen changes still cause revision
-conflicts. Target metadata stays outside the authored document.
+splitting: they preserve paths, config, and API origin.
+Inspect the preview before publishing. Add `--expect-rev` explicitly to guard against later screen changes. Target metadata stays outside the authored document.
 
 To override the canvas, supply both `--target-width` and `--target-height`. These
 also work without a screen, in which case no publish arguments are returned.
-Unknown or multiple reported surfaces require explicit dimensions. Output files
-must not already exist.
+Unknown or multiple reported surfaces require explicit dimensions. Output files are exclusive by default; use `--overwrite` to replace an existing authoring file atomically. Parent directories are created automatically. URL and release-ID inputs with explicit dimensions work without login.
 
-`screen publish <screen-id> <file>` creates a new playlist, assigns it using the
-expected **screen** revision, and reads back the assignment. It does not update an
-existing playlist by name. A name collision requires a different name or an
-explicit `playlist update`. Its JSON result reports `playlist_id`,
+`screen publish <screen-id> <file>` creates a new playlist, assigns it with an optional **screen** revision guard, and reads back the assignment. It does not update an
+existing playlist by name. Display names may repeat; use the playlist ID for an explicit `playlist update`. Its JSON result reports `playlist_id`,
 `playlist_revision`, `screen_id`, `screen_revision`, `assignment_verified`, and
 `playback_verified`. Assignment verification does not prove playback; request and
 inspect a screenshot and relevant playback evidence separately.
@@ -72,12 +68,11 @@ To edit an existing playlist:
 
 ```sh
 screenrig playlist show pl_EXISTING --output lobby.json
-screenrig playlist update pl_EXISTING lobby.json --expect-rev 4
+screenrig playlist update pl_EXISTING lobby.json
 ```
 
 `playlist show --output` writes the editable `{name, pages}` document and returns
-its path, `playlist_id`, and source `revision` on stdout. Use that returned revision
-for the update. It preserves dynamic selectors, schedules, motion, and pinned
+its path, `playlist_id`, and source `revision` on stdout. Optionally pass that revision with `--expect-rev` to guard the update. It preserves dynamic selectors, schedules, motion, and pinned
 application releases, removing server-derived media and timing fields. Comments
 remain separate. Plain `playlist show` is an inspection response; `--editable`
 without `--output` returns `data.document`, `data.playlist_id`, and `data.revision`.
@@ -94,25 +89,22 @@ screenrig playlist replace-release pl_EXISTING --page board-page --primitive boa
 
 This is a read-only impact review, not a rendered preview. Inspect
 `data.previous_release_id`, `data.release_id`, and `data.affected_screens`, including
-archived assignments. Apply the reviewed change using its `data.revision` and
-`data.impact`:
+archived assignments. Apply directly with `--apply`. To opt into this impact check, also supply `--expect-impact` with the preview’s `data.impact`:
 
 ```sh
-screenrig playlist replace-release pl_EXISTING --page board-page --primitive board --release-id rel_NEW --apply --expect-rev 4 --expect-impact TOKEN_FROM_PREVIEW
+screenrig playlist replace-release pl_EXISTING --page board-page --primitive board --release-id rel_NEW --apply
 ```
 
 Other primitives and settings are preserved. The update affects every screen
 assigned to this shared playlist; archived screens retain the new pin for later
-use. A changed replacement, revision, or observed screen impact requires a fresh
-preview and review. Assignments may change after the snapshot: only the playlist
-revision is checked atomically by the server. The server validates release
+use. When `--expect-impact` is supplied, a changed replacement, revision, or observed screen impact requires a fresh preview. Direct apply skips the screen survey; `affected_screens` is omitted. An already pinned release succeeds without writing. Assignments may change after the snapshot: the server checks the playlist revision atomically only when `--expect-rev` is supplied. The server validates release
 availability and ownership on apply. Existing pins remain unchanged until apply;
 afterward, verify manifest revisions and playback on the affected screens.
 
 Playlist validate, create, update, preview, and screen publish accept `-` as their
 input file to read stdin. JSON envelopes are never written into authored files.
 `--expect-rev` is the preferred revision spelling; `--if-match` remains a compatible
-alias. Supply only one. The HTTP revision contract is unchanged.
+alias. Supply only one. Omit the flag to write the current resource without a revision precondition. A supplied stale revision still returns `revision_conflict`.
 
 Generation accepts either `--prompt TEXT` or `--prompt-file FILE`, including
 `--prompt-file -` for stdin. The file is the complete prompt, with no trimming;
@@ -418,7 +410,7 @@ owns it. `{"days": ["fri"], "start": "22:00", "end": "02:00"}` runs Friday
 22:00 through Saturday 02:00.
 
 ```bash
-screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles --expect-rev 3
+screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles
 ```
 
 `--timezone` is an IANA identifier such as `America/Los_Angeles` or
@@ -433,20 +425,15 @@ referenced image or video rendition together.
 ```bash
 screenrig playlist export pl_EXAMPLE --output ./lobby-bundle
 screenrig playlist import ./lobby-bundle
-screenrig playlist import ./lobby-bundle --update pl_TARGET --expect-rev REVISION
+screenrig playlist import ./lobby-bundle --update pl_TARGET
 ```
 
 The export destination must not exist. The bundle contains
 `screenrig-bundle.json`, `playlist.json`, and content-addressed
 `media/<sha256>.<canonical-ext>` files. Export snapshots dynamic `all` and `tag`
 selectors to exact `id` or `ids` selectors. Application primitives stop export
-before any media download. Import creates a new playlist by default. Playlist
-names are unique per account, so importing an account's own export unchanged
-is refused with 409 `resource_conflict` ("playlist name is already in use");
-that problem's `error.next` names the two ways forward. `--name NAME` (1 to
-120 characters) imports the bundle as a new playlist under that name;
-`--update ID --expect-rev REVISION` replaces the existing playlist instead.
-Updating requires both `--update` and the current `--expect-rev` revision.
+before any media download. Import creates a new playlist by default. Display names may repeat. `--name NAME` (1 to 120 characters) optionally renames the imported copy; `--update ID` replaces the existing playlist instead.
+Updating requires `--update`; `--expect-rev` is optional.
 
 ```bash
 screenrig playlist import ./lobby-bundle --name "Lobby loop (copy)"

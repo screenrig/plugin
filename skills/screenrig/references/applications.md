@@ -31,19 +31,17 @@ from the envelope:
 
 With `--no-wait` run `operations wait <operation_id>` before pinning the
 release into a playlist. Every `app upload` creates a new application and a
-first immutable release. To repair or improve the same app, read its current
-revision with `app show`, then publish a new release:
+first immutable release. To repair or improve the same app, publish a new release:
 
 ```bash
-screenrig app show app_EXAMPLE
-screenrig app update app_EXAMPLE ./lobby-board --expect-rev 3
+screenrig app update app_EXAMPLE ./lobby-board
 ```
 
 `app update` preserves application identity, name, and application K/V. It uses
 the same packer, upload limits, operation wait, and release result as upload.
 Wait for `data.operation.state: "succeeded"`, then use `playlist replace-release`
 to review the exact page and primitive replacement and all affected screens. Apply
-with the returned revision and impact token; see [release replacement](playlists.md#replace-one-application-release).
+with the returned impact token and an optional revision guard; see [release replacement](playlists.md#replace-one-application-release).
 Existing playlists remain pinned until that replacement is applied.
 On a revision conflict, read the app again before deciding whether to retry;
 do not create a replacement application just to bypass the conflict.
@@ -121,10 +119,10 @@ must carry `controller: true`. Do not set `controller` on a `duration` or
 ```bash
 screenrig playlist create ./lobby-board.json
 screenrig screen list
-screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE --expect-rev 3
+screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE
 ```
 
-Take `--playlist-id` from `data.id` of the `playlist create` result. Take
+Take `--playlist-id` from `data.id` of the `playlist create` result. To guard against concurrent writes, optionally supply
 `--expect-rev` from the screen's current `revision`, which both `screen list` and
 `screen show` return. `revision_conflict` means refetch and retry. Do not
 invent the revision.
@@ -149,7 +147,7 @@ Application K/V is binary-safe. Use exactly one value mode.
 screenrig kv set --app-id app_EXAMPLE lobby --json-value '{"open":true}'
 screenrig kv get --app-id app_EXAMPLE lobby
 screenrig kv list --app-id app_EXAMPLE
-screenrig kv delete --app-id app_EXAMPLE lobby --expect-rev REVISION
+screenrig kv delete --app-id app_EXAMPLE lobby
 ```
 
 `kv get` returns the stored bytes only as `data.value_base64`, including when

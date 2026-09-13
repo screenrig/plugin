@@ -56,7 +56,7 @@ agent disconnect --yes [--allow-lockout]
 dashboard [--print-url]
 app pack <directory> [--output FILE]
 app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
-app update <id> <directory> --expect-rev REVISION [--no-wait] [--poll-ms MS]
+app update <id> <directory> [--expect-rev REVISION] [--no-wait] [--poll-ms MS]
 app list
 app show <id>
 media generate (--prompt TEXT | --prompt-file FILE) [--aspect-ratio RATIO] [--quality low|medium|high] [--tag TAG]
@@ -65,53 +65,52 @@ media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]
                     [--no-transcode] [--codec h264|hevc] [--max-fps N]
                     [--max-edge PIXELS] [--webp-quality 1-100] [--no-progress]
                     [--preset signage-1080p30|signage-4k30] [--no-audio]
-media upload-batch <manifest.json> --state FILE [--concurrency N]
+media upload-batch <manifest.json> [--state FILE] [--concurrency N]
                    [--no-transcode] [--tag TAG] [--no-progress]
 media show <id>
 media download <id> [--output FILE]
 media list [--tag TAG] [--primitive image|video]
-media update <id> (--tag TAG | --clear-tag) --expect-rev REVISION
-media delete <id> --expect-rev REVISION
+media update <id> (--tag TAG | --clear-tag) [--expect-rev REVISION]
+media delete <id> [--expect-rev REVISION]
 compose catalog
 compose render <file> [--output DIRECTORY] [--combined] [--target-width PX --target-height PX] [--safe-area]
                       [--open] [--lint-only]
 compose batch <file> --output DIRECTORY [--only ID] [--target-width PX --target-height PX]
                       [--safe-area] [--lint-only]
-playlist init <inputs...> --name NAME --output FILE [--screen-id ID]
+playlist init <inputs...> --name NAME --output FILE [--overwrite] [--screen-id ID]
               [--target-width PX --target-height PX] [--duration-ms MS] [--fit contain|cover|fill]
               [--no-transcode] [--no-progress] [--poll-ms MS]
 playlist replace-release <id> --page ID --primitive ID --release-id ID
-                         [--apply --expect-rev REVISION --expect-impact TOKEN]
+                         [--apply] [--expect-rev REVISION] [--expect-impact TOKEN]
 playlist preview <file|id> --output DIRECTORY [--contact-sheet] [--frame-ms MS] [--lint-only]
 playlist templates
 playlist validate <file>
 playlist create <file>
-playlist update <id> <file> --expect-rev REVISION
+playlist update <id> <file> [--expect-rev REVISION]
 playlist export <id> --output DIRECTORY
-playlist import <directory> [--name NAME] [--update ID --expect-rev REVISION]
-playlist show <id> [--output FILE | --editable]
+playlist import <directory> [--name NAME] [--update ID [--expect-rev REVISION]]
+playlist show <id> [--output FILE | --editable] [--overwrite]
 playlist list
-playlist delete <id> --expect-rev REVISION
+playlist delete <id> [--expect-rev REVISION]
 screen pair <code> [--name NAME]
-screen provision (--open | --print-url) [--name NAME]
-screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE]
-                   --expect-rev REVISION
+screen provision [--open | --print-url] [--name NAME]
+screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE] [--expect-rev REVISION]
 screen list [--state archived]
 screen show <id>
-screen publish <id> <file> --expect-rev REVISION
-screen assign <id> --playlist-id ID --expect-rev REVISION
-screen set-timezone <id> --timezone ZONE --expect-rev REVISION
-screen archive <id> --expect-rev REVISION
-screen unarchive <id> --expect-rev REVISION
-screen delete <id> --expect-rev REVISION
-screen rotate-public-id <id> --expect-rev REVISION
+screen publish <id> <file> [--expect-rev REVISION]
+screen assign <id> --playlist-id ID [--expect-rev REVISION]
+screen set-timezone <id> --timezone ZONE [--expect-rev REVISION]
+screen archive <id> [--expect-rev REVISION]
+screen unarchive <id> [--expect-rev REVISION]
+screen delete <id> [--expect-rev REVISION]
+screen rotate-public-id <id> [--expect-rev REVISION]
 screen toast <id> --text TEXT [--level info] [--duration-ms MS]
 screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
 kv get --app-id ID <key>
 kv set --app-id ID <key> --json-value JSON [--expect-rev REVISION]
-kv set --app-id ID <key> --file FILE --content-type TYPE [--expect-rev REVISION]
-kv set --app-id ID <key> --value-base64 BASE64 --content-type TYPE [--expect-rev REVISION]
-kv delete --app-id ID <key> --expect-rev REVISION
+kv set --app-id ID <key> --file FILE [--content-type TYPE] [--expect-rev REVISION]
+kv set --app-id ID <key> --value-base64 BASE64 [--content-type TYPE] [--expect-rev REVISION]
+kv delete --app-id ID <key> [--expect-rev REVISION]
 kv list --app-id ID
 comment show screen <id>
 comment show playlist <id> [--page PAGE_ID]

@@ -15,7 +15,7 @@ export function registerAppCommands(root, bind) {
     app.command("update").description("Update an application")
         .argument("<id>", "Application identifier")
         .argument("<directory>", "Local directory")
-        .requiredOption("--expect-rev <REVISION>", "Require the current resource revision (required)", revision)
+        .option("--expect-rev <REVISION>", "Optionally require this resource revision", revision)
         .option("--no-wait", "Return after acceptance without waiting for processing")
         .option("--poll-ms <MS>", "Set the operation polling interval", positiveInteger("poll-ms"))
         .action(bind(handleAppUpdate));

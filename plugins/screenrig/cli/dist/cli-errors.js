@@ -33,7 +33,7 @@ export function commandError(error, command) {
         }
         case "commander.missingArgument":
             if (path === "screen set-timezone")
-                throw usageError("screen set-timezone requires <id> --timezone --expect-rev.");
+                throw usageError("screen set-timezone requires <id> --timezone.");
             throw usageError(`${path} requires ${command.registeredArguments.filter((arg) => arg.required).map((arg) => `<${arg.name()}>`).join(" ")}.`);
         case "commander.excessArguments":
             throw usageError(`${path || "screenrig"} does not accept ${command.registeredArguments.length ? "extra" : "positional"} arguments.`);
@@ -41,7 +41,7 @@ export function commandError(error, command) {
             throw usageError("Conflicting options. See command help.");
         case "commander.missingMandatoryOptionValue": {
             if (path === "screen set-timezone")
-                throw usageError("screen set-timezone requires <id> --timezone --expect-rev.");
+                throw usageError("screen set-timezone requires <id> --timezone.");
             const required = command.options.filter((option) => option.mandatory && command.getOptionValue(option.attributeName()) === undefined);
             const positional = command.registeredArguments.filter((arg, index) => arg.required && index >= command.args.length).map((arg) => `<${arg.name()}>`);
             throw usageError(`${path} requires ${[...positional, ...required.map((option) => option.long)].join(" ")}.`);
