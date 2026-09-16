@@ -48,6 +48,13 @@ def main() -> None:
             assert run("--docs-only", "--check") == 1
             assert run("--docs-only") == 0
             assert not stale.exists()
+            dashboard_skill = target / "skills/screenrig-dashboard"
+            assert (dashboard_skill / "SKILL.md").is_file()
+            assert (dashboard_skill / "scripts/screenrig-dashboard").stat().st_mode & 0o111
+            (dashboard_skill / "references/obsolete.md").write_text("stale dashboard documentation\n")
+            assert run("--docs-only", "--check") == 1
+            assert run("--docs-only") == 0
+            assert not (dashboard_skill / "references/obsolete.md").exists()
             assert run("--docs-only", "--check") == 0
             for path, content in protected.items():
                 assert path.read_bytes() == content, f"changed protected file: {path}"

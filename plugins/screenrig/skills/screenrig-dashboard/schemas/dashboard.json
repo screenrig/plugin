@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["id", "title", "subtitle", "timezone", "queries", "widgets"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string"},
+    "title": {"type": "string", "maxLength": 80},
+    "subtitle": {"type": "string", "maxLength": 100},
+    "timezone": {"type": "string"},
+    "window_hours": {"type": "integer", "minimum": 1, "maximum": 8760},
+    "theme": {"enum": ["dark-modern", "light"]},
+    "queries": {"type": "object", "minProperties": 1, "maxProperties": 32, "additionalProperties": {
+      "type": "object", "required": ["dataset", "mode"], "additionalProperties": false,
+      "properties": {
+        "dataset": {"type": "string"}, "mode": {"enum": ["latest", "table", "series"]},
+        "filter": {"type": "object"}, "field": {"type": "string"},
+        "interval": {"enum": ["hour", "day"]}, "count": {"type": "integer", "minimum": 1, "maximum": 2000},
+        "aggregate": {"enum": ["sum", "latest"]}, "latest_period": {"type": "boolean"},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 30},
+        "order_by": {"type": "array", "items": {"type": "object", "required": ["field"], "additionalProperties": false,
+          "properties": {"field": {"type": "string"}, "direction": {"enum": ["asc", "desc"]}}}}
+      },
+      "allOf": [{"if": {"properties": {"mode": {"const": "series"}}},
+        "then": {"required": ["field", "interval", "count", "aggregate"]}}]
+    }},
+    "widgets": {"type": "array", "minItems": 1, "maxItems": 16, "items": {
+      "type": "object", "additionalProperties": false, "required": ["id", "type", "title", "query", "rect"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+        "type": {"enum": ["metric", "line", "bar", "table", "gauge", "notice"]},
+        "title": {"type": "string", "maxLength": 80}, "query": {"type": "string"},
+        "rect": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "integer", "minimum": 0, "maximum": 1920}},
+        "field": {"type": "string"}, "label_field": {"type": "string"},
+        "note": {"type": "string", "maxLength": 180}, "note_field": {"type": "string"},
+        "note_binding": {"type": "object", "required": ["query", "field"], "additionalProperties": false,
+          "properties": {"query": {"type": "string"}, "field": {"type": "string"}}},
+        "format": {"enum": ["number", "percent", "text", "bytes", "usd"]},
+        "decimals": {"type": "integer", "minimum": 0, "maximum": 6},
+        "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "min": {"type": "number"}, "max": {"type": "number"},
+        "columns": {"type": "array", "maxItems": 8, "items": {
+          "type": "object", "required": ["field", "label"], "additionalProperties": false,
+          "properties": {"field": {"type": "string"}, "label": {"type": "string"},
+            "format": {"enum": ["number", "percent", "text", "bytes", "usd"]},
+            "decimals": {"type": "integer", "minimum": 0, "maximum": 6}}
+        }}
+      }
+    }}
+  }
+}

@@ -28,7 +28,7 @@ from typing import Any, Iterator
 
 ROOT = Path(__file__).resolve().parent.parent
 SIBLING_CLI = ROOT.parent / "cli"
-SKILL = ROOT / "skills" / "screenrig"
+SKILLS = ROOT / "skills"
 PUBLIC_ROOT = ROOT / "build" / "plugin"
 PLUGINS = ROOT / "plugins"
 PLUGIN_NAME = "screenrig"
@@ -390,10 +390,10 @@ def copy_docs(plugin_root: Path) -> None:
         destination = plugin_root / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
-    skill_target = plugin_root / "skills" / PLUGIN_NAME
+    skill_target = plugin_root / "skills"
     if skill_target.exists():
         shutil.rmtree(skill_target)
-    shutil.copytree(SKILL, skill_target)
+    shutil.copytree(SKILLS, skill_target, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
 
 
 def build(
@@ -455,7 +455,7 @@ def compare(expected: Path, actual: Path) -> list[str]:
 
 
 def compare_docs(expected: Path, actual: Path) -> list[str]:
-    changes = compare(expected / "skills" / PLUGIN_NAME, actual / "skills" / PLUGIN_NAME)
+    changes = compare(expected / "skills", actual / "skills")
     for relative in PUBLIC_FILES:
         source, target = expected / relative, actual / relative
         if not target.is_file():
