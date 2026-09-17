@@ -1,3 +1,4 @@
+import { RESOURCE_ID_PATTERNS, isResourceID } from "./generated/resource-ids.js";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -6,9 +7,9 @@ import { newIdempotencyKey } from "./ids.js";
 import { quotedRevision } from "./if-match.js";
 import { CliError, makeProblem, usageError } from "./problems.js";
 const digest = (value) => createHash("sha256").update(value).digest("hex");
-function resource(value, prefix) {
+function resource(value, kind) {
     const item = value;
-    if (!item || typeof item.id !== "string" || !item.id.startsWith(prefix) || !Number.isSafeInteger(item.revision) || item.revision < 1)
+    if (!item || typeof item.id !== "string" || !isResourceID(item.id, kind) || !Number.isSafeInteger(item.revision) || item.revision < 1)
         throw usageError("Server response has invalid resource identity or revision.");
     return item;
 }
@@ -21,10 +22,10 @@ export async function publishScreen(options) {
     const expected = options.revision === undefined ? undefined : Number(options.revision.replaceAll('"', ''));
     if (options.revision !== undefined)
         quotedRevision(options.revision);
-    if (!/^scr_[A-Za-z0-9_-]+$/.test(screenId))
+    if (!RESOURCE_ID_PATTERNS.screen.test(screenId))
         throw usageError("screen publish requires a screen identifier.");
     const account = (await client.call({ method: "GET", path: "/api/v1/account" })).body;
-    if (!account?.id?.startsWith("acc_"))
+    if (!isResourceID(account?.id, "account"))
         throw usageError("Account identity is missing.");
     const fingerprint = digest(JSON.stringify([options.apiUrl, account.id, screenId, expected, document, options.requestedKey ?? ""]));
     const directory = path.join(path.dirname(options.configPath), "publishes");
@@ -88,14 +89,14 @@ export async function publishScreen(options) {
             if (state?.version !== 1 || state.fingerprint !== fingerprint || !Number.isFinite(state.created_at) || !state.create_key || !state.assign_key)
                 throw usageError("Publish journal is invalid.");
             if (state.playlist)
-                resource(state.playlist, "pl_");
+                resource(state.playlist, "playlist");
         }
         catch (error) {
             if (error.code !== "ENOENT")
                 throw error;
         }
         if (!state) {
-            const screen = resource((await client.call({ method: "GET", path: `/api/v1/screens/${screenId}` })).body, "scr_");
+            const screen = resource((await client.call({ method: "GET", path: `/api/v1/screens/${screenId}` })).body, "screen");
             if (screen.id !== screenId)
                 throw usageError("Screen response identity did not match.");
             if (expected !== undefined && screen.revision !== expected)
@@ -110,7 +111,7 @@ export async function publishScreen(options) {
         }
         if (!state.playlist) {
             const response = await client.call({ method: "POST", path: "/api/v1/playlists", body: document, idempotent: true, idempotencyKey: state.create_key });
-            state.playlist = resource(response.body, "pl_");
+            state.playlist = resource(response.body, "playlist");
             // Persist identity only, never the returned playlist or resolved media.
             state.playlist = { id: state.playlist.id, revision: state.playlist.revision };
             await save();
@@ -120,7 +121,7 @@ export async function publishScreen(options) {
             state.assigned = true;
             await save();
         }
-        const screen = resource((await client.call({ method: "GET", path: `/api/v1/screens/${screenId}` })).body, "scr_");
+        const screen = resource((await client.call({ method: "GET", path: `/api/v1/screens/${screenId}` })).body, "screen");
         if (screen.id !== screenId || screen.playlist_id !== state.playlist.id)
             conflict("The screen no longer has this playlist assigned. Inspect it before making another change.", screen.revision);
         return { playlist_id: state.playlist.id, playlist_revision: state.playlist.revision, screen_id: screenId, screen_revision: screen.revision, assignment_verified: true, playback_verified: false, journal: journalPath };
