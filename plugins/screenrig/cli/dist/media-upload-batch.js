@@ -1,3 +1,4 @@
+import { isResourceID } from "./generated/resource-ids.js";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -337,7 +338,7 @@ function mediaMatchFromList(body, sha256) {
     }
     for (const item of rec.items) {
         const row = asRecord(item);
-        if (!row || row.sha256 !== sha256 || typeof row.id !== "string" || !row.id.startsWith("med_")) {
+        if (!row || row.sha256 !== sha256 || typeof row.id !== "string" || !isResourceID(row.id, "media")) {
             continue;
         }
         const revision = typeof row.revision === "number" && Number.isInteger(row.revision) ? row.revision : undefined;

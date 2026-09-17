@@ -1,3 +1,4 @@
+import { RESOURCE_ID_PATTERNS, isResourceID } from "./generated/resource-ids.js";
 import { replacePlaylistRelease } from "./playlist-release.js";
 import { publishScreen } from "./screen-publish.js";
 import { readAuthoringJson, readAuthoringText, writeAuthoringJson } from "./authoring-input.js";
@@ -1577,7 +1578,7 @@ function mediaGenerationFromBody(body) {
         throw usageError("Media generation response does not match the MediaGeneration contract.");
     }
     const id = media.id;
-    if (typeof id !== "string" || !id.startsWith("med_")) {
+    if (typeof id !== "string" || !isResourceID(id, "media")) {
         throw usageError("Media generation response is missing a med_… media id.");
     }
     if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
@@ -1735,7 +1736,7 @@ async function mediaUpdate(args, client) {
         human: clearTag ? `Cleared tag on media ${id}` : `Set tag ${tag} on media ${id}`,
     };
 }
-const MEDIA_ID_PATTERN = /^med_[A-Za-z0-9_-]+$/;
+const MEDIA_ID_PATTERN = RESOURCE_ID_PATTERNS.media;
 /** Canonical file extension for each verified media content type, matching the server's Content-Disposition. */
 const MEDIA_CONTENT_EXTENSIONS = {
     "image/png": "png",
@@ -1868,10 +1869,10 @@ async function playbackList(args, runtime, resolved) {
     const screenId = flagString(args.flags, "screen-id");
     const mediaId = flagString(args.flags, "media-id");
     const day = flagString(args.flags, "day");
-    if (screenId !== undefined && !screenId.startsWith("scr_")) {
-        throw usageError("--screen-id must start with scr_.");
+    if (screenId !== undefined && !isResourceID(screenId, "screen")) {
+        throw usageError("--screen-id must be a screen identifier.");
     }
-    if (mediaId !== undefined && !mediaId.startsWith("med_")) {
+    if (mediaId !== undefined && !isResourceID(mediaId, "media")) {
         throw usageError("--media-id must start with med_.");
     }
     if (day !== undefined && !PLAYBACK_DAY_PATTERN.test(day)) {
@@ -2054,7 +2055,7 @@ const TOAST_TEXT_MAX = 120;
 const TOAST_MAX_LINES = 3;
 const TOAST_DURATION_MIN = 2000;
 const TOAST_DURATION_MAX = 60000;
-const SCREEN_ID_PATTERN = /^scr_[A-Za-z0-9_-]+$/;
+const SCREEN_ID_PATTERN = RESOURCE_ID_PATTERNS.screen;
 const PLAYLIST_PAGE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 const SCREENSHOT_DEFAULT_WAIT_MS = 35_000;
 const SCREENSHOT_DEFAULT_POLL_MS = 500;
@@ -2238,7 +2239,7 @@ async function playlistPreviewCommand(args, runtime, resolved) {
         fromFile = false;
     }
     if (!fromFile) {
-        if (!/^pl_[A-Za-z0-9_-]+$/.test(target)) {
+        if (!RESOURCE_ID_PATTERNS.playlist.test(target)) {
             throw usageError("Cannot read playlist JSON.");
         }
         const token = requireToken(resolved.token);
@@ -3797,13 +3798,13 @@ export const handlePlaylistInit = commandHandler(async (args, runtime, resolved)
     const files = new Map();
     const warnings = [];
     for (const input of args.positionals.slice(2)) {
-        if (/^med_[A-Za-z0-9_-]+$/.test(input)) {
+        if (RESOURCE_ID_PATTERNS.media.test(input)) {
             const record = (await remote().call({ method: "GET", path: `/api/v1/media/${input}` })).body;
             if (record?.id !== input)
                 throw usageError("Media response identity did not match.");
             content.push(record);
         }
-        else if (/^rel_[A-Za-z0-9_-]+$/.test(input)) {
+        else if (RESOURCE_ID_PATTERNS.release.test(input)) {
             content.push({ primitive: "application", release_id: input });
         }
         else if (/^[a-z][a-z0-9+.-]*:/i.test(input)) {
