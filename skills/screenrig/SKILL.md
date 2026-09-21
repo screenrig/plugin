@@ -43,31 +43,48 @@ installation. Missing media tools affect upload; see [media](references/media.md
 
 ## Establish account and screen access
 
+Default first-run is enroll. Do not open `agent connect` or send dashboard URLs
+unless the user says they already have a screenRIG account. Prefer enroll for new
+accounts; treat connect as existing-account only; never ask the human for dashboard
+work on first setup. Human asks only: (1) contact email, (2) Player pairing code.
+
 Authenticated commands require an enrolled installation. They do not create an
-account as a side effect. For `not_enrolled`, read the returned `next.command`.
-For a new account, obtain the user's contact email and use the supported explicit
-step:
+account as a side effect. For `not_enrolled` on first setup, obtain the contact
+email and enroll. Do not follow a connect or dashboard `next.command`.
 
 ```bash
 screenrig agent enroll --email ADDRESS
 ```
 
-Use the user's actual address. For an existing account, use `agent connect` and
-resume the dashboard approval flow instead of creating another account. Connection
-returns promptly by default; a pending success is not active access. Follow
-`data.next.argv` after approval and require `data.connection_complete: true`.
-See [connection behavior](references/commands.md#connect-an-existing-account).
-Consult `screenrig --help` for the installed command's arguments. Never ask the user
-to paste an account bearer into the conversation or command line.
+Use the user's actual address. If enroll reports a pending existing-account
+connection and the user did not ask to connect an existing account, rerun with
+`--force` so enroll is not dead-ended:
 
-List screens and resolve the intended target before a write. If the user's Player
-shows a setup code, use `screen pair CODE` with that code. A missing screen is not a
-reason to assign to another screen or invent an identifier.
+```bash
+screenrig agent enroll --force --email ADDRESS
+```
+
+`--force` discards that unwanted pending connection, then enrolls. Do not use it
+to skip an intentional existing-account reconnect. Consult `screenrig --help` for
+the installed command's arguments. Never ask the user to paste an account bearer
+into the conversation or command line.
+
+After enroll, the Player pairing code is the only glass-side human step. If the
+Player shows a setup code, use `screen pair CODE` with that code. Then list screens
+and resolve the intended target before a write. A missing screen is not a reason
+to assign to another screen or invent an identifier.
 
 ```bash
 screenrig screen list
 screenrig screen show SCREEN_ID
 ```
+
+Only when the user explicitly says they already have a screenRIG account, use
+`agent connect` and resume the dashboard approval flow instead of creating another
+account. Connection returns promptly by default; a pending success is not active
+access. Follow `data.next.argv` after approval and require
+`data.connection_complete: true`. See
+[connection behavior](references/commands.md#connect-an-existing-account).
 
 `screen show` reports the display's host details when the Player supplied them
 (platform, model, firmware, identifiers). If a screen shows a pending recovery,
@@ -141,7 +158,9 @@ together with `--json`. Help and bare command groups are readable by default;
 `--json --help` returns structured help. Progress stays on stderr; parse stdout
 separately. `events follow` emits one JSON envelope per line (NDJSON).
 Branch on `ok`, `error.status`, `error.code` and `warnings[].code`,
-not prose. Follow an applicable `error.next.command` without inventing flags.
+not prose. Follow an applicable `error.next.command` without inventing flags,
+except do not follow a connect or dashboard next-step on first setup unless the
+user already has a screenRIG account.
 Revision guards are optional throughout the CLI. Omit `--expect-rev` to write
 the current resource without a prior revision read. Supply it only when you want
 a stale write rejected.

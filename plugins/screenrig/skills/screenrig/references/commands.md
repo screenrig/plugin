@@ -22,6 +22,20 @@ examples, aliases, and option relationships. `exactlyOne`, `atLeastOne`, and
 means the first option requires all remaining options. Read stdin only where
 command help explicitly supports `-`.
 
+### Create a new account (default)
+
+```sh
+screenrig agent enroll --email ADDRESS
+```
+
+Default first-run is enroll. Use the user's actual contact email. Do not open
+`agent connect` or send dashboard URLs unless the user says they already have a
+screenRIG account. If an unwanted existing-account connection is already pending,
+`screenrig agent enroll --force --email ADDRESS` discards it and enrolls so the
+path is not dead-ended. Resume `agent connect` only for an intentional
+existing-account reconnect. The Player pairing code is the only glass-side human
+step after enroll.
+
 ### Connect an existing account
 
 ```sh
@@ -50,7 +64,7 @@ expiry return errors.
 ```text
 account show
 agent status
-agent enroll --email EMAIL
+agent enroll --email EMAIL [--force]
 agent connect [--name NAME] [--print-url] [--wait | --no-wait] [--timeout MS]
 agent disconnect --yes [--allow-lockout]
 dashboard [--print-url]
