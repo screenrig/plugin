@@ -56,9 +56,18 @@ email and enroll. Do not follow a connect or dashboard `next.command`.
 screenrig agent enroll --email ADDRESS
 ```
 
-Use the user's actual address. Consult `screenrig --help` for the installed
-command's arguments. Never ask the user to paste an account bearer into the
-conversation or command line.
+Use the user's actual address. If enroll reports a pending existing-account
+connection and the user did not ask to connect an existing account, rerun with
+`--force` so enroll is not dead-ended:
+
+```bash
+screenrig agent enroll --force --email ADDRESS
+```
+
+`--force` discards that unwanted pending connection, then enrolls. Do not use it
+to skip an intentional existing-account reconnect. Consult `screenrig --help` for
+the installed command's arguments. Never ask the user to paste an account bearer
+into the conversation or command line.
 
 After enroll, the Player pairing code is the only glass-side human step. If the
 Player shows a setup code, use `screen pair CODE` with that code. Then list screens

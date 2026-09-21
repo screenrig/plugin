@@ -30,8 +30,11 @@ screenrig agent enroll --email ADDRESS
 
 Default first-run is enroll. Use the user's actual contact email. Do not open
 `agent connect` or send dashboard URLs unless the user says they already have a
-screenRIG account. The Player pairing code is the only glass-side human step after
-enroll.
+screenRIG account. If an unwanted existing-account connection is already pending,
+`screenrig agent enroll --force --email ADDRESS` discards it and enrolls so the
+path is not dead-ended. Resume `agent connect` only for an intentional
+existing-account reconnect. The Player pairing code is the only glass-side human
+step after enroll.
 
 ### Connect an existing account
 
@@ -61,7 +64,7 @@ expiry return errors.
 ```text
 account show
 agent status
-agent enroll --email EMAIL
+agent enroll --email EMAIL [--force]
 agent connect [--name NAME] [--print-url] [--wait | --no-wait] [--timeout MS]
 agent disconnect --yes [--allow-lockout]
 dashboard [--print-url]
