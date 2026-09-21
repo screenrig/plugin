@@ -22,6 +22,17 @@ examples, aliases, and option relationships. `exactlyOne`, `atLeastOne`, and
 means the first option requires all remaining options. Read stdin only where
 command help explicitly supports `-`.
 
+### Create a new account (default)
+
+```sh
+screenrig agent enroll --email ADDRESS
+```
+
+Default first-run is enroll. Use the user's actual contact email. Do not open
+`agent connect` or send dashboard URLs unless the user says they already have a
+screenRIG account. The Player pairing code is the only glass-side human step after
+enroll.
+
 ### Connect an existing account
 
 ```sh
