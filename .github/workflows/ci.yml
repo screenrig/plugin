@@ -164,6 +164,16 @@ jobs:
             echo "Bundled CLI digest unchanged; not committing"
             exit 0
           fi
+          if [ "${AFTER_REBUNDLE}" = "true" ]; then
+            # This run exists to gate the rebundle commit the previous run
+            # pushed. Rebundling again would push a fresh ungated tip and
+            # dispatch forever, so stop here and leave this gated tip on main.
+            echo "This run gates rebundle tip $(git rev-parse HEAD), yet packing screenrig/cli main drifted again" >&2
+            echo "recorded ${old}" >&2
+            echo "packed ${new}" >&2
+            echo "Not chaining another rebundle: check whether screenrig/cli main moved or the pack is nondeterministic" >&2
+            exit 1
+          fi
           cp "${update}" components.lock.json
           rm -rf plugins/screenrig
           cp -a "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig" plugins/screenrig
@@ -178,15 +188,9 @@ jobs:
           git commit -m "Bundle current screenrig/cli main"
           git push origin "HEAD:${GITHUB_REF_NAME}"
           tip="$(git rev-parse HEAD)"
-          # GITHUB_TOKEN pushes never re-fire `on: push`, so this rebundle tip
-          # would carry no check runs. Dispatch these gates on the new tip once,
-          # marked as the follow-up generation so it cannot chain forever.
-          if [ "${AFTER_REBUNDLE}" = "true" ]; then
-            echo "Follow-up rebundle gate rebundled again at ${tip}" >&2
-            echo "screenrig/cli main moved again or the pack is nondeterministic" >&2
-            echo "Not chaining another dispatch; gate ${tip} by hand once the cause is understood" >&2
-            exit 1
-          fi
+          # A GITHUB_TOKEN push never re-fires `on: push`, so this rebundle tip
+          # would carry no check runs at all. Dispatch these gates on the new
+          # tip, flagged as the follow-up generation so it cannot chain forever.
           curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
             --request POST \
             --header "Accept: application/vnd.github+json" \
