@@ -169,6 +169,7 @@ def check_public_tree(errors: list[str]) -> None:
             "actions: write",
             "after_rebundle",
             "actions/workflows/ci.yml/dispatches",
+            "jq -r .cli.commit",
             "python3 scripts/calver.py tag",
             "github.ref == 'refs/heads/main'",
             "git push",
