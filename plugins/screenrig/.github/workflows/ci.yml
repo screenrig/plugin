@@ -167,11 +167,22 @@ jobs:
           if [ "${AFTER_REBUNDLE}" = "true" ]; then
             # This run exists to gate the rebundle commit the previous run
             # pushed. Rebundling again would push a fresh ungated tip and
-            # dispatch forever, so stop here and leave this gated tip on main.
-            echo "This run gates rebundle tip $(git rev-parse HEAD), yet packing screenrig/cli main drifted again" >&2
-            echo "recorded ${old}" >&2
-            echo "packed ${new}" >&2
-            echo "Not chaining another rebundle: check whether screenrig/cli main moved or the pack is nondeterministic" >&2
+            # dispatch forever, so never commit from this generation.
+            old_commit="$(jq -r .cli.commit components.lock.json)"
+            new_commit="$(jq -r .cli.commit "${update}")"
+            if [ "${old_commit}" = "${new_commit}" ]; then
+              # Packing screenrig/cli ${old_commit} is not byte-reproducible, so
+              # the digest alone moved while the bundled CLI stayed put. Accept
+              # the recorded provenance and leave this gated tip on main.
+              echo "Bundled CLI is still screenrig/cli ${old_commit}; tarball digest is not reproducible"
+              echo "recorded ${old}"
+              echo "packed ${new}"
+              exit 0
+            fi
+            echo "This run gates rebundle tip $(git rev-parse HEAD), yet screenrig/cli main moved again" >&2
+            echo "recorded ${old_commit} ${old}" >&2
+            echo "packed ${new_commit} ${new}" >&2
+            echo "Not chaining another rebundle; the next push to main bundles ${new_commit}" >&2
             exit 1
           fi
           cp "${update}" components.lock.json
