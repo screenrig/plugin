@@ -46,9 +46,11 @@ By default, this starts or resumes an approval request and reads one status
 snapshot for at most one second. A successful pending result means submission,
 not activation: `data.request_submitted` is `true` and `data.connection_complete`
 is `false`. Send the handoff from `data.approval_url` to the intended user, then
-resume with `data.next.argv` or `screenrig agent connect`. The argument array
-preserves the selected config and API origin. Activation returns `data.status:
-active` and `data.connection_complete: true`, without returning a credential.
+resume with `data.next.argv` or `screenrig agent connect`. The human approves in
+the dashboard with their own account identity (a passkey session in production);
+the CLI never receives that credential. The argument array preserves the selected
+config and API origin. Activation returns `data.status: active` and
+`data.connection_complete: true`, without returning a credential.
 
 If no snapshot arrives, `data.status_checked` is `false`; do not infer current
 approval state from that result. Without `--print-url`, the CLI tries to open the
@@ -144,6 +146,52 @@ feedback feature <title> (--body TEXT | --body-file FILE)
                      [--command "GROUP ACTION"] [--no-context]
 feedback list [--kind bug|feature]
 doctor [--repair-config]
+account capabilities
+ads networks list
+ads networks show <seller-account-id>
+ads network show
+ads network create --name NAME
+ads network rate --rate-mcr-per-15s MCR --expect-rev REVISION
+ads inventory list
+ads inventory update <screen-id> [--enabled | --disabled] [--site-name NAME] [--city CITY]
+                     [--region REGION] [--venue-type TYPE] [--audience-tags TOKENS]
+                     [--placement TEXT] [--public-description TEXT]
+                     [--rate-mcr-per-15s MCR | --clear-rate] [--expect-rev REVISION]
+ads slots list
+ads slots create --name NAME [--enabled | --disabled] [--accepted-media image,video]
+                     [--max-image-duration-ms MS] [--max-video-duration-ms MS]
+                     [--rate-mcr-per-15s MCR]
+ads slots update <slot-id> [--enabled | --disabled] [--name NAME] [--accepted-media image,video]
+                     [--max-image-duration-ms MS] [--max-video-duration-ms MS]
+                     [--rate-mcr-per-15s MCR | --clear-rate] --expect-rev REVISION
+ads invites create --email ADDRESSES [--screen-id IDS] [--slot-id IDS]
+                     [--policy trusted|review_required]
+ads invites list
+ads invites revoke <invitation-id>
+ads memberships list
+ads memberships update <membership-id> [--policy trusted|review_required]
+                     [--screen-id IDS] [--slot-id IDS] --expect-rev REVISION
+ads memberships revoke <membership-id>
+ads creatives list
+ads creatives create --media-id ID --copy TEXT
+ads creatives show <creative-id>
+ads campaigns list
+ads campaigns show <campaign-id>
+ads campaigns create <file>
+ads campaigns update <campaign-id> <file> --expect-rev REVISION
+ads campaigns preview <campaign-id> [--expect-rev REVISION]
+ads campaigns activate <campaign-id> --quote-id ID --expect-rev REVISION
+ads campaigns pause <campaign-id> --expect-rev REVISION
+ads campaigns resume <campaign-id> --expect-rev REVISION
+ads campaigns accept-rates <campaign-id> --quote-id ID --expect-rev REVISION
+ads reviews list
+ads reviews show <review-id>
+ads reviews approve <review-id>
+ads reviews reject <review-id> --reason TEXT
+ads reports spend [--campaign-id ID]
+ads reports delivery --from RFC3339 --to RFC3339
+billing balance
+billing statement [--cursor CURSOR] [--limit N]
 version
 ```
 

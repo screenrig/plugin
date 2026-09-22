@@ -1,9 +1,11 @@
 import { handleAgentEnroll, handleAgentConnect, handleAgentStatus, handleAgentDisconnect } from "../commands.js";
+import { Option } from "commander";
 import { addCommandNotes } from "./notes.js";
 export function registerAgentCommands(root, bind) {
     const agent = root.command("agent").description("Enroll, connect, and manage this agent");
     agent.command("enroll").description("Create a new account agent (default first-run path)")
         .option("--email <ADDRESS>", "Set the account contact email")
+        .addOption(new Option("--intent <INTENT>", "Choose the account's purpose: signage (default) or advertising").choices(["signage", "advertising"]))
         .option("--name <NAME>", "Set this agent installation name")
         .option("--force", "Discard a pending existing-account connection before enrolling")
         .option("--open-dashboard", "Open the dashboard after enrolling")

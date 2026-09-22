@@ -91,6 +91,62 @@ Option `relationships` describe `exactlyOne`, `atLeastOne`, and `together` group
 `requires` means the first option requires every remaining option. These same
 rules validate invocations before configuration or network access.
 
+## Invite people to your account
+
+An enrolled agent can email another person a single-use dashboard invitation:
+
+```sh
+screenrig account invite --email teammate@example.com
+```
+
+This uses the existing account; it never enrolls a new one. The response reports
+the invitation ID, status, and expiry, not a sign-in link. `queued` means delivery
+is pending; `sent` means the mail provider accepted the message, not that it
+reached the inbox. Invited people receive the account's existing dashboard
+access, not a restricted guest role.
+
+At most **10 invitations** may be outstanding per account, including the initial
+invitation queued when the account was created. Claiming an invitation, its
+24-hour expiry, or a terminal delivery failure releases its slot. An outstanding
+invitation to the same address is reused. At the limit, the command reports
+`invitation_limit_reached` without automatically retrying.
+
+After an ambiguous failure, rerun the same command unchanged; the CLI preserves
+its request key. Automation may supply `--idempotency-key` to explicitly replay
+the same request without adding another invitation.
+
+## Recover dashboard access to your account
+
+If every agent credential for an account is lost, the mailbox owner can email
+the account's contact address a single-use dashboard recovery link:
+
+```sh
+screenrig account recover --email owner@example.com
+```
+
+This command is unauthenticated: it never enrolls, never sends a stored token,
+and never changes stored credential, account, or enrollment state. It can run
+on a fresh installation with no configuration.
+
+HTTP 202 accepts the request; it is not proof the email arrived, and the
+response is identical whether or not the address belongs to an account. One
+live recovery per account is in flight at a time; rerunning the same command
+reuses its saved Idempotency-Key instead of sending another link. Recovery is
+separate from the invitation quota, so a full invitation cap never blocks it.
+
+The mailbox owner opens the emailed link (single use, expires after 24 hours)
+to restore access to the existing account, then attaches this installation by
+running `screenrig agent connect` in the CLI and approving the connection
+request in the recovered dashboard:
+
+```sh
+screenrig agent connect
+```
+
+Enrollment with a contact address that already belongs to an account stops
+with `email_conflict` and directs to this recovery flow; never retry
+enrollment with another address.
+
 ## Screen host and recovery
 
 Native players report the shell and hardware they run on. `screen show` prints

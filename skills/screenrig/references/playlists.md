@@ -417,6 +417,35 @@ screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles
 `Europe/Berlin`. Set the timezone before assigning a scheduled playlist.
 `screen update` accepts the same `--timezone`.
 
+### Adslot pages
+
+A seller places an advertising break as a whole `adslot` page, not as a canvas
+primitive. The page carries only `id`, `type`, `adslot_id`, and an optional
+`visibility` schedule; no creative, price, serving fee, or client-chosen duration
+is stored in the playlist, and a selected fill never rewrites the saved document.
+
+```json
+{
+  "id": "lobby_sponsor_break",
+  "type": "adslot",
+  "adslot_id": "ads_lobby",
+  "visibility": {
+    "enabled": true,
+    "windows": [{"days": ["mon", "tue", "wed", "thu", "fri"], "start": "09:00", "end": "18:00"}]
+  }
+}
+```
+
+Keep at least one ordinary page with no visibility rule as the fallback. Adslot
+pages count toward the normal page limits, the slot definition must already exist
+for the account, and the assigned Players must support the adslot capability; a
+slot definition alone does not create an ad break. An ad-bearing playlist is read
+and written under the v2 union: a v1 request answers with an explicit
+`version_required` conflict and the CLI retries v2 rather than filtering the ad
+break out of the document. `playlist preview` renders one labelled placeholder
+for an adslot page because the fill is chosen at runtime, and a playlist bundle
+cannot carry an adslot page. See [advertising](advertising.md).
+
 ## Playlist bundle export and import
 
 Use a `screenrig.playlist-bundle/v1` directory to move one playlist and every

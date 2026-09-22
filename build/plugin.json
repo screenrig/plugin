@@ -1,6 +1,6 @@
 {
   "name": "screenrig",
-  "description": "Operate ScreenRig screens, media, playlists, and applications with the bundled CLI.",
+  "description": "Operate ScreenRig screens, media, playlists, applications, and advertising with the bundled CLI.",
   "author": {
     "name": "ScreenRig"
   },
@@ -16,7 +16,7 @@
   "interface": {
     "displayName": "ScreenRig",
     "shortDescription": "Operate ScreenRig with its bundled CLI",
-    "longDescription": "Install the official ScreenRig plugin and operate screens, media, playlists, and applications through a packaged noninteractive CLI.",
-    "defaultPrompt": "Use $screenrig to generate a presentable whole-page still, upload existing media, compose a slide-deck still when needed, write playlists, and assign content to my screens with machine-readable output."
+    "longDescription": "Install the official ScreenRig plugin and operate screens, media, playlists, applications, and advertising through a packaged noninteractive CLI.",
+    "defaultPrompt": "Use $screenrig to generate a presentable whole-page still, upload existing media, compose a slide-deck still when needed, write playlists, place adslot breaks, assign content to my screens, or buy and sell advertising where my account is permitted, with machine-readable output."
   }
 }

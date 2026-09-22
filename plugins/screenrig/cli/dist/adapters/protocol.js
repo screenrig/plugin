@@ -1,12 +1,3 @@
-/**
- * Temporary compile-time adapter for the generated `packages/protocol` API.
- *
- * The generated package is currently private and exports TypeScript source,
- * which cannot be consumed by this independently built package without pulling
- * shared source outside `rootDir`. These definitions mirror OpenAPI v0.2.0;
- * replace them with package imports once `@screenrig/protocol` publishes JS and
- * declarations.
- */
 export const DEFAULT_ARCHIVE_LIMITS = {
     application_archive_bytes: 100 * 1024 * 1024,
     application_expanded_bytes: 250 * 1024 * 1024,

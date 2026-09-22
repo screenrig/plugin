@@ -26,7 +26,11 @@ downloads or store listings.
 
 Use existing images or videos, generate a finished still, compose editable slides,
 or publish live web pages and applications. Your agent can request a screenshot
-to inspect the result.
+to inspect the result. Where the account is permitted, the same CLI can also
+buy ad campaigns on the sellers its account has been invited to or sell owned
+screen inventory, with pricing quoted and accepted before anything is charged.
+The dashboard's Marketplace lists invited sellers and their permitted inventory
+and rates; admission stays invitation-only, with no public listings to browse.
 
 There is no per-screen subscription. Account usage is free within reason until
 1 January 2027; image generation is metered separately. See the

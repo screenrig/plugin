@@ -1,13 +1,17 @@
 ---
 name: screenrig
-description: Operate screenRIG screens with the bundled CLI. Use to upload or generate media, compose slides, publish applications and playlists, assign content, and verify playback.
+description: Operate screenRIG screens and advertising with the bundled CLI. Use to upload or generate media, compose slides, publish applications and playlists, assign content, verify playback, place adslot breaks, and buy or manage ad campaigns or sell ad inventory.
 ---
 
 # Operate screenRIG
 
-Use the official plugin's bundled CLI to prepare content, publish it to the intended
-Player, and inspect the result. The customer Player is the PWA described in
+Use the official plugin's bundled CLI to connect one account, prepare and publish
+signage content to the intended Player, and buy or sell advertising where the
+account is permitted to. The customer Player is the PWA described in
 [Player setup](https://screenrig.ai/docs/players.md).
+
+Resolve the account's capabilities and the requested intent before any operation;
+the section below is the only branch that needs a screenRIG screen.
 
 ## Prepare the installation
 
@@ -41,12 +45,12 @@ copy and disclose that the published version could not be checked.
 Read doctor's individual checks. A missing token is a warning, not a broken
 installation. Missing media tools affect upload; see [media](references/media.md).
 
-## Establish account and screen access
+## Resolve the account, then the intent before any operation
 
 Default first-run is enroll. Do not open `agent connect` or send dashboard URLs
 unless the user says they already have a screenRIG account. Prefer enroll for new
 accounts; treat connect as existing-account only; never ask the human for dashboard
-work on first setup. Human asks only: (1) contact email, (2) Player pairing code.
+work on first setup.
 
 Authenticated commands require an enrolled installation. They do not create an
 account as a side effect. For `not_enrolled` on first setup, obtain the contact
@@ -56,9 +60,17 @@ email and enroll. Do not follow a connect or dashboard `next.command`.
 screenrig agent enroll --email ADDRESS
 ```
 
-Use the user's actual address. If enroll reports a pending existing-account
-connection and the user did not ask to connect an existing account, rerun with
-`--force` so enroll is not dead-ended:
+Use the user's actual address. If the work is explicitly advertising rather than
+signage, enroll that same account with the advertising purpose; it buys ads and
+does not pair devices or author playlists. Never create a second account merely
+because the task is advertising.
+
+```bash
+screenrig agent enroll --intent advertising --email ADDRESS
+```
+
+If enroll reports a pending existing-account connection and the user did not ask
+to connect an existing account, rerun with `--force` so enroll is not dead-ended:
 
 ```bash
 screenrig agent enroll --force --email ADDRESS
@@ -69,22 +81,51 @@ to skip an intentional existing-account reconnect. Consult `screenrig --help` fo
 the installed command's arguments. Never ask the user to paste an account bearer
 into the conversation or command line.
 
-After enroll, the Player pairing code is the only glass-side human step. If the
-Player shows a setup code, use `screen pair CODE` with that code. Then list screens
-and resolve the intended target before a write. A missing screen is not a reason
-to assign to another screen or invent an identifier.
-
-```bash
-screenrig screen list
-screenrig screen show SCREEN_ID
-```
-
 Only when the user explicitly says they already have a screenRIG account, use
 `agent connect` and resume the dashboard approval flow instead of creating another
 account. Connection returns promptly by default; a pending success is not active
 access. Follow `data.next.argv` after approval and require
 `data.connection_complete: true`. See
 [connection behavior](references/commands.md#connect-an-existing-account).
+
+### Capability and intent dispatch (before any screen operation)
+
+1. Resolve the official installed plugin and CLI, then verify version, freshness,
+   and doctor as above.
+2. Connect the intended existing account, or enroll explicitly.
+3. Read the authenticated account ID, plan, feature flags, feature revision, and
+   the server's effective capabilities. Never infer permission from a screen
+   quota of zero, a plan name, a dashboard label, or which commands exist.
+
+   ```bash
+   screenrig account capabilities
+   ```
+
+4. Classify the request: buying ads, selling inventory, ordinary signage, or
+   financial administration. One account may hold both the advertising and
+   screens features and support both ad roles. If intent is materially ambiguous,
+   ask about the task, never for a token or credential.
+5. Load the matching reference and run only capability-permitted operations:
+   signage follows [playlists](references/playlists.md) and
+   [operations](references/operations.md); buying and selling follow
+   [advertising](references/advertising.md). An advertiser workflow has no screen
+   pairing, playlist creation, or screenshot prerequisite.
+6. Respect a server denial even when cached capabilities suggested permission.
+   Refresh capability state for diagnosis; do not retry through another API,
+   create another account, or change the plan to bypass a restriction.
+
+### Signage branch: resolve the target screen
+
+After enroll, the Player pairing code is the only glass-side human step. If the
+Player shows a setup code, use `screen pair CODE` with that code. Then list screens
+and resolve the intended target before a write. A missing screen is not a reason
+to assign to another screen or invent an identifier. This branch applies only when
+the resolved intent is signage or seller work on owned screens.
+
+```bash
+screenrig screen list
+screenrig screen show SCREEN_ID
+```
 
 `screen show` reports the display's host details when the Player supplied them
 (platform, model, firmware, identifiers). If a screen shows a pending recovery,
@@ -93,7 +134,7 @@ is asking to reconnect; confirm it with `screen recover SCREEN_ID` only after
 checking with the user that it is the same display. Nothing reconnects without
 that confirmation.
 
-## Choose the content path
+## Signage branch: choose the content path
 
 Read the target screen's reported playback surface before choosing aspect ratio.
 If it has no observation, ask for the intended orientation or use dimensions the
@@ -120,8 +161,7 @@ fleet. Prefer H.264 unless the operator has confirmed HEVC on a named device.
 See [video codec selection](references/media.md) before uploading; a native
 Player alone does not guarantee HEVC support.
 
-## Publish and verify
-
+## Signage branch: publish and verify
 The five primitives are `image`, `video`, `stream`, `iframe`, and `application`.
 Use streaming only with a compatible backend and Player.
 Image and video use media selectors; stream, iframe, and application do not.
@@ -161,9 +201,11 @@ Branch on `ok`, `error.status`, `error.code` and `warnings[].code`,
 not prose. Follow an applicable `error.next.command` without inventing flags,
 except do not follow a connect or dashboard next-step on first setup unless the
 user already has a screenRIG account.
-Revision guards are optional throughout the CLI. Omit `--expect-rev` to write
-the current resource without a prior revision read. Supply it only when you want
-a stale write rejected.
+Revision guards are optional for most writes: omit `--expect-rev` to write the
+current resource without a prior revision read, or supply it to reject a stale
+write. Advertising mutations are the enforced exception — campaign `update`,
+`activate`, `pause`, `resume`, and `accept-rates`, seller `ads network rate`,
+`ads slots update`, and `ads memberships update` require the current revision.
 
 On a revision conflict, refetch and reconcile the intended change. After an
 ambiguous write, retry with the same idempotency key and same request, not a new write.

@@ -28,6 +28,9 @@ export declare const handleAgentConnect: CommandHandler;
 export declare const handleAgentEnroll: CommandHandler;
 export declare const handleAgentDisconnect: CommandHandler;
 export declare const handleAccountShow: CommandHandler;
+export declare const handleAccountCapabilities: CommandHandler;
+export declare const handleAccountInvite: CommandHandler;
+export declare const handleAccountRecover: CommandHandler;
 export declare const handleDashboard: CommandHandler;
 export declare const handleAppUpload: CommandHandler;
 export declare const handleAppUpdate: CommandHandler;
@@ -40,6 +43,78 @@ export declare const handleOperationsCancel: CommandHandler;
 export declare const handleEventsList: CommandHandler;
 export declare const handleEventsFollow: CommandHandler;
 export declare const handlePlaybackList: CommandHandler;
+export declare const handleAdsNetworksList: CommandHandler;
+export declare const handleAdsNetworkInventoryShow: CommandHandler;
+export declare const handleAdsNetworkShow: CommandHandler;
+export declare const handleAdsNetworkCreate: CommandHandler;
+export declare const handleAdsNetworkRate: CommandHandler;
+export declare const handleAdsInventoryList: CommandHandler;
+/**
+ * Upsert one screen's advertising inventory. When the row already exists the
+ * route replaces it, so the CLI reads the stored row, merges the supplied
+ * changes, and writes the whole record with the current revision as its
+ * precondition; an unsupplied field keeps its stored value.
+ */
+export declare const handleAdsInventoryUpdate: CommandHandler;
+export declare const handleAdsSlotsList: CommandHandler;
+export declare const handleAdsSlotsCreate: CommandHandler;
+/**
+ * Update one slot. The route replaces the stored definition, so the CLI reads
+ * it first and writes the merged record; a rename alone keeps the accepted
+ * formats, duration limits, and the rate override.
+ */
+export declare const handleAdsSlotsUpdate: CommandHandler;
+/**
+ * Invitations return each claim token exactly once. The token is a secret: the
+ * JSON envelope carries it for the seller to deliver, and the human rendering
+ * never repeats it.
+ */
+export declare const handleAdsInvitesCreate: CommandHandler;
+export declare const handleAdsInvitesList: CommandHandler;
+export declare const handleAdsInvitesRevoke: CommandHandler;
+export declare const handleAdsMembershipsList: CommandHandler;
+/**
+ * Update one membership. The route takes the policy and both scope lists, so an
+ * unspecified list keeps the stored scope rather than clearing the buyer's
+ * access, and the stored policy is reused when --policy is omitted.
+ */
+export declare const handleAdsMembershipsUpdate: CommandHandler;
+export declare const handleAdsMembershipsRevoke: CommandHandler;
+export declare const handleAdsCreativesList: CommandHandler;
+export declare const handleAdsCreativesCreate: CommandHandler;
+export declare const handleAdsCreativesShow: CommandHandler;
+export declare const handleAdsCampaignsList: CommandHandler;
+export declare const handleAdsCampaignsCreate: CommandHandler;
+export declare const handleAdsCampaignsShow: CommandHandler;
+/**
+ * Quote a campaign. The route requires the current campaign revision as its
+ * precondition: the operator can override it with --expect-rev, otherwise the
+ * CLI reads that one campaign and uses the revision it just saw.
+ */
+export declare const handleAdsCampaignsPreview: CommandHandler;
+export declare const handleAdsCampaignsUpdate: CommandHandler;
+export declare const handleAdsCampaignsActivate: CommandHandler;
+export declare const handleAdsCampaignsPause: CommandHandler;
+export declare const handleAdsCampaignsResume: CommandHandler;
+export declare const handleAdsCampaignsAcceptRates: CommandHandler;
+export declare const handleAdsReviewsList: CommandHandler;
+/**
+ * The seller's preview of one submission: the dedicated review metadata route
+ * returns the review and the exact creative it decided on, and nothing from the
+ * buyer's wider media library.
+ */
+export declare const handleAdsReviewsShow: CommandHandler;
+export declare const handleAdsReviewsApprove: CommandHandler;
+export declare const handleAdsReviewsReject: CommandHandler;
+export declare const handleAdsReportsSpend: CommandHandler;
+export declare const handleAdsReportsDelivery: CommandHandler;
+/**
+ * Read this account's shared balance. The withdrawal section is reported as the
+ * server states it: while payment rails are unconfigured the balance explains
+ * that plainly instead of implying a payout path or a second wallet.
+ */
+export declare const handleBillingBalance: CommandHandler;
+export declare const handleBillingStatement: CommandHandler;
 export declare const handleMediaList: CommandHandler;
 export declare const handleMediaShow: CommandHandler;
 export declare const handleMediaUpdate: CommandHandler;
