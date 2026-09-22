@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      after_rebundle:
+        description: Set by the follow-up dispatch that gates an auto-rebundle commit.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -132,6 +137,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -145,6 +151,7 @@ jobs:
       - name: Publish current CLI bundle when screenrig/cli main moved
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AFTER_REBUNDLE: ${{ github.event.inputs.after_rebundle }}
         run: |
           update="${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
           if [ ! -f "${update}" ]; then
@@ -156,6 +163,16 @@ jobs:
           if [ "${old}" = "${new}" ]; then
             echo "Bundled CLI digest unchanged; not committing"
             exit 0
+          fi
+          if [ "${AFTER_REBUNDLE}" = "true" ]; then
+            # This run exists to gate the rebundle commit the previous run
+            # pushed. Rebundling again would push a fresh ungated tip and
+            # dispatch forever, so stop here and leave this gated tip on main.
+            echo "This run gates rebundle tip $(git rev-parse HEAD), yet packing screenrig/cli main drifted again" >&2
+            echo "recorded ${old}" >&2
+            echo "packed ${new}" >&2
+            echo "Not chaining another rebundle: check whether screenrig/cli main moved or the pack is nondeterministic" >&2
+            exit 1
           fi
           cp "${update}" components.lock.json
           rm -rf plugins/screenrig
@@ -170,6 +187,18 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Bundle current screenrig/cli main"
           git push origin "HEAD:${GITHUB_REF_NAME}"
+          tip="$(git rev-parse HEAD)"
+          # A GITHUB_TOKEN push never re-fires `on: push`, so this rebundle tip
+          # would carry no check runs at all. Dispatch these gates on the new
+          # tip, flagged as the follow-up generation so it cannot chain forever.
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GITHUB_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --data '{"ref":"main","inputs":{"after_rebundle":"true"}}' \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches"
+          echo "Dispatched public plugin gates for rebundle tip ${tip}"
       - name: Tag this commit and stamp the distributing artifact
         run: |
           version="$(python3 scripts/calver.py tag)"
