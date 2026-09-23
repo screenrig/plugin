@@ -49,6 +49,44 @@ carries the server-resolved `filename` and `primitive` (`image` or `video`);
 `primitive` is absent on rows last aggregated before players reported image
 starts, so do not require it.
 
+### Player storage
+
+A native Player caches the images, videos and application packages its
+playlist needs. When it reports its storage, `screen show` includes read-only
+`storage`, `storage_forecast` and, while content does not fit,
+`storage_shortfall`. They are health information, never permission, and
+absent until the Player reports; treat an absent forecast as unknown, not as a
+fit. Treat `storage.received_at` older than 24 hours as stale.
+
+- `storage_forecast`: `fit` (`fits`, `partial` or `none_fit`) and
+  `excluded_page_count` for the screen's assigned content against its last
+  reported capacity. It is recomputed when that content changes.
+- `storage_shortfall`: present while the Player reports `fit` `partial`,
+  `transition_blocked` or `none_fit`, with `at`, `required_bytes`,
+  `capacity_bytes` and `excluded_page_count`. Its start and end appear in
+  `events list` as `screen.storage_shortfall` and
+  `screen.storage_shortfall_cleared`.
+- `storage.plan` names each excluded page in `excluded_pages` with its
+  `reason`; `headroom_needed_bytes` is how much more space a blocked change needs.
+
+`partial` shows a deterministic subset, anchored by the first page with no
+`visibility` rule: then the first page of each visibility schedule, then the
+remaining pages in playlist order while they fit. Excluded pages are skipped,
+not retried. `transition_blocked` keeps the current content on glass because
+the new anchor page cannot be downloaded beside it. `none_fit` means even the
+anchor page does not fit. iframe, browser application and adslot pages use no
+Player storage.
+
+Before assigning a large playlist, read each target's `storage` and
+`storage_forecast`; right after assignment, read the forecast again, since it
+then reflects the new content before the Player finishes downloading. After
+publishing, watch for `screen.storage_shortfall` events or `storage_shortfall`.
+For `partial`, `transition_blocked` or `none_fit`, make the content smaller:
+use smaller renditions, fewer or shorter videos, remove unused pages, or split
+the playlist so each screen carries less. Put the page that must always show
+first. Content delivery is billed per download, so settle the playlist before
+publishing instead of republishing variations the Player must fetch again.
+
 ### Archived screens and recovery
 
 `screen archive` removes the screen from the default list, releases its screen

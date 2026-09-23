@@ -203,6 +203,18 @@ shapes belong in prepared content, not additional native playlist primitives.
 4. Request a screenshot and inspect relevant playback and events. Assignment
    readback alone does not prove physical display. Report the observed evidence.
 
+Native Players cache playlist media within their reported storage. Before
+publishing or assigning a large playlist, read each target's
+`storage_forecast` from `screen show` (`fit`, `excluded_page_count`), and read
+it again right after assignment, when it reflects the new content. Absent means
+the Player has not reported, so the fit is unknown. After publishing, watch
+`screen.storage_shortfall` events or `storage_shortfall` (`fit` `partial`,
+`transition_blocked` or `none_fit`). A `partial` fit shows a deterministic
+subset anchored by the first always-visible page. To remedy, use smaller
+renditions, fewer or shorter videos, split the playlist, or remove unused pages.
+Delivery is billed per download, so avoid republishing churn. See
+[Player storage](references/operations.md#player-storage).
+
 `screen reload SCREEN_ID` asks a screen's Player to reload once, for example
 when it looks stale. Acceptance does not prove the reload; verify it with a
 screenshot or events.
