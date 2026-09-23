@@ -134,6 +134,24 @@ is asking to reconnect; confirm it with `screen recover SCREEN_ID` only after
 checking with the user that it is the same display. Nothing reconnects without
 that confirmation.
 
+A display that was reset on the device, or a paired browser that unpaired
+itself, leaves its screen archived, not deleted: the screen keeps its playlist,
+history and binding. The reset display itself rotates its key (an unpaired
+browser loses its cookies) and shows a new pairing code. Before pairing a
+display that was already in use, check `screen list --state archived`.
+`screen show` reports `archive_reason` (`account`, `device_reset` or
+`device_unpair`) and `archived_at` when the server supplies them. Prefer
+recovery to pairing it as a new screen: if the archived screen shows
+`recovery_pending`, confirm with `screen recover SCREEN_ID` as above, then run
+`screen unarchive SCREEN_ID`. Unarchive re-admits the screen's current key, so
+a display that still holds it (a dark screen, for example after an `account`
+archive) resumes without re-pairing. A display that reset or unpaired no longer
+holds that key, so unarchive alone does not bring it back and gives content to
+whatever still holds the old key. With no recovery offered, or no archived
+match (older servers do not archive on reset), pair the code as a new screen
+and leave the old one archived. An `account` archive was a
+deliberate choice; ask before undoing it. See [operations](references/operations.md).
+
 ## Signage branch: choose the content path
 
 Read the target screen's reported playback surface before choosing aspect ratio.
@@ -185,7 +203,11 @@ shapes belong in prepared content, not additional native playlist primitives.
 4. Request a screenshot and inspect relevant playback and events. Assignment
    readback alone does not prove physical display. Report the observed evidence.
 
-For screen controls, screenshots, comments, events and feedback, use
+`screen reload SCREEN_ID` asks a screen's Player to reload once, for example
+when it looks stale. Acceptance does not prove the reload; verify it with a
+screenshot or events.
+
+For screen controls, reload, screenshots, comments, events and feedback, use
 [operations](references/operations.md). For app uploads, page completion and K/V,
 use [applications](references/applications.md). The [command inventory](references/commands.md)
 provides a compact reference for supported operations.

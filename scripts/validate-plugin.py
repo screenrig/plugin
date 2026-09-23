@@ -372,7 +372,14 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         "README.md": ["https://screenrig.ai/docs/start/", "SECURITY.md", "Node.js 20.11"],
         "skills/screenrig/SKILL.md": ["screenrig version", "screenrig-plugin-freshness --json",
             "screenrig doctor", "not_enrolled", "agent enroll", "--expect-rev",
-            "payment_required", "idempotency", "references/commands.md"],
+            "payment_required", "idempotency", "references/commands.md",
+            "screen list --state archived", "screen unarchive SCREEN_ID", "screen reload SCREEN_ID",
+            "rotates its key", "unarchive alone does not bring it back"],
+        "skills/screenrig/references/operations.md": ["screen reload", "reload_id",
+            "device_reset", "device_unpair", "re-admits the same display key",
+            "recovery_pending", "screen recover", "A key retired by a confirmed `screen recover` stays retired",
+            "unarchive alone does not bring that display back", "A kept binding is still a credential",
+            "applications_unsupported"],
     }
     for relative, facts in required_marketplace.items():
         text = re.sub(r"\s+", " ", (ROOT / relative).read_text(encoding="utf-8"))
@@ -452,7 +459,8 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
     else:
         if "--preset signage-1080p30|signage-4k30" not in commands_text or "--no-audio" not in commands_text:
             errors.append("skills/screenrig/SKILL.md: Commands list missing media upload --preset / --no-audio")
-        for taught in ("media generate", "media download"):
+        for taught in ("media generate", "media download", "screen archive", "screen unarchive",
+                       "screen recover", "screen reload"):
             if taught not in commands_text:
                 errors.append(f"skills/screenrig/SKILL.md: Commands list missing {taught}")
 

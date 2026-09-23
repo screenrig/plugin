@@ -10,20 +10,25 @@ screenrig screen assign scr_EXAMPLE --playlist-id pl_EXAMPLE
 screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles
 screenrig screen archive scr_EXAMPLE
 screenrig screen unarchive scr_EXAMPLE
+screenrig screen reload scr_EXAMPLE
 screenrig screen toast scr_EXAMPLE --text "Updated lobby loop" --level info
 screenrig screen screenshot scr_EXAMPLE --output ./lobby.webp
 ```
 
 `screen list` omits archived screens. `screen list --state archived` lists
 archived screens only. `screen show <id>` still returns an archived row.
-`screen archive` hides the screen. `screen unarchive` restores it. `screen
-delete` is not a de-associate; it returns `screen_archive_required`.
+`screen delete` is not a de-associate; it returns `screen_archive_required`.
 
 `screen show <id>` prints the GET screen JSON. After a player reports a
 playback surface, the body may include optional `observation`: `observed_at`
 and `surfaces`. The same GET always includes `online`. Optional
 `last_online_at` and `last_ip` appear after the first connect. They are
 read-only.
+
+When a screen's Player cannot show the application or iframe primitives in its
+playlist, `screen show` reports `applications_unsupported` with the time the
+condition began, and `screen list` marks the row. The manifest is unchanged;
+the Player skips those primitives, and skips a page left with none.
 
 `screen screenshot <id>` blocks until a still WebP is on disk. The default
 path is `./<id>.webp`. `--timeout` defaults to 35000 ms and `--poll-ms`
@@ -43,6 +48,60 @@ per screen, media, and UTC day. Newest days first. `--screen-id`,
 carries the server-resolved `filename` and `primitive` (`image` or `video`);
 `primitive` is absent on rows last aggregated before players reported image
 starts, so do not require it.
+
+### Archived screens and recovery
+
+`screen archive` removes the screen from the default list, releases its screen
+quota, and darkens the display. It keeps the display's binding: the Player stays
+connected, never re-pairs, and resumes on `screen unarchive`. To retire
+hardware, leave the screen archived or move it to new hardware with
+`screen recover`.
+
+A screen is also archived when its Player is reset on the display
+(`archive_reason: device_reset`) or a paired browser unpairs itself
+(`device_unpair`). An account or dashboard archive reports `account`. `screen
+show` prints `archive_reason` and `archived_at` when the server reports them,
+and `screen list --state archived` adds a `REASON` column. Treat an unknown
+reason as archived; do not guess its cause.
+
+`screen unarchive <id>` restores a screen archived for any reason. It re-admits
+the same display key, so a display that still holds it resumes with no
+re-pairing. The screen must still fit the account's screen quota. A Player
+reset on the display rotates its own key, and a browser that unpaired itself
+loses its cookies, so neither holds the archived screen's key any more:
+unarchive alone does not bring that display back, and it gives content to
+whatever still holds the old key. A kept binding is still a credential.
+
+A display reset on the device starts pairing with a new key. When that
+pairing is offered as a recovery of the archived screen, `screen show`
+reports `recovery_pending`. Confirm with the user that it is the same display,
+then run `screen recover <id>`, which moves the screen to the new key. The
+screen stays archived until `screen unarchive <id>`. A key retired by a
+confirmed `screen recover` stays retired. Recovery needs a native Player's
+hardware identifiers, so an unpaired browser is never offered one. When no
+recovery is offered, or no archived screen matches (older servers do not
+archive on reset), pair the code as a new screen only after the user confirms,
+and leave the old screen archived.
+
+```bash
+screenrig screen list --state archived
+screenrig screen show scr_EXAMPLE
+screenrig screen recover scr_EXAMPLE   # only when recovery_pending and confirmed
+screenrig screen unarchive scr_EXAMPLE
+```
+
+### Reload
+
+`screen reload <id>` asks the screen's Player to reload once and returns
+`reload_id` and `expires_at`, ten minutes after the request. A web Player reloads at its
+next page boundary; a native Player reconnects, refetches its manifest, and
+checks for an update. Only a Player that registered reload support acts on it,
+and a Player ignores a reload within ten minutes of the last one it acted on.
+It works on active and archived screens and does not change the screen
+revision; `--expect-rev` is optional. A screen still waiting to pair answers
+`resource_conflict`. An older server without the route returns an error that
+says so; nothing was sent. Acceptance does not prove the reload happened;
+check with `screen screenshot` or events.
 
 ## Comments
 

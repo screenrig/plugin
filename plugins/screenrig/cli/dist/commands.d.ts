@@ -154,6 +154,7 @@ export declare const handleScreenUnarchive: CommandHandler;
 export declare const handleScreenDelete: CommandHandler;
 export declare const handleScreenRotatePublicId: CommandHandler;
 export declare const handleScreenRecover: CommandHandler;
+export declare const handleScreenReload: CommandHandler;
 export declare const handleScreenToast: CommandHandler;
 export declare const handleScreenScreenshot: CommandHandler;
 export declare const handleKvList: CommandHandler;
