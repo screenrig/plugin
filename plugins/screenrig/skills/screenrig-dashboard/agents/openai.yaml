@@ -1,0 +1,4 @@
+interface:
+  display_name: "ScreenRig Dashboards"
+  short_description: "Persistent data dashboards as consistent 4K WebP images"
+  default_prompt: "Use $screenrig-dashboard to normalize this report, preserve its history, and render a consistent 16:9 dashboard image."

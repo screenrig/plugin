@@ -161,6 +161,7 @@ user supplied. Preserve source facts and supplied brand assets.
 | What the page needs | Path | Reference |
 | --- | --- | --- |
 | Finished image or video | Upload the file. | [Media](references/media.md) |
+| Recurring data or reports that need a consistent dashboard image | Use the dashboard skill to preserve schemas and history and render a 4K WebP, then publish it as media. | [Dashboards](../screenrig-dashboard/SKILL.md) |
 | Official art plus additional copy | Render one finished still locally, preserving the art, then upload. | [Visual design](references/composition.md) |
 | A finished poster, menu, announcement or other presentable still | Generate the whole page with all exact copy in the prompt; inspect before publishing. | [Media](references/media.md) |
 | Editable title/body/table slides or a measured grid | Local, unbilled `compose render`. | [Compose](references/compose.md) |

@@ -15,7 +15,7 @@ does not require that file for standalone contribution.
 
 ## Sources of truth
 
-- `skills/screenrig/`, `build/plugin.json`, root marketplace manifests, and
+- `skills/screenrig/`, `skills/screenrig-dashboard/`, `build/plugin.json`, root marketplace manifests, and
   root public files are canonical inputs.
 - `components.lock.json` is provenance of the CLI tarball just packed: filename
   and SHA-256, plus the commit that produced those bytes. It is not a freeze of
@@ -89,6 +89,14 @@ optional `log_socket` in the user config. Keep skill text generic: no operator
 host paths, no local listener service, no internal tooling names.
 
 ## Verification
+
+The dashboard helper owns local authoring only; it does not import the bundled
+CLI's internal modules or talk to the control plane. Dashboard sources, databases,
+and generated business images live outside this public repository. Its optional
+Python/browser dependencies must not enter the main launcher. Run dashboard
+behavior tests with the helper's locked Python runtime; browser tests are a
+separate local gate. Regenerate third-party assets with
+`scripts/sync-dashboard-assets.py`; never hand-edit their generated copies.
 
 ```sh
 python3 scripts/check-public-repo.py

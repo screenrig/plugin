@@ -85,6 +85,13 @@ jobs:
           python3 scripts/test-skill-commands.py
           PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-launcher.py
           PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-plugin-freshness.py
+          PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-docs-only.py
+      - name: Verify optional dashboard runtime and repeat rendering
+        run: |
+          plugins/screenrig/skills/screenrig-dashboard/scripts/screenrig-dashboard setup > "${RUNNER_TEMP}/dashboard-setup.json"
+          dashboard_runtime="$(jq -r .data.runtime "${RUNNER_TEMP}/dashboard-setup.json")"
+          "${dashboard_runtime}/bin/python" -m playwright install-deps chromium
+          "${dashboard_runtime}/bin/python" -B scripts/test-dashboard.py --browser
       - name: Enforce plugin bundle size budget
         run: |
           set -euo pipefail
@@ -191,7 +198,9 @@ jobs:
           # download-artifact restores files as 644.
           chmod 0755 plugins/screenrig/cli/dist/bin.js \
             plugins/screenrig/skills/screenrig/scripts/screenrig \
-            plugins/screenrig/skills/screenrig/scripts/screenrig-plugin-freshness
+            plugins/screenrig/skills/screenrig/scripts/screenrig-plugin-freshness \
+            plugins/screenrig/skills/screenrig-dashboard/scripts/screenrig-dashboard \
+            plugins/screenrig/skills/screenrig-dashboard/scripts/dashboard.py
           git add -- components.lock.json plugins/screenrig
           git diff --cached --quiet && exit 0
           git config user.name "github-actions[bot]"

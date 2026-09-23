@@ -149,6 +149,12 @@ def check_package() -> None:
     for path in required:
         if not path.is_file():
             errors.append(f"missing {path.relative_to(ROOT)}")
+    for canonical_skill in (ROOT / "skills").iterdir():
+        if canonical_skill.is_dir() and not (PLUGIN / "skills" / canonical_skill.name / "SKILL.md").is_file():
+            errors.append(f"missing packaged skill: {canonical_skill.name}")
+    dashboard_launcher = PLUGIN / "skills/screenrig-dashboard/scripts/screenrig-dashboard"
+    if not dashboard_launcher.is_file() or not stat.S_IMODE(dashboard_launcher.stat().st_mode) & 0o111:
+        errors.append("packaged dashboard launcher must exist and be executable")
     for executable in required[1:3]:
         if executable.is_file() and not stat.S_IMODE(executable.stat().st_mode) & 0o111:
             errors.append(f"{executable.relative_to(ROOT)}: must be executable")
@@ -365,7 +371,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             if re.search(r'"mcpServers"\s*:', text):
                 errors.append(f"{path.relative_to(ROOT)}: unsupported server manifest key")
 
-    audit_paths = list((ROOT / "skills" / "screenrig").rglob("*.md"))
+    audit_paths = list((ROOT / "skills").rglob("*.md"))
     if cli_source is not None:
         audit_paths.extend(cli_source / relative for relative in CLI_SOURCE_FILES)
     required_marketplace = {
@@ -386,7 +392,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         for fact in facts:
             if fact not in text:
                 errors.append(f"{relative}: required operational fact missing: {fact}")
-    for path in (ROOT / "skills/screenrig").rglob("*.md"):
+    for path in (ROOT / "skills").rglob("*.md"):
         text = path.read_text(encoding="utf-8")
         for target in re.findall(r"\]\(([^)]+)\)", text):
             if "://" not in target and not target.startswith("#"):
@@ -446,7 +452,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         for label, pattern in forbidden.items():
             if pattern.search(text):
                 errors.append(f"{display_path(root, cli_source)}: stale {label} language")
-    for skill_path in (ROOT / "skills/screenrig").rglob("*.md"):
+    for skill_path in (ROOT / "skills").rglob("*.md"):
         skill_text = skill_path.read_text(encoding="utf-8")
         for label, pattern in skill_forbidden.items():
             if pattern.search(skill_text):

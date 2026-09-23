@@ -3,7 +3,7 @@
 For contributors maintaining the plugin. Customer installation is documented on
 [Start](https://screenrig.ai/docs/start/).
 
-`skills/screenrig/`, `build/plugin.json` and marketplace manifests are canonical.
+`skills/screenrig/`, `skills/screenrig-dashboard/`, `build/plugin.json` and marketplace manifests are canonical.
 `scripts/build-plugin.py` generates `plugins/screenrig/`; never edit that output
 independently. Locally the builder packs sibling `../cli`; CI packs current CLI
 main. `components.lock.json` records the resulting artifact's commit and hash,
@@ -29,3 +29,10 @@ This preserves the bundled CLI, manifests and artifact provenance; it does not
 establish that the executable supports newly documented behavior. Before
 release, run the full build and validation against the CLI artifact containing
 the documented changes.
+
+The optional dashboard skill has a separate Python/SQLite/Playwright helper.
+`requirements.in` pins direct dependencies; regenerate `requirements.lock` using
+`uv pip compile --generate-hashes --no-header --no-annotate --only-binary :all:`.
+Run `scripts/sync-dashboard-assets.py` to verify and refresh the locked ECharts
+and font assets. User reports and dashboard workspaces never belong in this
+public repository. Use synthetic fixtures for automated tests.
