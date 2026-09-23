@@ -95,8 +95,8 @@ screenrig screen unarchive scr_EXAMPLE
 `screen reload <id>` asks the screen's Player to reload once and returns
 `reload_id` and `expires_at`, ten minutes after the request. A web Player reloads at its
 next page boundary; a native Player reconnects, refetches its manifest, and
-checks for an update. Only a Player that registered reload support acts on it,
-and a Player ignores a reload within ten minutes of the last one it acted on.
+checks for an update. The Player reloads once, and ignores a reload within
+ten minutes of the last one it acted on.
 It works on active and archived screens and does not change the screen
 revision; `--expect-rev` is optional. A screen still waiting to pair answers
 `resource_conflict`. An older server without the route returns an error that
