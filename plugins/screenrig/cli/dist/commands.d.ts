@@ -142,6 +142,7 @@ export declare const handleScreenList: CommandHandler;
 export declare const handleScreenProvision: CommandHandler;
 export declare const handleScreenPair: CommandHandler;
 export declare const handleScreenShow: CommandHandler;
+export declare const handleScreenStorageForecast: CommandHandler;
 export declare const handleScreenUpdate: CommandHandler;
 export declare const handleScreenAssign: CommandHandler;
 export declare const handleScreenSetTimezone: CommandHandler;
