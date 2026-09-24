@@ -16,6 +16,16 @@ the archive first. The packer injects the screenRIG browser SDK at
 reaches `window.screenrig` at runtime with no build step and no dependency to
 install.
 
+Released apps run under a strict Content-Security-Policy (`script-src 'self';
+style-src 'self'`), so inline code in the served HTML never runs. The packer
+moves inline `<style>` blocks and inline `<script>` blocks into generated files
+under `_screenrig/inline/` and rewrites the tags, so a one-file `index.html`
+with inline style and script renders as authored. It refuses inline event
+handler attributes (`onclick=` and the like) and `javascript:` URLs with the
+file and line; move that code into a script that calls `addEventListener`. An
+archive uploaded without the packer that still carries inline script fails
+publication with `inline_script_blocked`.
+
 ```bash
 screenrig app upload ./lobby-board --name "Lobby board"
 ```

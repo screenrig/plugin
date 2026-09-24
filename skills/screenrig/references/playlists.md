@@ -453,6 +453,7 @@ referenced image or video rendition together.
 
 ```bash
 screenrig playlist export pl_EXAMPLE --output ./lobby-bundle
+screenrig playlist export pl_EXAMPLE --output ./lobby-bundle --skip-applications
 screenrig playlist import ./lobby-bundle
 screenrig playlist import ./lobby-bundle --update pl_TARGET
 ```
@@ -460,8 +461,13 @@ screenrig playlist import ./lobby-bundle --update pl_TARGET
 The export destination must not exist. The bundle contains
 `screenrig-bundle.json`, `playlist.json`, and content-addressed
 `media/<sha256>.<canonical-ext>` files. Export snapshots dynamic `all` and `tag`
-selectors to exact `id` or `ids` selectors. Application primitives stop export
-before any media download. Import creates a new playlist by default. Display names may repeat. `--name NAME` (1 to 120 characters) optionally renames the imported copy; `--update ID` replaces the existing playlist instead.
+selectors to exact `id` or `ids` selectors. An application primitive stops
+export before any media download unless `--skip-applications` is given, which
+drops the application primitives and any page left with no primitives and
+reports the skipped primitive and page ids. Import creates a new playlist by
+default. Display names may repeat. `--name NAME` (1 to 120 characters)
+optionally renames the imported copy; `--update ID` replaces the existing
+playlist instead.
 Updating requires `--update`; `--expect-rev` is optional.
 
 ```bash

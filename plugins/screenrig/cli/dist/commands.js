@@ -35,6 +35,7 @@ import { uploadMediaFile } from "./media-upload.js";
 import { runMediaUploadBatch, UPLOAD_BATCH_DEFAULT_CONCURRENCY, UPLOAD_BATCH_MAX_CONCURRENCY, UPLOAD_BATCH_MIN_CONCURRENCY } from "./media-upload-batch.js";
 import { clearProvisionRetryState, provisionRetryState } from "./provisioning-state.js";
 import { clearGenerateRetryState, generateRequestHash, generateRetryState } from "./media-generate-retry.js";
+import { formatBytes } from "./media/progress.js";
 import { validateProvisioningUrls } from "./provisioning-url.js";
 import { aspectMismatchWarnings } from "./aspect-mismatch.js";
 import { browserHandoffUrl, browserSetupRetryState, clearBrowserSetupRetryState, normalizeBrowserSetupCode, } from "./browser-setup.js";
@@ -3070,7 +3071,13 @@ export const handlePlaylistExport = commandHandler(async (args, runtime, resolve
     if (!id || !output) {
         throw usageError("playlist export requires <id> --output <directory>.");
     }
-    const result = await exportPlaylistBundle({ playlistId: id, outputDirectory: path.resolve(runtime.cwd(), output), client });
+    const result = await exportPlaylistBundle({
+        playlistId: id,
+        outputDirectory: path.resolve(runtime.cwd(), output),
+        client,
+        skipApplications: flagBool(args.flags, "skip-applications"),
+    });
+    const skipped = result.skipped_applications;
     return {
         envelope: successEnvelope(result, { request_id: client.requestId }),
         exitCode: ExitCode.Success,
@@ -3079,6 +3086,8 @@ export const handlePlaylistExport = commandHandler(async (args, runtime, resolve
             ["directory", result.directory],
             ["media_count", String(result.media_count)],
             ["media_bytes", String(result.media_bytes)],
+            ...(skipped.primitives.length > 0 ? [["skipped_application_primitives", skipped.primitives.join(", ")]] : []),
+            ...(skipped.pages.length > 0 ? [["skipped_pages", skipped.pages.join(", ")]] : []),
         ]),
     };
 }, true);
@@ -3390,6 +3399,46 @@ function recoveryPendingLine(screen) {
         ...(described ? ["Compare the reported model and firmware with the display you expect before confirming."] : []),
     ];
 }
+/** A storage report older than 24 hours is stale; consumers re-check before trusting it. */
+const STORAGE_STALE_MS = 24 * 60 * 60 * 1000;
+/**
+ * The `Storage` block `screen show` prints from the player's last storage
+ * report. A report older than 24 hours (per received_at) is marked stale; a
+ * screen that never reported prints no storage lines. Absent parts are
+ * omitted: the forecast without a report, the shortfall while the plan fits.
+ */
+function storageLines(screen, now) {
+    const storage = screen?.storage;
+    if (!storage || typeof storage !== "object")
+        return [];
+    const receivedMs = Date.parse(storage.received_at);
+    const stale = Number.isFinite(receivedMs) && now.getTime() - receivedMs > STORAGE_STALE_MS;
+    const plan = storage.plan;
+    const planSummary = [plan?.fit, plan?.transition ? `${plan.transition} transition` : undefined]
+        .filter((part) => part !== undefined)
+        .join(", ");
+    const excludedPages = Array.isArray(plan?.excluded_pages) ? plan.excluded_pages.length : undefined;
+    const transfer = storage.transfer_24h;
+    const transferred = transfer.new + transfer.refetch + transfer.repair + transfer.failed;
+    const transferSummary = transferred === 0
+        ? "0 B"
+        : `${formatBytes(transferred)} (new ${formatBytes(transfer.new)}, refetch ${formatBytes(transfer.refetch)}, repair ${formatBytes(transfer.repair)}, failed ${formatBytes(transfer.failed)})`;
+    const forecast = screen?.storage_forecast;
+    const shortfall = screen?.storage_shortfall;
+    return humanLines(stale ? "Storage (stale)" : "Storage", [
+        ["received_at", storage.received_at],
+        ["capacity", formatBytes(storage.cache.capacity_bytes)],
+        ["used", formatBytes(storage.cache.house_used_bytes)],
+        ["durability", storage.durability],
+        ["plan", planSummary],
+        ["excluded pages", excludedPages === undefined ? undefined : String(excludedPages)],
+        ["transferred in 24h", transferSummary],
+        ["forecast", forecast?.fit ? `${forecast.fit} (manifest ${forecast.manifest_revision})` : undefined],
+        ["shortfall", shortfall
+                ? `needs ${formatBytes(shortfall.required_bytes)}, capacity ${formatBytes(shortfall.capacity_bytes)}${serverInstant(shortfall.at) ? ` (since ${shortfall.at})` : ""}`
+                : undefined],
+    ]).split("\n");
+}
 export const handleScreenProvision = commandHandler(async (args, runtime, resolved) => {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
@@ -3453,6 +3502,26 @@ export const handleScreenProvision = commandHandler(async (args, runtime, resolv
         ]),
     };
 }, true);
+/**
+ * The `Storage forecast` block `screen storage-forecast` prints. A report
+ * older than 24 hours (per received_at) is marked stale, exactly like the
+ * Storage block, but the forecast is still shown. With fit unknown the byte
+ * counts and report time are null and their lines are omitted.
+ */
+function forecastLines(screenId, playlistId, forecast, now) {
+    const receivedMs = forecast.received_at === null ? Number.NaN : Date.parse(forecast.received_at);
+    const stale = Number.isFinite(receivedMs) && now.getTime() - receivedMs > STORAGE_STALE_MS;
+    return humanLines(stale ? "Storage forecast (stale)" : "Storage forecast", [
+        ["screen_id", screenId],
+        ["playlist_id", playlistId],
+        ["fit", forecast.fit],
+        ["excluded pages", String(forecast.excluded_page_count)],
+        ["required", forecast.required_bytes === null ? undefined : formatBytes(forecast.required_bytes)],
+        ["capacity", forecast.capacity_bytes === null ? undefined : formatBytes(forecast.capacity_bytes)],
+        ["basis", forecast.basis],
+        ["received_at", forecast.received_at === null ? undefined : forecast.received_at],
+    ]);
+}
 export const handleScreenPair = commandHandler(async (args, runtime, resolved) => {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
@@ -3505,7 +3574,44 @@ export const handleScreenShow = commandHandler(async (args, runtime, resolved) =
             ...archivedLines(screen),
             ...applicationsUnsupportedLines(screen),
             ...recoveryPendingLine(screen),
+            ...storageLines(screen, runtime.now()),
         ].join("\n"),
+    };
+}, true);
+export const handleScreenStorageForecast = commandHandler(async (args, runtime, resolved) => {
+    const token = requireToken(resolved.token);
+    const client = clientFor(runtime, args, resolved.apiUrl, token);
+    const id = args.positionals[2];
+    const playlistId = flagString(args.flags, "playlist-id");
+    const playlistRevision = flagString(args.flags, "playlist-rev");
+    if (!id || !playlistId)
+        throw usageError("screen storage-forecast requires <id> --playlist-id.");
+    // A read-only dry run: no idempotency key, because the route writes nothing
+    // and has no replay semantics to make safe.
+    const body = {
+        playlist_id: playlistId,
+        ...(playlistRevision ? { playlist_revision: Number(playlistRevision) } : {}),
+    };
+    const response = await client.call({
+        method: "POST",
+        path: `/api/v1/screens/${id}/storage-forecast`,
+        body,
+    });
+    const forecast = response.body;
+    if (!forecast
+        || !["fits", "partial", "none_fit", "unknown"].includes(forecast.fit)
+        || !Number.isSafeInteger(forecast.excluded_page_count)
+        || forecast.excluded_page_count < 0
+        || !(forecast.required_bytes === null || (Number.isSafeInteger(forecast.required_bytes) && forecast.required_bytes >= 0))
+        || !(forecast.capacity_bytes === null || (Number.isSafeInteger(forecast.capacity_bytes) && forecast.capacity_bytes >= 0))
+        || !(forecast.received_at === null || serverInstant(forecast.received_at) !== undefined)
+        || forecast.basis !== "reported_capacity") {
+        throw usageError("Screen storage forecast response does not match the generated ScreenStorageForecastDryRun contract.");
+    }
+    return {
+        envelope: jsonBody(response, client.requestId),
+        exitCode: ExitCode.Success,
+        human: forecastLines(id, playlistId, forecast, runtime.now()),
     };
 }, true);
 export const handleScreenUpdate = commandHandler(async (args, runtime, resolved) => {

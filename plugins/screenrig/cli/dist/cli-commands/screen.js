@@ -1,7 +1,7 @@
 import { addValueAlias } from "./aliases.js";
 import { addCommandExamples, addCommandNotes, requireOptionGroup } from "./notes.js";
 import { positiveInteger, revision, toastDuration } from "./options.js";
-import { handleScreenPublish, handleScreenPair, handleScreenProvision, handleScreenUpdate, handleScreenList, handleScreenShow, handleScreenAssign, handleScreenSetTimezone, handleScreenArchive, handleScreenUnarchive, handleScreenDelete, handleScreenRotatePublicId, handleScreenRecover, handleScreenReload, handleScreenToast, handleScreenScreenshot } from "../commands.js";
+import { handleScreenPublish, handleScreenPair, handleScreenProvision, handleScreenUpdate, handleScreenList, handleScreenShow, handleScreenStorageForecast, handleScreenAssign, handleScreenSetTimezone, handleScreenArchive, handleScreenUnarchive, handleScreenDelete, handleScreenRotatePublicId, handleScreenRecover, handleScreenReload, handleScreenToast, handleScreenScreenshot } from "../commands.js";
 import { Option } from "commander";
 export function registerScreenCommands(root, bind) {
     const screen = root.command("screen").description("Pair, configure, and inspect screens");
@@ -30,6 +30,11 @@ export function registerScreenCommands(root, bind) {
     screen.command("show").description("Inspect a screen")
         .argument("<id>", "Screen identifier")
         .action(bind(handleScreenShow));
+    screen.command("storage-forecast").description("Dry-run whether a playlist fits a screen's reported storage")
+        .argument("<id>", "Screen identifier")
+        .requiredOption("--playlist-id <ID>", "Select the playlist to forecast (required)")
+        .option("--playlist-rev <REVISION>", "Optionally require the playlist to be at this revision", positiveInteger("playlist-rev"))
+        .action(bind(handleScreenStorageForecast));
     screen.command("assign").description("Assign a playlist to a screen")
         .argument("<id>", "Screen identifier")
         .requiredOption("--playlist-id <ID>", "Select the playlist to assign (required)")

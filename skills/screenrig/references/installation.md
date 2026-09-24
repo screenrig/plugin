@@ -97,16 +97,23 @@ screenrig-plugin-freshness --json
 
 Branch on `ok` and `data.action`. Do not parse prose.
 
-The helper checks the installed plugin and bundled CLI against the published
-plugin version. Use its action rather than comparing version strings yourself.
+The helper finds the plugin it belongs to from its own location, then checks
+the installed plugin and bundled CLI against the published plugin version. It
+orders versions as CalVer: a `YY.MM.0-dev` build ranks below every release of
+that month. Use its action rather than comparing version strings yourself.
 
-- `data.action === "keep"`: versions match. Do not reinstall.
-- `data.action === "refresh"`: installed plugin version or bundled CLI version
-  differs from that published CalVer. Refresh the plugin so skill text and the
-  bundled CLI update together.
+- `data.action === "keep"`: the installed copy is the published version or
+  newer. Do not reinstall.
+- `data.action === "refresh"`: the installed plugin version or bundled CLI
+  version is older than the published version. Refresh the plugin so skill
+  text and the bundled CLI update together.
 - `data.action === "continue_installed"`: the GitHub fetch failed. Continue
   with the installed copy and tell the user the published version could not be
   read. Do not block the user's task. Do not substitute another source.
+- `data.action === "not_installed"`: the helper is not inside an installed
+  plugin (for example a source checkout), so there is nothing to refresh.
+  Continue, and use the canonical marketplace install when the user wants
+  tracked updates.
 
 When refreshing, probe this host for a native plugin update command and use
 it only if that command exists. Do not invent flags. Probe the installed runtime before using these update forms:

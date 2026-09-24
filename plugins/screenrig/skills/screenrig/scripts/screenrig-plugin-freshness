@@ -8,8 +8,13 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 const { URL } = require("url");
 
+// The published version is what the install's own source publishes: the
+// canonical marketplace installs git main, so main's marketplace entry is the
+// version a refresh would deliver. Between releases main publishes
+// `YY.MM.0-dev`, and a dev install of that month is current against it.
 const DEFAULT_MARKETPLACE_URL =
   "https://raw.githubusercontent.com/screenrig/plugin/main/.claude-plugin/marketplace.json";
+const PRODUCT_VERSION = /^(\d{2})\.(0[1-9]|1[0-2])\.(0-dev|[1-9]\d*)$/;
 const FETCH_TIMEOUT_MS = 8000;
 const FETCH_MAX_BYTES = 256 * 1024;
 const VERSION_TIMEOUT_MS = 15000;
@@ -104,6 +109,29 @@ function publishedVersionFromBody(body) {
     return "";
   }
   return versionField(plugins[0].version);
+}
+
+// rankProductVersion parses YY.MM.N or YY.MM.0-dev. A `-dev` version ranks as
+// serial 0, below every release of its month, so versions order as CalVer
+// rather than compare as raw strings.
+function rankProductVersion(value) {
+  const match = PRODUCT_VERSION.exec(value);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), match[3] === "0-dev" ? 0 : Number(match[3])];
+}
+
+// An installed version is stale only when it orders below the published
+// CalVer. An equal or newer install (a stamped release against dev main) is
+// current. A non-CalVer install string (the 0.1.x era) predates every CalVer.
+function olderThanPublished(installed, published) {
+  const target = rankProductVersion(published);
+  if (!installed || !target) return false;
+  const current = rankProductVersion(installed);
+  if (!current) return true;
+  for (let index = 0; index < target.length; index += 1) {
+    if (current[index] !== target[index]) return current[index] < target[index];
+  }
+  return false;
 }
 
 function allowedMarketplaceUrl(url) {
@@ -216,19 +244,41 @@ async function main() {
   }
 
   const env = process.env;
-  const pluginRoot = pluginRootFromEnv(env);
+  // The helper ships at <plugin-root>/skills/screenrig/scripts, so its own path
+  // names the plugin it belongs to; an environment root is the fallback for a
+  // copy run from elsewhere. A root counts only when it carries a plugin
+  // manifest version: a source checkout or a loose copy has none.
+  const scriptRoot = path.resolve(__dirname, "..", "..", "..");
+  const pluginRoot = [scriptRoot, pluginRootFromEnv(env)].find((root) => root && readPluginVersion(root));
   if (!pluginRoot) {
-    usageError("plugin root is empty; install the official plugin and repeat lookup.");
+    const cliVersion = readCliVersion(pluginRootFromEnv(env) || scriptRoot, env);
+    success(
+      {
+        action: "not_installed",
+        stale: false,
+        published_unavailable: false,
+        published_version: null,
+        installed_plugin_version: null,
+        installed_cli_version: cliVersion || null,
+      },
+      [
+        {
+          code: "plugin_not_installed",
+          message:
+            "No installed screenRIG plugin was found beside this helper or at the plugin root in the environment, so there is nothing to compare. Use the canonical marketplace install to get tracked updates.",
+        },
+      ],
+    );
     return;
   }
 
   const installedPluginVersion = readPluginVersion(pluginRoot);
   const installedCliVersion = readCliVersion(pluginRoot, env);
-  const marketplaceUrl = nonempty(env.SCREENRIG_PUBLISHED_MARKETPLACE_URL) || DEFAULT_MARKETPLACE_URL;
+  const publishedUrl = nonempty(env.SCREENRIG_PUBLISHED_MARKETPLACE_URL) || DEFAULT_MARKETPLACE_URL;
 
   let publishedVersion = "";
   try {
-    publishedVersion = publishedVersionFromBody(await fetchUrl(marketplaceUrl));
+    publishedVersion = publishedVersionFromBody(await fetchUrl(publishedUrl));
   } catch {
     publishedVersion = "";
   }
@@ -254,7 +304,8 @@ async function main() {
   }
 
   const stale =
-    installedPluginVersion !== publishedVersion || installedCliVersion !== publishedVersion;
+    olderThanPublished(installedPluginVersion, publishedVersion) ||
+    olderThanPublished(installedCliVersion, publishedVersion);
   success({
     action: stale ? "refresh" : "keep",
     stale,

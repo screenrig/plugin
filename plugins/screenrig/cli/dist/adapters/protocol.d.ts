@@ -355,6 +355,98 @@ export interface ScreenRecoveryPending {
 export interface ScreenApplicationsUnsupported {
     at: string;
 }
+/** Breakdown of the player's content-cache capacity, in bytes. */
+export interface ScreenStorageCache {
+    ad_headroom_bytes: number;
+    capacity_bytes: number;
+    fallback_bytes: number;
+    house_used_bytes: number;
+    protected_bytes: number;
+    reserve_bytes: number;
+    warm_bytes: number;
+}
+/** A page the player's storage plan keeps out of its target, with the reason. */
+export interface ScreenStorageExcludedPage {
+    page_id: string;
+    reason: "object_exceeds_capacity" | "page_exceeds_capacity" | "capacity_excluded" | "descriptor_conflict" | "not_local" | "anchor_unavailable";
+}
+/** The player's storage plan for the manifest revision it named. */
+export interface ScreenStoragePlan {
+    excluded_pages: ScreenStorageExcludedPage[];
+    fit: "fits" | "fits_after_eviction" | "retention_reduced" | "partial" | "transition_blocked" | "none_fit";
+    headroom_needed_bytes?: number;
+    manifest_revision: string;
+    required_bytes: number;
+    target_bytes: number;
+    transition: "direct" | "staged" | "blocked";
+}
+/** Bytes received on content fetches in the last 24 hours, by reason. */
+export interface ScreenStorageTransfer {
+    failed: number;
+    new: number;
+    refetch: number;
+    repair: number;
+}
+/**
+ * Sanitized player storage report. Absent until the first accepted
+ * PUT /runtime/v1/storage. Cleared on identity reset, unpair, and archive.
+ * received_at is the server receipt time, not the player clock. Read-only.
+ */
+export interface ScreenStorage {
+    cache: ScreenStorageCache;
+    durability: "durable" | "purgeable";
+    observed_at: string;
+    plan: ScreenStoragePlan;
+    received_at: string;
+    transfer_24h: ScreenStorageTransfer;
+    volume: ScreenStorageVolume;
+}
+/** Device volume backing the content cache, in bytes. */
+export interface ScreenStorageVolume {
+    available_bytes: number;
+    total_bytes: number;
+}
+/** Approximate steady-state target selection (no transition) for the screen's desired manifest. Absent without a storage report. */
+export interface ScreenStorageForecast {
+    basis: "reported_capacity";
+    excluded_page_count: number;
+    fit: "fits" | "partial" | "none_fit";
+    manifest_revision: string;
+    received_at: string;
+}
+/** Body of the pre-assignment fit dry run. playlist_id is a playlist of the authenticated project; another project's or an unknown id is not_found. */
+export interface ScreenStorageForecastRequest {
+    playlist_id: string;
+    /** Optional expected playlist revision. A different stored revision is revision_conflict and no forecast is returned. */
+    playlist_revision?: number;
+}
+/**
+ * Pre-assignment fit dry run for one playlist against the screen's last
+ * reported capacity. fit unknown means the screen has no storage report, or
+ * the playlist's content references are not ready; the byte counts and
+ * received_at are null then. A report older than 24 hours is stale but still
+ * forecast from. Read-only; it writes nothing and is never authorization or
+ * admission.
+ */
+export interface ScreenStorageForecastDryRun {
+    basis: "reported_capacity";
+    capacity_bytes: number | null;
+    excluded_page_count: number;
+    fit: "fits" | "partial" | "none_fit" | "unknown";
+    received_at: string | null;
+    required_bytes: number | null;
+}
+/**
+ * Present while the player's reported fit is partial, transition_blocked, or
+ * none_fit. at is when the condition began. Read-only project health metadata.
+ */
+export interface ScreenStorageShortfall {
+    at: string;
+    capacity_bytes: number;
+    excluded_page_count: number;
+    fit: "partial" | "transition_blocked" | "none_fit";
+    required_bytes: number;
+}
 export interface Screen {
     content_access_generation: number;
     created_at: string;
@@ -409,6 +501,23 @@ export interface Screen {
      * project health metadata.
      */
     applications_unsupported?: ScreenApplicationsUnsupported;
+    /**
+     * Sanitized player storage report. Absent until the first accepted
+     * PUT /runtime/v1/storage. Cleared on identity reset, unpair, and archive.
+     * Readers treat received_at older than 24 hours as stale. Read-only.
+     */
+    storage?: ScreenStorage;
+    /**
+     * Approximate steady-state target selection (no transition) from the last
+     * reported capacity and the screen's desired manifest. Absent without a
+     * storage report, which readers take as unknown. Read-only.
+     */
+    storage_forecast?: ScreenStorageForecast;
+    /**
+     * Present while the player's reported fit is partial, transition_blocked,
+     * or none_fit. at is when the condition began. Read-only.
+     */
+    storage_shortfall?: ScreenStorageShortfall;
     revision: number;
     state: "pairing_pending" | "active" | "archived";
     /**
@@ -423,8 +532,8 @@ export interface Screen {
  * least one, which is why each command builds only the members it was asked
  * for rather than sending undefined placeholders. Observation, online,
  * last_online_at, last_ip, comments, host, host_updated_at,
- * recovery_pending, archive_reason, archived_at, and applications_unsupported
- * are not patchable fields.
+ * recovery_pending, archive_reason, archived_at, and applications_unsupported,
+ * storage, storage_forecast, and storage_shortfall are not patchable fields.
  */
 export interface ScreenPatch {
     name?: string;

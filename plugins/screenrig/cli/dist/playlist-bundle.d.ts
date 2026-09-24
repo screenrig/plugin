@@ -37,6 +37,12 @@ export interface PlaylistBundlePreflight {
     }>;
     close(): Promise<void>;
 }
+export interface PlaylistBundleSkipSummary {
+    /** Application primitive ids removed by --skip-applications. */
+    primitives: string[];
+    /** Page ids removed because every primitive on them was an application. */
+    pages: string[];
+}
 export interface PlaylistBundleExportResult {
     schema: typeof PLAYLIST_BUNDLE_SCHEMA;
     directory: string;
@@ -44,6 +50,7 @@ export interface PlaylistBundleExportResult {
     playlist_revision: number;
     media_count: number;
     media_bytes: number;
+    skipped_applications: PlaylistBundleSkipSummary;
 }
 export interface PlaylistBundleImportResult {
     schema: typeof PLAYLIST_BUNDLE_SCHEMA;
@@ -58,16 +65,21 @@ export interface PlaylistBundleImportResult {
     };
 }
 export declare function preflightPlaylistBundle(directory: string): Promise<PlaylistBundlePreflight>;
-export declare function normalizePlaylistForBundle(input: unknown): {
+export declare function normalizePlaylistForBundle(input: unknown, options?: {
+    skipApplications?: boolean;
+}): {
     id: string;
     revision: number;
     playlist: JsonRecord;
     mediaIds: string[];
+    skipped: PlaylistBundleSkipSummary;
 };
 export declare function exportPlaylistBundle(options: {
     playlistId: string;
     outputDirectory: string;
     client: ApiClient;
+    /** Drop application pages and primitives instead of refusing the export. */
+    skipApplications?: boolean;
 }): Promise<PlaylistBundleExportResult>;
 export declare function deriveBundleIdempotencyKey(base: string, phase: string, identity: string): string;
 export declare function importPlaylistBundle(options: {

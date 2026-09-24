@@ -196,6 +196,7 @@ def check_package() -> None:
             "plugins[0].version",
             "continue_installed",
             "published_version_unavailable",
+            "not_installed",
             "GROK_PLUGIN_ROOT",
             "CLAUDE_PLUGIN_ROOT",
             "CODEX_PLUGIN_ROOT",
@@ -250,6 +251,18 @@ def check_package() -> None:
                 != "ScreenRig requires Node.js 20.11 or newer; install or expose a compatible node runtime, then retry."
             ):
                 errors.append("plugin wrapper missing-Node.js preflight is not deterministic")
+    calver_test = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "test-plugin-calver.py")],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if calver_test.returncode != 0:
+        errors.append("plugin CalVer stamp tests failed")
+        if calver_test.stderr.strip():
+            errors.append(calver_test.stderr.strip())
     forbidden_packaged = [path for path in (PLUGIN / "cli" / "dist").rglob("*") if path.is_file() and ".test." in path.name]
     if forbidden_packaged:
         errors.append("packaged CLI contains test output")

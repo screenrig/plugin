@@ -146,6 +146,17 @@ def stamp_plugin_root(plugin_root: Path, version: str) -> None:
             raise SystemExit(f"{path}: expected a JSON object")
         data["version"] = version
         path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    # build-plugin.py packs the bundled CLI at the plugin version (16c4eb8), so
+    # the committed tree reports one version everywhere. Keep that true for the
+    # stamped artifact too; otherwise it would pair a release plugin with the
+    # committed `YY.MM.0-dev` CLI.
+    package_path = plugin_root / "cli" / "package.json"
+    if package_path.is_file():
+        package = json.loads(package_path.read_text(encoding="utf-8"))
+        if not isinstance(package, dict):
+            raise SystemExit(f"{package_path}: expected a JSON object")
+        package["version"] = version
+        package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
 
 
 def cli_stamp_for_commit(repository: str, commit: str) -> str | None:

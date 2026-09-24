@@ -2,6 +2,7 @@ import { defaultSdkInjector } from "../adapters/sdk-injection.js";
 import { mergeLimits, packError } from "./limits.js";
 import { gzipDeterministic, sha256Hex, writeTar } from "./archive.js";
 import { walkDirectory } from "./walk.js";
+import { hoistInlineAssets } from "./inline.js";
 export async function packDirectory(root, options = {}) {
     const logger = options.logger;
     const run = async () => {
@@ -13,8 +14,9 @@ export async function packDirectory(root, options = {}) {
                 return result;
             })
             : await walkDirectory(root, limits);
+        const hoisted = hoistInlineAssets(walked);
         const injector = options.injector ?? defaultSdkInjector;
-        const injected = await injector.inject(walked);
+        const injected = await injector.inject(hoisted);
         const entries = injected.entries
             .slice()
             .sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
@@ -89,5 +91,6 @@ export async function packDirectory(root, options = {}) {
 }
 export { writeTar, gzipDeterministic, sha256Hex, parseTar } from "./archive.js";
 export { walkDirectory } from "./walk.js";
+export { hoistInlineAssets } from "./inline.js";
 export { DEFAULT_ARCHIVE_LIMITS, mergeLimits } from "./limits.js";
 //# sourceMappingURL=index.js.map

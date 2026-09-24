@@ -39,8 +39,10 @@ screenrig doctor
 ```
 
 For freshness, `keep` means continue, `refresh` means update the plugin using the
-installation reference, and `continue_installed` means continue with the installed
-copy and disclose that the published version could not be checked.
+installation reference, `continue_installed` means continue with the installed
+copy and disclose that the published version could not be checked, and
+`not_installed` means the helper is not inside an installed plugin, so continue
+without refreshing.
 
 Read doctor's individual checks. A missing token is a warning, not a broken
 installation. Missing media tools affect upload; see [media](references/media.md).

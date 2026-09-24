@@ -83,6 +83,7 @@ export function registerGuidance(root) {
         "screen delete": ["scr_SCREEN"], "screen rotate-public-id": ["scr_SCREEN"],
         "screen toast": ['scr_SCREEN --text "Welcome" --duration-ms 5000'],
         "screen screenshot": ["scr_SCREEN --output screenshot.webp"],
+        "screen storage-forecast": ["scr_SCREEN --playlist-id pl_PLAYLIST", "scr_SCREEN --playlist-id pl_PLAYLIST --playlist-rev 7"],
         "browser setup": ["--code SETUP_CODE --open"],
         "kv get": ["greeting --app-id app_APP"],
         "kv set": ['greeting --app-id app_APP --json-value \'{"message":"Welcome"}\'', "greeting --app-id app_APP --file greeting.txt --content-type text/plain"],
@@ -114,7 +115,7 @@ export function registerGuidance(root) {
         "project capabilities": "Read this project's plan id, independent advertiser/screens feature flags, feature revision, and the server's effective capability set. Never infer permission from a quota, plan name, or command inventory. A route denial still wins over previously read capabilities.",
         "dashboard": "Opens the dashboard origin without minting credentials. If the browser opener fails, the origin is printed. Sign in with a retained person credential.",
         "dashboard open": "Opens the dashboard origin without minting credentials. The origin is printed only if the browser opener fails.",
-        "app pack": "Local and unauthenticated. Pack an already-built static directory with a root index.html. app upload packs the directory itself; packing first is optional.",
+        "app pack": "Local and unauthenticated. Pack an already-built static directory with a root index.html. app upload packs the directory itself; packing first is optional. Inline <style> and <script> blocks move into files under _screenrig/inline/ because the release CSP blocks inline code; inline event handlers and javascript: URLs are refused with the file and line.",
         "app upload": "Creates a new application and its first immutable release. Packs the built directory and waits for processing by default (120000 ms, polling every 1000 ms). With --no-wait, use operations wait on the returned operation_id before using the release.",
         "app update": "Creates a new immutable release for the same application and preserves its K/V. Existing playlists remain pinned to their previous release. Use playlist replace-release to preview and apply an explicit replacement. Wait defaults: 120000 ms, polling every 1000 ms.",
         "media upload": "Transcodes by default and requires ffmpeg and ffprobe. --no-transcode uploads accepted bytes unchanged. Waits for processing by default (120000 ms, polling every 1000 ms). For multiple files use media upload-batch with a manifest.",
@@ -123,7 +124,7 @@ export function registerGuidance(root) {
         "playlist create": "Creates a new remote playlist without assigning screens. Supply a canonical {name, pages} document, not an inspection envelope. Display names may repeat; IDs identify playlists. Use playlist init to prepare a document or screen publish to create and assign it.",
         "playlist update": "Replaces the authored document and affects every assigned screen. First use playlist show ID --output FILE; edit that document; optionally supply its revision with --expect-rev. Use --overwrite to replace an authoring file; parent directories are created automatically.",
         "playlist show": "Plain show is an inspection response. --editable returns data.document and revision; --output writes the editable document to a file (--overwrite replaces an existing file) and reports the revision on stdout. When both are supplied, --output takes precedence.",
-        "playlist export": "The output directory must not exist. Exports referenced images and videos; application primitives cannot be exported. Dynamic selectors are snapshotted to explicit media IDs.",
+        "playlist export": "The output directory must not exist. Exports referenced images and videos; application primitives cannot be exported and the export refuses by default. Pass --skip-applications to drop application primitives and any page left with no primitives; the result reports the skipped primitive and page ids. Dynamic selectors are snapshotted to explicit media IDs.",
         "playlist import": "Creates a new playlist by default. Display names may repeat. Updating an existing playlist requires --update and affects all its assigned screens; --expect-rev is optional.",
         "screen publish": "Creates a new playlist and assigns it; does not update an existing playlist by name. Optionally guard against concurrent changes with --expect-rev. Inspect the prepared document and preview first. Repeat identical input to resume an ambiguous failure. After a revision conflict inspect the screen and follow the returned recovery instructions. Assignment readback does not prove playback; request and inspect screen screenshot separately.",
         "screen assign": "Assigns an existing playlist. --expect-rev optionally checks the screen revision. Scheduled playlists require the screen timezone. Use screen update to set timezone and assignment together.",
@@ -138,6 +139,7 @@ export function registerGuidance(root) {
         "comment set": "Replaces comments with a JSON value from --json-value or --file, including - for stdin. Last write wins; comments do not take --expect-rev or bump the resource revision.",
         "operations wait": "Wait defaults to 120000 ms, polling every 1000 ms. --timeout sets the wait budget. Use the operation_id returned by an accepted asynchronous command.",
         "events follow": "Writes NDJSON: one JSON envelope per event on stdout. --after resumes from a cursor; --cursor is a compatibility alias. --timeout is in milliseconds; zero or omitted leaves the stream unbounded.",
+        "screen storage-forecast": "Read-only fit dry run: answers whether one playlist would fit the named screen's last reported storage before it is assigned, with the same target selection as the forecast in screen show (plan A.3 only, no transition prediction). It writes nothing: no assignment, no screen revision, no event. fit is unknown when the screen has never reported storage or the playlist's content references are not ready, and the byte counts and report time are null then. A report older than 24 hours is marked (stale) but is still forecast from. --playlist-rev refuses a playlist that changed since you read it with revision_conflict.",
     };
     for (const [path, note] of Object.entries(notes)) {
         const command = findCommand(root, path.split(" "));
