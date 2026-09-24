@@ -1,5 +1,5 @@
 export declare const RESOURCE_ID_PATTERNS: {
-    account: RegExp;
+    project: RegExp;
     agent: RegExp;
     connection: RegExp;
     screen: RegExp;
