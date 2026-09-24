@@ -10,7 +10,7 @@ generation. If the screen has no observation, confirm its orientation. Fit and
 cropping are deliberate choices; a source image's aspect need not match a canvas
 when the design intentionally contains or crops it.
 
-Generation stores the finished artwork, including its type, in the account media
+Generation stores the finished artwork, including its type, in the project media
 store. Each call is billed, so prepare the copy and art direction together.
 
 ### Write the prompt
@@ -73,7 +73,7 @@ replays the request under it, so a still that was created comes back instead
 of a second one being billed; changing the prompt, aspect ratio, quality, or
 tag starts a fresh key, and a server answer clears the stored one. Or run the
 `media list` command named in `error.next.command` on the timeout problem to
-see what the account actually holds. `--idempotency-key KEY` still pins the
+see what the project actually holds. `--idempotency-key KEY` still pins the
 key explicitly when you want to name it.
 
 ### Read the result
@@ -239,14 +239,14 @@ not loop `media upload` by hand. The manifest is
 `{ "items": [ { "path": "./a.png", "tag"?: "lobby", "content_type"?: "image/png" } ] }`
 with 1 to 1000 items. Paths are relative to the manifest file. `--state FILE` optionally overrides the automatic private resume file beside the CLI config. The 0600 JSON file is keyed by the SHA-256 of each source file's
 local bytes. Items already present with a `media_id` are reported as
-`resumed`. Do not share one state file across accounts.
+`resumed`. Do not share one state file across projects.
 
 ```bash
 screenrig media upload-batch ./images.json --state ./upload-state.json
 ```
 
 The envelope carries `data.items[]`, one row per item that reached the
-account, in manifest order, each with `path`, `source_filename`, `sha256`,
+project, in manifest order, each with `path`, `source_filename`, `sha256`,
 `outcome` (`accepted` or `resumed`), and `media_id`. Read the ids from there;
 a batch no longer needs a follow-up `media list --tag` to learn what it
 created. `data.failed[]` carries the items that did not land, with their

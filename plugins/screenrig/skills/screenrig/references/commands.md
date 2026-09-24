@@ -22,24 +22,72 @@ examples, aliases, and option relationships. `exactlyOne`, `atLeastOne`, and
 means the first option requires all remaining options. Read stdin only where
 command help explicitly supports `-`.
 
-### Create a new account (default)
+### Enroll: create a new project (default)
 
 ```sh
-screenrig agent enroll --email ADDRESS
+screenrig agent enroll --email ADDRESS --project-name NAME
 ```
 
-Default first-run is enroll. Use the user's actual contact email. Do not open
-`agent connect` or send dashboard URLs unless the user says they already have a
-screenRIG account. If an unwanted existing-account connection is already pending,
-`screenrig agent enroll --force --email ADDRESS` discards it and enrolls so the
-path is not dead-ended. Resume `agent connect` only for an intentional
-existing-account reconnect. The Player pairing code is the only glass-side human
-step after enroll.
+Default first-run is enroll, and enroll always creates a new project — even when
+the contact email already signs in to another screenRIG project. Propose a
+project name, confirm it with the user, and use the user's actual contact email.
+The human receives a member invitation by email automatically; say so. They
+follow it in the dashboard, sign in with their own passkey or password, and
+switch between their projects there. Do not open `agent connect` unless the user
+says this installation should join an existing project. If an unwanted
+existing-project connection is already pending, `screenrig agent enroll --force
+--email ADDRESS` discards it and enrolls so the path is not dead-ended. Resume
+`agent connect` only for an intentional existing-project reconnect. An already
+enrolled installation reuses its project. The Player pairing code is the only
+glass-side human step after enroll.
 
-### Connect an existing account
+### Invite people and advertising buyers
 
 ```sh
-screenrig agent connect --print-url
+screenrig invitations create --email ADDRESS[,ADDRESS]
+screenrig invitations create --kind ad-buyer --email ADDRESS[,ADDRESS] --screen-id ID --slot-id ID --policy trusted|review_required
+screenrig invitations list [--kind member|ad-buyer] [--status STATUS]
+screenrig invitations revoke ID
+```
+
+Member invitations are the default kind and are delivered by email; email
+delivery is requested, not proof a message reached the inbox. Advertising
+buyers are invited with `--kind ad-buyer`, an explicit `--screen-id` /
+`--slot-id` scope, and a `trusted` or `review_required` policy; their
+invitations are email-only. Email invitations expire after seven days, and at
+most 50 invitations may be outstanding per project.
+
+`--link` is available only for member invitations and only when the user
+explicitly asks for a link: it prints one member invitation URL once instead of
+emailing. The link is a bearer grant, not email-bound, and expires after 24
+hours. Print it once and deliver it only to the intended person; never store or
+log it and never send it anywhere else. `invitations list` filters by kind and
+status, and `invitations revoke ID` revokes an outstanding invitation without
+touching accepted memberships.
+
+### Dashboard and sign-in reset
+
+```sh
+screenrig dashboard open
+screenrig dashboard reset-sign-in --email ADDRESS
+```
+
+`dashboard` (bare) and `dashboard open` open the dashboard origin without
+minting a credential and without a network request. The human signs in with
+their own login — a passkey or a password — and switches between their projects
+there. If no browser can open, the CLI prints the public origin.
+
+`dashboard reset-sign-in --email ADDRESS` is unauthenticated and works on a
+fresh installation: it never enrolls, sends a stored credential, or changes the
+stored project or enrollment. The acknowledgment is neutral whether or not the
+address is known; if the address can receive sign-in instructions, the human
+checks its inbox. Delivery is not confirmed, instructions expire after one
+hour, and an ambiguous retry reuses its saved Idempotency-Key.
+
+### Connect an existing project
+
+```sh
+screenrig agent connect
 ```
 
 By default, this starts or resumes an approval request and reads one status
@@ -47,29 +95,38 @@ snapshot for at most one second. A successful pending result means submission,
 not activation: `data.request_submitted` is `true` and `data.connection_complete`
 is `false`. Send the handoff from `data.approval_url` to the intended user, then
 resume with `data.next.argv` or `screenrig agent connect`. The human approves in
-the dashboard with their own account identity (a passkey session in production);
-the CLI never receives that credential. The argument array preserves the selected
+the dashboard with their own login (a passkey or a password in production); the
+CLI never receives that credential. The argument array preserves the selected
 config and API origin. Activation returns `data.status: active` and
 `data.connection_complete: true`, without returning a credential.
 
 If no snapshot arrives, `data.status_checked` is `false`; do not infer current
-approval state from that result. Without `--print-url`, the CLI tries to open the
-browser and includes the handoff URL only if opening fails. `--no-wait` explicitly
-selects the default behavior. `--wait` waits up to 30000 ms; `--wait --timeout 10000`
-sets a shorter approval wait. Timeout accepts 1–86400000 ms. Without `--wait`, it
-can shorten but cannot extend the one-second snapshot budget. Budget expiry is
-resumable; approval requests expire after 24 hours. Denial, cancellation, and
-expiry return errors.
+approval state from that result. The CLI tries to open the approval URL in a
+browser and prints the handoff URL only when no browser can be opened. `--no-wait`
+explicitly selects the default behavior. `--wait` waits up to 30000 ms;
+`--wait --timeout 10000` sets a shorter approval wait. Timeout accepts
+1–86400000 ms. Without `--wait`, it can shorten but cannot extend the one-second
+snapshot budget. Budget expiry is resumable; approval requests expire after 24
+hours. Denial, cancellation, and expiry return errors.
 
 ## Commands
 
 ```text
-account show
+project show
+project capabilities
+project rename NAME
+invitations create --email ADDRESS[,ADDRESS] [--link]
+invitations create --kind ad-buyer --email ADDRESS[,ADDRESS]
+                  [--screen-id IDS] [--slot-id IDS] [--policy trusted|review_required]
+invitations list [--kind member|ad-buyer] [--status STATUS]
+invitations revoke ID
 agent status
-agent enroll --email EMAIL [--force]
-agent connect [--name NAME] [--print-url] [--wait | --no-wait] [--timeout MS]
+agent enroll --email EMAIL [--project-name NAME] [--name NAME]
+             [--intent signage|advertising] [--force]
+agent connect [--name NAME] [--wait | --no-wait] [--timeout MS]
 agent disconnect --yes [--allow-lockout]
-dashboard [--print-url]
+dashboard open
+dashboard reset-sign-in --email ADDRESS
 app pack <directory> [--output FILE]
 app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
 app update <id> <directory> [--expect-rev REVISION] [--no-wait] [--poll-ms MS]
@@ -109,7 +166,7 @@ playlist show <id> [--output FILE | --editable] [--overwrite]
 playlist list
 playlist delete <id> [--expect-rev REVISION]
 screen pair <code> [--name NAME]
-screen provision [--open | --print-url] [--name NAME]
+screen provision [--open] [--name NAME]
 screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE] [--expect-rev REVISION]
 screen list [--state archived]
 screen show <id>
@@ -148,9 +205,8 @@ feedback feature <title> (--body TEXT | --body-file FILE)
                      [--command "GROUP ACTION"] [--no-context]
 feedback list [--kind bug|feature]
 doctor [--repair-config]
-account capabilities
 ads networks list
-ads networks show <seller-account-id>
+ads networks show <seller-project-id>
 ads network show
 ads network create --name NAME
 ads network rate --rate-mcr-per-15s MCR --expect-rev REVISION
@@ -166,10 +222,6 @@ ads slots create --name NAME [--enabled | --disabled] [--accepted-media image,vi
 ads slots update <slot-id> [--enabled | --disabled] [--name NAME] [--accepted-media image,video]
                      [--max-image-duration-ms MS] [--max-video-duration-ms MS]
                      [--rate-mcr-per-15s MCR | --clear-rate] --expect-rev REVISION
-ads invites create --email ADDRESSES [--screen-id IDS] [--slot-id IDS]
-                     [--policy trusted|review_required]
-ads invites list
-ads invites revoke <invitation-id>
 ads memberships list
 ads memberships update <membership-id> [--policy trusted|review_required]
                      [--screen-id IDS] [--slot-id IDS] --expect-rev REVISION

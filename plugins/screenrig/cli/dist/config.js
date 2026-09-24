@@ -291,7 +291,8 @@ export async function resolveConfig(options) {
     return {
         apiUrl: apiUrl.replace(/\/+$/, ""),
         token,
-        accountId: file?.account_id,
+        projectId: file?.project_id,
+        projectName: file?.project_name,
         agentId: file?.agent_id,
         enrollment: file?.enrollment,
         agentConnection: file?.agent_connection,

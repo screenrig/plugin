@@ -66,7 +66,7 @@ async function readMediaSnapshot(filePath) {
         if (before.size < 1)
             throw usageError("Media file must not be empty.");
         if (before.size > 1_073_741_824) {
-            throw usageError("Media file exceeds the 1 GiB per-upload transport ceiling. Run screenrig account show " +
+            throw usageError("Media file exceeds the 1 GiB per-upload transport ceiling. Run screenrig project show " +
                 "to inspect used_bytes, any content_limit_bytes ceiling, and credit_remaining.");
         }
         const bytes = Buffer.allocUnsafe(before.size);
@@ -301,7 +301,7 @@ function asRecord(value) {
     return value;
 }
 /**
- * The name the caller needs after an upload is the one the account now holds,
+ * The name the caller needs after an upload is the one the project now holds,
  * not the local pre-transcode guess: photo.png, photo.jpg, and photo.webp all
  * declare photo.webp but are stored as three distinct rows. Only the ready
  * object carries the derived name, so read it back.

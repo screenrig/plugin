@@ -167,7 +167,7 @@ export function withRetryAfter(problem, retryAfterSeconds) {
         retry_after_seconds: retryAfterSeconds,
         next: problem.next ?? {
             command: "retry the same command",
-            reason: `The account rate limit is in effect. Wait ${interval} before retrying.`,
+            reason: `The project rate limit is in effect. Wait ${interval} before retrying.`,
         },
     };
 }
@@ -184,14 +184,14 @@ export function withQuotaGuidance(problem) {
     return {
         ...problem,
         next: {
-            command: "screenrig account show",
+            command: "screenrig project show",
             reason: "Read used_bytes and content_limit_bytes, then free space or upload a smaller file.",
         },
     };
 }
 /**
  * Remaining prepaid credit of zero rejects costly operations with
- * `payment_required`. Point at account show for credit_remaining. Do not
+ * `payment_required`. Point at project show for credit_remaining. Do not
  * invent a pay command; v1 does not collect money here.
  */
 export function withPaymentGuidance(problem) {
@@ -201,7 +201,7 @@ export function withPaymentGuidance(problem) {
     return {
         ...problem,
         next: {
-            command: "screenrig account show",
+            command: "screenrig project show",
             reason: "Read credit_remaining. Remaining prepaid credit of zero rejects costly operations.",
         },
     };

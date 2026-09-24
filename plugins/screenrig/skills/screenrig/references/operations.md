@@ -42,7 +42,7 @@ that may be suppressed by the Player. A successful command does not prove visibi
 120 characters. `--duration-ms` is optional, 2000 through 60000; omitted
 values default to 10000 on the server.
 
-`playback list` returns daily playback aggregates for this account. One row
+`playback list` returns daily playback aggregates for this project. One row
 per screen, media, and UTC day. Newest days first. `--screen-id`,
 `--media-id`, and `--day YYYY-MM-DD` filter the caller's own rows. Each row
 carries the server-resolved `filename` and `primitive` (`image` or `video`);
@@ -97,14 +97,14 @@ hardware, leave the screen archived or move it to new hardware with
 
 A screen is also archived when its Player is reset on the display
 (`archive_reason: device_reset`) or a paired browser unpairs itself
-(`device_unpair`). An account or dashboard archive reports `account`. `screen
+(`device_unpair`). A project or dashboard archive reports `project`. `screen
 show` prints `archive_reason` and `archived_at` when the server reports them,
 and `screen list --state archived` adds a `REASON` column. Treat an unknown
 reason as archived; do not guess its cause.
 
 `screen unarchive <id>` restores a screen archived for any reason. It re-admits
 the same display key, so a display that still holds it resumes with no
-re-pairing. The screen must still fit the account's screen quota. A Player
+re-pairing. The screen must still fit the project's screen quota. A Player
 reset on the display rotates its own key, and a browser that unpaired itself
 loses its cookies, so neither holds the archived screen's key any more:
 unarchive alone does not bring that display back, and it gives content to

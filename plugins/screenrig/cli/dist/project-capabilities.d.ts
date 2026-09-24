@@ -1,8 +1,8 @@
-import type { AccountCapabilities } from "./adapters/protocol.js";
+import type { ProjectCapabilities } from "./adapters/protocol.js";
 import type { ApiClient } from "./client.js";
 import type { ProblemNext } from "./envelope.js";
-/** Reject a body that does not match the generated account capabilities contract. */
-export declare function validateAccountCapabilities(value: unknown): AccountCapabilities;
+/** Reject a body that does not match the generated project capabilities contract. */
+export declare function validateProjectCapabilities(value: unknown): ProjectCapabilities;
 /**
  * Refuse a capability-gated write when the server's own capability set does not
  * grant it.
@@ -13,4 +13,4 @@ export declare function validateAccountCapabilities(value: unknown): AccountCapa
  * read capability is accepted as authority, and a server denial still wins.
  */
 export declare function requireCapability(client: ApiClient, capability: string, action: string, next: ProblemNext): Promise<void>;
-//# sourceMappingURL=account-capabilities.d.ts.map
+//# sourceMappingURL=project-capabilities.d.ts.map

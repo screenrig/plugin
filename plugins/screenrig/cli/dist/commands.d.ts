@@ -1,4 +1,4 @@
-import { type AccountEvent, type FeedbackContext, type Operation } from "./adapters/protocol.js";
+import { type ProjectEvent, type FeedbackContext, type Operation } from "./adapters/protocol.js";
 import { type ParsedArgs } from "./command-input.js";
 import { successEnvelope } from "./envelope.js";
 import { ExitCode } from "./exit-codes.js";
@@ -27,10 +27,10 @@ export declare const handleAgentStatus: CommandHandler;
 export declare const handleAgentConnect: CommandHandler;
 export declare const handleAgentEnroll: CommandHandler;
 export declare const handleAgentDisconnect: CommandHandler;
-export declare const handleAccountShow: CommandHandler;
-export declare const handleAccountCapabilities: CommandHandler;
-export declare const handleAccountInvite: CommandHandler;
-export declare const handleAccountRecover: CommandHandler;
+export declare const handleProjectShow: CommandHandler;
+export declare const handleProjectCapabilities: CommandHandler;
+export declare const handleProjectRename: CommandHandler;
+export declare const handleSignInReset: CommandHandler;
 export declare const handleDashboard: CommandHandler;
 export declare const handleAppUpload: CommandHandler;
 export declare const handleAppUpdate: CommandHandler;
@@ -64,14 +64,10 @@ export declare const handleAdsSlotsCreate: CommandHandler;
  * formats, duration limits, and the rate override.
  */
 export declare const handleAdsSlotsUpdate: CommandHandler;
-/**
- * Invitations return each claim token exactly once. The token is a secret: the
- * JSON envelope carries it for the seller to deliver, and the human rendering
- * never repeats it.
- */
-export declare const handleAdsInvitesCreate: CommandHandler;
-export declare const handleAdsInvitesList: CommandHandler;
-export declare const handleAdsInvitesRevoke: CommandHandler;
+/** Link URLs are an explicit one-time output, never logging or recovery metadata. */
+export declare const handleInvitationsCreate: CommandHandler;
+export declare const handleInvitationsList: CommandHandler;
+export declare const handleInvitationsRevoke: CommandHandler;
 export declare const handleAdsMembershipsList: CommandHandler;
 /**
  * Update one membership. The route takes the policy and both scope lists, so an
@@ -109,7 +105,7 @@ export declare const handleAdsReviewsReject: CommandHandler;
 export declare const handleAdsReportsSpend: CommandHandler;
 export declare const handleAdsReportsDelivery: CommandHandler;
 /**
- * Read this account's shared balance. The withdrawal section is reported as the
+ * Read this project's shared balance. The withdrawal section is reported as the
  * server states it: while payment rails are unconfigured the balance explains
  * that plainly instead of implying a payout path or a second wallet.
  */
@@ -168,7 +164,7 @@ export declare const handleCommentSetPlaylist: CommandHandler;
 export declare const handleCommentDeleteScreen: CommandHandler;
 export declare const handleCommentDeletePlaylist: CommandHandler;
 /** One logfmt line per event. Undefined when there is nothing to print. */
-export declare function formatEventLine(event: AccountEvent): string | undefined;
+export declare function formatEventLine(event: ProjectEvent): string | undefined;
 /** First reconnect wait after a disconnect. Tests inject `runtime.sleep`. */
 export declare const EVENT_STREAM_BACKOFF_MS = 250;
 export declare const EVENT_STREAM_BACKOFF_CAP_MS = 15000;

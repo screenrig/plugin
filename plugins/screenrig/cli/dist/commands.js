@@ -1,4 +1,4 @@
-import { requireCapability, validateAccountCapabilities } from "./account-capabilities.js";
+import { requireCapability, validateProjectCapabilities } from "./project-capabilities.js";
 import { RESOURCE_ID_PATTERNS, isResourceID } from "./generated/resource-ids.js";
 import { replacePlaylistRelease } from "./playlist-release.js";
 import { readAuthoringJson, readAuthoringText, writeAuthoringJson } from "./authoring-input.js";
@@ -36,7 +36,6 @@ import { runMediaUploadBatch, UPLOAD_BATCH_DEFAULT_CONCURRENCY, UPLOAD_BATCH_MAX
 import { clearProvisionRetryState, provisionRetryState } from "./provisioning-state.js";
 import { clearGenerateRetryState, generateRequestHash, generateRetryState } from "./media-generate-retry.js";
 import { validateProvisioningUrls } from "./provisioning-url.js";
-import { validateDashboardLink } from "./dashboard-link.js";
 import { aspectMismatchWarnings } from "./aspect-mismatch.js";
 import { browserHandoffUrl, browserSetupRetryState, clearBrowserSetupRetryState, normalizeBrowserSetupCode, } from "./browser-setup.js";
 import { isSensitiveKey, isSensitiveValue, redactEvent, redactText } from "./redact.js";
@@ -69,36 +68,36 @@ function isPlainContactEmail(email) {
 function enrollmentEmail(value) {
     const email = value?.trim();
     if (!email) {
-        throw usageError("agent enroll requires --email ADDRESS for unverified account contact metadata.");
+        throw usageError("agent enroll requires --email ADDRESS for unverified project contact metadata.");
     }
     if (!isPlainContactEmail(email)) {
         throw usageError("agent enroll --email must be one plain ASCII address with an unquoted local part and dotted DNS domain.");
     }
     return email;
 }
-/** account invite targets an existing account and never enrolls as a side effect. */
+/** invitations create targets an existing project and never enrolls as a side effect. */
 function invitationEmail(value) {
     const email = value?.trim();
     if (!email) {
-        throw usageError("account invite requires --email ADDRESS.");
+        throw usageError("invitations create requires --email ADDRESS.");
     }
     if (!isPlainContactEmail(email)) {
-        throw usageError("account invite --email must be one plain ASCII address with an unquoted local part and dotted DNS domain.");
+        throw usageError("invitations create --email must be one plain ASCII address with an unquoted local part and dotted DNS domain.");
     }
     return email;
 }
-/** account recover is unauthenticated and targets the account's owner contact address. */
-function recoveryEmail(value) {
+/** dashboard reset-sign-in is unauthenticated and targets the project's owner contact address. */
+function signInResetEmail(value) {
     const email = value?.trim();
     if (!email) {
-        throw usageError("account recover requires --email ADDRESS.");
+        throw usageError("dashboard reset-sign-in requires --email ADDRESS.");
     }
     if (!isPlainContactEmail(email)) {
-        throw usageError("account recover --email must be one plain ASCII address with an unquoted local part and dotted DNS domain.");
+        throw usageError("dashboard reset-sign-in --email must be one plain ASCII address with an unquoted local part and dotted DNS domain.");
     }
     return email;
 }
-/** agent enroll --intent names the account purpose; omitted keeps the signage default. */
+/** agent enroll --intent names the project purpose; omitted keeps the signage default. */
 function enrollmentPurpose(value) {
     const intent = value?.trim();
     if (!intent)
@@ -289,13 +288,13 @@ function commandHandler(handler, authenticated = true) {
             if (resolved.agentConnection) {
                 throw notEnrolledError("This installation has a pending agent connection and no active credential.", {
                     command: "screenrig agent connect",
-                    reason: "Resume the intentional existing-account connection before running account commands.",
+                    reason: "Resume the intentional existing-project connection before running project commands.",
                 });
             }
             if (resolved.lastAgent) {
-                throw notEnrolledError("This installation is disconnected and cannot run account commands.", {
+                throw notEnrolledError("This installation is disconnected and cannot run project commands.", {
                     command: "screenrig agent enroll --email ADDRESS",
-                    reason: "Ask the user for their contact email, then create a new account agent. Use agent connect only for an intentional existing-account reconnect.",
+                    reason: "Ask the user for their contact email, then create a new project agent. Use agent connect only for an intentional existing-project reconnect.",
                 });
             }
             throw notEnrolledError("This installation is not enrolled. Enrollment is an explicit step and is never a side effect of another command.", {
@@ -303,23 +302,21 @@ function commandHandler(handler, authenticated = true) {
                     ? "screenrig agent enroll"
                     : "screenrig agent enroll --email ADDRESS",
                 reason: resolved.enrollment?.email
-                    ? "Resume the exact pending enrollment before running pairing or another account command."
+                    ? "Resume the exact pending enrollment before running pairing or another project command."
                     : "Create the first agent with unverified contact metadata, then retry the original command.",
             });
         }
         // Specialized enrollment, generation, upload/bundle, and handoff flows own
         // their recovery. Ordinary mutations share the durable request ledger.
         const [group, action] = args.command;
-        // `account recover` persists its idempotency key like an ordinary write
-        // even though it is unauthenticated; a fresh installation has no config
-        // file until the command seeds one before its request.
-        const ordinary = (group === "account" && action === "recover")
+        // Sign-in reset is unauthenticated but still retains a durable retry key.
+        const ordinary = (group === "dashboard" && action === "reset-sign-in")
             || Boolean(authenticated && resolved.token && (["kv", "comment", "feedback", "operations"].includes(group ?? "") ||
                 (group === "app" && ["upload", "update"].includes(action ?? "")) ||
                 (group === "playlist" && ["create", "update", "delete"].includes(action ?? "")) ||
                 (group === "media" && ["update", "delete"].includes(action ?? "")) ||
                 (group === "screen" && !["provision", "publish"].includes(action ?? "")) ||
-                (group === "account" && action === "invite")));
+                group === "invitations" || (group === "project" && action === "rename")));
         const recovery = ordinary ? new WriteRecovery(resolved, runtime, args.command.slice(0, 2).join(" ")) : undefined;
         if (recovery)
             writeRecoveries.set(runtime, recovery);
@@ -447,11 +444,11 @@ export const handleAgentEnroll = commandHandler(async (args, runtime, resolved) 
     return loggerOf(runtime).withLocal({ op: "agent.enroll", message: "agent enroll" }, () => agentEnroll(args, runtime, resolved));
 }, false);
 export const handleAgentDisconnect = commandHandler(agentDisconnect, false);
-export const handleAccountShow = commandHandler(accountShow);
-export const handleAccountCapabilities = commandHandler(accountCapabilities);
-export const handleAccountInvite = commandHandler(accountInvite);
-export const handleAccountRecover = commandHandler(accountRecover, false);
-export const handleDashboard = commandHandler(dashboardCommand);
+export const handleProjectShow = commandHandler(projectShow);
+export const handleProjectCapabilities = commandHandler(projectCapabilities);
+export const handleProjectRename = commandHandler(projectRename);
+export const handleSignInReset = commandHandler(signInReset, false);
+export const handleDashboard = commandHandler(dashboardCommand, false);
 export const handleAppUpload = commandHandler(async (args, runtime, resolved) => {
     return loggerOf(runtime).withLocal({ op: "app.upload", message: "app upload" }, () => appUpload(args, runtime, resolved, false));
 }, true);
@@ -570,14 +567,6 @@ async function agentStatus(args, runtime, resolved) {
         };
     }
 }
-async function openDashboardForEnrolledAgent(args, runtime, resolved) {
-    const token = requireToken(resolved.token);
-    const client = clientFor(runtime, args, resolved.apiUrl, token);
-    const response = await client.call({ method: "POST", path: "/api/v1/account/dashboard-links", idempotent: true });
-    requirePrivateNoStore(response.headers, "Dashboard link response");
-    const link = validateDashboardLink(response.body, resolved.apiUrl);
-    return runtime.openUrl?.(link.url) ?? false;
-}
 async function agentEnroll(args, runtime, resolved) {
     requireFlagValue(args, "name", "Office MacBook Codex");
     const name = flagString(args.flags, "name");
@@ -585,14 +574,15 @@ async function agentEnroll(args, runtime, resolved) {
         throw usageError("agent enroll --name is at most 80 characters.");
     const enrollIntent = enrollmentPurpose(flagString(args.flags, "intent"));
     let enrollmentConfig = resolved;
-    if (resolved.agentConnection) {
+    if (resolved.agentConnection || (resolved.enrollment && flagBool(args.flags, "force"))) {
         if (!flagBool(args.flags, "force")) {
             throw usageError("A different agent connection is already pending in this config.", {
                 command: "screenrig agent enroll --force --email ADDRESS",
-                reason: "Use --force only to discard the unwanted existing-account connection and enroll a new account.",
+                reason: "Use --force only to discard the unwanted existing-project connection and enroll a new project.",
             });
         }
-        await clearAgentConnectionForEnrollment(runtime, resolved);
+        enrollmentEmail(flagString(args.flags, "email"));
+        await clearPendingStateForEnrollment(runtime, resolved);
         enrollmentConfig = await resolveConfig({
             flags: args.flags,
             fs: { ...runtime.fs, env: runtime.env, homedir: runtime.homedir },
@@ -609,15 +599,21 @@ async function agentEnroll(args, runtime, resolved) {
     requirePrivateNoStore(response.headers, "Agent enrollment verification response");
     const self = validateAgentSelfStatus(response.body, "active");
     const agent = self.agent;
-    const dashboardOpened = flagBool(args.flags, "open-dashboard")
-        ? await openDashboardForEnrolledAgent(args, runtime, enrolled)
-        : undefined;
+    let project;
+    if (!resolved.token && enrolled.projectId && enrolled.projectName) {
+        project = { id: enrolled.projectId, name: enrolled.projectName };
+    }
+    else {
+        const projectResponse = await client.call({ method: "GET", path: "/api/v1/project" });
+        project = projectResponse.body;
+    }
     return {
         envelope: successEnvelope({
             status: "active",
             connection_ready: self.connection_ready,
             agent: safeAgentSummary(agent),
-            ...(dashboardOpened !== undefined ? { dashboard_opened: dashboardOpened } : {}),
+            project: { id: project.id, name: project.name },
+            invitation: "emailed to the contact address",
         }, { request_id: client.requestId }),
         exitCode: ExitCode.Success,
         human: humanLines("Agent enrolled", [
@@ -625,8 +621,9 @@ async function agentEnroll(args, runtime, resolved) {
             ["id", agent.id],
             ["name", agent.name],
             ["connection_ready", self.connection_ready ? "true" : "false"],
-            ...(dashboardOpened !== undefined ? [["dashboard_opened", dashboardOpened ? "true" : "false"]] : []),
-            ...(dashboardOpened === false ? [["next", "run screenrig dashboard to open or print a fresh link"]] : []),
+            ["project_id", project.id],
+            ["project_name", project.name],
+            ["invitation", "emailed to the contact address"],
         ]),
     };
 }
@@ -783,16 +780,16 @@ async function clearAgentConnection(runtime, resolved, connectionId, clearPendin
         await writeConfigAtomic(resolved.configPath, { ...rest, updated_at: runtime.now().toISOString() }, fsLike);
     });
 }
-async function clearAgentConnectionForEnrollment(runtime, resolved) {
+async function clearPendingStateForEnrollment(runtime, resolved) {
     const fsLike = { ...runtime.fs, env: runtime.env, homedir: runtime.homedir };
     await withConfigLock(resolved.configPath, fsLike, { sleep: runtime.sleep, now: () => runtime.now().getTime() }, async () => {
         const current = await readConfigFile(resolved.configPath, fsLike);
-        if (!current?.agent_connection)
+        if (!current?.agent_connection && !current?.enrollment)
             return;
-        const { agent_connection: connection, ...rest } = current;
+        const { agent_connection: connection, enrollment, ...rest } = current;
         let cleaned = rest;
-        if (connection.pending_agent_id) {
-            const { token: _token, account_id: _account, agent_id: _agent, ...withoutPendingCredential } = rest;
+        if (connection?.pending_agent_id || enrollment) {
+            const { token: _token, project_id: _project, project_name: _projectName, agent_id: _agent, ...withoutPendingCredential } = rest;
             cleaned = withoutPendingCredential;
         }
         await writeConfigAtomic(resolved.configPath, {
@@ -1072,7 +1069,7 @@ async function removeLocalAgentCredential(runtime, resolved, token, agent) {
 async function agentDisconnect(args, runtime, resolved) {
     const invokedName = "agent disconnect";
     if (!flagBool(args.flags, "yes")) {
-        throw usageError(`${invokedName} requires --yes. It revokes only this agent and preserves the account, screens, content, and other agents.`, {
+        throw usageError(`${invokedName} requires --yes. It revokes only this agent and preserves the project, screens, content, and other agents.`, {
             command: "screenrig agent disconnect --yes",
             reason: "Run only after explicitly accepting revocation of this installation.",
         });
@@ -1115,7 +1112,7 @@ async function agentDisconnect(args, runtime, resolved) {
                     next: err.problem.code === "agent_lockout_risk"
                         ? {
                             command: "screenrig agent disconnect --yes --allow-lockout",
-                            reason: "Use only after confirming a registered dashboard passkey or explicitly accepting loss of this account.",
+                            reason: "Use only after confirming a registered dashboard passkey or explicitly accepting loss of this project.",
                         }
                         : {
                             command: "screenrig agent disconnect --yes",
@@ -1141,7 +1138,7 @@ async function agentDisconnect(args, runtime, resolved) {
         const prefix = credentialRejected
             ? "The stored credential is no longer accepted, but atomic local cleanup failed"
             : "The server disconnected this agent, but atomic local cleanup failed";
-        throw configError(`${prefix}: ${redactText(err instanceof Error ? err.message : "unknown filesystem error")}. The retained credential no longer authorizes account operations.`, {
+        throw configError(`${prefix}: ${redactText(err instanceof Error ? err.message : "unknown filesystem error")}. The retained credential no longer authorizes project operations.`, {
             command: "screenrig agent disconnect --yes",
             reason: "Retrying with the retained exact credential safely completes local cleanup.",
         });
@@ -1150,7 +1147,7 @@ async function agentDisconnect(args, runtime, resolved) {
         envelope: successEnvelope({
             status: "disconnected",
             local_credential_removed: true,
-            account_preserved: true,
+            project_preserved: true,
             screens_preserved: true,
             other_agents_preserved: true,
             ...(credentialRejected ? { credential_accepted: false } : {}),
@@ -1158,7 +1155,7 @@ async function agentDisconnect(args, runtime, resolved) {
         exitCode: ExitCode.Success,
         human: humanLines("Agent disconnected", [
             ["local_credential", "removed"],
-            ["account_screens_and_other_agents", "preserved"],
+            ["project_screens_and_other_agents", "preserved"],
             ["reconnect", "run screenrig agent connect and approve with an existing dashboard passkey"],
         ]),
     };
@@ -1184,7 +1181,7 @@ async function browserSetupCommand(args, runtime, resolved) {
     const request = { code: code.canonical };
     const response = await client.call({
         method: "POST",
-        path: "/api/v1/account/browser-links/claim",
+        path: "/api/v1/project/browser-links/claim",
         idempotent: true,
         idempotencyKey: retry.idempotency_key,
         body: request,
@@ -1224,53 +1221,25 @@ async function browserSetupCommand(args, runtime, resolved) {
         ]),
     };
 }
-/**
- * Mints one single-use account dashboard link and hands it to the browser.
- *
- * The token rides the URL fragment, which no server sees, no access log
- * records, and no `Referer` header carries, so the whole URL is a credential.
- * The default path opens it and keeps it out of stdout entirely. The URL
- * reaches stdout as exactly one line in two cases: the opener could not start a
- * browser, or the operator asked for it with `--print-url` because the shell is
- * not on the machine with the browser. It is never written to a file, never
- * persisted in the config, and never repeated in a later command.
- */
-async function dashboardCommand(args, runtime, resolved) {
-    const printMode = flagBool(args.flags, "print-url");
-    const token = requireToken(resolved.token);
-    const client = clientFor(runtime, args, resolved.apiUrl, token);
-    const response = await client.call({
-        method: "POST",
-        path: "/api/v1/account/dashboard-links",
-        idempotent: true,
-    });
-    requirePrivateNoStore(response.headers, "Dashboard link response");
-    const link = validateDashboardLink(response.body, resolved.apiUrl);
-    const opened = printMode ? false : await (runtime.openUrl?.(link.url) ?? Promise.resolve(false));
-    // Falling back is the only reason to print an unasked-for URL: the link
-    // expires in 24 hours, and a link nobody can reach is worse than one line
-    // of sensitive output the operator already chose to produce.
-    const printed = printMode || !opened;
-    const data = {
-        expires_at: link.expiresAt,
-        single_use: true,
-        ...(printed ? { url: link.url } : {}),
-        ...(printMode ? {} : { opened }),
-    };
-    const title = printMode
-        ? "Single-use dashboard link"
-        : opened
-            ? "Dashboard link opened"
-            : "Single-use dashboard link; no browser could be opened";
+/** Opens the ordinary dashboard origin; no credential is minted or transferred. */
+async function dashboardCommand(_args, runtime, resolved) {
+    const api = new URL(resolved.apiUrl);
+    const hostname = api.hostname === "api.screenrig.ai" ? "dashboard.screenrig.ai"
+        : api.hostname === "api.screenrig.localhost" ? "dashboard.screenrig.localhost" : undefined;
+    if (!hostname || (api.protocol !== "https:" && !(api.protocol === "http:" && api.hostname.endsWith(".localhost")))) {
+        throw usageError("dashboard requires a supported ScreenRig API origin.");
+    }
+    const origin = `${api.protocol}//${hostname}${api.port ? `:${api.port}` : ""}`;
+    let opened = false;
+    try {
+        opened = await (runtime.openUrl?.(origin) ?? Promise.resolve(false));
+    }
+    catch { /* Fall back to the ordinary origin. */ }
     return {
-        envelope: successEnvelope(data, { request_id: client.requestId }),
+        envelope: successEnvelope({ opened, ...(!opened ? { url: origin } : {}) }),
         exitCode: ExitCode.Success,
-        human: humanLines(title, [
-            ...(printed ? [["url", link.url]] : []),
-            ["expires_at", link.expiresAt],
-            ["validity", "single use, 24 hours from mint"],
-            ["reissue", "run screenrig dashboard again for a fresh link"],
-            ...(printMode ? [] : [["opened", opened ? "true" : "false"]]),
+        human: humanLines(opened ? "Dashboard opened" : "No browser could be opened", [
+            ...(!opened ? [["url", origin]] : []),
         ]),
     };
 }
@@ -1283,7 +1252,7 @@ async function enrollForCommand(args, runtime, resolved, options = {}) {
     if (resolved.agentConnection) {
         throw configError("An agent connection is pending in this config.", {
             command: "screenrig agent connect",
-            reason: "Resume and activate that agent credential before running account commands.",
+            reason: "Resume and activate that agent credential before running project commands.",
         });
     }
     const suppliedEmail = flagString(args.flags, "email");
@@ -1294,148 +1263,128 @@ async function enrollForCommand(args, runtime, resolved, options = {}) {
     const email = resolved.token && !resolved.enrollment
         ? undefined
         : persistedEmail ?? enrollmentEmail(suppliedEmail);
-    try {
-        return await ensureCredential({
-            resolved,
-            enrollmentEmail: email,
-            ...(options.intent ? { enrollmentIntent: options.intent } : {}),
-            runtime: {
-                fs: { ...runtime.fs, env: runtime.env, homedir: runtime.homedir },
-                now: runtime.now,
-                sleep: runtime.sleep,
-            },
-            enroll: async (state) => {
-                const client = clientFor(runtime, args, resolved.apiUrl);
-                const betaKey = flagString(args.flags, "beta-key") ?? nonemptyEnv(runtime.env.SCREENRIG_BETA_KEY);
-                const request = {
-                    client_id: state.clientId,
-                    email: state.email,
-                    ...(betaKey !== undefined ? { beta_key: betaKey } : {}),
-                    ...(state.intent ? { intent: state.intent } : {}),
-                    ...(options.name ? { name: options.name } : {}),
-                    ...(options.explicit ? { agent_type: "cli", platform: agentPlatform(), version: CLI_VERSION } : {}),
-                };
-                let response;
-                try {
-                    response = await client.call({
-                        method: "POST",
-                        path: "/api/v1/enrollments",
-                        idempotent: true,
-                        idempotencyKey: state.idempotencyKey,
-                        body: request,
+    requireFlagValue(args, "project-name", "My project");
+    const projectName = flagString(args.flags, "project-name")?.trim();
+    if (projectName !== undefined && (!projectName || [...projectName].length > 60 || /[\p{Cc}\p{Cf}]/u.test(projectName))) {
+        throw usageError("agent enroll --project-name must contain 1–60 characters.");
+    }
+    return await ensureCredential({
+        resolved,
+        enrollmentEmail: email,
+        ...(projectName !== undefined ? { enrollmentProjectName: projectName } : {}),
+        ...(options.intent ? { enrollmentIntent: options.intent } : {}),
+        runtime: {
+            fs: { ...runtime.fs, env: runtime.env, homedir: runtime.homedir },
+            now: runtime.now,
+            sleep: runtime.sleep,
+        },
+        enroll: async (state) => {
+            const client = clientFor(runtime, args, resolved.apiUrl);
+            const betaKey = flagString(args.flags, "beta-key") ?? nonemptyEnv(runtime.env.SCREENRIG_BETA_KEY);
+            const request = {
+                client_id: state.clientId,
+                email: state.email,
+                ...(state.projectName !== undefined ? { project_name: state.projectName } : {}),
+                ...(betaKey !== undefined ? { beta_key: betaKey } : {}),
+                ...(state.intent ? { intent: state.intent } : {}),
+                ...(options.name ? { name: options.name } : {}),
+                ...(options.explicit ? { agent_type: "cli", platform: agentPlatform(), version: CLI_VERSION } : {}),
+            };
+            let response;
+            try {
+                response = await client.call({
+                    method: "POST",
+                    path: "/api/v1/enrollments",
+                    idempotent: true,
+                    idempotencyKey: state.idempotencyKey,
+                    body: request,
+                });
+            }
+            catch (err) {
+                if (err instanceof CliError && err.problem.code === "invalid_request" && betaKey === undefined) {
+                    const namesBeta = err.problem.errors.some((item) => {
+                        if (!item || typeof item !== "object")
+                            return false;
+                        return item.field === "beta_key";
                     });
-                }
-                catch (err) {
-                    if (err instanceof CliError && err.problem.code === "email_conflict") {
+                    if (namesBeta) {
                         throw new CliError({
                             ...err.problem,
-                            title: "An account with this contact email already exists",
-                            detail: "This contact email belongs to an existing account, so enrollment cannot proceed. Ask the mailbox owner to recover dashboard access, then approve this installation. Never retry enrollment with another address.",
-                            errors: [],
-                            next: {
-                                command: "screenrig account recover --email ADDRESS",
-                                reason: "The mailbox owner opens the emailed recovery link (single use, expires in 24 hours) to restore the dashboard session, then runs screenrig agent connect here and approves the connection request in the recovered dashboard. Never retry enrollment with another address.",
+                            next: err.problem.next ?? {
+                                command: "screenrig --beta-key KEY agent enroll --email ADDRESS",
+                                reason: "The control plane gates enrollment. Retry the same email with the enrollment beta key.",
                             },
                         }, err.exitCode, err.warnings);
                     }
-                    if (err instanceof CliError && err.problem.code === "invalid_request" && betaKey === undefined) {
-                        const namesBeta = err.problem.errors.some((item) => {
-                            if (!item || typeof item !== "object")
-                                return false;
-                            return item.field === "beta_key";
-                        });
-                        if (namesBeta) {
-                            throw new CliError({
-                                ...err.problem,
-                                next: err.problem.next ?? {
-                                    command: "screenrig --beta-key KEY agent enroll --email ADDRESS",
-                                    reason: "The control plane gates enrollment. Retry the same email with the enrollment beta key.",
-                                },
-                            }, err.exitCode, err.warnings);
-                        }
-                    }
-                    throw err;
                 }
-                requirePrivateNoStore(response.headers, "Enrollment response");
-                const enrollment = response.body;
-                const agent = validateAgent(enrollment.agent, "active");
-                if (!enrollment.account?.id || enrollment.connection_ready !== false || !enrollment.token
-                    || !enrollment.issuance_id || !enrollment.issuance_expires_at) {
-                    throw usageError("Enrollment response does not match the generated CLIEnrollment contract.");
-                }
-                return {
-                    token: enrollment.token,
-                    accountId: enrollment.account.id,
-                    agentId: agent.id,
-                };
-            },
-            verify: async (token, accountId) => {
-                const client = clientFor(runtime, args, resolved.apiUrl, token);
-                const response = await client.call({ method: "GET", path: "/api/v1/account" });
-                const account = response.body;
-                if (!account.id || (accountId && account.id !== accountId)) {
-                    throw usageError("Persisted enrollment credential did not verify against its account.");
-                }
-            },
-        });
-    }
-    catch (err) {
-        if (err instanceof CliError && err.problem.code === "email_conflict" && email) {
-            const configFs = { ...runtime.fs, env: runtime.env, homedir: runtime.homedir };
-            await withConfigLock(resolved.configPath, configFs, { sleep: runtime.sleep, now: () => runtime.now().getTime() }, async () => {
-                const current = await readConfigFile(resolved.configPath, configFs);
-                if (!current?.token && current?.enrollment?.email === email) {
-                    const { enrollment: _enrollment, ...safeConfig } = current;
-                    await writeConfigAtomic(resolved.configPath, {
-                        ...safeConfig,
-                        updated_at: runtime.now().toISOString(),
-                    }, configFs);
-                }
-            });
-        }
-        throw err;
-    }
+                throw err;
+            }
+            requirePrivateNoStore(response.headers, "Enrollment response");
+            const enrollment = response.body;
+            const agent = validateAgent(enrollment.agent, "active");
+            if (!enrollment.project?.id || !enrollment.project.name || !enrollment.invitation?.id
+                || enrollment.connection_ready !== false || !enrollment.token
+                || !enrollment.issuance_id || !enrollment.issuance_expires_at) {
+                throw usageError("Enrollment response does not match the generated CLIEnrollment contract.");
+            }
+            return {
+                token: enrollment.token,
+                projectId: enrollment.project.id,
+                projectName: enrollment.project.name,
+                agentId: agent.id,
+            };
+        },
+        verify: async (token, projectId) => {
+            const client = clientFor(runtime, args, resolved.apiUrl, token);
+            const response = await client.call({ method: "GET", path: "/api/v1/project" });
+            const project = response.body;
+            if (!project.id || (projectId && project.id !== projectId)) {
+                throw usageError("Persisted enrollment credential did not verify against its project.");
+            }
+        },
+    });
 }
-async function accountShow(args, runtime, resolved) {
+async function projectShow(args, runtime, resolved) {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
-    const response = await client.call({ method: "GET", path: "/api/v1/account" });
+    const response = await client.call({ method: "GET", path: "/api/v1/project" });
     // Presence only. The lookup segment of a credential identifies the live
     // token, so no part of the stored value is reported on stdout.
     const envelope = jsonBody(response, client.requestId, { token_present: hasToken(token) });
-    const account = response.body;
+    const project = response.body;
     if (headerValue(response.headers, CREDITS_REMAINING_HEADER) === undefined) {
-        observeCreditsRemaining(runtime, parseCreditsInteger(account.credit_remaining));
+        observeCreditsRemaining(runtime, parseCreditsInteger(project.credit_remaining));
     }
     return {
         envelope,
         exitCode: ExitCode.Success,
-        human: humanLines("Account", [
-            ["id", account.id],
-            ["revision", account.revision !== undefined ? String(account.revision) : undefined],
-            ["credit_remaining", account.credit_remaining !== undefined ? String(account.credit_remaining) : undefined],
+        human: humanLines("Project", [
+            ["id", project.id],
+            ["name", project.name],
+            ["revision", project.revision !== undefined ? String(project.revision) : undefined],
+            ["credit_remaining", project.credit_remaining !== undefined ? String(project.credit_remaining) : undefined],
             ["token", describeTokenPresence(token)],
             ["request_id", client.requestId],
         ]),
     };
 }
 /**
- * Read the authenticated account's plan, feature flags and effective server
- * capabilities. The set is the server's current decision for this account and
+ * Read the authenticated project's plan, feature flags and effective server
+ * capabilities. The set is the server's current decision for this project and
  * actor: a plan label or a numeric quota never implies permission here, and a
  * route denial still wins over a cached capability.
  */
-async function accountCapabilities(args, runtime, resolved) {
+async function projectCapabilities(args, runtime, resolved) {
     const token = requireToken(resolved.token);
     const client = clientFor(runtime, args, resolved.apiUrl, token);
-    const response = await client.call({ method: "GET", path: "/api/v1/account/capabilities" });
-    requirePrivateNoStore(response.headers, "Account capabilities response");
-    const capabilities = validateAccountCapabilities(response.body);
+    const response = await client.call({ method: "GET", path: "/api/v1/project/capabilities" });
+    requirePrivateNoStore(response.headers, "Project capabilities response");
+    const capabilities = validateProjectCapabilities(response.body);
     return {
         envelope: jsonBody(response, client.requestId, { token_present: hasToken(token) }),
         exitCode: ExitCode.Success,
-        human: humanLines("Account capabilities", [
-            ["account_id", capabilities.account_id],
+        human: humanLines("Project capabilities", [
+            ["project_id", capabilities.project_id],
             ["plan_id", capabilities.plan_id],
             ["features", `advertiser=${capabilities.features.advertiser} screens=${capabilities.features.screens}`],
             ["feature_revision", String(capabilities.feature_revision)],
@@ -1443,6 +1392,16 @@ async function accountCapabilities(args, runtime, resolved) {
             ["request_id", client.requestId],
         ]),
     };
+}
+async function projectRename(args, runtime, resolved) {
+    const name = args.positionals[2]?.trim();
+    if (!name || [...name].length > 60 || /[\p{Cc}\p{Cf}]/u.test(name))
+        throw usageError("project rename requires NAME containing 1–60 characters without controls.");
+    const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+    const response = await client.call({ method: "PATCH", path: "/api/v1/project", body: { name }, idempotent: true });
+    const project = response.body;
+    return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success,
+        human: humanLines("Project renamed", [["id", project.id], ["name", project.name]]) };
 }
 /** One comma-separated option expanded to values; no empty entry is allowed. */
 function adsListOption(value, option) {
@@ -1513,7 +1472,7 @@ function adsSlotBody(args) {
         ...(flagBool(args.flags, "clear-rate") ? { rate_override_mcr_per_15s: null } : {}),
     };
 }
-/** One row of a list route by key, or undefined when the account has none. */
+/** One row of a list route by key, or undefined when the project has none. */
 async function adsExistingRow(client, path, collection, key, value) {
     const response = await client.call({ method: "GET", path });
     const rows = response.body?.[collection];
@@ -1652,8 +1611,8 @@ async function campaignDraft(file, runtime) {
         if (!value || typeof value !== "object" || Array.isArray(value))
             fail(`networks[${index}]`, "must be an object.");
         const network = value;
-        if (typeof network.seller_account_id !== "string" || network.seller_account_id.length === 0) {
-            fail(`networks[${index}].seller_account_id`, "must name the invited seller account.");
+        if (typeof network.seller_project_id !== "string" || network.seller_project_id.length === 0) {
+            fail(`networks[${index}].seller_project_id`, "must name the invited seller project.");
         }
         for (const field of ["screen_ids", "slot_ids", "creative_ids"]) {
             const list = network[field];
@@ -1671,7 +1630,7 @@ export const handleAdsNetworksList = commandHandler((args, runtime, resolved) =>
 export const handleAdsNetworkInventoryShow = commandHandler(async (args, runtime, resolved) => {
     const seller = args.positionals[3];
     if (!seller)
-        throw usageError("ads networks show requires <seller-account-id>.");
+        throw usageError("ads networks show requires <seller-project-id>.");
     return simpleGet(args, runtime, resolved, `/api/v1/advertising/networks/${encodeURIComponent(seller)}/inventory`, "Permitted inventory");
 });
 export const handleAdsNetworkShow = commandHandler((args, runtime, resolved) => simpleGet(args, runtime, resolved, "/api/v1/advertising/network", "Advertising network"));
@@ -1744,7 +1703,7 @@ export const handleAdsSlotsUpdate = commandHandler(async (args, runtime, resolve
     const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
     const current = await adsExistingRow(client, "/api/v1/advertising/slots", "slots", "id", slotId);
     if (!current) {
-        throw usageError(`No slot ${slotId} exists for this account, so there is nothing to update. Create it with ads slots create.`);
+        throw usageError(`No slot ${slotId} exists for this project, so there is nothing to update. Create it with ads slots create.`);
     }
     const currentRevision = typeof current.revision === "number" ? String(current.revision) : undefined;
     return adsMutation(args, runtime, resolved, {
@@ -1755,51 +1714,73 @@ export const handleAdsSlotsUpdate = commandHandler(async (args, runtime, resolve
         human: "Slot updated. A changed effective rate pauses affected campaigns until each buyer accepts a fresh quote.",
     });
 });
-/**
- * Invitations return each claim token exactly once. The token is a secret: the
- * JSON envelope carries it for the seller to deliver, and the human rendering
- * never repeats it.
- */
-export const handleAdsInvitesCreate = commandHandler(async (args, runtime, resolved) => {
-    const emails = adsListOption(flagString(args.flags, "email"), "email");
-    if (emails.length === 0)
-        throw usageError("ads invites create requires --email ADDRESSES.");
+/** Link URLs are an explicit one-time output, never logging or recovery metadata. */
+export const handleInvitationsCreate = commandHandler(async (args, runtime, resolved) => {
+    const emails = adsListOption(flagString(args.flags, "email"), "email").map(invitationEmail);
+    if (!emails.length || emails.length > 50)
+        throw usageError("invitations create requires between 1 and 50 email addresses.");
+    const kind = flagString(args.flags, "kind") === "ad-buyer" ? "ad_buyer" : "project_member";
+    const link = flagBool(args.flags, "link");
+    const screenIds = adsListOption(flagString(args.flags, "screen-id"), "screen-id");
+    const slotIds = adsListOption(flagString(args.flags, "slot-id"), "slot-id");
+    const policy = flagString(args.flags, "policy");
+    if (kind === "ad_buyer" && link)
+        throw usageError("--link is available only for member invitations.");
+    if (kind === "project_member" && (screenIds.length || slotIds.length || policy !== undefined)) {
+        throw usageError("Advertising scope and policy require --kind ad-buyer.");
+    }
+    if (kind === "ad_buyer" && !screenIds.length && !slotIds.length) {
+        throw usageError("Ad-buyer invitations require at least one --screen-id or --slot-id.");
+    }
     const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
     const response = await client.call({
-        method: "POST",
-        path: "/api/v1/advertising/invitations",
-        idempotent: true,
-        body: {
-            emails,
-            screen_ids: adsListOption(flagString(args.flags, "screen-id"), "screen-id"),
-            slot_ids: adsListOption(flagString(args.flags, "slot-id"), "slot-id"),
-            policy: flagString(args.flags, "policy") ?? "trusted",
+        method: "POST", path: "/api/v1/invitations", idempotent: true,
+        body: { kind, delivery: link ? "link" : "email",
+            ...(!link ? { emails } : {}),
+            ...(kind === "ad_buyer" ? { advertising: { screen_ids: screenIds, slot_ids: slotIds, policy: policy ?? "trusted" } } : {}),
         },
     });
     requirePrivateNoStore(response.headers, "Invitation response");
-    const body = (response.body ?? {});
-    const count = Array.isArray(body.invitations) ? body.invitations.length : 0;
+    const body = response.body;
+    if (!Array.isArray(body?.invitations) || !body.invitations.length || (link && body.invitations.length !== 1)) {
+        throw usageError("Invitation response does not match the generated invitation contract.");
+    }
+    const invitations = body.invitations.map((value) => {
+        const invitation = validateInvitation(value);
+        if (link) {
+            if (typeof value.url !== "string" || !value.url)
+                throw usageError("Link invitation response is missing its URL.");
+            return { ...invitation, url: value.url };
+        }
+        return invitation;
+    });
     return {
-        envelope: jsonBody(response, client.requestId),
+        envelope: successEnvelope({ invitations }, { request_id: client.requestId }),
         exitCode: ExitCode.Success,
-        human: [
-            humanLines("Invitations created", [
-                ["invitations", String(count)],
-                ["tokens", "each claim token appears once in data.invitations[].token; deliver it only to its recipient and keep it out of logs"],
-                ["claim", "the invited person claims the link in the dashboard; their own verified user email must match the invited address"],
-                ["expires", "each invitation is single use and expires seven days after creation"],
-            ]),
-        ].join("\n"),
+        human: humanLines("Invitations created", [
+            ["invitations", String(invitations.length)],
+            ["delivery", link ? "Deliver this link only to the intended person; do not store or log it." : "Email requested; delivery is not confirmed."],
+            ...(link ? [["url", invitations[0].url]] : []),
+        ]),
     };
-}, true);
-export const handleAdsInvitesList = commandHandler((args, runtime, resolved) => simpleGet(args, runtime, resolved, "/api/v1/advertising/invitations", "Invitations"));
-export const handleAdsInvitesRevoke = commandHandler(async (args, runtime, resolved) => {
-    const id = args.positionals[3];
+});
+export const handleInvitationsList = commandHandler(async (args, runtime, resolved) => {
+    const kind = flagString(args.flags, "kind");
+    const status = flagString(args.flags, "status");
+    const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+    const response = await client.call({ method: "GET", path: "/api/v1/invitations", query: {
+            ...(kind ? { kind: kind === "ad-buyer" ? "ad_buyer" : "project_member" } : {}),
+            ...(status ? { status } : {}),
+        } });
+    return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success,
+        human: JSON.stringify(response.body, null, 2) };
+});
+export const handleInvitationsRevoke = commandHandler(async (args, runtime, resolved) => {
+    const id = args.positionals[2];
     if (!id)
-        throw usageError("ads invites revoke requires <invitation-id>.");
+        throw usageError("invitations revoke requires ID.");
     return adsMutation(args, runtime, resolved, {
-        method: "POST",
-        path: `/api/v1/advertising/invitations/${encodeURIComponent(id)}/revoke`,
+        method: "POST", path: `/api/v1/invitations/${encodeURIComponent(id)}/revoke`,
         human: `Revoked invitation ${id}.`,
     });
 });
@@ -2033,7 +2014,7 @@ export const handleAdsReportsDelivery = commandHandler(async (args, runtime, res
     };
 });
 /**
- * Read this account's shared balance. The withdrawal section is reported as the
+ * Read this project's shared balance. The withdrawal section is reported as the
  * server states it: while payment rails are unconfigured the balance explains
  * that plainly instead of implying a payout path or a second wallet.
  */
@@ -2069,80 +2050,40 @@ export const handleBillingStatement = commandHandler((args, runtime, resolved) =
 function isDateTime(value) {
     return typeof value === "string" && value.length > 0 && Number.isFinite(Date.parse(value));
 }
-/** Reject a body that does not match the generated account invitation contract. */
-function validateAccountInvitation(value) {
+/** Reject a body that does not match the generated project invitation contract. */
+function validateInvitation(value) {
     const invitation = value;
-    if (!invitation || typeof invitation.invitation_id !== "string" || invitation.invitation_id.length === 0
-        || !["queued", "sent", "accepted", "expired", "failed"].includes(invitation.status ?? "")
+    if (!invitation || typeof invitation.id !== "string" || !invitation.id
+        || !["project_member", "ad_buyer"].includes(invitation.kind ?? "")
+        || !["email", "link"].includes(invitation.delivery ?? "")
+        || !["queued", "sent", "issued", "accepted", "revoked", "expired", "failed"].includes(invitation.status ?? "")
+        || typeof invitation.project_id !== "string" || !invitation.project_id
         || !isDateTime(invitation.created_at) || !isDateTime(invitation.expires_at)) {
-        throw usageError("Invitation response does not match the generated account invitation contract.");
+        throw usageError("Invitation response does not match the generated invitation contract.");
     }
-    return invitation;
-}
-/** status describes request progress, never delivery. */
-function invitationDelivery(status) {
-    switch (status) {
-        case "queued": return "queued; delivery has not completed and the recipient may receive nothing yet";
-        case "sent": return "sent; the mail provider accepted it, which is not proof of receipt";
-        case "accepted": return "accepted; the recipient claimed the invitation and the slot is free";
-        case "expired": return "expired without being claimed; the slot is free";
-        case "failed": return "permanently failed; the slot is free";
-    }
-}
-/**
- * Invite an additional user to the current account by email. Existing-account
- * only: this never enrolls. The server returns 202 with request progress, not
- * proof of delivery, and caps outstanding invitations.
- */
-async function accountInvite(args, runtime, resolved) {
-    const email = invitationEmail(flagString(args.flags, "email"));
-    const token = requireToken(resolved.token);
-    const client = clientFor(runtime, args, resolved.apiUrl, token);
-    // Idempotent by contract. The client mints one key per invocation; retry with
-    // --idempotency-key, or via the durable write ledger, to avoid a new send or
-    // slot. The attached address is never echoed to stdout or logs.
-    const body = { email };
-    const response = await client.call({
-        method: "POST",
-        path: "/api/v1/account/invitations",
-        idempotent: true,
-        body,
-    });
-    const invitation = validateAccountInvitation(response.body);
+    // Project onto the credential-free contract before the explicit link handoff.
     return {
-        envelope: jsonBody(response, client.requestId),
-        exitCode: ExitCode.Success,
-        human: humanLines("Invitation request accepted", [
-            ["invitation_id", invitation.invitation_id],
-            ["status", invitation.status],
-            ["delivery", invitationDelivery(invitation.status)],
-            ["created_at", invitation.created_at],
-            ["expires_at", invitation.expires_at],
-        ]),
+        id: invitation.id, kind: invitation.kind, delivery: invitation.delivery, status: invitation.status,
+        project_id: invitation.project_id, created_at: invitation.created_at, expires_at: invitation.expires_at,
+        ...(invitation.recipient_email ? { recipient_email: invitation.recipient_email } : {}),
+        ...(invitation.advertising ? { advertising: invitation.advertising } : {}),
     };
 }
 /** The contract is closed: only {status:"accepted"}, identically for enrolled and unknown addresses. */
-function validateAccountRecoveryAccepted(value) {
+function validateSignInResetAccepted(value) {
     const body = value;
     if (!body || typeof body !== "object" || Array.isArray(body)
         || Object.keys(body).length !== 1 || body.status !== "accepted") {
-        throw usageError("Account recovery response does not match the accepted contract.");
+        throw usageError("Sign-in reset response does not match the accepted contract.");
     }
 }
-/**
- * `account recover` is unauthenticated by design: access was lost, so nothing
- * enrolls, no Authorization is sent even when a local credential exists, and no
- * stored credential, account, or enrollment state changes. The server queues
- * one live recovery per account and emails the mailbox owner a single-use
- * dashboard link; HTTP 202 accepted is not proof of delivery and is identical
- * whether or not the address belongs to an account.
- */
-async function accountRecover(args, runtime, resolved) {
-    const email = recoveryEmail(flagString(args.flags, "email"));
+/** Unauthenticated, durable and neutral for known and unknown email addresses. */
+async function signInReset(args, runtime, resolved) {
+    const email = signInResetEmail(flagString(args.flags, "email"));
     const configFs = { ...runtime.fs, env: runtime.env, homedir: runtime.homedir };
     // The durable retry ledger lives in the user config, which an unenrolled
     // installation does not have yet. Seed a credential-free config; recovery
-    // never writes a token, account, agent, or enrollment state into it.
+    // never writes a token, project, agent, or enrollment state into it.
     if (!(await readConfigFile(resolved.configPath, configFs))) {
         await withConfigLock(resolved.configPath, configFs, { sleep: runtime.sleep, now: () => runtime.now().getTime() }, async () => {
             if (await readConfigFile(resolved.configPath, configFs))
@@ -2156,21 +2097,18 @@ async function accountRecover(args, runtime, resolved) {
     const client = clientFor(runtime, args, resolved.apiUrl, undefined, writeRecoveries.get(runtime));
     const response = await client.call({
         method: "POST",
-        path: "/api/v1/account/recovery",
+        path: "/api/v1/sign-in-resets",
         idempotent: true,
         body: { email },
     });
-    requirePrivateNoStore(response.headers, "Account recovery response");
-    validateAccountRecoveryAccepted(response.body);
+    requirePrivateNoStore(response.headers, "Sign-in reset response");
+    validateSignInResetAccepted(response.body);
     return {
         envelope: jsonBody(response, client.requestId),
         exitCode: ExitCode.Success,
-        human: humanLines("Recovery request accepted", [
+        human: humanLines("Sign-in reset request accepted", [
             ["status", "accepted"],
-            ["delivery", "If this email belongs to an account, check its inbox. Delivery is not confirmed."],
-            ["link", "the recovery link is single use and expires after 24 hours"],
-            ["open", "open the emailed link in a browser to restore access to the existing account"],
-            ["then", "run screenrig agent connect here, then approve the connection request in the recovered dashboard"],
+            ["delivery", "If this address can receive sign-in instructions, check its inbox. Delivery is not confirmed."],
             ["request_id", client.requestId],
         ]),
     };
@@ -2383,7 +2321,7 @@ const GENERATE_PROMPT_MAX = 4000;
  * `media generate` is a single blocking call with no poll, and the server's own
  * vendor budget for the image is ninety seconds. The client budget therefore
  * has to sit above ninety seconds plus the store-and-commit tail, so the
- * server's timeout is what binds and the CLI never abandons a still the account
+ * server's timeout is what binds and the CLI never abandons a still the project
  * has already been billed for. This is deliberately not the generic request
  * timeout, which stays at thirty seconds for ordinary calls.
  */
@@ -2433,7 +2371,7 @@ function mediaGenerationFromBody(body) {
 /**
  * A billed blocking call that did not return a result leaves the caller unable
  * to say whether the still exists. Name both ways to find out: the identical
- * re-run replays under the stored key, and the listing shows what the account
+ * re-run replays under the stored key, and the listing shows what the project
  * actually holds.
  */
 function ambiguousGenerateError(error, options) {
@@ -2450,7 +2388,7 @@ function ambiguousGenerateError(error, options) {
         request_id: error.problem.request_id,
         next: {
             command: listCommand,
-            reason: "Lists this account's stills, newest first, so you can see whether the generation completed before you re-run it.",
+            reason: "Lists this project's stills, newest first, so you can see whether the generation completed before you re-run it.",
         },
     }), error.exitCode, error.warnings);
 }
@@ -2832,7 +2770,7 @@ async function mediaUploadBatch(args, runtime, client, resolved) {
     }
     requireFlagValue(args, "state", "./upload-state.json");
     requireFlagValue(args, "concurrency", "4");
-    const state = flagString(args.flags, "state") ?? path.join(path.dirname(resolved.configPath), "upload-batches", createHash("sha256").update(JSON.stringify([resolved.apiUrl, resolved.accountId ?? resolved.token, path.resolve(runtime.cwd(), manifest)])).digest("hex") + ".json");
+    const state = flagString(args.flags, "state") ?? path.join(path.dirname(resolved.configPath), "upload-batches", createHash("sha256").update(JSON.stringify([resolved.apiUrl, resolved.projectId ?? resolved.token, path.resolve(runtime.cwd(), manifest)])).digest("hex") + ".json");
     const concurrency = flagNumber(args.flags, "concurrency") ?? UPLOAD_BATCH_DEFAULT_CONCURRENCY;
     if (!Number.isInteger(concurrency) ||
         concurrency < UPLOAD_BATCH_MIN_CONCURRENCY ||
@@ -2846,7 +2784,7 @@ async function mediaUploadBatch(args, runtime, client, resolved) {
         manifestPath: path.resolve(runtime.cwd(), manifest),
         statePath: path.resolve(runtime.cwd(), state),
         apiUrl: resolved.apiUrl,
-        accountId: resolved.accountId,
+        projectId: resolved.projectId,
         concurrency,
         defaultTag: mediaTagFromArgs(args),
         transcodeOptions,
@@ -3208,13 +3146,13 @@ async function playlistCreateUpdateAction(args, runtime, resolved, action) {
     const body = { name: parsed.name, pages };
     assertPlaylistValid(body);
     // An ad-bearing document is authored under the v2 union, and only a
-    // signage-capable account may place adslot pages at all. The ordinary
+    // signage-capable project may place adslot pages at all. The ordinary
     // document path above stays byte-for-byte the existing v1 write.
     const version = playlistApiVersion(pages);
     if (version === "v2") {
         await requireCapability(client, "signage.playlists", `playlist ${action} with adslot pages`, {
-            command: "screenrig account capabilities",
-            reason: "Read the account's effective capabilities before authoring an ad-bearing playlist; only a screens-capable account can place adslot pages.",
+            command: "screenrig project capabilities",
+            reason: "Read the project's effective capabilities before authoring an ad-bearing playlist; only a screens-capable project can place adslot pages.",
         });
     }
     // A create has no assigned screen yet, so there is nothing to check. An
@@ -3369,7 +3307,7 @@ function archiveReason(screen) {
     return typeof reason === "string" && ARCHIVE_REASON_PATTERN.test(reason) ? reason : undefined;
 }
 const ARCHIVE_REASON_TEXT = {
-    account: "An account or dashboard request archived it.",
+    project: "An project or dashboard request archived it.",
     device_reset: "The player was reset on the display. Its key is still bound to this screen. If the display now shows a pairing code, screen show may report recovery_pending: screen recover moves this screen to the display's new key and retires the old one, and the screen stays archived until screen unarchive.",
     device_unpair: "The paired browser unpaired itself. Its device credential is still bound to this screen.",
 };
@@ -3412,7 +3350,7 @@ function applicationsUnsupportedLines(screen) {
         "Its manifest is unchanged: the player skips application and iframe primitives, and skips a page left with none.",
     ];
 }
-/** The `Host` block `screen show` prints. Absent fields are omitted; identifiers belong to the owning account. */
+/** The `Host` block `screen show` prints. Absent fields are omitted; identifiers belong to the owning project. */
 function hostLines(host, updatedAt) {
     if (!host || typeof host !== "object")
         return [];
@@ -4499,7 +4437,7 @@ function credentialCheck(resolved) {
             path: "reconnect_existing",
             next: {
                 command: "screenrig agent connect",
-                reason: "Resume the intentional existing-account connection, then rerun doctor.",
+                reason: "Resume the intentional existing-project connection, then rerun doctor.",
             },
         };
     }
@@ -4511,7 +4449,7 @@ function credentialCheck(resolved) {
             path: "first_run_enroll",
             next: {
                 command: "screenrig agent enroll --email ADDRESS",
-                reason: "Ask the user for their contact email, enroll a new account agent, then rerun doctor. Use agent connect only for an intentional existing-account reconnect.",
+                reason: "Ask the user for their contact email, enroll a new project agent, then rerun doctor. Use agent connect only for an intentional existing-project reconnect.",
             },
         };
     }

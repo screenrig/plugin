@@ -5,12 +5,12 @@ description: Operate screenRIG screens and advertising with the bundled CLI. Use
 
 # Operate screenRIG
 
-Use the official plugin's bundled CLI to connect one account, prepare and publish
+Use the official plugin's bundled CLI to enroll a project, prepare and publish
 signage content to the intended Player, and buy or sell advertising where the
-account is permitted to. The customer Player is the PWA described in
+project is permitted to. The customer Player is the PWA described in
 [Player setup](https://screenrig.ai/docs/players.md).
 
-Resolve the account's capabilities and the requested intent before any operation;
+Resolve the project's capabilities and the requested intent before any operation;
 the section below is the only branch that needs a screenRIG screen.
 
 ## Prepare the installation
@@ -45,64 +45,68 @@ copy and disclose that the published version could not be checked.
 Read doctor's individual checks. A missing token is a warning, not a broken
 installation. Missing media tools affect upload; see [media](references/media.md).
 
-## Resolve the account, then the intent before any operation
+## Enroll the project, then resolve the intent before any operation
 
-Default first-run is enroll. Do not open `agent connect` or send dashboard URLs
-unless the user says they already have a screenRIG account. Prefer enroll for new
-accounts; treat connect as existing-account only; never ask the human for dashboard
-work on first setup.
+Default first-run is enrollment, and enrollment always creates a new project —
+even when the contact email already signs in to another screenRIG project. Do
+not open `agent connect` unless the user says this installation should join a
+screenRIG project that already exists. Never ask the human for dashboard work on
+first setup.
 
-Authenticated commands require an enrolled installation. They do not create an
-account as a side effect. For `not_enrolled` on first setup, obtain the contact
-email and enroll. Do not follow a connect or dashboard `next.command`.
-
-```bash
-screenrig agent enroll --email ADDRESS
-```
-
-Use the user's actual address. If the work is explicitly advertising rather than
-signage, enroll that same account with the advertising purpose; it buys ads and
-does not pair devices or author playlists. Never create a second account merely
-because the task is advertising.
+Authenticated commands require an enrolled installation. They do not create a
+project as a side effect. For `not_enrolled` on first setup, propose a project
+name, confirm it with the user, and enroll with their actual contact email:
 
 ```bash
-screenrig agent enroll --intent advertising --email ADDRESS
+screenrig agent enroll --email ADDRESS --project-name NAME
 ```
 
-If enroll reports a pending existing-account connection and the user did not ask
-to connect an existing account, rerun with `--force` so enroll is not dead-ended:
+Enrollment creates the new project and its first agent, and the human receives a
+member invitation by email automatically — say so. The human follows it in the
+dashboard, signs in with their own passkey or password, and switches between
+their projects there. If enroll reports a pending existing-project connection
+and the user did not ask to connect an existing project, rerun with `--force` so
+enroll is not dead-ended:
 
 ```bash
 screenrig agent enroll --force --email ADDRESS
 ```
 
 `--force` discards that unwanted pending connection, then enrolls. Do not use it
-to skip an intentional existing-account reconnect. Consult `screenrig --help` for
-the installed command's arguments. Never ask the user to paste an account bearer
-into the conversation or command line.
+to skip an intentional existing-project reconnect. An already enrolled
+installation reuses its project. If the work is explicitly advertising rather
+than signage, enroll the advertising purpose: it buys ads and does not pair
+devices or author playlists.
 
-Only when the user explicitly says they already have a screenRIG account, use
-`agent connect` and resume the dashboard approval flow instead of creating another
-account. Connection returns promptly by default; a pending success is not active
-access. Follow `data.next.argv` after approval and require
-`data.connection_complete: true`. See
-[connection behavior](references/commands.md#connect-an-existing-account).
+```bash
+screenrig agent enroll --intent advertising --email ADDRESS
+```
+
+Consult `screenrig --help` for the installed command's arguments. Never ask the
+user to paste a project bearer into the conversation or command line.
+
+Only when the user explicitly says this installation should join an existing
+screenRIG project, use `agent connect` and resume the dashboard approval flow
+instead of creating another project. Connection returns promptly by default; a
+pending success is not active access. Follow `data.next.argv` after approval and
+require `data.connection_complete: true`. See
+[connection behavior](references/commands.md#connect-an-existing-project).
 
 ### Capability and intent dispatch (before any screen operation)
 
 1. Resolve the official installed plugin and CLI, then verify version, freshness,
    and doctor as above.
-2. Connect the intended existing account, or enroll explicitly.
-3. Read the authenticated account ID, plan, feature flags, feature revision, and
+2. Enroll explicitly, or connect the intended existing project.
+3. Read the authenticated project ID, plan, feature flags, feature revision, and
    the server's effective capabilities. Never infer permission from a screen
    quota of zero, a plan name, a dashboard label, or which commands exist.
 
    ```bash
-   screenrig account capabilities
+   screenrig project capabilities
    ```
 
 4. Classify the request: buying ads, selling inventory, ordinary signage, or
-   financial administration. One account may hold both the advertising and
+   financial administration. One project may hold both the advertising and
    screens features and support both ad roles. If intent is materially ambiguous,
    ask about the task, never for a token or credential.
 5. Load the matching reference and run only capability-permitted operations:
@@ -112,7 +116,29 @@ access. Follow `data.next.argv` after approval and require
    pairing, playlist creation, or screenshot prerequisite.
 6. Respect a server denial even when cached capabilities suggested permission.
    Refresh capability state for diagnosis; do not retry through another API,
-   create another account, or change the plan to bypass a restriction.
+   enroll another project, or change the plan to bypass a restriction.
+
+### The human's dashboard, invitations, and sign-in reset
+
+The dashboard is where the human signs in with their own login — a passkey or a
+password — and switches between their projects. `screenrig dashboard open`
+opens the dashboard origin for them.
+
+Members join this project by email invitation, and advertising buyers are
+invited by email with an explicit inventory scope and review policy:
+
+```bash
+screenrig invitations create --email ADDRESS[,ADDRESS]
+screenrig invitations create --kind ad-buyer --email ADDRESS[,ADDRESS] --screen-id ID --slot-id ID
+```
+
+Email delivery is requested, not proof of arrival; the server emails each
+recipient. Generate a link invitation (`invitations create --email ADDRESS
+--link`) only when the user explicitly asks for one: print it once and deliver
+it only to that person, never elsewhere. If the human cannot sign in,
+`screenrig dashboard reset-sign-in --email ADDRESS` requests emailed
+sign-in instructions; the acknowledgment is neutral whether or not the address
+is known. Details are in [commands](references/commands.md#invite-people-and-ad-buyers).
 
 ### Signage branch: resolve the target screen
 
@@ -139,18 +165,18 @@ itself, leaves its screen archived, not deleted: the screen keeps its playlist,
 history and binding. The reset display itself rotates its key (an unpaired
 browser loses its cookies) and shows a new pairing code. Before pairing a
 display that was already in use, check `screen list --state archived`.
-`screen show` reports `archive_reason` (`account`, `device_reset` or
+`screen show` reports `archive_reason` (`project`, `device_reset` or
 `device_unpair`) and `archived_at` when the server supplies them. Prefer
 recovery to pairing it as a new screen: if the archived screen shows
 `recovery_pending`, confirm with `screen recover SCREEN_ID` as above, then run
 `screen unarchive SCREEN_ID`. Unarchive re-admits the screen's current key, so
-a display that still holds it (a dark screen, for example after an `account`
+a display that still holds it (a dark screen, for example after a `project`
 archive) resumes without re-pairing. A display that reset or unpaired no longer
 holds that key, so unarchive alone does not bring it back and gives content to
 whatever still holds the old key. With no recovery offered, or no archived
 match (older servers do not archive on reset), pair the code as a new screen
-and leave the old one archived. An `account` archive was a
-deliberate choice; ask before undoing it. See [operations](references/operations.md).
+and leave the old one archived. A `project` archive was a deliberate choice;
+ask before undoing it. See [operations](references/operations.md).
 
 ## Signage branch: choose the content path
 
@@ -235,7 +261,7 @@ separately. `events follow` emits one JSON envelope per line (NDJSON).
 Branch on `ok`, `error.status`, `error.code` and `warnings[].code`,
 not prose. Follow an applicable `error.next.command` without inventing flags,
 except do not follow a connect or dashboard next-step on first setup unless the
-user already has a screenRIG account.
+user said this installation should join an existing screenRIG project.
 Revision guards are optional for most writes: omit `--expect-rev` to write the
 current resource without a prior revision read, or supply it to reject a stale
 write. Advertising mutations are the enforced exception — campaign `update`,
@@ -251,11 +277,13 @@ updates. `SCREENRIG_CONFIG` selects an explicit config path. Normal configuratio
 is under `$XDG_CONFIG_HOME/screenrig`, `%APPDATA%\screenrig` on Windows, or
 `~/.config/screenrig`. Use `doctor` to inspect configuration problems.
 
-The URL returned by `dashboard --print-url` is itself a credential, including
-when `data.url` appears in JSON stdout or a browser-open fallback. Send it only to
-the intended browser; exclude it from retained logs and conversation output.
-Never print credentials, Authorization headers, cookies, signed upload headers,
-protected URLs, object keys or image bytes. Keep request and operation IDs for diagnosis.
+An invitation link URL and an `agent connect` approval handoff URL are
+themselves credentials, including when `data.url` appears in JSON stdout or a
+browser-open fallback. Deliver each only to the intended person, print a link
+invitation URL once, and exclude both from retained logs and conversation
+output. Never print credentials, Authorization headers, cookies, signed upload
+headers, protected URLs, object keys or image bytes. Keep request and operation
+IDs for diagnosis.
 
 ## Usage and payment responses
 

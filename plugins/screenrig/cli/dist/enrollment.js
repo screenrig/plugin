@@ -16,7 +16,8 @@ export async function ensureCredential(options) {
             return {
                 ...resolved,
                 token: current.token,
-                accountId: current.account_id,
+                projectId: current.project_id,
+                projectName: current.project_name,
                 agentId: current.agent_id,
                 enrollment: current.enrollment,
                 agentConnection: current.agent_connection,
@@ -34,17 +35,23 @@ export async function ensureCredential(options) {
         if (existingEnrollment?.intent && options.enrollmentIntent && existingEnrollment.intent !== options.enrollmentIntent) {
             throw configError("Pending enrollment is bound to a different purpose. Resume it without changing --intent, or discard it with agent enroll --force.");
         }
+        if (existingEnrollment && options.enrollmentProjectName !== undefined
+            && existingEnrollment.project_name !== options.enrollmentProjectName) {
+            throw configError("Pending enrollment is bound to a different project name. Resume it without changing --project-name, or discard it with agent enroll --force.");
+        }
         const email = existingEnrollment?.email ?? options.enrollmentEmail;
         if (!email) {
             throw configError("Enrollment requires a contact email. Run screenrig agent enroll --email ADDRESS.");
         }
         const intent = existingEnrollment?.intent ?? options.enrollmentIntent;
+        const projectName = existingEnrollment ? existingEnrollment.project_name : options.enrollmentProjectName;
         const enrollment = {
             ...(existingEnrollment ?? {
                 client_id: (options.generateClientId ?? (() => randomPrefixedId("cli", 32)))(),
                 idempotency_key: (options.generateIdempotencyKey ?? newIdempotencyKey)(),
             }),
             email,
+            ...(projectName !== undefined ? { project_name: projectName } : {}),
             ...(intent ? { intent } : {}),
         };
         if (!/^cli_[A-Za-z0-9_-]{43}$/.test(enrollment.client_id)) {
@@ -63,6 +70,7 @@ export async function ensureCredential(options) {
             clientId: enrollment.client_id,
             idempotencyKey: enrollment.idempotency_key,
             email: enrollment.email,
+            ...(enrollment.project_name !== undefined ? { projectName: enrollment.project_name } : {}),
             ...(enrollment.intent ? { intent: enrollment.intent } : {}),
         });
         if (!credential.token || credential.token.trim() !== credential.token) {
@@ -71,7 +79,8 @@ export async function ensureCredential(options) {
         const config = preserveLogSocket(current, {
             api_url: resolved.apiUrl,
             token: credential.token,
-            ...(credential.accountId ? { account_id: credential.accountId } : {}),
+            ...(credential.projectId ? { project_id: credential.projectId } : {}),
+            ...(credential.projectName ? { project_name: credential.projectName } : {}),
             ...(credential.agentId ? { agent_id: credential.agentId } : {}),
             enrollment,
             updated_at: runtime.now().toISOString(),
@@ -80,7 +89,8 @@ export async function ensureCredential(options) {
         return {
             ...resolved,
             token: credential.token,
-            accountId: credential.accountId,
+            projectId: credential.projectId,
+            projectName: credential.projectName,
             agentId: credential.agentId,
             enrollment,
             source: { ...resolved.source, token: "config" },
@@ -89,7 +99,7 @@ export async function ensureCredential(options) {
     if (!enrolled.token || !enrolled.enrollment) {
         return enrolled;
     }
-    await options.verify(enrolled.token, enrolled.accountId);
+    await options.verify(enrolled.token, enrolled.projectId);
     return withConfigLock(enrolled.configPath, runtime.fs, { sleep: runtime.sleep, now: () => runtime.now().getTime() }, async () => {
         const current = await readConfigFile(enrolled.configPath, runtime.fs);
         if (!current?.token || !current.enrollment) {

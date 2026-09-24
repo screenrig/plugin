@@ -5,7 +5,8 @@ export interface ScreenRigConfig {
     token?: string;
     /** Path to an already-listening AF_UNIX socket for NDJSON operation logs. */
     log_socket?: string;
-    account_id?: string;
+    project_id?: string;
+    project_name?: string;
     agent_id?: string;
     last_agent?: {
         id: string;
@@ -33,6 +34,8 @@ export interface ScreenRigConfig {
         idempotency_key: string;
         /** Exact trimmed contact address retained only until enrollment verifies. */
         email?: string;
+        /** Exact project-name input bound to this enrollment's idempotency key. */
+        project_name?: string;
         /**
          * Enrollment purpose chosen once. A resumed enrollment reuses it so the
          * same idempotency key cannot change intent into a conflicting request.
@@ -105,7 +108,8 @@ export declare function withConfigLock<T>(configPath: string, fsLike: ConfigFs, 
 export interface ResolvedConfig {
     apiUrl: string;
     token?: string;
-    accountId?: string;
+    projectId?: string;
+    projectName?: string;
     agentId?: string;
     enrollment?: ScreenRigConfig["enrollment"];
     agentConnection?: ScreenRigConfig["agent_connection"];

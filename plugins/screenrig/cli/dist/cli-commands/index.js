@@ -1,6 +1,7 @@
 import { registerGuidance } from "./guidance.js";
 import { registerGlobalOptions } from "./globals.js";
-import { registerAccountCommands } from "./account.js";
+import { registerProjectCommands } from "./project.js";
+import { registerInvitationCommands } from "./invitations.js";
 import { registerAdsCommands } from "./ads.js";
 import { registerBillingCommands } from "./billing.js";
 import { registerAgentCommands } from "./agent.js";
@@ -22,7 +23,8 @@ import { registerVersionCommands } from "./version.js";
 import { registerRecoveryCommands } from "./recovery.js";
 export function registerCommands(root, bind) {
     registerGlobalOptions(root);
-    registerAccountCommands(root, bind);
+    registerProjectCommands(root, bind);
+    registerInvitationCommands(root, bind);
     registerAdsCommands(root, bind);
     registerBillingCommands(root, bind);
     registerAgentCommands(root, bind);

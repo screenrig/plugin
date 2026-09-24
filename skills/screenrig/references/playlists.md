@@ -438,7 +438,7 @@ is stored in the playlist, and a selected fill never rewrites the saved document
 
 Keep at least one ordinary page with no visibility rule as the fallback. Adslot
 pages count toward the normal page limits, the slot definition must already exist
-for the account, and the assigned Players must support the adslot capability; a
+for the project, and the assigned Players must support the adslot capability; a
 slot definition alone does not create an ad break. An ad-bearing playlist is read
 and written under the v2 union: a v1 request answers with an explicit
 `version_required` conflict and the CLI retries v2 rather than filtering the ad
@@ -470,7 +470,7 @@ screenrig playlist import ./lobby-bundle --name "Lobby loop (copy)"
 
 ## Live streams
 
-Upload a ready image in the same account and use its ID as `fallback_media_id`.
+Upload a ready image in the same project and use its ID as `fallback_media_id`.
 Use at most one stream on a page with duration advance, for example
 `advance: {"mode":"duration","after_ms":30000}`. Preview paints the fallback
 without contacting the stream. Bundle import/export does not support streams.

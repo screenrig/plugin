@@ -30,7 +30,7 @@ export interface UploadBatchStateRecord {
 }
 export interface UploadBatchState {
     api_url: string;
-    account_id: string;
+    project_id: string;
     items: Record<string, UploadBatchStateRecord>;
 }
 export interface UploadBatchFailedItem {
@@ -45,7 +45,7 @@ export interface UploadBatchFailedItem {
     };
 }
 /**
- * One row per item that reached the account, in manifest order. Counts alone
+ * One row per item that reached the project, in manifest order. Counts alone
  * force a second `media list --tag` call to learn what a batch created, and a
  * batch without a tag has no way back to its ids at all.
  */
@@ -82,7 +82,7 @@ export interface RunMediaUploadBatchInput {
     manifestPath: string;
     statePath: string;
     apiUrl: string;
-    accountId?: string;
+    projectId?: string;
     concurrency: number;
     defaultTag?: string;
     transcodeOptions: TranscodeOptions;

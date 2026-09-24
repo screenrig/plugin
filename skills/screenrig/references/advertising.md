@@ -1,25 +1,25 @@
 # Advertising
 
-Advertising runs on the same account, the same balance, and the same CLI as
-signage. `advertiser` and `screens` are independent account features, not account
-types and not billing plans: an account can buy ads, sell its own inventory,
-do both, or do neither. Read the effective capabilities first, never infer
-permission from a plan name or a screen quota of zero.
+Advertising runs on one project's credits and the same CLI as signage.
+`advertiser` and `screens` are independent project features, not project types
+and not billing plans: a project can buy ads, sell its own inventory, do both,
+or do neither. Read the effective capabilities first, never infer permission
+from a plan name or a screen quota of zero.
 
 ```bash
-screenrig account capabilities
+screenrig project capabilities
 ```
 
 Capabilities are named `media`, `credits`, `signage.pairing`,
 `signage.playlists`, `signage.publish`, and `advertising`. Advertising-only
-accounts (`advertiser=true`, `screens=false`) buy and manage campaigns and create
+projects (`advertiser=true`, `screens=false`) buy and manage campaigns and create
 media, but cannot pair devices, author playlists, or publish. Selling also
 requires owned, opted-in inventory. A server denial wins over anything cached
 here; refresh capabilities to diagnose instead of retrying through another route.
 
 ## Credits: one balance, and what is not available
 
-Every account has one prepaid balance shared by ordinary usage, AI generation,
+Every project has one prepaid balance shared by ordinary usage, AI generation,
 and advertising. Ad purchase is charged per completed play at the seller's
 advertised rate: a reservation is held before the play and the charge is settled
 only for a valid full completion.
@@ -31,7 +31,7 @@ only for a valid full completion.
 | Promotional, included, or manual grant | Under the grant's rules | No | No |
 
 Ad-earned credits automatically pay normal platform costs. Self-promotion uses
-ordinary playlist content, never a paid campaign against the account's own
+ordinary playlist content, never a paid campaign against the project's own
 network.
 
 ```bash
@@ -58,17 +58,17 @@ dashboard with a fresh confirmation. There is no credited-income shortcut here.
 
 ## Buying ads
 
-1. **Membership.** A human claims an email-bound invitation in the dashboard;
-   the claiming user's own verified email must match the invited address. After
-   claiming, the dashboard's Marketplace lists the sellers this account has
-   been invited to and each seller's permitted inventory and rates; admission
+1. **Membership.** A human claims the emailed invitation in the dashboard;
+   the claiming person's own verified email must match the invited address.
+   After claiming, the dashboard's Marketplace lists the sellers this project
+   has been invited to and each seller's permitted inventory and rates; admission
    stays invitation-only, with no public listings to browse. The CLI reads the
    resulting membership and never handles an invitation as a credential or
    assumes the seller's identity.
 
    ```bash
    screenrig ads networks list
-   screenrig ads networks show SELLER_ACCOUNT_ID
+   screenrig ads networks show SELLER_PROJECT_ID
    ```
 
 2. **Inventory and rates.** `ads networks show` lists the screens, slots, tags,
@@ -77,12 +77,12 @@ dashboard with a fresh confirmation. There is no credited-income shortcut here.
    screen or slot list means no permission.
 
 3. **Balance and spend authority.** Read `billing balance` before drafting.
-   Campaign budgets are distinct from AI generation and other account usage even
+   Campaign budgets are distinct from AI generation and other project usage even
    though both draw on the one balance.
 
 4. **Creative.** Create or upload the media with the normal media commands, then
    bind the ready media to a creative. Binding does not upload or charge the
-   media again, and generated copy or imagery is billed to this account.
+   media again, and generated copy or imagery is billed to this project.
 
    ```bash
    screenrig media upload poster.png --tag Lobby
@@ -113,7 +113,7 @@ dashboard with a fresh confirmation. There is no credited-income shortcut here.
      "flight_end": "2026-09-30T23:59:59Z",
      "networks": [
        {
-         "seller_account_id": "acc_SELLER",
+         "seller_project_id": "acc_SELLER",
          "screen_ids": ["scr_LOBBY"],
          "slot_ids": ["ads_LOBBY"],
          "creative_ids": ["cre_LOBBY_POSTER"],
@@ -150,7 +150,7 @@ dashboard with a fresh confirmation. There is no credited-income shortcut here.
    ```
 
 8. **Verify and operate.** Campaign state, creative review, delivery evidence and
-   credit debits are separate facts. `ads reports spend` shows this account's own
+   credit debits are separate facts. `ads reports spend` shows this project's own
    debit and campaign evidence, not a seller's other income. Only authorized
    completed-play evidence establishes billable delivery. `pause` and `resume`
    each require the current campaign revision, and `resume` clears only a manual
@@ -229,16 +229,18 @@ revoked buyers and financial history. The CLI workflow below is optional.
    screenrig ads slots update SLOT_ID --max-video-duration-ms 60000 --expect-rev REVISION
    ```
 
-4. **Invitations.** Invite intended recipients with an explicit inventory scope
-   and a trusted or review-required policy. Each response item carries its claim
-   token exactly once: treat that token as a secret, deliver it only to its
-   recipient, and never paste it into chat, logs, or a ticket. The invitation is
-   single use and expires after seven days; sending one changes no account.
+4. **Invitations.** Invite intended recipients by email with an explicit
+   inventory scope and a trusted or review-required policy. Delivery is
+   email-only for ad-buyer invitations and is requested, not proof a message
+   reached the inbox. An invitation is single use and expires after seven
+   days, and at most 50 invitations may be outstanding per project; sending
+   one changes no project. `invitations list --kind ad-buyer` lists them and
+   `invitations revoke` cancels an outstanding one.
 
    ```bash
-   screenrig ads invites create --email buyer@example.com --screen-id SCREEN_ID --slot-id SLOT_ID --policy review_required
-   screenrig ads invites list
-   screenrig ads invites revoke INVITATION_ID
+   screenrig invitations create --kind ad-buyer --email buyer@example.com --screen-id SCREEN_ID --slot-id SLOT_ID --policy review_required
+   screenrig invitations list --kind ad-buyer
+   screenrig invitations revoke INVITATION_ID
    ```
 
 5. **Memberships.** Scope changes and revocations stop new selections and
@@ -299,33 +301,40 @@ revoked buyers and financial history. The CLI workflow below is optional.
 
 ## Failure cases
 
-- `capability_required` — the account's capability set does not grant this
+- `capability_required` — the project's capability set does not grant this
   operation. Do not route around it.
 - `capability_unavailable` — the capability set could not be read, so a
   capability-gated write was refused rather than attempted.
 - `price_change_pending` — affected by a seller rate change; a fresh accepted
   quote is required.
-- `self_deal` — the campaign would buy placement on the account's own network;
+- `self_deal` — the campaign would buy placement on the project's own network;
   promote that content through ordinary playlist pages instead.
 - `quote_stale` — the quote expired or pricing moved; re-preview.
 - `insufficient_credits` — no affordable reservation; the dashboard adds credits.
 - `revision_conflict` — someone changed the resource; refetch, reconcile, retry.
 - `idempotency_mismatch` — same key, different body; never reuse a key for a
   changed request.
-- `invitation_invalid`, `invitation_expired`, `invitation_consumed` — the claim
-  link is not usable; issue a new invitation.
+- `invitation_invalid`, `invitation_expired`, `invitation_consumed` — the
+  invitation is not usable; issue a new invitation.
+- `invitation_limit_reached`, `member_limit_reached` — the project's
+  outstanding invitation or member limit is reached; revoke or wait, and do
+  not route around the limit.
+- `invitation_email_mismatch` — the signed-in person's verified email does not
+  match the invited address; the invited person claims it themselves.
 - `billing_unavailable` — payment or payout rails are unconfigured. Report it
   truthfully; do not fabricate a receipt or a balance.
 - Empty selection with no affordable campaign is a successful empty result, not
   an error and not a billable play.
-- Runtime ad routes are for paired Players only; an account bearer is never a
+- Runtime ad routes are for paired Players only; a project bearer is never a
   Player identity.
 
 ## Secrets and reporting
 
-Invitation claim tokens, dashboard links, credentials, and signed media URLs stay
-out of retained conversation and logs. The tokens in `ads invites create` output
-are the one-time delivery material; hand them over directly. Keep request and
+Invitation link URLs, `agent connect` approval handoffs, credentials, and signed
+media URLs stay out of retained conversation and logs. Ad-buyer invitations are
+delivered by email and their create output carries no claim material. Generate a
+member link invitation only when the user explicitly asks for one, print it
+once, and deliver it only to that person. Keep request and
 operation IDs for diagnosis, and never print Authorization headers, cookies, or
 image bytes.
 

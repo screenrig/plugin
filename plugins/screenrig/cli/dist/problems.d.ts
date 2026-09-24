@@ -32,7 +32,7 @@ export declare function withRetryAfter(problem: NormalizedProblem, retryAfterSec
 export declare function withQuotaGuidance(problem: NormalizedProblem): NormalizedProblem;
 /**
  * Remaining prepaid credit of zero rejects costly operations with
- * `payment_required`. Point at account show for credit_remaining. Do not
+ * `payment_required`. Point at project show for credit_remaining. Do not
  * invent a pay command; v1 does not collect money here.
  */
 export declare function withPaymentGuidance(problem: NormalizedProblem): NormalizedProblem;

@@ -145,8 +145,8 @@ export function parseUploadBatchState(input) {
     if (!rec || typeof rec.api_url !== "string" || rec.api_url.length === 0) {
         throw usageError("media upload-batch state file is missing api_url.");
     }
-    if (typeof rec.account_id !== "string" || rec.account_id.length === 0) {
-        throw usageError("media upload-batch state file is missing account_id.");
+    if (typeof rec.project_id !== "string" || rec.project_id.length === 0) {
+        throw usageError("media upload-batch state file is missing project_id.");
     }
     const itemsRec = asRecord(rec.items);
     if (!itemsRec) {
@@ -163,10 +163,10 @@ export function parseUploadBatchState(input) {
         }
         items[digest] = record;
     }
-    return { api_url: rec.api_url.replace(/\/+$/, ""), account_id: rec.account_id, items };
+    return { api_url: rec.api_url.replace(/\/+$/, ""), project_id: rec.project_id, items };
 }
-function emptyState(apiUrl, accountId) {
-    return { api_url: apiUrl.replace(/\/+$/, ""), account_id: accountId, items: {} };
+function emptyState(apiUrl, projectId) {
+    return { api_url: apiUrl.replace(/\/+$/, ""), project_id: projectId, items: {} };
 }
 async function readStateFile(statePath, fsLike) {
     let handle;
@@ -244,14 +244,14 @@ class WriteMutex {
         return next;
     }
 }
-async function resolveAccountId(client, configured) {
+async function resolveProjectId(client, configured) {
     if (typeof configured === "string" && configured.length > 0) {
         return configured;
     }
-    const response = await client.call({ method: "GET", path: "/api/v1/account" });
+    const response = await client.call({ method: "GET", path: "/api/v1/project" });
     const id = response.body?.id;
     if (typeof id !== "string" || id.length === 0) {
-        throw usageError("Cannot bind the upload-batch state file because the account id is unavailable.");
+        throw usageError("Cannot bind the upload-batch state file because the project id is unavailable.");
     }
     return id;
 }
@@ -395,13 +395,13 @@ export async function runMediaUploadBatch(input) {
         }
         const manifestDir = path.dirname(input.manifestPath);
         const manifestItems = parseUploadBatchManifest(parsed, manifestDir);
-        const accountId = await resolveAccountId(input.client, input.accountId);
+        const projectId = await resolveProjectId(input.client, input.projectId);
         const apiUrl = input.apiUrl.replace(/\/+$/, "");
         const existing = await readStateFile(input.statePath, input.runtime.fs);
-        if (existing && (existing.api_url !== apiUrl || existing.account_id !== accountId)) {
-            throw usageError("media upload-batch state file belongs to a different account or API URL. Use a separate --state file; do not share one across accounts.");
+        if (existing && (existing.api_url !== apiUrl || existing.project_id !== projectId)) {
+            throw usageError("media upload-batch state file belongs to a different project or API URL. Use a separate --state file; do not share one across projects.");
         }
-        const state = existing ?? emptyState(apiUrl, accountId);
+        const state = existing ?? emptyState(apiUrl, projectId);
         const mutex = new WriteMutex();
         await mutex.run(() => writeUploadBatchStateAtomic(input.statePath, state, input.runtime.fs, input.runtime.now().getTime()));
         const data = {

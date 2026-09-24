@@ -1,4 +1,4 @@
 interface:
   display_name: "ScreenRig"
   short_description: "Operate ScreenRig with the bundled CLI"
-  default_prompt: "Use $screenrig to compose local stills, upload media, write playlists, place adslot breaks, assign content to my screens, or buy and sell advertising where my account is permitted, with machine-readable output."
+  default_prompt: "Use $screenrig to compose local stills, upload media, write playlists, place adslot breaks, assign content to my screens, or buy and sell advertising where my project is permitted, with machine-readable output."
