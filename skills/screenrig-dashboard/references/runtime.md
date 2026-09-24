@@ -33,6 +33,13 @@ SQLite version; an actual render is the browser capability test. Supported-host
 claims require a successful local run. Normal screenRIG commands do not depend
 on this runtime.
 
+Rendering always keeps Chromium's sandbox on. Linux hosts that confine
+unprivileged user namespaces, including Ubuntu 23.10+ under AppArmor and many
+containers, fail at launch with `No usable sandbox`. Grant that browser binary
+user namespaces, through an AppArmor profile or by clearing
+`kernel.apparmor_restrict_unprivileged_userns` on a disposable machine, rather
+than rendering without a sandbox.
+
 Snapshots include a payload digest and separate metadata file. Pass its
 `*.meta.json` path to render for replay. Snapshot queries use one SQLite read
 transaction; corrections are append-only, retaining older record revisions.
