@@ -86,6 +86,15 @@ jobs:
           PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-launcher.py
           PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-plugin-freshness.py
           PYTHONDONTWRITEBYTECODE=1 python3 scripts/test-docs-only.py
+      - name: Allow the unprivileged user namespaces Chromium's sandbox needs
+        run: |
+          # Ubuntu 23.10+ confines unprivileged user namespaces with AppArmor,
+          # so Playwright's Chromium finds no usable sandbox. Lift that on this
+          # throwaway runner rather than rendering with a weakened sandbox.
+          # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
+          knob=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test -e "${knob}" || exit 0
+          echo 0 | sudo tee "${knob}" > /dev/null
       - name: Verify optional dashboard runtime and repeat rendering
         run: |
           plugins/screenrig/skills/screenrig-dashboard/scripts/screenrig-dashboard setup > "${RUNNER_TEMP}/dashboard-setup.json"
