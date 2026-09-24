@@ -113,7 +113,7 @@ dashboard with a fresh confirmation. There is no credited-income shortcut here.
      "flight_end": "2026-09-30T23:59:59Z",
      "networks": [
        {
-         "seller_project_id": "acc_SELLER",
+         "seller_project_id": "prj_SELLER",
          "screen_ids": ["scr_LOBBY"],
          "slot_ids": ["ads_LOBBY"],
          "creative_ids": ["cre_LOBBY_POSTER"],
