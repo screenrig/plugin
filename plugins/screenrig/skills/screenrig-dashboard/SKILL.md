@@ -7,7 +7,7 @@ description: Build and refresh consistent 16:9 dashboard images from recurring J
 
 Use the helper next to this skill: `scripts/screenrig-dashboard` (Windows:
 `scripts/screenrig-dashboard.cmd`). Resolve that path from this installed skill;
-do not substitute a global executable. The helper is independent of the account
+do not substitute a global executable. The helper is independent of the project
 dashboard opened by `screenrig dashboard`.
 
 Run `screenrig-dashboard doctor`. If its optional runtime is missing, use
@@ -66,5 +66,5 @@ existing [screenrig skill](../screenrig/SKILL.md). Use its bundled
 `media upload FILE --no-transcode` path, then the returned ready media ID in the
 normal playlist workflow. The output is already lossy delivery WebP, so avoid a
 second encoding pass. Preserve unrelated playlist content. Follow that skill's
-account, target, retry, and playback-verification rules. A local image is not
+project, target, retry, and playback-verification rules. A local image is not
 proof of publication or physical display.
