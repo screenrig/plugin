@@ -45,6 +45,10 @@ export declare function usageError(detail: string, next?: ProblemNext): CliError
  */
 export declare function notEnrolledError(detail: string, next?: ProblemNext): CliError;
 export declare function configError(detail: string, next?: ProblemNext): CliError;
+/** A local output file could not be written (ENOSPC, EACCES, ...). */
+export declare function fileError(detail: string, error?: unknown): CliError;
+/** A 2xx that is not the representation the contract names (a proxy page, JSON for CSV). */
+export declare function unexpectedResponseError(detail: string, request_id?: string): CliError;
 export declare function networkError(detail: string, request_id?: string): CliError;
 export declare function timeoutError(detail: string, request_id?: string): CliError;
 //# sourceMappingURL=problems.d.ts.map

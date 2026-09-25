@@ -50,6 +50,7 @@ export declare const handleOperationsCancel: CommandHandler;
 export declare const handleEventsList: CommandHandler;
 export declare const handleEventsFollow: CommandHandler;
 export declare const handlePlaybackList: CommandHandler;
+export declare const handlePlaybackPlays: CommandHandler;
 export declare const handleAdsNetworksList: CommandHandler;
 export declare const handleAdsNetworkInventoryShow: CommandHandler;
 export declare const handleAdsNetworkShow: CommandHandler;

@@ -304,6 +304,14 @@ first: the forecast covers every playlist a screen can switch to. Verify with
 `effective_playlist` in `screen show` and a screenshot. See
 [schedules](references/schedules.md).
 
+### Proof of play
+
+`playback plays --from 7d --to now` lists one row per visible start (proof of
+play); `playback list` gives daily totals. For reports, export CSV with
+`--format csv --output FILE` (at most 31 days per plays export; one billed
+request). An interrupted export leaves `FILE.partial` and `error.next` for the
+rest. See [playback](references/playback.md).
+
 ### Webhooks
 
 To wake an agent, bot or automation on project events (a kiosk check-in via

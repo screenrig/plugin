@@ -221,7 +221,10 @@ webhooks test <id>
 webhooks deliveries <id> [--before CURSOR] [--limit N]
 events list [--after CURSOR] [--limit N]
 events follow [--after CURSOR] [--timeout MS]
-playback list [--screen-id ID] [--media-id ID] [--day YYYY-MM-DD]
+playback list [--screen-id ID] [--media-id ID] [--day YYYY-MM-DD | --day-from YYYY-MM-DD --day-to YYYY-MM-DD]
+              [--format csv] [--output FILE]
+playback plays [--from TIME] [--to TIME] [--screen-id ID] [--media-id ID] [--tag TAG]
+               [--cursor CURSOR] [--limit N] [--all] [--format csv] [--output FILE]
 feedback bug <title> (--body TEXT | --body-file FILE)
                      [--command "GROUP ACTION"] [--no-context]
 feedback feature <title> (--body TEXT | --body-file FILE)
@@ -327,6 +330,19 @@ also needs the screen timezone (`invalid_request`, exit 8). `--expect-rev`
 applies to one screen id only; several ids or `--tag` use the fleet envelope.
 Writes share 20 per screen and 600 per project per minute (`rate_limited`,
 exit 7). See [schedules](schedules.md).
+
+### Playback export
+
+`playback plays` lists one row per visible start between `--from` (inclusive)
+and `--to` (exclusive): RFC 3339 with seconds and an offset, `now`, or an age
+such as `7d`, at most 31 days, default the last 24 hours. The newest 5 seconds
+settle first, so `data.to` is the effective end. JSON pages with `--cursor` /
+`--limit` (1 to 1000) or `--all` (at most 50 pages); each page is one billed
+request. `--format csv --output FILE` streams the whole range as one billed
+request and replaces `FILE` only after a clean end; an interrupted plays
+export keeps `FILE.partial` and `error.next` exports the rest. Plays requests
+and CSV exports share 30 per minute per project (`rate_limited`, exit 7). See
+[playback](playback.md).
 
 ### Webhooks
 

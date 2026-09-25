@@ -45,12 +45,10 @@ that may be suppressed by the Player. A successful command does not prove visibi
 120 characters. `--duration-ms` is optional, 2000 through 60000; omitted
 values default to 10000 on the server.
 
-`playback list` returns daily playback aggregates for this project. One row
-per screen, media, and UTC day. Newest days first. `--screen-id`,
-`--media-id`, and `--day YYYY-MM-DD` filter the caller's own rows. Each row
-carries the server-resolved `filename` and `primitive` (`image` or `video`);
-`primitive` is absent on rows last aggregated before players reported image
-starts, so do not require it.
+`playback list` returns daily playback aggregates for this project: one row
+per screen, media, and UTC day, newest days first. `playback plays` returns
+one row per visible start for proof of play. Both export CSV; paging, ranges,
+interrupted exports and billing are in [playback](playback.md).
 
 ### Player storage
 

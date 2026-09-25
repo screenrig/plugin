@@ -223,6 +223,15 @@ export function notEnrolledError(detail, next) {
 export function configError(detail, next) {
     return new CliError(makeProblem("config_error", "Configuration error", 400, detail, { next }), ExitCode.Config);
 }
+/** A local output file could not be written (ENOSPC, EACCES, ...). */
+export function fileError(detail, error) {
+    const code = error?.code;
+    return new CliError(makeProblem("file_error", "Cannot write the output file", 500, code ? `${detail} (${code})` : detail), ExitCode.Unexpected);
+}
+/** A 2xx that is not the representation the contract names (a proxy page, JSON for CSV). */
+export function unexpectedResponseError(detail, request_id) {
+    return new CliError(makeProblem("unexpected_response", "Unexpected response", 502, detail, { request_id }), ExitCode.Unexpected);
+}
 export function networkError(detail, request_id) {
     return new CliError(makeProblem("transport_error", "Network error", 503, detail, { request_id }), ExitCode.Network);
 }
