@@ -202,4 +202,9 @@ export declare const handleWebhooksDelete: CommandHandler;
 export declare const handleWebhooksRotateSecret: CommandHandler;
 export declare const handleWebhooksTest: CommandHandler;
 export declare const handleWebhooksDeliveries: CommandHandler;
+export declare const handleScreenScheduleShow: CommandHandler;
+export declare const handleScreenScheduleSet: CommandHandler;
+export declare const handleScreenScheduleClear: CommandHandler;
+export declare const handleScreenTakeover: CommandHandler;
+export declare const handleScreenTakeoverClear: CommandHandler;
 //# sourceMappingURL=commands.d.ts.map

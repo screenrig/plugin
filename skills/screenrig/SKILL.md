@@ -288,6 +288,22 @@ with one billed list request; captures are free). A `screen.offline` event in `e
 `events follow` (written after 60 s offline) with no later `screen.online`
 marks a dead screen. Details are in [fleets](references/operations.md#fleets-tags-and-fleet-actions).
 
+### Schedules and takeover
+
+A screen plays its takeover, else the first matching playlist schedule entry,
+else its default playlist. Use page `visibility` for pages inside one
+playlist, `screen schedule set ID --file FILE` for whole playlists by daypart
+(1 to 32 entries, 1 to 16 windows each, in the screen timezone), and
+`screen takeover ID --playlist-id ID --for 2h --reason TEXT` for emergencies,
+closures and events (`--for` up to `6d23h59m`, or `--until` a strict RFC 3339
+instant with seconds and offset, at most 7 days; `screen takeover clear` ends
+it early).
+Both need a default playlist, a schedule also the screen timezone, and both
+take `--tag` for fleets. Dry-run large playlists with `screen storage-forecast`
+first: the forecast covers every playlist a screen can switch to. Verify with
+`effective_playlist` in `screen show` and a screenshot. See
+[schedules](references/schedules.md).
+
 ### Webhooks
 
 To wake an agent, bot or automation on project events (a kiosk check-in via

@@ -177,6 +177,12 @@ screen assign <id> --playlist-id ID [--expect-rev REVISION]
 screen assign (<id> <id>... | --tag TAG) --playlist-id ID
 screen tag <id> (--set TAGS | --add TAGS | --remove TAGS | --clear) [--expect-rev REVISION]
 screen tag (<id> <id>... | --tag TAG) (--set TAGS | --add TAGS | --remove TAGS | --clear)
+screen schedule show <id>
+screen schedule set (<id>... | --tag TAG) --file FILE [--expect-rev REVISION]
+screen schedule clear (<id>... | --tag TAG) [--expect-rev REVISION]
+screen takeover set (<id>... | --tag TAG) --playlist-id ID [--for DURATION | --until TIME|none]
+                    [--reason TEXT] [--expect-rev REVISION]
+screen takeover clear (<id>... | --tag TAG) [--expect-rev REVISION]
 screen set-timezone <id> --timezone ZONE [--expect-rev REVISION]
 screen archive <id> [--expect-rev REVISION]
 screen unarchive <id> [--expect-rev REVISION]
@@ -307,6 +313,20 @@ Several ids must all be `scr_…` screen ids. An unexpected local failure
 reports `unexpected_error` for that screen, starts no new captures, marks the
 unstarted screens `not_attempted`, and exits 1. `screen publish` stays single-screen. See
 [fleets](operations.md#fleets-tags-and-fleet-actions).
+
+### Schedules and takeover
+
+Precedence is takeover, then the first matching schedule entry, then the
+default playlist. `screen schedule set` takes a JSON file of 1 to 32 entries
+(1 to 16 windows each) and accepts `screen schedule show` output back.
+`screen takeover set` (or the short form `screen takeover ID`) takes
+`--for 30m|2h|3d` (at most `6d23h59m`; `7d` is refused) or `--until` a strict
+RFC 3339 instant with seconds and an offset (at most 7 days ahead, sent as
+UTC) or `none`, and an optional `--reason` (trimmed, at most 120 characters). Both need a default playlist; a schedule
+also needs the screen timezone (`invalid_request`, exit 8). `--expect-rev`
+applies to one screen id only; several ids or `--tag` use the fleet envelope.
+Writes share 20 per screen and 600 per project per minute (`rate_limited`,
+exit 7). See [schedules](schedules.md).
 
 ### Webhooks
 

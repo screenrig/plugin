@@ -415,6 +415,10 @@ soundtrack track instead of a page.
 
 ## Page scheduling with visibility
 
+To switch whole playlists by daypart or put one playlist ahead of everything
+for a while, use a playlist schedule or a takeover on the screen instead; see
+[schedules and takeover](schedules.md).
+
 A page may carry an optional `visibility` object that limits when the page
 plays. It is a sibling of `advance`.
 
