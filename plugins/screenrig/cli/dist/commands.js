@@ -2244,8 +2244,8 @@ function mediaPrimitiveFromArgs(args) {
     if (primitive === undefined) {
         return undefined;
     }
-    if (primitive !== "image" && primitive !== "video") {
-        throw usageError("--primitive must be image or video.");
+    if (primitive !== "image" && primitive !== "video" && primitive !== "audio") {
+        throw usageError("--primitive must be image, video, or audio.");
     }
     return primitive;
 }
@@ -2262,7 +2262,7 @@ function screenListStateFromArgs(args) {
 }
 export const handleMediaList = commandHandler(async (args, runtime, resolved) => {
     if (Object.hasOwn(args.flags, "kind")) {
-        throw usageError("media list uses --primitive image|video, not --kind.");
+        throw usageError("media list uses --primitive image|video|audio, not --kind.");
     }
     return simpleGet(args, runtime, resolved, "/api/v1/media", "Media", {
         tag: mediaTagFromArgs(args),
@@ -2517,6 +2517,7 @@ const MEDIA_CONTENT_EXTENSIONS = {
     "image/gif": "gif",
     "video/mp4": "mp4",
     "video/webm": "webm",
+    "audio/mpeg": "mp3",
 };
 function mediaRecordFromBody(body, id) {
     const rec = (body ?? {});
@@ -3147,12 +3148,12 @@ async function playlistCreateUpdateAction(args, runtime, resolved, action) {
     if (!parsed || typeof parsed !== "object" || typeof parsed.name !== "string" || !Array.isArray(parsed.pages)) {
         throw usageError("Playlist JSON must contain string name and array pages.");
     }
-    const extra = Object.keys(parsed).filter((key) => key !== "name" && key !== "pages");
+    const extra = Object.keys(parsed).filter((key) => key !== "name" && key !== "audio" && key !== "pages");
     if (extra.length > 0) {
         throw usageError(`Playlist JSON contains unsupported fields: ${extra.join(", ")}.`);
     }
     const pages = expandPlaylistPages(parsed.pages);
-    const body = { name: parsed.name, pages };
+    const body = { name: parsed.name, ...(parsed.audio !== undefined ? { audio: parsed.audio } : {}), pages };
     assertPlaylistValid(body);
     // An ad-bearing document is authored under the v2 union, and only a
     // signage-capable project may place adslot pages at all. The ordinary
@@ -4837,10 +4838,13 @@ export const handlePlaylistInit = commandHandler(async (args, runtime, resolved)
                     throw new Error();
             }
             catch {
-                throw usageError("Each input must be a readable image/video file, media ID, release ID, or HTTPS URL.");
+                throw usageError("Each input must be a readable image/video/audio file, media ID, release ID, or HTTPS URL.");
             }
             files.set(content.length, sourcePath);
-            content.push({ primitive: "image", state: "ready", id: "med_PENDING" });
+            // Audio files become soundtrack tracks, not pages, so the preflight
+            // shape check must see them as audio before anything uploads.
+            const audioFile = /\.(mp3|wav|wave|aac|m4a|m4b|ogg|oga|opus|flac|aif|aiff|wma)$/i.test(sourcePath);
+            content.push({ primitive: audioFile ? "audio" : "image", state: "ready", id: "med_PENDING" });
         }
     }
     const options = { name: flagString(args.flags, "name"), content, ...dimensions, durationMs: flagNumber(args.flags, "duration-ms") ?? 8000, fit: flagString(args.flags, "fit") ?? "contain" };
@@ -4887,7 +4891,8 @@ export const handlePlaylistInit = commandHandler(async (args, runtime, resolved)
     if (overwrite)
         await rename(destination, output);
     const context = ["--config", resolved.configPath, "--api-url", sanitizedPreparationApiUrl(resolved.apiUrl)];
-    return { envelope: successEnvelope({ output, ...dimensions, page_count: content.length,
+    const trackCount = content.filter((item) => item.primitive === "audio").length;
+    return { envelope: successEnvelope({ output, ...dimensions, page_count: content.length - trackCount, ...(trackCount > 0 ? { soundtrack_tracks: trackCount } : {}),
             ...(target ? { screen_id: target.id, screen_revision: target.revision } : {}),
             preview: { argv: ["playlist", "preview", output, "--output", `${output}.preview`, "--contact-sheet", ...context] },
             ...(target ? { publish: { argv: ["screen", "publish", target.id, output, ...context], reason: "Inspect the prepared document and preview before publishing." } } : {}),

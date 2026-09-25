@@ -71,17 +71,24 @@ const VIDEO_EXTENSIONS = new Set([
 const IMAGE_EXTENSIONS = new Set([
     ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".avif", ".heic", ".heif",
 ]);
+const AUDIO_EXTENSIONS = new Set([
+    ".mp3", ".wav", ".wave", ".aac", ".m4a", ".m4b", ".ogg", ".oga", ".opus", ".flac", ".aif", ".aiff", ".wma",
+]);
 export function classifySource(filePath, explicitContentType) {
     if (explicitContentType?.startsWith("video/"))
         return "video";
     if (explicitContentType?.startsWith("image/"))
         return "image";
+    if (explicitContentType?.startsWith("audio/"))
+        return "audio";
     const extension = path.extname(filePath).toLowerCase();
     if (VIDEO_EXTENSIONS.has(extension))
         return "video";
     if (IMAGE_EXTENSIONS.has(extension))
         return "image";
-    throw usageError(`Cannot tell whether ${path.basename(filePath)} is video or image from its extension. ` +
+    if (AUDIO_EXTENSIONS.has(extension))
+        return "audio";
+    throw usageError(`Cannot tell whether ${path.basename(filePath)} is video, image, or audio from its extension. ` +
         "Pass --content-type with the source type, or pass --no-transcode to upload the bytes unchanged.");
 }
 export async function transcodeForUpload(request) {
@@ -95,6 +102,9 @@ export async function transcodeForUpload(request) {
         const toolchain = await resolveFfmpegToolchain(runtime);
         const probe = await probeMedia(runtime, toolchain, filePath);
         const sourceBytes = (await stat(filePath)).size;
+        if (kind === "audio") {
+            return transcodeAudio(runtime, toolchain, probe, filePath, sourceBytes, reporter, transcodeSpan);
+        }
         const sourceWebpBytes = kind === "image" &&
             (probe.codec === "webp" || path.extname(filePath).toLowerCase() === ".webp" || request.explicitContentType === "image/webp")
             ? await readFile(filePath, { flag: "r" })
@@ -303,6 +313,95 @@ export async function transcodeForUpload(request) {
             throw error;
         }
     });
+}
+/**
+ * Soundtrack delivery is MP3 (docs/playlist-audio.md): every Player decodes it
+ * natively. An MP3 source is uploaded unchanged; anything else is re-encoded
+ * with LAME at a constant 192 kb/s, at most two channels, keeping a 48 kHz
+ * source at 48 kHz and resampling everything else to 44.1 kHz. Cover art and
+ * tags are dropped.
+ */
+export const AUDIO_BITRATE = "192k";
+export const MIN_AUDIO_SECONDS = 1;
+export const MAX_AUDIO_SECONDS = 4 * 60 * 60;
+export function planAudioArgs(probe, filePath, outputPath) {
+    const sampleRate = probe.audioSampleRate === 48_000 ? 48_000 : 44_100;
+    const channels = probe.audioChannels === 1 ? 1 : 2;
+    return [
+        "-hide_banner", "-nostdin", "-y",
+        "-i", filePath,
+        "-map", "0:a:0", "-vn", "-sn", "-dn",
+        "-map_metadata", "-1",
+        "-c:a", "libmp3lame", "-b:a", AUDIO_BITRATE,
+        "-ar", String(sampleRate), "-ac", String(channels),
+        "-f", "mp3",
+        "-progress", "pipe:1", "-nostats",
+        outputPath,
+    ];
+}
+function isMp3Source(probe) {
+    return probe.audioCodec === "mp3" && probe.formatNames.includes("mp3");
+}
+async function transcodeAudio(runtime, toolchain, probe, filePath, sourceBytes, reporter, span) {
+    const name = path.basename(filePath);
+    if (!probe.hasAudio) {
+        throw usageError(`ffprobe found no decodable audio stream in ${name}. Pass --no-transcode to upload MP3 bytes unchanged.`);
+    }
+    if (probe.durationSeconds > 0 && (probe.durationSeconds < MIN_AUDIO_SECONDS || probe.durationSeconds > MAX_AUDIO_SECONDS)) {
+        throw usageError(`${name} runs ${probe.durationSeconds.toFixed(1)} s; soundtrack audio must be 1 second to 4 hours long.`);
+    }
+    const base = {
+        stage: "audio",
+        sourceBytes,
+        durationMs: 0,
+        width: 0,
+        height: 0,
+        sourceWidth: 0,
+        sourceHeight: 0,
+        dimensionsMeasured: false,
+        warnings: [],
+    };
+    if (isMp3Source(probe)) {
+        const reason = "source is already MP3; original bytes preserved";
+        span.finish({ passthrough: true, stage: "audio", source_bytes: sourceBytes, output_bytes: sourceBytes, reason });
+        return { ...base, filePath, filename: name, contentType: "audio/mpeg", passthrough: true, reason, outputBytes: sourceBytes };
+    }
+    if (!toolchain.encoders.has("libmp3lame")) {
+        throw usageError("The resolved ffmpeg has no libmp3lame encoder, so it cannot convert this audio to MP3. " +
+            "Install an ffmpeg build with LAME, or convert the file to MP3 yourself and upload that.");
+    }
+    const stem = path.basename(filePath, path.extname(filePath));
+    const filename = `${stem || "audio"}.mp3`;
+    const cleanupDir = await mkdtemp(path.join(tmpdir(), "screenrig-transcode-"));
+    const outputPath = path.join(cleanupDir, filename);
+    try {
+        const target = `MP3 ${AUDIO_BITRATE.replace("k", " kb/s")}`;
+        reporter.start({ stage: "audio", target, sourceBytes, durationSeconds: probe.durationSeconds, width: 0, height: 0 });
+        const startedAt = runtime.now().getTime();
+        await runEncode(runtime, toolchain.ffmpeg, planAudioArgs(probe, filePath, outputPath), probe.durationSeconds, reporter);
+        let outputBytes;
+        try {
+            outputBytes = (await stat(outputPath)).size;
+        }
+        catch {
+            throw usageError("ffmpeg reported success but wrote no output file.");
+        }
+        if (outputBytes < 1)
+            throw usageError("ffmpeg wrote an empty output file.");
+        const outputProbe = await probeMedia(runtime, toolchain, outputPath);
+        if (!isMp3Source(outputProbe))
+            throw usageError("ffmpeg did not write an MP3 file the CLI can read.");
+        const durationMs = runtime.now().getTime() - startedAt;
+        reporter.finish({ outputBytes, elapsedMs: durationMs });
+        const reason = `${probe.audioCodec || "source audio"} converted to ${target}`;
+        span.finish({ passthrough: false, stage: "audio", source_bytes: sourceBytes, output_bytes: outputBytes, encoder: "ffmpeg", duration_ms: durationMs });
+        return { ...base, filePath: outputPath, filename, contentType: "audio/mpeg", passthrough: false, reason, outputBytes, durationMs, cleanupDir };
+    }
+    catch (error) {
+        reporter.failed();
+        await rm(cleanupDir, { recursive: true, force: true });
+        throw error;
+    }
 }
 function videoSummary(probe, options) {
     return { codec: options.codec, profile: probe.profile, level: String(probe.level / (options.codec === "h264" ? 10 : 30)),

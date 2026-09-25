@@ -31,10 +31,16 @@ export function sniffMediaContainer(input) {
         if (startsWith(head, "AVI ", 8)) {
             return { contentType: "video/x-msvideo", description: "an AVI video", kind: "video" };
         }
+        if (startsWith(head, "WAVE", 8)) {
+            return { contentType: "audio/wav", description: "a WAV audio file", kind: "audio", alsoMatches: ["audio/x-wav", "audio/wave"] };
+        }
         return undefined;
     }
     if (startsWith(head, "ftyp", 4)) {
         const brand = head.subarray(8, 12).toString("latin1").toLowerCase();
+        if (brand === "m4a " || brand === "m4b ") {
+            return { contentType: "audio/mp4", description: "an M4A (ISO BMFF) audio file", kind: "audio", alsoMatches: ["audio/x-m4a", "audio/aac"] };
+        }
         if (ISO_BMFF_IMAGE_BRANDS.has(brand)) {
             const avif = brand.startsWith("avi");
             return {
@@ -53,7 +59,21 @@ export function sniffMediaContainer(input) {
         return { contentType: "video/webm", description: "a Matroska/WebM video", kind: "video" };
     }
     if (startsWith(head, "OggS")) {
-        return { contentType: "video/ogg", description: "an Ogg container", kind: "video" };
+        // Ogg carries audio-only (Vorbis, Opus) as often as video; either claim fits.
+        return { contentType: "video/ogg", description: "an Ogg container", kind: "video", alsoMatches: ["audio/ogg", "audio/opus"] };
+    }
+    if (startsWith(head, "fLaC")) {
+        return { contentType: "audio/flac", description: "a FLAC audio file", kind: "audio", alsoMatches: ["audio/x-flac"] };
+    }
+    if (startsWith(head, "ID3")) {
+        return { contentType: "audio/mpeg", description: "an MP3 audio file", kind: "audio", alsoMatches: ["audio/mp3"] };
+    }
+    // MPEG audio frame sync: 11 set bits. Layer bits 00 are ADTS AAC; 01..11 are
+    // MPEG audio Layer III..I. JPEG (FF D8) was classified above.
+    if (head[0] === 0xff && (head[1] & 0xe0) === 0xe0) {
+        return (head[1] & 0x06) === 0
+            ? { contentType: "audio/aac", description: "an ADTS AAC audio stream", kind: "audio", alsoMatches: ["audio/x-aac"] }
+            : { contentType: "audio/mpeg", description: "an MP3 audio file", kind: "audio", alsoMatches: ["audio/mp3"] };
     }
     if (startsWith(head, "BM")) {
         return { contentType: "image/bmp", description: "a BMP image", kind: "image" };
@@ -93,7 +113,8 @@ export async function assertDeclaredTypeMatchesBytes(filePath, declaredContentTy
         return;
     }
     const sniffed = sniffMediaContainer(head);
-    if (!sniffed || sniffed.contentType === declaredContentType.toLowerCase()) {
+    const declared = declaredContentType.toLowerCase();
+    if (!sniffed || sniffed.contentType === declared || sniffed.alsoMatches?.includes(declared)) {
         return;
     }
     throw usageError(`${path.basename(filePath)} was declared --content-type ${declaredContentType}, but its bytes are ` +

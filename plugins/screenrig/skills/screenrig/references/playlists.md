@@ -11,7 +11,7 @@ screenrig screen publish scr_LOBBY lobby.json
 ```
 
 Inspect the document and preview before publishing. `playlist init` accepts local
-image/video files, ready `med_` IDs, pinned `rel_` application releases, and HTTPS
+image/video/audio files, ready `med_` IDs, pinned `rel_` application releases, and HTTPS
 iframe URLs in playback order, including mixed inputs:
 
 ```sh
@@ -71,7 +71,7 @@ screenrig playlist show pl_EXISTING --output lobby.json
 screenrig playlist update pl_EXISTING lobby.json
 ```
 
-`playlist show --output` writes the editable `{name, pages}` document and returns
+`playlist show --output` writes the editable `{name, audio?, pages}` document and returns
 its path, `playlist_id`, and source `revision` on stdout. Optionally pass that revision with `--expect-rev` to guard the update. It preserves dynamic selectors, schedules, motion, and pinned
 application releases, removing server-derived media and timing fields. Comments
 remain separate. Plain `playlist show` is an inspection response; `--editable`
@@ -118,13 +118,14 @@ Do not author native `text`, `box`, or `line` on the wire. Presentable copy
 lives in the generated still. Deck copy and chrome are composed locally,
 uploaded as `image`, and used as one image primitive.
 
-A playlist has `name` and `pages`, with no playlist-wide dimensions. Each
+A playlist has `name`, optional `audio` (the soundtrack), and `pages`, with no
+playlist-wide dimensions. Each
 page's `canvas.width` and `canvas.height` define its layout coordinate system;
 `canvas.viewport_fit` controls how it fits the Player's viewport. This layout
 size can differ from the pixel dimensions of media rendered from a compose deck.
 
 A full playlist page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
-and `primitives`. A primitive is flat: `id`, a `primitive` field naming
+optional `audio_cue`, and `primitives`. A primitive is flat: `id`, a `primitive` field naming
 a supported kind, that primitive's own fields, then `rect`, `layer`, `content_fit`,
 optional `enter`, and optional `motion`. There is no nested content object.
 
@@ -363,6 +364,51 @@ A paused web page stays paused until explicit resume or the player's existing
 latest pending direction and applies it once after activation; it does not
 queue an unbounded series of stale key presses.
 
+## Soundtrack
+
+A playlist may carry one soundtrack: ordered MP3 tracks that play back to back
+and keep playing while pages change. Page advances, transitions, schedules and
+republishing an unchanged track list never restart it. Canvas video stays
+muted, so the soundtrack is the only sound on the screen.
+
+Upload the audio first (`media upload ./theme.wav`; see [media](media.md)), or
+pass audio files to `playlist init`, which turns every audio input into a
+soundtrack track instead of a page.
+
+```json
+{
+  "name": "Lobby",
+  "audio": {
+    "tracks": [
+      { "id": "intro", "media_id": "med_INTRO" },
+      { "id": "bed", "media_id": "med_BED" }
+    ],
+    "loop": true,
+    "volume": 0.8
+  },
+  "pages": [
+    { "id": "welcome", "audio_cue": { "track": "intro", "restart": true }, "...": "..." }
+  ]
+}
+```
+
+- `tracks`: 1 to 32 entries in play order. Track `id` is unique within the
+  playlist; `media_id` must be a ready `audio` object. The same media may
+  appear under two ids.
+- `loop` (default `true`) starts again at the first track after the last;
+  `false` stops after the last track.
+- `volume` (default `1`) is 0 to 1 and multiplies the Player's own volume.
+- A page `audio_cue` is a hint. When the page becomes current, the Player
+  switches to the named track from its start unless it is already playing;
+  `restart: true` restarts it even then. The sequence continues from that
+  track. A cue must name a track in `audio.tracks`; adslot pages take no cue.
+- `playlist update` replaces the whole document, so omitting `audio` removes
+  the soundtrack. `playlist show --output` keeps it.
+- Browsers can block sound until someone interacts with the page. A kiosk
+  browser running the browser Player should allow autoplay (Chromium
+  `--autoplay-policy=no-user-gesture-required`); native Players are not
+  affected.
+
 ## Page scheduling with visibility
 
 A page may carry an optional `visibility` object that limits when the page
@@ -449,7 +495,7 @@ cannot carry an adslot page. See [advertising](advertising.md).
 ## Playlist bundle export and import
 
 Use a `screenrig.playlist-bundle/v1` directory to move one playlist and every
-referenced image or video rendition together.
+referenced image, video, or soundtrack audio file together.
 
 ```bash
 screenrig playlist export pl_EXAMPLE --output ./lobby-bundle

@@ -24,10 +24,25 @@ export interface PreviewPageResult {
     id: string;
     files: Record<PreviewState, string>;
     lint_count: number;
+    /** Soundtrack hint the Player applies when this page becomes current. */
+    audio_cue?: {
+        track: string;
+        restart: boolean;
+    };
+}
+/** The soundtrack is not drawn; the preview reports the play order instead. */
+export interface PreviewSoundtrack {
+    tracks: Array<{
+        id: string;
+        media_id: string;
+    }>;
+    loop: boolean;
+    volume: number;
 }
 export interface PlaylistPreviewResult {
     output: string;
     viewport: Size;
+    soundtrack?: PreviewSoundtrack;
     pages: PreviewPageResult[];
     contact_sheet?: string;
     lint: LintFinding[];

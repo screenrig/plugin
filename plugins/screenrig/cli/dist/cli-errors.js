@@ -20,7 +20,7 @@ export function commandError(error, command) {
             throw usageError("comment set requires exactly one of --json-value or --file.");
     }
     if (path === "media list" && has("kind"))
-        throw usageError("media list uses --primitive image|video, not --kind.");
+        throw usageError("media list uses --primitive image|video|audio, not --kind.");
     switch (error.code) {
         case "commander.invalidArgument": {
             const option = command.options.find((candidate) => candidate.argChoices && error.message.startsWith(`error: option '${candidate.flags}'`));

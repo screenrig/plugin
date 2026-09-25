@@ -4,7 +4,7 @@ import { Option } from "commander";
 import { addCommandNotes, addCommandExamples, requireOptionGroup } from "./notes.js";
 import { CREDIT_HELP } from "../help-text.js";
 export function registerMediaCommands(root, bind) {
-    const media = root.command("media").description("Generate, upload, and manage images and videos");
+    const media = root.command("media").description("Generate, upload, and manage images, videos, and soundtrack audio");
     addCommandNotes(media.command("generate").description("Generate an image from a prompt")
         .addOption(new Option("--prompt <TEXT>", "Describe the complete image to generate").conflicts("promptFile"))
         .addOption(new Option("--prompt-file <FILE>", "Read the complete prompt from a file or stdin (-)").conflicts("prompt"))
@@ -16,7 +16,7 @@ export function registerMediaCommands(root, bind) {
     const generate = media.commands.find((command) => command.name() === "generate");
     requireOptionGroup(generate, "exactlyOne", ["--prompt", "--prompt-file"]);
     addCommandExamples(generate, 'screenrig media generate --prompt "A full-screen welcome sign"', 'screenrig media generate --prompt-file prompt.txt --aspect-ratio 9:16');
-    media.command("upload").description("Upload an image or video")
+    media.command("upload").description("Upload an image, video, or audio track")
         .argument("<file>", "Local input file")
         .option("--content-type <TYPE>", "Declare the content MIME type")
         .option("--tag <TAG>", "Set the media tag")
@@ -55,7 +55,7 @@ export function registerMediaCommands(root, bind) {
         .action(bind(handleMediaDownload));
     media.command("list").description("List media")
         .option("--tag <TAG>", "Filter media by tag")
-        .addOption(new Option("--primitive <image|video>", "Filter by media primitive").choices(["image", "video"]))
+        .addOption(new Option("--primitive <image|video|audio>", "Filter by media primitive").choices(["image", "video", "audio"]))
         .action(bind(handleMediaList));
     media.command("update").description("Update a media tag")
         .argument("<id>", "Media identifier")

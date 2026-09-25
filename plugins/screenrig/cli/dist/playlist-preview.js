@@ -43,7 +43,8 @@ export async function previewPlaylist(options) {
             if (!options.lintOnly)
                 await writeFile(filename, png);
         }
-        pageResults.push({ id: page.id, files, lint_count: 0 });
+        const audioCue = audioCueOf(page.raw);
+        pageResults.push({ id: page.id, files, lint_count: 0, ...(audioCue ? { audio_cue: audioCue } : {}) });
     }
     const lint = lintPlaylistPages(body.pages, { pixelsByPage: restPixels });
     for (const result of pageResults) {
@@ -56,9 +57,11 @@ export async function previewPlaylist(options) {
         if (!options.lintOnly)
             await writeFile(contact_sheet, sheet.png);
     }
+    const soundtrack = soundtrackOf(body.audio);
     return {
         output: options.outputDirectory,
         viewport,
+        ...(soundtrack ? { soundtrack } : {}),
         pages: pageResults,
         ...(contact_sheet ? { contact_sheet } : {}),
         lint,
@@ -80,7 +83,24 @@ function normalizePlaylist(input) {
     if (typeof raw.name !== "string" || !pages) {
         throw usageError("Playlist JSON must contain string name and array pages.");
     }
-    return { name: raw.name, pages };
+    return { name: raw.name, ...(raw.audio !== undefined ? { audio: raw.audio } : {}), pages };
+}
+function soundtrackOf(audio) {
+    if (!audio || typeof audio !== "object" || Array.isArray(audio))
+        return undefined;
+    const raw = audio;
+    const tracks = Array.isArray(raw.tracks) ? raw.tracks.map((value) => {
+        const track = recordOf(value);
+        return { id: String(track.id), media_id: String(track.media_id) };
+    }) : [];
+    return { tracks, loop: raw.loop !== false, volume: typeof raw.volume === "number" ? raw.volume : 1 };
+}
+function audioCueOf(page) {
+    const cue = page.audio_cue;
+    if (!cue || typeof cue !== "object" || Array.isArray(cue))
+        return undefined;
+    const raw = cue;
+    return { track: String(raw.track), restart: raw.restart === true };
 }
 async function preparePages(pages, viewport, options) {
     const prepared = [];

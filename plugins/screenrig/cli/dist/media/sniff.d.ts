@@ -14,7 +14,9 @@ export interface SniffedMedia {
     contentType: string;
     /** Human description used in the mismatch message. */
     description: string;
-    kind: "image" | "video";
+    kind: "image" | "video" | "audio";
+    /** Other declared types the same container legitimately carries. */
+    alsoMatches?: readonly string[];
 }
 /** Bytes needed to classify every signature below. */
 export declare const SNIFF_HEAD_BYTES = 64;

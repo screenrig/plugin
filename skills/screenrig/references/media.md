@@ -156,13 +156,20 @@ On a build that converts:
   warning naming the source and delivered sizes, and `data.transcode` carries
   `source_width` / `source_height` beside `width` / `height`. Tell the user
   when their still was resized.
+- Audio for a playlist soundtrack uploads the same way. An MP3 is sent
+  unchanged; WAV, AAC/M4A, OGG, and FLAC are converted to a 192 kb/s MP3
+  (at most stereo, 44.1 or 48 kHz, tags and cover art dropped), which needs
+  an ffmpeg build with `libmp3lame`. Tracks must run 1 second to 4 hours and
+  are stored as `primitive` `audio` with `duration_ms` and no width or
+  height. Audio never goes on a page; add it to the playlist soundtrack (see
+  [playlists](playlists.md#soundtrack)).
 - `--content-type TYPE` is checked against the file's bytes before anything
   runs. A declared type the container contradicts (`photo.png --content-type
   video/mp4`) fails locally with `usage_error` naming both types; nothing is
   transcoded or uploaded. Omit `--content-type` when the extension is right.
 - Optional `--tag TAG` stores a 1 to 32 letter-or-digit tag on the ready
   object. Hyphens are rejected; `ExecIntro2026` is valid and `exec-intro`
-  is not. `media list --tag TAG [--primitive image|video]` filters by that tag
+  is not. `media list --tag TAG [--primitive image|video|audio]` filters by that tag
   and is the reliable filename → id map after upload.
   `media update <id> (--tag TAG | --clear-tag)` changes
   or clears it. Untagged objects are omitted when `--tag` is present on

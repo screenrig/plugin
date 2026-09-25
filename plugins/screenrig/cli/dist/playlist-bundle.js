@@ -30,6 +30,7 @@ const EXTENSION_BY_TYPE = {
     "image/gif": ".gif",
     "video/mp4": ".mp4",
     "video/webm": ".webm",
+    "audio/mpeg": ".mp3",
 };
 function record(value, name) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -286,7 +287,7 @@ export async function preflightPlaylistBundle(directory) {
     const playlist = record(await readBundleJson(root, PLAYLIST_BUNDLE_PLAYLIST), PLAYLIST_BUNDLE_PLAYLIST);
     const mediaPrimitives = new Map(manifest.media.map((item) => [
         item.source_id,
-        item.content_type.startsWith("image/") ? "image" : "video",
+        item.content_type.startsWith("image/") ? "image" : item.content_type.startsWith("audio/") ? "audio" : "video",
     ]));
     const referenced = validatePlaylistWrite(playlist, mediaPrimitives);
     const listed = new Set(manifest.media.map((item) => item.source_id));
@@ -427,13 +428,41 @@ export function normalizePlaylistForBundle(input, options = {}) {
             transition: cloneJson(page.transition),
             advance: cloneJson(page.advance),
             ...(page.visibility !== undefined ? { visibility: cloneJson(page.visibility) } : {}),
+            ...(page.audio_cue !== undefined ? { audio_cue: normalizedAudioCue(page.audio_cue) } : {}),
             primitives,
         });
     });
     if (pages.length === 0 && skipped.pages.length > 0) {
         throw usageError("Playlist export would produce no pages after --skip-applications; detach the application primitives instead.");
     }
-    return { id, revision, playlist: { name, pages }, mediaIds: [...mediaIds].sort(), skipped };
+    const audio = source.audio === undefined || source.audio === null ? undefined : normalizedAudio(source.audio);
+    for (const track of audio?.tracks ?? [])
+        mediaIds.add(track.media_id);
+    return { id, revision, playlist: { name, ...(audio ? { audio } : {}), pages }, mediaIds: [...mediaIds].sort(), skipped };
+}
+function normalizedAudio(input) {
+    const audio = record(input, "Playlist.audio");
+    if (!Array.isArray(audio.tracks))
+        throw usageError("Playlist.audio.tracks must be an array.");
+    const tracks = audio.tracks.map((value, index) => {
+        const track = record(value, `Playlist.audio.tracks[${index}]`);
+        const mediaId = stringField(track, "media_id", `Playlist.audio.tracks[${index}]`);
+        if (!MEDIA_ID_PATTERN.test(mediaId))
+            throw usageError(`Playlist.audio.tracks[${index}].media_id is not a media id.`);
+        return { id: stringField(track, "id", `Playlist.audio.tracks[${index}]`), media_id: mediaId };
+    });
+    return {
+        tracks,
+        ...(typeof audio.loop === "boolean" ? { loop: audio.loop } : {}),
+        ...(typeof audio.volume === "number" ? { volume: audio.volume } : {}),
+    };
+}
+function normalizedAudioCue(input) {
+    const cue = record(input, "Playlist page audio_cue");
+    return {
+        track: stringField(cue, "track", "Playlist page audio_cue"),
+        ...(typeof cue.restart === "boolean" ? { restart: cue.restart } : {}),
+    };
 }
 function parseRemoteMedia(input, expectedId) {
     const media = record(input, `Media ${expectedId}`);
@@ -649,6 +678,14 @@ function exactMediaMatch(candidate, source) {
 }
 function rewritePlaylistIds(playlist, mapping) {
     const output = cloneJson(playlist);
+    const audio = output.audio;
+    for (const track of audio?.tracks ?? []) {
+        const source = track.media_id;
+        const destination = mapping.get(source);
+        if (!destination)
+            throw usageError(`No imported media mapping exists for ${source}.`);
+        track.media_id = destination;
+    }
     const pages = output.pages;
     for (const page of pages) {
         for (const primitive of page.primitives) {

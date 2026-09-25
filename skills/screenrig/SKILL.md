@@ -194,6 +194,7 @@ user supplied. Preserve source facts and supplied brand assets.
 | A finished poster, menu, announcement or other presentable still | Generate the whole page with all exact copy in the prompt; inspect before publishing. | [Media](references/media.md) |
 | Editable title/body/table slides or a measured grid | Local, unbilled `compose render`. | [Compose](references/compose.md) |
 | Playing video, an iframe or an application | Place the live object directly on the playlist. | [Playlists](references/playlists.md), [applications](references/applications.md) |
+| Background music or a jingle across pages | Upload the audio, then add it to the playlist soundtrack. | [Playlists](references/playlists.md#soundtrack) |
 
 Generation lays out the artwork and type together. Do not generate a background
 and then compose text over it for a finished poster. Animation alone does not
@@ -215,6 +216,9 @@ Image and video use media selectors; stream, iframe, and application do not.
 Streams require an uploaded image fallback and a duration-based page. Apple TV
 cannot display iframe or application content. Text and
 shapes belong in prepared content, not additional native playlist primitives.
+Audio is not a primitive: a playlist-level soundtrack of uploaded MP3 tracks
+plays continuously while pages change, and pages may carry an `audio_cue` hint.
+Canvas video stays muted, so the soundtrack is the only sound on the screen.
 
 1. Prepare and inspect the content at the intended size. Generation stores its
    returned media ID directly; do not upload it again.

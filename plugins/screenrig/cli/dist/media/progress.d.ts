@@ -1,5 +1,5 @@
 import type { Writable } from "node:stream";
-export type ProgressStage = "video" | "image";
+export type ProgressStage = "video" | "image" | "audio";
 export interface ProgressStart {
     stage: ProgressStage;
     /** Short description of the target, for example "H.265 MP4". */

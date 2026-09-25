@@ -30,14 +30,14 @@ export interface TranscodeOptions {
  */
 export declare const DEFAULT_CODEC: TranscodeCodec;
 export declare function defaultTranscodeOptions(): TranscodeOptions;
-export type SourceKind = "video" | "image";
+export type SourceKind = "video" | "image" | "audio";
 export declare function classifySource(filePath: string, explicitContentType?: string): SourceKind;
 export interface TranscodeResult {
     /** Absolute path to the bytes that should be uploaded. */
     filePath: string;
     /** Upload filename, which keeps the source stem and takes the target extension. */
     filename: string;
-    contentType: "video/mp4" | "image/webp";
+    contentType: "video/mp4" | "image/webp" | "audio/mpeg";
     /** True when the source already met the target and was passed through unchanged. */
     passthrough: boolean;
     reason: string;
@@ -87,6 +87,17 @@ export interface TranscodeRequest {
     reporter?: ProgressReporter;
 }
 export declare function transcodeForUpload(request: TranscodeRequest): Promise<TranscodeResult>;
+/**
+ * Soundtrack delivery is MP3 (docs/playlist-audio.md): every Player decodes it
+ * natively. An MP3 source is uploaded unchanged; anything else is re-encoded
+ * with LAME at a constant 192 kb/s, at most two channels, keeping a 48 kHz
+ * source at 48 kHz and resampling everything else to 44.1 kHz. Cover art and
+ * tags are dropped.
+ */
+export declare const AUDIO_BITRATE = "192k";
+export declare const MIN_AUDIO_SECONDS = 1;
+export declare const MAX_AUDIO_SECONDS: number;
+export declare function planAudioArgs(probe: MediaProbe, filePath: string, outputPath: string): string[];
 /** Fit within a maxEdge x maxEdge box, preserving aspect and never upscaling. */
 export declare function boundedSize(width: number, height: number, maxEdge: number): {
     width: number;

@@ -95,6 +95,7 @@ const TEMPLATED_PAGE_KEYS = new Set([
     "transition",
     "advance",
     "visibility",
+    "audio_cue",
 ]);
 const COLOR = /^#[0-9A-Fa-f]{8}$/;
 const BAR = {
@@ -594,6 +595,9 @@ function expandTemplatedPage(page, index) {
     };
     if ("visibility" in page) {
         expanded.visibility = page.visibility;
+    }
+    if ("audio_cue" in page) {
+        expanded.audio_cue = page.audio_cue;
     }
     return expanded;
 }

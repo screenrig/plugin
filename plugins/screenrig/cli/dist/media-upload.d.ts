@@ -3,7 +3,7 @@ import type { ApiClient } from "./client.js";
 import type { ProgressReporter } from "./media/progress.js";
 import { type TranscodeOptions, type TranscodeResult } from "./media/transcode.js";
 import { type CliRuntime, type SignedRawPut } from "./runtime.js";
-export declare const SUPPORTED_MEDIA_CONTENT_TYPES: readonly ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm"];
+export declare const SUPPORTED_MEDIA_CONTENT_TYPES: readonly ["image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "video/webm", "audio/mpeg"];
 export type SupportedMediaContentType = (typeof SUPPORTED_MEDIA_CONTENT_TYPES)[number];
 export interface PreparedMediaUpload {
     bytes: Buffer;
