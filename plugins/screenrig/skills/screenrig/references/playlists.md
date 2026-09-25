@@ -558,5 +558,6 @@ entrance motion is supported, and continuous motion is limited to path.
 Apple TV supports image, video, and HLS stream, but rejects playlists containing
 iframe or application. The Linux Player supports web content, HLS, and optional
 UDP/MPEG-TS multicast. HLS is also supported on Web, Android, macOS, and Windows.
-Native Players are coming soon. See https://screenrig.ai/docs/players.md for the
-platform matrix and availability.
+Every Player download is at https://screenrig.ai/downloads/ (Android on Google
+Play: https://play.google.com/store/apps/details?id=ai.screenrig.player). See https://screenrig.ai/docs/players.md for the
+platform matrix.

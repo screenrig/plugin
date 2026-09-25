@@ -7,7 +7,11 @@ description: Operate screenRIG screens and advertising with the bundled CLI. Use
 
 Use the official plugin's bundled CLI to enroll a project, prepare and publish
 signage content to the intended Player, and buy or sell advertising where the
-project is permitted to. The customer Player is the PWA described in
+project is permitted to. The customer installs a Player on the screen device
+from [Downloads](https://screenrig.ai/downloads/) (Android:
+[Google Play](https://play.google.com/store/apps/details?id=ai.screenrig.player); Linux and Raspberry Pi:
+`curl -fsSL https://screenrig.ai/linux/install.sh | sh`; any browser:
+https://play.screenrig.ai). Setup detail is in
 [Player setup](https://screenrig.ai/docs/players.md).
 
 Resolve the project's capabilities and the requested intent before any operation;
@@ -145,6 +149,8 @@ is known. Details are in [commands](references/commands.md#invite-people-and-ad-
 ### Signage branch: resolve the target screen
 
 After enroll, the Player pairing code is the only glass-side human step. If the
+user has no Player yet, send them to https://screenrig.ai/downloads/ for their
+device (Android TVs and boxes: https://play.google.com/store/apps/details?id=ai.screenrig.player). If the
 Player shows a setup code, use `screen pair CODE` with that code. Then list screens
 and resolve the intended target before a write. A missing screen is not a reason
 to assign to another screen or invent an identifier. This branch applies only when

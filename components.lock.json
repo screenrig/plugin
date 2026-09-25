@@ -5,8 +5,8 @@
     "repository": "screenrig/cli",
     "commit": "cc7e74db05878d978b658dc1dbf069fe9d519e69",
     "artifact": {
-      "file": "screenrig-cli.tgz",
-      "sha256": "9a06096192ebbc377094e8dcfe61971c0c5246b0f568f5e1ab3d5f9a33fdeebd"
+      "file": "cli-dl.tgz",
+      "sha256": "bf192b47b8adb12b95dc756af127e6f46a1b0e48a6914117f7f8cd9a5c84928c"
     }
   }
 }
