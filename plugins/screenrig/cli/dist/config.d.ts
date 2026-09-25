@@ -65,6 +65,7 @@ export interface ScreenRigConfig {
         idempotency_key: string;
         created_at: string;
         command?: string;
+        supersede?: string;
     }>;
     updated_at?: string;
 }

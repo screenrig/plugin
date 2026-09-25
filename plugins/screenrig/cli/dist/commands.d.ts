@@ -152,6 +152,21 @@ export declare const handleScreenDelete: CommandHandler;
 export declare const handleScreenRotatePublicId: CommandHandler;
 export declare const handleScreenRecover: CommandHandler;
 export declare const handleScreenReload: CommandHandler;
+/**
+ * `screen tag`: exactly one of --set, --add, --remove, --clear.
+ *
+ * One screen id uses PATCH /api/v1/screens/{id} with the whole tag set, the
+ * same revision semantics as every other single-screen write. --set and
+ * --clear send the set directly (If-Match only with --expect-rev). --add and
+ * --remove read the screen, compute the new set, and PATCH it guarded by
+ * --expect-rev or, when omitted, by the revision just read, so a concurrent
+ * change fails with revision_conflict instead of being overwritten.
+ *
+ * Several ids or --tag use the fleet actions route (set_tags, add_tags,
+ * remove_tags), which applies add/remove against each stored set atomically
+ * and takes no revision guard.
+ */
+export declare const handleScreenTag: CommandHandler;
 export declare const handleScreenToast: CommandHandler;
 export declare const handleScreenScreenshot: CommandHandler;
 export declare const handleKvList: CommandHandler;

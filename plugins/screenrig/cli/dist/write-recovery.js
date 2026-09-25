@@ -6,7 +6,7 @@ import { configError, usageError } from "./problems.js";
 // replaying a mutation after the server may have forgotten its key.
 const SAFE_REPLAY_MS = 23 * 60 * 60 * 1000;
 const commandGroups = ["kv", "comment", "feedback", "operations", "app", "playlist", "media", "screen", "project", "invitations", "dashboard"];
-const commandActions = ["create", "update", "delete", "upload", "set", "put", "assign", "pair", "unpair", "clear", "toast", "screenshot", "reload", "restart", "cancel", "submit", "set-timezone", "archive", "unarchive", "rotate-public-id", "bug", "feature", "rename", "revoke", "reset-sign-in"];
+const commandActions = ["create", "update", "delete", "upload", "set", "put", "assign", "pair", "unpair", "clear", "toast", "screenshot", "reload", "restart", "cancel", "submit", "set-timezone", "archive", "unarchive", "rotate-public-id", "tag", "bug", "feature", "rename", "revoke", "reset-sign-in"];
 function safeCommand(value) {
     if (typeof value !== "string")
         return null;
@@ -48,7 +48,16 @@ export class WriteRecovery {
             return result;
         });
     }
-    async prepare(request, requestedKey) {
+    /**
+     * `supersede` names a write whose request is derived from a fresh read (for
+     * example a tag edit guarded by the revision just read). Its fingerprint
+     * includes that derived guard, so a rerun after an ambiguous failure reads a
+     * new revision and fingerprints differently. The earlier entry is then
+     * obsolete: its guard names a revision that is no longer current, so its
+     * replay could only fail. Entries sharing the same `supersede` hash with a
+     * different fingerprint are dropped instead of lingering as orphans.
+     */
+    async prepare(request, requestedKey, supersede) {
         const headers = Object.entries(request.headers ?? {})
             .filter(([name]) => !["x-request-id", "idempotency-key"].includes(name.toLowerCase()))
             .map(([name, value]) => [name.toLowerCase(), value]).sort(([a], [b]) => a.localeCompare(b));
@@ -61,7 +70,15 @@ export class WriteRecovery {
         if (body !== undefined)
             hash.update(body);
         const fingerprint = hash.digest("hex");
+        const scope = supersede === undefined ? undefined : createHash("sha256")
+            .update(JSON.stringify([this.resolved.apiUrl, this.resolved.token, "supersede", supersede])).digest("hex");
         const pending = await this.update((_config, entries) => {
+            if (scope) {
+                for (const [other, entry] of Object.entries(entries)) {
+                    if (other !== fingerprint && entry.supersede === scope)
+                        delete entries[other];
+                }
+            }
             const existing = entries[fingerprint];
             const reuse = existing && (!requestedKey || requestedKey === existing.idempotency_key);
             if (reuse && this.runtime.now().getTime() - Date.parse(existing.created_at) >= SAFE_REPLAY_MS) {
@@ -72,7 +89,8 @@ export class WriteRecovery {
             }
             const key = reuse ? existing.idempotency_key : requestedKey ?? newIdempotencyKey();
             entries[fingerprint] = reuse ? existing : { idempotency_key: key, created_at: this.runtime.now().toISOString(),
-                ...(safeCommand(this.command) ? { command: safeCommand(this.command) } : {}) };
+                ...(safeCommand(this.command) ? { command: safeCommand(this.command) } : {}),
+                ...(scope ? { supersede: scope } : {}) };
             return { fingerprint, key };
         });
         this.touched.set(fingerprint, pending);

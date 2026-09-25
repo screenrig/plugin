@@ -1,5 +1,6 @@
 import { quotedRevision } from "../if-match.js";
 import { usageError } from "../problems.js";
+import { screenTag, screenTagList } from "../screen-fleet.js";
 export function nonnegativeInteger(name) {
     return (value) => {
         const number = Number(value);
@@ -39,5 +40,15 @@ export function toastDuration(value) {
 export function revision(value) {
     quotedRevision(value);
     return value;
+}
+export function screenTagOption(value) {
+    return screenTag(value);
+}
+/** Validate a comma-separated tag list; the handler re-parses the same string. */
+export function screenTagListOption(flag) {
+    return (value) => {
+        screenTagList(value, flag);
+        return value;
+    };
 }
 //# sourceMappingURL=options.js.map

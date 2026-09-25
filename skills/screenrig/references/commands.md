@@ -160,27 +160,35 @@ playlist templates
 playlist validate <file>
 playlist create <file>
 playlist update <id> <file> [--expect-rev REVISION]
-playlist export <id> --output DIRECTORY
+playlist export <id> --output DIRECTORY [--skip-applications]
 playlist import <directory> [--name NAME] [--update ID [--expect-rev REVISION]]
 playlist show <id> [--output FILE | --editable] [--overwrite]
 playlist list
 playlist delete <id> [--expect-rev REVISION]
 screen pair <code> [--name NAME]
-screen provision [--open] [--name NAME]
+screen provision [--open | --print-url] [--name NAME]
+browser setup --code CODE [--open]
 screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE] [--expect-rev REVISION]
-screen list [--state archived]
+screen list [--state archived] [--tag TAG]
 screen show <id>
+screen storage-forecast <id> --playlist-id ID [--playlist-rev REVISION]
 screen publish <id> <file> [--expect-rev REVISION]
 screen assign <id> --playlist-id ID [--expect-rev REVISION]
+screen assign (<id> <id>... | --tag TAG) --playlist-id ID
+screen tag <id> (--set TAGS | --add TAGS | --remove TAGS | --clear) [--expect-rev REVISION]
+screen tag (<id> <id>... | --tag TAG) (--set TAGS | --add TAGS | --remove TAGS | --clear)
 screen set-timezone <id> --timezone ZONE [--expect-rev REVISION]
 screen archive <id> [--expect-rev REVISION]
 screen unarchive <id> [--expect-rev REVISION]
 screen recover <id> [--expect-rev REVISION]
 screen reload <id> [--expect-rev REVISION]
+screen reload (<id> <id>... | --tag TAG)
 screen delete <id> [--expect-rev REVISION]
 screen rotate-public-id <id> [--expect-rev REVISION]
-screen toast <id> --text TEXT [--level info] [--duration-ms MS]
+screen toast (<id>... | --tag TAG) --text TEXT [--level info|alert|error] [--duration-ms MS]
 screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
+screen screenshot (<id> <id>... | --tag TAG) [--output DIRECTORY] [--concurrency 1-8]
+                  [--timeout MS] [--poll-ms MS]
 kv get --app-id ID <key>
 kv set --app-id ID <key> --json-value JSON [--expect-rev REVISION]
 kv set --app-id ID <key> --file FILE [--content-type TYPE] [--expect-rev REVISION]
@@ -205,6 +213,9 @@ feedback feature <title> (--body TEXT | --body-file FILE)
                      [--command "GROUP ACTION"] [--no-context]
 feedback list [--kind bug|feature]
 doctor [--repair-config]
+recovery list
+recovery show <id>
+recovery reconcile <id>
 ads networks list
 ads networks show <seller-project-id>
 ads network show
@@ -262,3 +273,54 @@ retry with the returned revision. On an ambiguous transport failure, reuse the
 same idempotency key.
 
 `--if-match` remains an alias for `--expect-rev`; do not supply both.
+
+### Fleet targeting
+
+`screen assign`, `screen reload`, `screen toast`, and `screen tag` take several
+screen ids or `--tag TAG`, never both, as one metered request for up to 500
+screens. `--tag` selects active screens only. One screen id keeps the
+single-screen route and envelope; `--expect-rev` applies only there. The fleet
+envelope stays `ok: true` with `data.action`, `matched`, `succeeded`, `failed`,
+and `results[]`; the exit code is the first failed screen's, with warning
+`fleet_partial_failure`, and no match is exit 0 with `fleet_no_match`. Every
+fleet request carries an automatic Idempotency-Key: after an interrupted
+request (timeout or ambiguous transport failure), the identical rerun replays
+finished screens. After a definite partial failure, retry only the failed ids.
+Fleet `reload` and `toast` share a per-project budget of 600 screens per
+minute: a larger request is refused whole with 429 `rate_limited` and
+`Retry-After` before any screen is touched. Per-screen limits (reload 6 per
+minute, toast 20 per minute) still apply, so single ids can fail with
+`rate_limited`; retry them later. `screen screenshot` with
+several ids or `--tag` writes `<screen_id>.webp` per screen into the
+`--output` directory and refuses `--idempotency-key`. `--tag` matches at most
+500 active screens with one billed list request; the captures are free.
+Several ids must all be `scr_…` screen ids. An unexpected local failure
+reports `unexpected_error` for that screen, starts no new captures, marks the
+unstarted screens `not_attempted`, and exits 1. `screen publish` stays single-screen. See
+[fleets](operations.md#fleets-tags-and-fleet-actions).
+
+### Storage dry run
+
+`screen storage-forecast <id> --playlist-id ID` answers whether a playlist fits
+that screen's last reported storage before assignment. It writes nothing.
+`fit` is `unknown` when the screen never reported storage or the playlist's
+content is not ready. `--playlist-rev` refuses a playlist that changed since
+you read it with `revision_conflict`. See
+[Player storage](operations.md#player-storage).
+
+### Browser setup
+
+`browser setup --code CODE` claims a browser Player setup code for this
+project and returns `player_public_url`, the fragment-free Player address for
+the new screen; `--open` opens it. `screen provision --open` starts the same
+handoff from the CLI side, and `--print-url` returns its handoff URL instead.
+Treat a handoff URL as a credential: deliver it only to the intended display.
+
+### Local write recovery
+
+An ambiguous write keeps its idempotency key in the private config so the same
+rerun replays instead of writing twice. `recovery list` and `recovery show ID`
+read that local state without network requests: opaque recovery IDs,
+timestamps, replay status and command names, never request contents or keys.
+After checking the remote outcome, `recovery reconcile ID` removes that entry's
+local retry protection. It does not retry, cancel, or undo the remote write.

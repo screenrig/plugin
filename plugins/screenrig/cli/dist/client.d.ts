@@ -29,6 +29,7 @@ export declare class ApiClient {
         headers?: Record<string, string>;
         idempotent?: boolean;
         idempotencyKey?: string;
+        recoverySupersede?: string;
     }): Promise<TransportResponse>;
     download(req: Omit<TransportRequest, "headers"> & {
         headers?: Record<string, string>;

@@ -55,6 +55,10 @@ existing playlist by name. Display names may repeat; use the playlist ID for an 
 `playback_verified`. Assignment verification does not prove playback; request and
 inspect a screenshot and relevant playback evidence separately.
 
+`screen publish` targets one screen. For a fleet, run `playlist create FILE`
+once, then `screen assign --tag TAG --playlist-id ID` (or several screen ids);
+see [fleets](operations.md#fleets-tags-and-fleet-actions).
+
 Publishing saves a private local journal automatically. After an ambiguous failure,
 repeat the identical command and input with the same config to resume. If playlist
 creation succeeded before assignment failed, the error identifies the created

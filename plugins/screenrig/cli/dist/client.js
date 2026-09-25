@@ -44,12 +44,12 @@ export class ApiClient {
         return headers;
     }
     async call(req) {
-        const { idempotent, idempotencyKey, ...transportRequest } = req;
+        const { idempotent, idempotencyKey, recoverySupersede, ...transportRequest } = req;
         if (idempotencyKey !== undefined && !isValidIdempotencyKey(idempotencyKey)) {
             throw usageError("Invalid per-request idempotency key.");
         }
         const recovery = idempotent === true && idempotencyKey === undefined ? this.writeRecovery : undefined;
-        const pending = await recovery?.prepare(transportRequest, this.requestedKey);
+        const pending = await recovery?.prepare(transportRequest, this.requestedKey, recoverySupersede);
         const headers = this.headers(idempotent === true, req.headers, pending?.key ?? idempotencyKey);
         const extraType = req.headers?.["content-type"];
         const summary = requestSummary(req.body, extraType);

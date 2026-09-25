@@ -215,10 +215,12 @@ H.265 (HEVC). Use it only when every target screen has confirmed HEVC playback;
 being a native Player is not sufficient. Each media object has one rendition,
 with no automatic H.264 fallback. Keep H.264 for mixed or unverified fleets.
 
-The Qt CI artifact is x86_64 Linux. There is no ARM/Pi artifact and no
-hardware-validated Pi decode path. Do not treat Raspberry Pi as a supported
-fleet. Prefer H.264 unless the operator has confirmed HEVC on a named device.
-Qt selects an available decoder from the uploaded file; it does not transcode
+The Linux Player ships for `x86_64` and `aarch64` (64-bit Raspberry Pi OS
+trixie or another distribution with glibc 2.41 or newer) from
+https://screenrig.ai/linux/. Raspberry Pi 5 decodes HEVC in hardware up to 4K,
+so a Pi 5 fleet takes 4K video uploaded with `--codec hevc`; H.264 suits 1080p,
+and Raspberry Pi 4 plays 1080p. Mixing Pi 5 screens with other Players keeps
+H.264 unless every target confirms HEVC. Qt selects an available decoder from the uploaded file; it does not transcode
 H.264 to HEVC, and automatic decoder selection does not establish hardware
 acceleration.
 

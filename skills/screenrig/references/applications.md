@@ -115,7 +115,9 @@ the bridge handshake; it does not prove the candidate page is active. Use
 `await window.screenrig.waitUntilActive()` before starting a visitor idle clock
 or sending active-page events. Use `await window.screenrig.emitConfirmed(code)`
 when the UI promises that an event was accepted, and handle its rejection;
-plain `emit(code)` is a send attempt. Choose a shorter duration only for a
+plain `emit(code)` is a send attempt. The receipt resolves only after the
+backend accepted the event; do not retry automatically after a timeout, since
+the event may already be recorded. Choose a shorter duration only for a
 preview that is supposed to rotate regardless of input.
 
 `controller` is legal only on an `application` primitive whose page uses
@@ -151,7 +153,20 @@ blocks on a WebP. Do not print pixels.
 
 ## Application K/V
 
-Application K/V is binary-safe. Use exactly one value mode.
+Application K/V is binary-safe. The agent writes it with `kv` commands, and a
+running application reads and writes the same store through
+`window.screenrig.kv.get`, `list`, `set`, and `delete`. Reads need
+`capabilities["kv.read"]` and writes need `capabilities["kv.write"]`; check
+the flag before calling.
+
+### Where the SDK runs
+
+The web Player, the Android Player, and the macOS Player host the SDK in full:
+`ready`, `waitUntilActive`, `nextPage`, `emit`, `emitConfirmed` receipts, and
+`screenrig.kv`. Apple TV has no web primitives, so it shows no application or
+iframe content; target it with image, video, and stream pages.
+
+Use exactly one value mode.
 
 ```bash
 screenrig kv set --app-id app_EXAMPLE lobby --json-value '{"open":true}'

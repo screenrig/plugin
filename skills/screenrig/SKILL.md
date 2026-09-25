@@ -161,6 +161,11 @@ screenrig screen list
 screenrig screen show SCREEN_ID
 ```
 
+Tag each new screen right after pairing, while the human at the display can
+confirm its location and role, for example
+`screen tag SCREEN_ID --set Lobby,Floor2,Menu`. Tags are 1 to 32 letters or
+digits, up to 16 per screen, and select fleets; they are never authorization.
+
 `screen show` reports the display's host details when the Player supplied them
 (platform, model, firmware, identifiers). If a screen shows a pending recovery,
 a display reporting that screen's identifiers has lost its stored identity and
@@ -209,11 +214,12 @@ require composition. Supplied finished assets do not need generation.
 For visual direction and review, read [visual design](references/composition.md).
 Keep a campaign consistent and use real supplied facts; label fictional demo facts.
 
-The Qt CI artifact is x86_64 Linux. There is no ARM/Pi artifact and no
-hardware-validated Pi decode path. Do not treat Raspberry Pi as a supported
-fleet. Prefer H.264 unless the operator has confirmed HEVC on a named device.
-See [video codec selection](references/media.md) before uploading; a native
-Player alone does not guarantee HEVC support.
+The Linux Player ships for `x86_64` and `aarch64` from
+https://screenrig.ai/linux/, including 64-bit Raspberry Pi OS (trixie).
+Raspberry Pi 5 decodes HEVC in hardware up to 4K, so upload 4K video for a Pi 5
+fleet with `--codec hevc`; H.264 suits 1080p, and Raspberry Pi 4 plays 1080p.
+Keep the H.264 default for mixed or unverified fleets: each upload has one
+rendition. See [video codec selection](references/media.md) before uploading.
 
 ## Signage branch: publish and verify
 The five primitives are `image`, `video`, `stream`, `iframe`, and `application`.
@@ -243,9 +249,11 @@ Canvas video stays muted, so the soundtrack is the only sound on the screen.
    readback alone does not prove physical display. Report the observed evidence.
 
 Native Players cache playlist media within their reported storage. Before
-publishing or assigning a large playlist, read each target's
-`storage_forecast` from `screen show` (`fit`, `excluded_page_count`), and read
-it again right after assignment, when it reflects the new content. Absent means
+assigning a large playlist, dry-run it with
+`screen storage-forecast SCREEN_ID --playlist-id ID`; it writes nothing and
+answers `fit` and `excluded_page_count` (`unknown` when the screen never
+reported storage). Read `storage_forecast` from `screen show` again right after
+assignment, when it reflects the new content. Absent means
 the Player has not reported, so the fit is unknown. After publishing, watch
 `screen.storage_shortfall` events or `storage_shortfall` (`fit` `partial`,
 `transition_blocked` or `none_fit`). A `partial` fit shows a deterministic
@@ -257,6 +265,28 @@ Delivery is billed per download, so avoid republishing churn. See
 `screen reload SCREEN_ID` asks a screen's Player to reload once, for example
 when it looks stale. Acceptance does not prove the reload; verify it with a
 screenshot or events.
+
+### Fleets
+
+`screen assign`, `reload`, `toast`, and `tag` take several ids or `--tag TAG`
+(active screens only) as one metered request. `screen publish` is
+single-screen: for a fleet, `playlist create FILE` once, then
+`screen assign --tag TAG --playlist-id ID`. The answer stays `ok: true`; read
+`data.results[]`, where each screen is `ok` or `failed` with its own problem.
+Warning `fleet_partial_failure` sets the exit code to the first failed
+screen's; `fleet_no_match` is exit 0 with nothing changed. After an
+interrupted request (timeout or ambiguous transport failure), rerun the
+identical command: finished screens replay. After a definite partial failure,
+fix the cause and retry only the failed ids. Fleet `reload` and `toast` share
+a 600 screens/minute project budget; a larger request is refused whole with
+429 `rate_limited` and `Retry-After` before any screen changes. Per-screen
+limits (reload 6/min, toast 20/min) return per-screen `rate_limited`; retry
+those ids later.
+Verify with `screen screenshot --tag TAG --output DIR`, one
+`<screen_id>.webp` per screen (`--tag` matches at most 500 active screens
+with one billed list request; captures are free). A `screen.offline` event in `events list` or
+`events follow` (written after 60 s offline) with no later `screen.online`
+marks a dead screen. Details are in [fleets](references/operations.md#fleets-tags-and-fleet-actions).
 
 For screen controls, reload, screenshots, comments, events and feedback, use
 [operations](references/operations.md). For app uploads, page completion and K/V,

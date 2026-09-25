@@ -13,6 +13,9 @@ screenrig screen unarchive scr_EXAMPLE
 screenrig screen reload scr_EXAMPLE
 screenrig screen toast scr_EXAMPLE --text "Updated lobby loop" --level info
 screenrig screen screenshot scr_EXAMPLE --output ./lobby.webp
+screenrig screen tag scr_EXAMPLE --set Lobby,Floor2
+screenrig screen list --tag Lobby
+screenrig screen storage-forecast scr_EXAMPLE --playlist-id pl_EXAMPLE
 ```
 
 `screen list` omits archived screens. `screen list --state archived` lists
@@ -21,7 +24,7 @@ archived screens only. `screen show <id>` still returns an archived row.
 
 `screen show <id>` prints the GET screen JSON. After a player reports a
 playback surface, the body may include optional `observation`: `observed_at`
-and `surfaces`. The same GET always includes `online`. Optional
+and `surfaces`. The same GET always includes `online` and `tags`. Optional
 `last_online_at` and `last_ip` appear after the first connect. They are
 read-only.
 
@@ -77,8 +80,20 @@ the new anchor page cannot be downloaded beside it. `none_fit` means even the
 anchor page does not fit. iframe, browser application and adslot pages use no
 Player storage.
 
-Before assigning a large playlist, read each target's `storage` and
-`storage_forecast`; right after assignment, read the forecast again, since it
+Before assigning a large playlist, dry-run it against each target:
+
+```bash
+screenrig screen storage-forecast scr_EXAMPLE --playlist-id pl_EXAMPLE [--playlist-rev 7]
+```
+
+It answers `fit`, `excluded_page_count`, and bytes required versus capacity
+from the screen's last reported storage, with the same target selection as
+`storage_forecast` in `screen show`, and writes nothing: no assignment, no
+screen revision, no event. `fit` is `unknown` when the screen never reported
+storage or the playlist's content is not ready; the byte counts are then
+null. A report older than 24 hours is marked stale and still forecast from.
+`--playlist-rev` refuses a playlist that changed since you read it with
+`revision_conflict`. Right after assignment, read the forecast again, since it
 then reflects the new content before the Player finishes downloading. After
 publishing, watch for `screen.storage_shortfall` events or `storage_shortfall`.
 For `partial`, `transition_blocked` or `none_fit`, make the content smaller:
@@ -141,6 +156,155 @@ revision; `--expect-rev` is optional. A screen still waiting to pair answers
 says so; nothing was sent. Acceptance does not prove the reload happened;
 check with `screen screenshot` or events.
 
+## Fleets: tags and fleet actions
+
+Tags name screens by location and role so one command reaches the right set.
+A screen carries 0 to 16 unique tags, each 1 to 32 letters or digits (no
+spaces, hyphens or underscores). Tags select fleets; they are never
+authorization and never reach the Player. Changing tags bumps the screen
+revision, not the manifest revision.
+
+### Tag at pairing time
+
+Tag each screen right after `screen pair` or `browser setup`, while the human
+standing at the display can confirm where it is and what it does. Agree the
+vocabulary with the user once, for example a location tag (`Lobby`,
+`Floor2`, `StoreBerlin`) plus a role tag (`Menu`, `Wayfinding`, `Queue`):
+
+```bash
+screenrig screen pair 234567 --name "Lobby left"
+screenrig screen tag scr_LOBBYLEFT --set Lobby,Floor2,Wayfinding
+screenrig screen list --tag Lobby
+```
+
+With one screen id, `--set` and `--clear` replace the whole set (guarded only
+by `--expect-rev`). `--add` and `--remove` read the screen and write the new
+set guarded by the revision just read, so a concurrent change fails with
+`revision_conflict` (exit 6); rerun. `screen list --tag TAG` lists only
+screens carrying that exact tag and adds a `TAGS` column.
+
+### Target a fleet
+
+`screen assign`, `screen reload`, `screen toast`, and `screen tag` take
+several screen ids or `--tag TAG` (not both). Either form is one
+`POST /api/v1/screens/actions` request: one metered request for up to 500
+screens. `--tag` selects active screens only; archived screens are skipped.
+`--expect-rev` is refused, because revision guards are per screen.
+
+```bash
+screenrig screen assign --tag Lobby --playlist-id pl_EXAMPLE
+screenrig screen reload scr_LOBBYLEFT scr_LOBBYRIGHT
+screenrig screen toast --tag Lobby --text "Closing in ten minutes"
+screenrig screen tag --tag Lobby --add Spring
+```
+
+`screen publish` is single-screen. To publish to a fleet, run
+`playlist create FILE` once, then `screen assign --tag TAG --playlist-id ID`.
+Each screen applies its own schedule timezone rule and fails on its own.
+Before a large fleet assignment, dry-run `screen storage-forecast` on a
+representative screen of each hardware type.
+
+### Read the results and retry only failed screens
+
+A fleet answer stays `ok: true`; partial success is a normal answer:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "action": "reload",
+    "matched": 3, "succeeded": 2, "failed": 1,
+    "results": [
+      { "screen_id": "scr_LOBBYLEFT", "status": "ok", "reload": { "reload_id": "…", "expires_at": "…" } },
+      { "screen_id": "scr_GONE", "status": "failed", "problem": { "code": "not_found", "status": 404 } },
+      { "screen_id": "scr_LOBBYRIGHT", "status": "ok", "reload": { "reload_id": "…", "expires_at": "…" } }
+    ]
+  },
+  "warnings": [{ "code": "fleet_partial_failure", "message": "…" }]
+}
+```
+
+An `ok` result carries that screen's single-screen result: `revision` for
+`assign`, `revision` and `tags` for tag actions, `reload` for reload, `toast`
+for toast. A `failed` result carries the problem that screen's own request
+would have returned.
+
+- Exit 0 means every matched screen succeeded.
+- After a partial failure the exit code is the first failed screen's problem
+  (for example 4 for `not_found`, 6 for `revision_conflict`), with warning
+  `fleet_partial_failure`. Branch on `data.results[]`, not the exit code alone.
+- No match is exit 0 with warning `fleet_no_match`. Check the tag spelling
+  with `screen list --tag TAG` before assuming the fleet is empty.
+- A malformed selector or action fails the whole request before any screen
+  changes.
+- Fleet `reload` and `toast` share a per-project budget of 600 screens per
+  minute. A request over it is refused whole with 429 `rate_limited` and
+  `Retry-After` before any screen is touched; wait, then rerun or split it.
+- Per-screen limits still apply inside fleet actions: reload 6 per minute and
+  toast 20 per minute per screen. Those screens fail individually with
+  `rate_limited`; retry only those ids later, honoring any retry delay.
+
+Every fleet request carries an Idempotency-Key automatically. After an
+interrupted request (timeout or ambiguous transport failure), rerun the
+identical command (or pass the same `--idempotency-key`): finished screens
+replay without repeating side effects. Replay is only for interrupted
+requests.
+To retry after a definite partial failure, fix each failed screen's cause
+first, then rerun with only the failed ids from `data.results[]`, not the
+whole tag, so succeeded screens are not touched again:
+
+```bash
+screenrig screen assign scr_GONE2 scr_GONE3 --playlist-id pl_EXAMPLE
+```
+
+Do not retry `not_found`, permission, or payment problems unchanged; report them.
+
+### Verify a fleet
+
+Acceptance does not prove display. Capture every screen in the fleet:
+
+```bash
+screenrig screen screenshot --tag Lobby --output ./lobby-shots --concurrency 4
+```
+
+Several ids or `--tag` fan out on the client. `--tag` makes one billed
+`screen list --tag` request to resolve the fleet and matches at most 500
+active screens; the captures themselves are free. Several ids must all be
+`scr_…` screen ids.
+`--output` is a directory (default the current directory, created if
+missing) and each capture writes `<screen_id>.webp`. `--concurrency` is 1 to
+8, default 4. The envelope has `action: "screenshot"`, `selector`, `output`,
+`matched`, `succeeded`, `failed`, and `results[]`; each `ok` result carries
+`path`, `bytes`, `sha256`, `width`, and `height`. Exit code and warnings follow
+the fleet rule. `--idempotency-key` is refused in this form. An unexpected
+local failure reports `unexpected_error` for that screen and starts no new
+captures; screens not yet started report `not_attempted`, and the exit code is
+1. Rerun for those screens. Inspect each
+image, then re-capture only the screens that failed or look wrong.
+
+### Detect dead screens
+
+`screen.offline` (warning) is written once a screen's presence lease has been
+expired for 60 seconds. `screen.online` (info) is written when a screen
+connects from offline or unknown presence. `screen.offline` carries
+`details.offline_since` and, when the screen was ever online,
+`details.last_online_at`. `screen.online` carries `details.last_online_at`,
+and `details.offline_at` only when its prior state was offline. A brief reconnect
+inside the 60-second grace writes neither, so each event is a real
+transition. Both are project events in `events list` and `events follow`, and
+unbilled on the listen stream.
+
+```bash
+screenrig events follow --timeout 600000
+```
+
+A `screen.offline` without a later `screen.online` for the same screen (match
+on the event's `resource.id`) is a dead screen. Page through `events list --after CURSOR` to
+find the latest presence event for each screen. Confirm with `screen show <id>` (`online`, `last_online_at`),
+then ask the human to check power and network at that display. Do not
+reassign content to work around an offline screen; it plays its assignment
+when it returns.
+
 ## Comments
 
 Comments are the agent's own structured JSON object on a screen, a playlist,
@@ -167,7 +331,8 @@ NDJSON: one JSON envelope per line. An empty follow emits an envelope with
 logfmt line per event for manual inspection. `--json` remains compatible.
 
 An `application.event` line leads its details with `code` and `primitive_id`,
-the id of the primitive that emitted it.
+the id of the primitive that emitted it. `screen.online` and `screen.offline`
+report presence transitions; see [dead screens](#detect-dead-screens).
 
 `events list` returns one page of `items`, oldest first, plus `next_cursor`.
 While newer events already exist, `next_cursor` is the cursor of the last
