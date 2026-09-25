@@ -288,6 +288,22 @@ with one billed list request; captures are free). A `screen.offline` event in `e
 `events follow` (written after 60 s offline) with no later `screen.online`
 marks a dead screen. Details are in [fleets](references/operations.md#fleets-tags-and-fleet-actions).
 
+### Webhooks
+
+To wake an agent, bot or automation on project events (a kiosk check-in via
+`application.event`, `screen.offline`, `playback.page_failed`,
+`webhook.disabled`), create a webhook:
+`screenrig webhooks create --url HTTPS_URL --event-types TYPES`, with exact types
+or `prefix.*`, filtered narrowly. Targets are public HTTPS on port 443 or 8443.
+`data.secret` is shown once: put it straight into the receiver's secret store,
+never into the conversation or a repository file. Receivers verify
+`ScreenRig-Signature`, reject a stale `t`, deduplicate on
+`ScreenRig-Event-Id`, and answer 2xx fast; delivery is at least once,
+unordered, retried for 24 hours, and disabled after 72 hours of failure.
+Confirm with `webhooks test` and `webhooks deliveries`. Receiver code, secret
+rotation, billing and a scheduled-agent recipe are in
+[webhooks](references/webhooks.md).
+
 For screen controls, reload, screenshots, comments, events and feedback, use
 [operations](references/operations.md). For app uploads, page completion and K/V,
 use [applications](references/applications.md). The [command inventory](references/commands.md)

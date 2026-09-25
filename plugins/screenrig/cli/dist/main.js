@@ -23,6 +23,26 @@ function applyLogSinkToSuccess(result, dropped) {
     const human = !result.human || !line || result.human.includes(line) ? result.human : `${result.human}\n${line}`;
     return { ...result, envelope: { ...result.envelope, warnings }, human };
 }
+/** Resolve only once the stream has accepted and flushed this write; reject on any stream error. */
+function confirmedWrite(stream, text) {
+    return new Promise((resolve, reject) => {
+        const onError = (error) => reject(error);
+        stream.once("error", onError);
+        try {
+            stream.write(text, (error) => {
+                stream.removeListener("error", onError);
+                if (error)
+                    reject(error);
+                else
+                    resolve();
+            });
+        }
+        catch (error) {
+            stream.removeListener("error", onError);
+            reject(error);
+        }
+    });
+}
 export async function run(runtime = processRuntime()) {
     // Only switches before the end-of-options marker select presentation.
     const end = runtime.argv.indexOf("--");
@@ -36,12 +56,34 @@ export async function run(runtime = processRuntime()) {
         if (result.output === "stream") {
             return result.exitCode;
         }
-        if (json && (result.output !== "help" || explicitJson)) {
-            runtime.stdout.write(`${JSON.stringify(result.envelope)}\n`);
+        const text = json && (result.output !== "help" || explicitJson)
+            ? `${JSON.stringify(result.envelope)}\n`
+            : result.human ? `${result.human}\n` : "";
+        if (result.afterOutput) {
+            // The answer carries something only a replay can return (a webhook
+            // signing secret). Keep the saved write key unless stdout accepted it.
+            try {
+                await confirmedWrite(runtime.stdout, text);
+            }
+            catch {
+                try {
+                    runtime.stderr.write("error: the answer could not be written to stdout. The saved write key is kept; rerun the identical command within 24 hours to receive the same answer again.\n");
+                }
+                catch {
+                    // stderr may be gone too; the exit code still reports the failure.
+                }
+                return ExitCode.Unexpected;
+            }
+            try {
+                await result.afterOutput();
+            }
+            catch {
+                // A lingering key is safe: a rerun replays the same answer. See recovery list.
+            }
+            return result.exitCode;
         }
-        else if (result.human) {
-            runtime.stdout.write(`${result.human}\n`);
-        }
+        if (text)
+            runtime.stdout.write(text);
         return result.exitCode;
     }
     catch (err) {

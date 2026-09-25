@@ -12,6 +12,13 @@ export interface CommandResult {
     human: string;
     /** Help defaults to text; streams have already emitted their output. */
     output?: "help" | "stream";
+    /**
+     * Set when the answer cannot be fetched again except by replay (a webhook
+     * signing secret). The saved write key is kept until the output boundary has
+     * flushed this result; it then calls afterOutput to clear it.
+     */
+    keepRecoveryUntilOutput?: boolean;
+    afterOutput?: () => Promise<void>;
 }
 export type CommandHandler = (args: ParsedArgs, runtime: CliRuntime) => Promise<CommandResult>;
 export declare const handleVersion: CommandHandler;
@@ -187,4 +194,12 @@ export declare const EVENT_STREAM_BACKOFF_CAP_MS = 15000;
 export type { Operation };
 export declare const handlePlaylistInit: CommandHandler;
 export declare const handleScreenPublish: CommandHandler;
+export declare const handleWebhooksCreate: CommandHandler;
+export declare const handleWebhooksList: CommandHandler;
+export declare const handleWebhooksShow: CommandHandler;
+export declare const handleWebhooksUpdate: CommandHandler;
+export declare const handleWebhooksDelete: CommandHandler;
+export declare const handleWebhooksRotateSecret: CommandHandler;
+export declare const handleWebhooksTest: CommandHandler;
+export declare const handleWebhooksDeliveries: CommandHandler;
 //# sourceMappingURL=commands.d.ts.map

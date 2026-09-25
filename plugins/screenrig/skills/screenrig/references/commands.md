@@ -204,6 +204,15 @@ comment delete playlist <id> [--page PAGE_ID]
 operations show <id>
 operations wait <id> [--timeout MS] [--poll-ms MS]
 operations cancel <id>
+webhooks create --url URL --event-types TYPES [--description TEXT] [--disabled]
+webhooks list
+webhooks show <id>
+webhooks update <id> [--url URL] [--event-types TYPES] [--description TEXT | --clear-description]
+                [--enable | --disable] [--expect-rev REVISION]
+webhooks delete <id> [--expect-rev REVISION]
+webhooks rotate-secret <id> [--expect-rev REVISION]
+webhooks test <id>
+webhooks deliveries <id> [--before CURSOR] [--limit N]
 events list [--after CURSOR] [--limit N]
 events follow [--after CURSOR] [--timeout MS]
 playback list [--screen-id ID] [--media-id ID] [--day YYYY-MM-DD]
@@ -298,6 +307,17 @@ Several ids must all be `scr_…` screen ids. An unexpected local failure
 reports `unexpected_error` for that screen, starts no new captures, marks the
 unstarted screens `not_attempted`, and exits 1. `screen publish` stays single-screen. See
 [fleets](operations.md#fleets-tags-and-fleet-actions).
+
+### Webhooks
+
+`webhooks create` registers a public HTTPS endpoint (port 443 or 8443) for
+exact event types or `prefix.*` prefixes, at most 10 per project. `create` and
+`rotate-secret` return `data.secret` once with warning
+`webhook_secret_shown_once`; store it in the receiver's secret store only.
+`update` needs at least one change. A rejected URL is `webhook_url_rejected`
+(exit 8), an eleventh webhook `webhook_limit_reached` (exit 5), and more than
+20 `webhooks test` calls per minute `rate_limited` (exit 7). See
+[webhooks](webhooks.md).
 
 ### Storage dry run
 
