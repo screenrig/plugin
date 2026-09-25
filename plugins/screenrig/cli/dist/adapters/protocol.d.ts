@@ -447,6 +447,36 @@ export interface ScreenStorageShortfall {
     fit: "partial" | "transition_blocked" | "none_fit";
     required_bytes: number;
 }
+/**
+ * Screen.health: the latest PUT /runtime/v1/health report, sanitized, with
+ * server reported_at. stale is true after 15 minutes without a report. A
+ * member the Player did not send is absent.
+ */
+export interface ScreenHealth {
+    reported_at: string;
+    stale: boolean;
+    uptime_s?: number;
+    app_uptime_s?: number;
+    memory?: {
+        used_bytes?: number;
+        total_bytes?: number;
+    };
+    cpu?: {
+        load_1m?: number;
+        cores?: number;
+    };
+    temperature_c?: number;
+    display?: {
+        connected?: boolean;
+        power?: "on" | "off" | "standby" | "unknown";
+    };
+    network?: {
+        kind?: "ethernet" | "wifi" | "cellular" | "unknown";
+        wifi_rssi_dbm?: number;
+    };
+    crashes_24h?: number;
+    renderer_restarts_24h?: number;
+}
 export interface Screen {
     content_access_generation: number;
     created_at: string;
@@ -514,6 +544,7 @@ export interface Screen {
      * Readers treat received_at older than 24 hours as stale. Read-only.
      */
     storage?: ScreenStorage;
+    health?: ScreenHealth;
     /**
      * Approximate steady-state target selection (no transition) from the last
      * reported capacity and the screen's desired manifest. Absent without a
