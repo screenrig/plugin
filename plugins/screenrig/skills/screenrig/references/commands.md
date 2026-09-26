@@ -183,6 +183,14 @@ screen schedule clear (<id>... | --tag TAG) [--expect-rev REVISION]
 screen takeover set (<id>... | --tag TAG) --playlist-id ID [--for DURATION | --until TIME|none]
                     [--reason TEXT] [--expect-rev REVISION]
 screen takeover clear (<id>... | --tag TAG) [--expect-rev REVISION]
+screen reboot <id> [--expect-rev REVISION]
+screen reboot (<id> <id>... | --tag TAG) --yes
+screen display set (<id>... | --tag TAG) --power on|off [--until TIME | --for DURATION]
+                   [--expect-rev REVISION]
+screen display clear (<id>... | --tag TAG) [--expect-rev REVISION]
+screen display-schedule show <id>
+screen display-schedule set (<id>... | --tag TAG) --file FILE [--expect-rev REVISION]
+screen display-schedule clear (<id>... | --tag TAG) [--expect-rev REVISION]
 screen set-timezone <id> --timezone ZONE [--expect-rev REVISION]
 screen archive <id> [--expect-rev REVISION]
 screen unarchive <id> [--expect-rev REVISION]
@@ -330,6 +338,17 @@ also needs the screen timezone (`invalid_request`, exit 8). `--expect-rev`
 applies to one screen id only; several ids or `--tag` use the fleet envelope.
 Writes share 20 per screen and 600 per project per minute (`rate_limited`,
 exit 7). See [schedules](schedules.md).
+
+### Reboot and display power
+
+`screen reboot` reaches only Players that declare `reboot` (else
+`reboot_unsupported`, exit 5), at most 2 per screen per 10 minutes; several
+ids or `--tag` require `--yes`. `screen display ID --power on|off` (short for
+`screen display set`) overrides the display schedule until `--until`
+(RFC 3339, at most 7 days), `--for` (at most `6d23h59m`), or the schedule's
+next boundary; `screen display clear` ends it. `screen display-schedule set`
+takes 1 to 16 ON windows in the screen timezone. `screen show` returns
+`health` and `display`. See [devices](devices.md).
 
 ### Playback export
 

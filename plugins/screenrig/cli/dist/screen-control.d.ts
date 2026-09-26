@@ -1,4 +1,5 @@
-import type { ScreenEffectivePlaylist, ScreenScheduleEntry, ScreenScheduleEntryWrite, ScreenTakeover } from "./adapters/protocol.js";
+import type { ScreenEffectivePlaylist, ScreenScheduleEntry, ScreenScheduleEntryWrite, ScreenScheduleWindow, ScreenTakeover } from "./adapters/protocol.js";
+import { CliError } from "./problems.js";
 /**
  * Playlist schedules and takeover (backend "Playlist schedules and takeover").
  * Local checks mirror ScreenPlaylistScheduleWrite / ScreenTakeoverWrite shape
@@ -9,6 +10,8 @@ export declare const SCHEDULE_ENTRIES_MAX = 32;
 export declare const SCHEDULE_WINDOWS_MAX = 16;
 export declare const TAKEOVER_REASON_MAX = 120;
 export declare const TAKEOVER_MAX_MS: number;
+/** One screenrig.schedule/v1 window; `fail` names the file kind in the error. */
+export declare function scheduleWindow(value: unknown, path: string, fail?: (path: string, message: string) => CliError): ScreenScheduleWindow;
 /**
  * Accept `{ "entries": [...] }` (ScreenPlaylistScheduleWrite) or a bare entry
  * array. `updated_at` and `effective_playlist` are dropped, and a saved

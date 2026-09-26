@@ -304,6 +304,20 @@ first: the forecast covers every playlist a screen can switch to. Verify with
 `effective_playlist` in `screen show` and a screenshot. See
 [schedules](references/schedules.md).
 
+### Device health and power
+
+`screen show` returns `health` (uptime, memory, CPU, temperature, display,
+network, crashes; `stale` after 15 minutes) and `display` (requested versus
+reported power). Alert on `screen.health_changed` events, for example through
+a webhook. `screen reboot ID` works only where the Player declares `reboot`
+(else `reboot_unsupported`), at most 2 per screen per 10 minutes; a fleet
+reboot needs `--yes` and the user's confirmation. `screen display ID --power
+off --for 2h` overrides the display, `screen display clear` ends it, and
+`screen display-schedule set ID --file FILE` sets ON windows in the screen
+timezone that the Player runs offline. Methods depend on the Player platform;
+read the host capabilities in `screen show`. See
+[devices](references/devices.md).
+
 ### Proof of play
 
 `playback plays --from 7d --to now` lists one row per visible start (proof of

@@ -208,4 +208,10 @@ export declare const handleScreenScheduleSet: CommandHandler;
 export declare const handleScreenScheduleClear: CommandHandler;
 export declare const handleScreenTakeover: CommandHandler;
 export declare const handleScreenTakeoverClear: CommandHandler;
+export declare const handleScreenReboot: CommandHandler;
+export declare const handleScreenDisplay: CommandHandler;
+export declare const handleScreenDisplayScheduleShow: CommandHandler;
+export declare const handleScreenDisplayScheduleSet: CommandHandler;
+export declare const handleScreenDisplayScheduleClear: CommandHandler;
+export declare const handleScreenDisplayClear: CommandHandler;
 //# sourceMappingURL=commands.d.ts.map
