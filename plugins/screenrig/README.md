@@ -12,7 +12,7 @@ I authorize you to install the official screenRIG plugin from https://github.com
 ```
 
 Then describe the content, screen and timing you want. The agent prepares the
-content, publishes a playlist and checks the result. Node.js 20.11 or newer is
+content, publishes a playlist and checks the result. Node.js 22 or newer is
 required. Agents use the bundled launcher; the separate developer-shell package
 is not the agent installation path.
 

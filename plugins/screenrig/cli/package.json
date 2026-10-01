@@ -17,7 +17,7 @@
     "screenrig": "./dist/bin.js"
   },
   "engines": {
-    "node": ">=20.11"
+    "node": ">=22"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.7",

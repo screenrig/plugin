@@ -64,7 +64,7 @@ byte in the repository counts, not only those in `plugins/screenrig`.
   Do not refetch a pinned CLI SHA.
 - Keep Codex and Claude marketplace metadata, generated manifests, public
   README, and skill behavior aligned at regeneration time.
-- The launcher must preflight Node.js 20.11+ and prefer the package-relative
+- The launcher must preflight Node.js 22 or newer and prefer the package-relative
   bundled `cli/dist/bin.js`. Do not add global npm resolution to the launcher.
 - The launcher preflights Node.js and nothing else. It must stay silent on
   success: stdout is clean JSON, stderr is empty.
