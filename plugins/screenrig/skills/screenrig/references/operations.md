@@ -372,10 +372,9 @@ feedback is about. Probe feedback availability through `capabilities.features.fe
 
 ## Support conversations
 
-Standard (free) projects use the documentation and their agent's diagnosis.
 Resolve and verify the user's issue using https://screenrig.ai/docs/ and
 https://screenrig.ai/llms-full.txt; file reproducible bugs or feature feedback
-with the commands above. Premium and Enterprise include support chat. Check
+with the commands above. Every plan, including Standard, includes support chat. Check
 `screenrig support status` and its `data.chat_allowed` before opening one.
 
 ```bash
