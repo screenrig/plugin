@@ -19,7 +19,7 @@ the section below is the only branch that needs a screenRIG screen.
 
 ## Prepare the installation
 
-Node.js 22 or newer is required. Resolve the installed plugin root and put its
+Node.js 22.11 or newer is required. Resolve the installed plugin root and put its
 launcher on this shell's PATH. Never substitute a global or source-checkout binary.
 
 ```bash

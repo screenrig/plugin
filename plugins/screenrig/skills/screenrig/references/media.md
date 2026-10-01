@@ -154,7 +154,7 @@ envelope with `data.status` `warn` is a usable host, not a broken install.
 
 On a fresh install the `token` row is `warn`, not `fail`. `fail` is
 reserved for damage: a config file other users can read
-(`config_permissions`), a Node below 20, a missing `ffmpeg`/`ffprobe` or
+(`config_permissions`), a Node below 22.11, a missing `ffmpeg`/`ffprobe` or
 `libx264`, or a control plane that does not answer. Read the `ready` row's
 detail too: a `warn` there names each degraded server dependency and prints
 the server's own sentence for it verbatim (for example that application

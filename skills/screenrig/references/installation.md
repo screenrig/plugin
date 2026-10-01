@@ -33,7 +33,7 @@ named repository or install `screenrig` from a global package source. Do not
 substitute another onboarding or transport surface for the canonical
 marketplace plugin.
 
-Use the CLI packaged with this skill. It requires Node.js 22 or newer.
+Use the CLI packaged with this skill. It requires Node.js 22.11 or newer.
 Resolve the installed plugin root, prepend its scripts directory to `PATH`
 once, then invoke `screenrig`. Do not export `SR`. Do not install a global
 package.

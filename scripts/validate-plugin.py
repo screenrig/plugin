@@ -172,7 +172,7 @@ def check_package() -> None:
         errors.append("plugin wrapper must resolve the CLI by package-relative path")
     if wrapper.is_file():
         wrapper_text = wrapper.read_text(encoding="utf-8")
-        for fact in ("command -v node", "Node.js 22 or newer", "major >= 22"):
+        for fact in ("command -v node", "Node.js 22.11 or newer", "major > 22 || (major === 22 && minor >= 11)"):
             if fact not in wrapper_text:
                 errors.append(f"plugin wrapper is missing the Node.js preflight fact: {fact}")
     canonical_wrapper = ROOT / "skills" / "screenrig" / "scripts" / "screenrig"
@@ -233,13 +233,15 @@ def check_package() -> None:
                 missing_node.returncode != 69
                 or missing_node.stdout
                 or missing_node.stderr.strip()
-                != "ScreenRig requires Node.js 22 or newer; install or expose a compatible node runtime, then retry."
+                != "ScreenRig requires Node.js 22.11 or newer; install or expose a compatible node runtime, then retry."
             ):
                 errors.append("plugin wrapper missing-Node.js preflight is not deterministic")
     forbidden_packaged = [path for path in (PLUGIN / "cli" / "dist").rglob("*") if path.is_file() and ".test." in path.name]
     if forbidden_packaged:
         errors.append("packaged CLI contains test output")
     package = load(PLUGIN / "cli" / "package.json")
+    if package.get("engines") != {"node": ">=22.11"}:
+        errors.append("bundled CLI must require Node.js 22.11 or newer")
     cli_version = package.get("version")
     if wrapper.is_file():
         with tempfile.TemporaryDirectory(prefix="screenrig-plugin-config-") as temporary:
@@ -346,7 +348,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
     if cli_source is not None:
         audit_paths.extend(cli_source / relative for relative in CLI_SOURCE_FILES)
     required_marketplace = {
-        "README.md": ["https://screenrig.ai/docs/start/", "SECURITY.md", "Node.js 22"],
+        "README.md": ["https://screenrig.ai/docs/start/", "SECURITY.md", "Node.js 22.11"],
         "skills/screenrig/SKILL.md": ["screenrig version", "screenrig-plugin-freshness --json",
             "screenrig doctor", "not_enrolled", "agent enroll", "--expect-rev",
             "payment_required", "idempotency", "references/commands.md",

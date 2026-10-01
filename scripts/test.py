@@ -17,6 +17,7 @@ import io
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -75,6 +76,41 @@ LAUNCHER_ROOT_VARS = ("GROK_PLUGIN_ROOT", "SCREENRIG_PLUGIN_ROOT", "CLAUDE_PLUGI
 
 
 class LauncherTests(unittest.TestCase):
+    def test_node_minimum(self) -> None:
+        node = shutil.which("node")
+        self.assertIsNotNone(node)
+        with tempfile.TemporaryDirectory(prefix="screenrig-node-minimum-") as temporary:
+            root = Path(temporary)
+            launcher = install_copy(LAUNCHER, root / "skills/screenrig/scripts/screenrig")
+            cli = root / "cli/dist/bin.js"
+            cli.parent.mkdir(parents=True)
+            cli.write_text('process.stdout.write("bundle\\n");\n', encoding="utf-8")
+            shim = root / "bin/node"
+            shim.parent.mkdir()
+            shim.write_text(
+                f"#!{node}\n"
+                'Object.defineProperty(process.versions, "node", { value: process.env.TEST_NODE_VERSION });\n'
+                'if (process.argv[2] === "-e") { eval(process.argv[3]); }\n'
+                'else { process.stdout.write("bundle\\n"); }\n',
+                encoding="utf-8",
+            )
+            shim.chmod(0o755)
+            for version, accepted in (
+                ("20.19.0", False), ("22.0.0", False), ("22.10.0", False),
+                ("22.11.0", True), ("22.11.1", True), ("22.12.0", True),
+                ("23.0.0", True), ("24.0.0", True),
+            ):
+                with self.subTest(version=version):
+                    result = subprocess.run(
+                        [str(launcher), "version"], text=True, capture_output=True, check=False,
+                        env=without(LAUNCHER_ROOT_VARS, TEST_NODE_VERSION=version,
+                                    PATH=f"{shim.parent}{os.pathsep}{os.environ['PATH']}"),
+                    )
+                    self.assertEqual(result.returncode, 0 if accepted else 69)
+                    self.assertEqual(result.stdout, "bundle\n" if accepted else "")
+                    self.assertEqual(result.stderr, "" if accepted else
+                                     "ScreenRig requires Node.js 22.11 or newer; upgrade the active node runtime, then retry.\n")
+
     def test_resolution_order_and_missing_cli(self) -> None:
         errors: list[str] = []
         text = LAUNCHER.read_text(encoding="utf-8")
