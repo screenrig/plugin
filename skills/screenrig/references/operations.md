@@ -276,7 +276,7 @@ missing) and each capture writes `<screen_id>.webp`. `--concurrency` is 1 to
 `path`, `bytes`, `sha256`, `width`, and `height`. Exit code and warnings follow
 the fleet rule. `--idempotency-key` is refused in this form. An unexpected
 local failure reports `unexpected_error` for that screen and starts no new
-captures; screens not yet started report `not_attempted`, and the exit code is
+captures; screens awaiting their first attempt report `not_attempted`, and the exit code is
 1. Rerun for those screens. Inspect each
 image, then re-capture only the screens that failed or look wrong.
 
@@ -366,5 +366,47 @@ screenrig feedback list [--kind bug|feature]
 
 `--body` is inline text. `--body-file` reads a file. A title is at most 120
 characters and a body is at most 4000. `--command` is the command the
-feedback is about. Probe support through `capabilities.features.feedback`;
+feedback is about. Probe feedback availability through `capabilities.features.feedback`;
 `doctor` reports that check.
+
+
+## Support conversations
+
+Standard (free) projects use the documentation and their agent's diagnosis.
+Resolve and verify the user's issue using https://screenrig.ai/docs/ and
+https://screenrig.ai/llms-full.txt; file reproducible bugs or feature feedback
+with the commands above. Premium and Enterprise include support chat. Check
+`screenrig support status` and its `data.chat_allowed` before opening one.
+
+```bash
+screenrig support status
+screenrig support submit --body "My Lobby screen shows an old playlist. Here is what I checked."
+screenrig support history
+screenrig support history --conversation-id sc_CONVERSATION
+screenrig support submit --conversation-id sc_CONVERSATION --body "Another diagnostic detail."
+screenrig support follow --conversation-id sc_CONVERSATION --after 0 --timeout 60000
+screenrig support read --conversation-id sc_CONVERSATION --sequence 12
+screenrig support submit --conversation-id sc_CONVERSATION --body "Please ask a human." --human-requested
+```
+
+Submission returns `data.conversation.id` and `data.message.sequence`. Omit
+`--conversation-id` only for a new topic. Each conversation has its own thread;
+follow-ups, AI and staff replies stay together. Bodies contain 1–4000 characters.
+Use `--body-file` for a prepared report. Include relevant error codes, resource
+IDs and checks already performed; omit credentials, payment details and unrelated
+customer information. Keep the same idempotency key and body when retrying an
+ambiguous submission.
+
+History returns up to 100 rows. For older conversation pages pass `data.next` as
+`--before`; for message pages pass the last message sequence as `--after` with
+the conversation ID. `support follow` emits one JSON envelope per SSE message,
+resumes automatically, suppresses replay, and advances the project cursor even
+when another conversation is filtered out. Save the last printed sequence for a
+later session. Explicitly mark read after presenting staff replies to the user.
+
+Staffed hours default to 09:00–17:00 Monday–Friday in Vancouver, excluding B.C.
+statutory holidays. Outside staffed hours, or after 30 minutes without a human
+answer, Luna attempts an AI answer grounded in documentation and project context.
+Its replies are identified as AI. `--human-requested`, or an explicit request for
+a person, pauses AI in that conversation. Wait for staff and report that state to
+the user; do not create replacement conversations to bypass their human request.

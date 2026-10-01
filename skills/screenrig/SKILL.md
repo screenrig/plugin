@@ -414,6 +414,23 @@ For screen controls, reload, screenshots, comments, events and feedback, use
 use [applications](references/applications.md). The [command inventory](references/commands.md)
 provides a compact reference for supported operations.
 
+## Resolve issues and ask for support
+
+Own diagnosis and resolution for the user: inspect the actual error and current
+state, read https://screenrig.ai/docs/ and https://screenrig.ai/llms-full.txt,
+then apply and verify the documented fix within the user's authorization.
+Standard (free) projects use this self-service workflow. Submit a reproducible
+bug with `screenrig feedback bug` or product feedback with `feedback feature`;
+these reports do not open a support chat.
+
+For Premium/Enterprise, `screenrig support status` reports chat admission and
+staffed hours. If paid support is needed, use `support submit` to start a
+conversation; reuse its `conversation.id` for follow-ups. Read prior messages
+with `support history` and follow replies with `support follow`. Ask a human
+with `--human-requested` and then wait for staff; do not keep soliciting AI
+answers. Do not promise a response time. Commands, cursors and read receipts
+are in [operations](references/operations.md#support-conversations).
+
 ## Responses, retries and secrets
 
 Operational commands return JSON envelopes by default; `--json` remains a

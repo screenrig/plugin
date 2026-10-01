@@ -256,6 +256,11 @@ feedback bug <title> (--body TEXT | --body-file FILE)
 feedback feature <title> (--body TEXT | --body-file FILE)
                      [--command "GROUP ACTION"] [--no-context]
 feedback list [--kind bug|feature]
+support status
+support submit (--body TEXT | --body-file FILE) [--conversation-id ID] [--human-requested]
+support history [--conversation-id ID --after SEQUENCE] [--before ID]
+support follow [--conversation-id ID] [--after SEQUENCE] [--timeout MS]
+support read --conversation-id ID --sequence SEQUENCE
 doctor [--repair-config]
 status [--environment production|stage]
 recovery list
