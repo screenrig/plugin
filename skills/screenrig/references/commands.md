@@ -257,6 +257,7 @@ feedback feature <title> (--body TEXT | --body-file FILE)
                      [--command "GROUP ACTION"] [--no-context]
 feedback list [--kind bug|feature]
 doctor [--repair-config]
+status [--environment production|stage]
 recovery list
 recovery show <id>
 recovery reconcile <id>

@@ -42,6 +42,12 @@ screenrig-plugin-freshness --json
 screenrig doctor
 ```
 
+Use `screenrig status` to check current production service availability before
+investigating a service failure. It reads the independent monitor without project
+credentials and reports stale observations as unknown. `screenrig status --environment stage`
+checks stage. Degraded or down explains a service-wide
+condition; keep the monitor's observation time in any diagnosis.
+
 For freshness, `keep` means continue, `refresh` means update the plugin using the
 installation reference, `continue_installed` means continue with the installed
 copy and disclose that the published version could not be checked, and
