@@ -1,0 +1,589 @@
+# Playlists, motion, schedules and bundles
+
+## Prepare, publish, and edit playlists
+
+For ready images and videos, prepare a full-screen playlist in playback order:
+
+```sh
+screenrig playlist init med_POSTER med_VIDEO --name "Lobby loop" --screen-id scr_LOBBY --output lobby.json
+screenrig playlist preview lobby.json --output preview --contact-sheet
+screenrig screen publish scr_LOBBY lobby.json
+```
+
+Inspect the document and preview before publishing. `playlist init` accepts local
+image/video/audio files, ready `med_` IDs, pinned `rel_` application releases, and HTTPS
+iframe URLs in playback order, including mixed inputs:
+
+```sh
+screenrig playlist init ./poster.png med_VIDEO rel_APP https://example.com --name Lobby --screen-id scr_LOBBY --output lobby.json
+```
+
+Local files upload through the normal media path, up to four at a time, and wait
+for readiness. This requires ffmpeg and ffprobe unless `--no-transcode` is
+supplied. `data.uploads` lists each file's `media_id`, `reused`, and per-stage
+`timing`. Preparation writes the local document and may upload media; it neither
+creates a remote playlist nor assigns a screen. Existing media must be ready.
+HTTPS URLs must contain no username or password and are not fetched during
+preparation.
+
+If preparation is interrupted, rerun the identical command. Nothing is written
+until every upload is ready, so no output file blocks the retry, and a file
+whose upload already finished returns its existing media ID (`reused: true`)
+instead of uploading again. There is nothing to reconcile by hand.
+
+Each input becomes one full-screen page with a black background and a 200 ms
+crossfade. Images and videos use `--fit contain|cover|fill` (default `contain`).
+Videos are muted, do not loop, and advance on completion. Other pages use
+`--duration-ms` (default 8000). Applications and iframes use `fill`; application
+releases are pinned with timed advancement and no controller privileges. Edit the
+document for application-controlled advancement. The static preview represents
+applications and iframes with placeholders; verify release readiness, embedding,
+and actual playback through the server and intended Player.
+
+Supply `--screen-id` to read the target dimensions and revision. The result includes
+`data.screen_id`, `data.screen_revision`, `data.preview.argv`, and `data.publish.argv`.
+Pass these argument arrays to the bundled `screenrig` launcher without shell
+splitting: they preserve paths, config, and API origin.
+Inspect the preview before publishing. Add `--expect-rev` explicitly to guard against later screen changes. Target metadata stays outside the authored document.
+
+To override the canvas, supply both `--target-width` and `--target-height`. These
+also work without a screen, in which case no publish arguments are returned.
+Unknown or multiple reported surfaces require explicit dimensions. Output files are exclusive by default; use `--overwrite` to replace an existing authoring file atomically. An empty file does not count as existing. Parent directories are created automatically. URL and release-ID inputs with explicit dimensions work without login.
+
+`screen publish <screen-id> <file>` creates a new playlist, assigns it with an optional **screen** revision guard, reads back the assignment, and waits for the Player to show it. It does not update an
+existing playlist by name. Display names may repeat; use the playlist ID for an explicit `playlist update`.
+
+The wait is bounded by `--timeout` (default 120000 ms). It ends as soon as the
+Player acknowledges the playlist on glass: `data.stage` is `playing` and
+`data.playback_verified` is `true`. Report that to the user as playing.
+Otherwise `data.stage` stays `assigned` and `data.playback.reason`, repeated as
+a warning code with its next step, says why:
+
+| `data.playback.reason` | What to do |
+|---|---|
+| `screen_offline` | Tell the user the screen is offline; it plays when its Player reconnects. |
+| `playlist_not_effective` | A takeover or schedule shows `data.playback.effective_playlist_id`; the published default plays when that ends. |
+| `playback_failed` | Read `data.playback.code` and `screen show`; fix the cause, then `screen reload`. |
+| `playback_pending` | Still downloading or preparing (`data.playback.state`); rerun the identical command to keep waiting. |
+
+A `playback_partial` warning means the Player plays the playlist without
+`data.playback.missing_page_count` pages that do not fit its storage. Rerunning
+the identical publish never creates another playlist. Progress lines go to
+stderr. Take a screenshot when you need to see the content itself, for example
+to check layout.
+
+`screen publish` targets one screen. For a fleet, run `playlist create FILE`
+once, then `screen assign --tag TAG --playlist-id ID` (or several screen ids);
+see [fleets](operations.md#fleets-tags-and-fleet-actions).
+
+Publishing saves a private local journal automatically. After an ambiguous failure,
+repeat the identical command and input with the same config to resume. If playlist
+creation succeeded before assignment failed, the error identifies the created
+playlist. Do not delete it or start another create to recover. A revision conflict
+requires inspecting the screen and reconciling the intended assignment; an already
+created playlist can be assigned explicitly with `screen assign`. Publishing never
+silently refreshes the expected revision. Unfinished recovery stops after the
+24-hour server idempotency window; inspect and reconcile before making more writes.
+
+To edit an existing playlist:
+
+```sh
+screenrig playlist show pl_EXISTING --output lobby.json
+screenrig playlist update pl_EXISTING lobby.json
+```
+
+`playlist show --output` writes the editable `{name, audio?, pages}` document and returns
+its path, `playlist_id`, and source `revision` on stdout. Optionally pass that revision with `--expect-rev` to guard the update. It preserves dynamic selectors, schedules, motion, and pinned
+application releases, removing server-derived and read-only fields, so the file
+validates and updates as written; edit it in place. Comments remain separate;
+page comments carry over by page ID. Plain `playlist show` is an inspection response; `--editable`
+without `--output` returns `data.document`, `data.playlist_id`, and `data.revision`.
+Updating a playlist affects every screen assigned to it.
+
+### Replace one application release
+
+After a successful `app update`, take `data.application.release_id` and identify the
+exact playlist, page, and application primitive to change. Preview the replacement:
+
+```sh
+screenrig playlist replace-release pl_EXISTING --page board-page --primitive board --release-id rel_NEW
+```
+
+This is a read-only impact review, not a rendered preview. Inspect
+`data.previous_release_id`, `data.release_id`, and `data.affected_screens`, including
+archived assignments. Apply directly with `--apply`. To opt into this impact check, also supply `--expect-impact` with the preview’s `data.impact`:
+
+```sh
+screenrig playlist replace-release pl_EXISTING --page board-page --primitive board --release-id rel_NEW --apply
+```
+
+Other primitives and settings are preserved. The update affects every screen
+assigned to this shared playlist; archived screens retain the new pin for later
+use. When `--expect-impact` is supplied, a changed replacement, revision, or observed screen impact requires a fresh preview. Direct apply skips the screen survey; `affected_screens` is omitted. An already pinned release succeeds without writing. Assignments may change after the snapshot: the server checks the playlist revision atomically only when `--expect-rev` is supplied. The server validates release
+availability and ownership on apply. Existing pins remain unchanged until apply;
+afterward, verify manifest revisions and playback on the affected screens.
+
+Playlist validate, create, update, preview, and screen publish accept `-` as their
+input file to read stdin. JSON envelopes are never written into authored files.
+`--expect-rev` is the preferred revision spelling; `--if-match` remains a compatible
+alias. Supply only one. Omit the flag to write the current resource without a revision precondition. A supplied stale revision still returns `revision_conflict`.
+
+Generation accepts either `--prompt TEXT` or `--prompt-file FILE`, including
+`--prompt-file -` for stdin. The file is the complete prompt, with no trimming;
+the existing 4000-character limit applies. Prompts are excluded from diagnostics.
+
+## Playlist writes
+
+Use five primitives: `image`, uploaded `video`, live `stream`, `iframe`, and
+`application`. Streaming requires a compatible backend and Player.
+Do not author native `text`, `box`, or `line` on the wire. Presentable copy
+lives in the generated still. Deck copy and chrome are composed locally,
+uploaded as `image`, and used as one image primitive.
+
+A playlist has `name`, optional `audio` (the soundtrack), and `pages`, with no
+playlist-wide dimensions. Each
+page's `canvas.width` and `canvas.height` define its layout coordinate system;
+`canvas.viewport_fit` controls how it fits the Player's viewport. This layout
+size can differ from the pixel dimensions of media rendered from a compose deck.
+
+A full playlist page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
+optional `audio_cue`, and `primitives`. A primitive is flat: `id`, a `primitive` field naming
+a supported kind, that primitive's own fields, then `rect`, `layer`, `content_fit`,
+optional `enter`, and optional `motion`. There is no nested content object.
+
+Keep the authored playlist JSON as the source of truth. To obtain one from an
+existing playlist, use `playlist show ID --output FILE`; the returned envelope
+includes the source revision. Ordinary `playlist show` remains an inspection
+response and must not be submitted as a write document.
+
+Image and video primitives require a `selector`. `stream`, `iframe`, and `application`
+do not take one. Do not put `media_id` on the primitive itself; it belongs
+inside the selector. Do not send server-resolved `items`. Advance with
+`media_end`, never `video_end`.
+
+`canvas.background` is a solid uppercase `#RRGGBBAA` or a top-to-bottom
+linear gradient. The gradient is `{ "type": "linear", "stops": [...] }` with
+2 through 8 stops, strictly increasing `at` in `[0, 1]`, first `at` 0, last
+`at` 1, and no angle field. A solid string stays valid.
+
+Selector `by` values:
+
+- `id`: one ready `media_id`. `one_at_a_time` must be false.
+- `ids`: 1–32 unique ready IDs.
+- `all`: every ready object of that primitive, image or video.
+- `tag`: ready objects of that primitive whose tag matches
+  `^[A-Za-z0-9]{1,32}$`.
+
+`media_end` is valid only on a page with exactly one image or video primitive.
+Video `loop` must be false. An image on `media_end` requires `dwell_ms`.
+`dwell_ms` is rejected on duration and application pages. A video plus a
+lower-third image is two primitives: that page must use `advance.mode`
+`duration`, not `media_end`. Set `after_ms` longer than the clip, or set
+`loop: true`. If `after_ms` equals the clip length, the page cuts when the
+film ends.
+
+Default `transition` is `{ "type": "crossfade", "duration_ms": 200 }`. Use
+swipe types, object `enter`, and object `motion` sparingly.
+
+```json
+{
+  "name": "Lobby loop",
+  "pages": [
+    {
+      "id": "poster",
+      "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+      "transition": { "type": "crossfade", "duration_ms": 200 },
+      "advance": { "mode": "duration", "after_ms": 8000 },
+      "primitives": [
+        {
+          "id": "hero",
+          "primitive": "image",
+          "selector": { "by": "id", "media_id": "med_01EXAMPLEIMAGE0000000000" },
+          "alt": "Lobby poster",
+          "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "layer": 0,
+          "content_fit": "contain"
+        }
+      ]
+    },
+    {
+      "id": "clip",
+      "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+      "transition": { "type": "crossfade", "duration_ms": 200 },
+      "advance": { "mode": "media_end" },
+      "primitives": [
+        {
+          "id": "feature",
+          "primitive": "video",
+          "selector": { "by": "id", "media_id": "med_01EXAMPLEVIDEO0000000000" },
+          "muted": true,
+          "loop": false,
+          "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "layer": 0,
+          "content_fit": "contain"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Use `data.media_id` from `media upload` or `media generate` (same value as
+`data.id`). Do not invent one. After a tagged upload or generate,
+`media list --tag TAG` is the filename → id map. Do not re-upload a generated
+still; `media download` it when a composed page needs the file.
+
+Deck photo plus overlay still. Presentable posters are one generated `image`,
+not this two-layer shape.
+
+```json
+{
+  "id": "hero",
+  "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+  "transition": { "type": "crossfade", "duration_ms": 200 },
+  "advance": { "mode": "duration", "after_ms": 8000 },
+  "primitives": [
+    {
+      "id": "photo",
+      "primitive": "image",
+      "selector": { "by": "id", "media_id": "med_01EXAMPLEPHOTO0000000000" },
+      "alt": "Hero photo",
+      "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+      "layer": 0,
+      "content_fit": "fill"
+    },
+    {
+      "id": "overlay",
+      "primitive": "image",
+      "selector": { "by": "id", "media_id": "med_01EXAMPLEOVERLAY000000000" },
+      "alt": "Lower third",
+      "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+      "layer": 1,
+      "content_fit": "fill"
+    }
+  ]
+}
+```
+
+Video plus a lower-third image uses the same two-layer shape with
+`advance.mode` `duration`. Do not use `media_end` there.
+
+### Page motion
+
+These are playlist document fields the CLI sends. The control plane accepts
+swipe types, object `enter`, and object `motion`.
+
+Default pages: `transition` is `{ "type": "crossfade", "duration_ms": 200 }`.
+Author crossfade unless swipe or `enter` is the intended emphasis. Select
+foreground artwork or a short headline for restrained entrances; leave menu
+items, prices, and other information stationary. Video already supplies
+motion. Choose animated layers by purpose, without a fixed layer quota or
+an entrance on every primitive.
+
+`transition.type` is `crossfade`, `swipe-left`, `swipe-right`, `swipe-up`, or
+`swipe-down`. `duration_ms` is required and runs from 0 through 60000. When
+you choose a swipe type, write `duration_ms: 600`.
+
+Swipe is the incoming page's type. The outgoing page follows so the edges
+stay touching. The name is motion direction: `swipe-left` moves content
+left.
+
+Optional object `enter` is `{ "type": "...", "stagger"?: 0 }` with that same
+object name on playlist JSON. Types: `fade-up`, `fade-down`, `fade-left`,
+`fade-right`, `fade-in`, `zoom-in`, `zoom-out`. Optional integer `stagger`
+is 0 through 8. Absent means no object animation.
+
+Object enter starts invisible. It runs 500 ms after the page occupies the
+full viewport, for 400 ms, plus `stagger * 120` ms when `stagger` is
+present. Those delays are contract constants, not author fields and not CLI
+flags. Do not send duration or delay inside `enter`; `stagger` is the only
+extra author field.
+
+To slide deck text in over a still or video, compose the text and its translucent
+plate into a transparent PNG, place that image above the background's layer,
+and apply `enter` to the overlay image. Keep the background independent.
+This is a deck or live-video mechanic, not the presentable-poster path.
+Animation is not a reason to compose a presentable page.
+The same mechanism works for independent foreground artwork with alpha.
+Leave transparent breathing room around moving ink within its raster and
+primitive rect so entry motion does not clip its edges; do not stretch the
+asset to compensate. Keep supported timing constants unchanged.
+Preview the first activation and a loop replay on each intended player; check
+that the overlay begins hidden, enters within its rect, and retains the
+expected layer order. A settled screenshot alone cannot verify animation.
+
+Optional object `motion` is a discriminated object on `type`: `spin`,
+`path`, or `drift`. Absent means the primitive stays at rest after enter.
+Persistent motion is for designs that call for it; one moving element per page is the norm. Prefer a panning background or one accent over several moving objects.
+
+`spin` takes `direction` `cw` or `ccw` and `speed` `slow`, `medium`, or
+`fast`, and applies to `image` and `video` only:
+
+```json
+{
+  "id": "badge",
+  "primitive": "image",
+  "selector": { "by": "id", "media_id": "med_01EXAMPLEBADGE00000000000" },
+  "rect": { "x": 1640, "y": 80, "width": 200, "height": 200 },
+  "layer": 1,
+  "content_fit": "contain",
+  "motion": { "type": "spin", "direction": "cw", "speed": "slow" }
+}
+```
+
+`path` takes 1 through 64 `points`, `rate` greater than 0 and at most 10000,
+and optional `loop` `loop`, `ping-pong`, or `once`. It applies to `image`,
+`video`, `application`, and `iframe`. The authored `rect` is the start pose;
+`points` are later top-left waypoints in canvas units:
+
+```json
+{
+  "id": "background",
+  "primitive": "image",
+  "selector": { "by": "id", "media_id": "med_01EXAMPLEBACKGROUND000000" },
+  "rect": { "x": 0, "y": 0, "width": 2400, "height": 1080 },
+  "layer": 0,
+  "content_fit": "cover",
+  "motion": {
+    "type": "path",
+    "points": [{ "x": -480, "y": 0 }],
+    "rate": 40,
+    "loop": "loop"
+  }
+}
+```
+
+`drift` is a Ken Burns pan-and-zoom. It takes `zoom` `in` or `out`,
+`direction` `left`, `right`, `up`, `down`, or `none`, and the same `speed`
+tokens. It applies to `image` and `video` only:
+
+```json
+{
+  "id": "photo",
+  "primitive": "image",
+  "selector": { "by": "id", "media_id": "med_01EXAMPLEPHOTO0000000000" },
+  "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+  "layer": 0,
+  "content_fit": "cover",
+  "motion": {
+    "type": "drift",
+    "zoom": "in",
+    "direction": "right",
+    "speed": "slow"
+  }
+}
+```
+
+### Operator navigation while a web page is active
+
+On Qt and Android, plain Space, N/P, Enter, and arrows belong to an active iframe or
+application so typing and kiosk navigation remain usable. Operator shortcuts
+are Ctrl+Alt+Left/Right for Previous/Next and Ctrl+Alt+Space for Pause/Resume.
+Escape opens Settings with Previous page, Pause/Resume playback, and Next page
+menu controls. On Qt, use Up/Down to select a row and Enter to choose it.
+A paused web page stays paused until explicit resume or the player's existing
+60-minute expiry. Rapid navigation while the next page prepares keeps only the
+latest pending direction and applies it once after activation; it does not
+queue an unbounded series of stale key presses.
+
+## Soundtrack
+
+A playlist may carry one soundtrack: ordered MP3 tracks that play back to back
+and keep playing while pages change. Page advances, transitions, schedules and
+republishing an unchanged track list never restart it. Canvas video stays
+muted, so the soundtrack is the only sound on the screen.
+
+Upload the audio first (`media upload ./theme.wav`; see [media](media.md)), or
+pass audio files to `playlist init`, which turns every audio input into a
+soundtrack track instead of a page.
+
+```json
+{
+  "name": "Lobby",
+  "audio": {
+    "tracks": [
+      { "id": "intro", "media_id": "med_INTRO" },
+      { "id": "bed", "media_id": "med_BED" }
+    ],
+    "loop": true,
+    "volume": 0.8
+  },
+  "pages": [
+    { "id": "welcome", "audio_cue": { "track": "intro", "restart": true }, "...": "..." }
+  ]
+}
+```
+
+- `tracks`: 1 to 32 entries in play order. Track `id` is unique within the
+  playlist; `media_id` must be a ready `audio` object. The same media may
+  appear under two ids.
+- `loop` (default `true`) starts again at the first track after the last;
+  `false` stops after the last track.
+- `volume` (default `1`) is 0 to 1 and multiplies the Player's own volume.
+- A page `audio_cue` is a hint. When the page becomes current, the Player
+  switches to the named track from its start unless it is already playing;
+  `restart: true` restarts it even then. The sequence continues from that
+  track. A cue must name a track in `audio.tracks`; adslot pages take no cue.
+- `playlist update` replaces the whole document, so omitting `audio` removes
+  the soundtrack. `playlist show --output` keeps it.
+- Browsers can block sound until someone interacts with the page. A kiosk
+  browser running the browser Player should allow autoplay (Chromium
+  `--autoplay-policy=no-user-gesture-required`); native Players are not
+  affected.
+
+## Page scheduling with visibility
+
+To switch whole playlists by daypart or put one playlist ahead of everything
+for a while, use a playlist schedule or a takeover on the screen instead; see
+[schedules and takeover](schedules.md).
+
+A page may carry an optional `visibility` object that limits when the page
+plays. It is a sibling of `advance`.
+
+- Every playlist must keep at least one page with no `visibility` field at
+  all.
+- A screen running a scheduled playlist must have a timezone.
+
+```json
+{
+  "id": "after-hours",
+  "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+  "transition": { "type": "crossfade", "duration_ms": 200 },
+  "advance": { "mode": "duration", "after_ms": 8000 },
+  "visibility": {
+    "enabled": true,
+    "from": "2026-09-01T00:00",
+    "until": "2026-12-31T23:59",
+    "windows": [
+      { "days": ["mon", "tue", "wed", "thu"], "start": "09:00", "end": "17:00" },
+      { "days": ["fri"], "start": "22:00", "end": "02:00" },
+      { "days": ["sun"] }
+    ]
+  },
+  "primitives": []
+}
+```
+
+- `enabled` is required and boolean. `false` hides the page unconditionally.
+- `from` and `until` are optional civil bounds, `YYYY-MM-DDTHH:MM`, minute
+  precision, **no offset and no zone suffix**. `from` is inclusive, `until` is
+  exclusive.
+- `windows` is an optional array of 1 to 16 recurring windows.
+- `days` is 1 to 7 unique values from `mon`, `tue`, `wed`, `thu`, `fri`, `sat`,
+  `sun`.
+- `start` and `end` are civil `HH:MM`. Set both or omit both. Omitting both
+  selects the whole day.
+
+A page is eligible when `enabled` is `true`, the current civil time is inside
+`[from, until)`, and `windows` is absent or at least one window matches.
+
+An overnight window is written `end` at or before `start`, and the start day
+owns it. `{"days": ["fri"], "start": "22:00", "end": "02:00"}` runs Friday
+22:00 through Saturday 02:00.
+
+```bash
+screenrig screen set-timezone scr_EXAMPLE --timezone America/Los_Angeles
+```
+
+`--timezone` is an IANA identifier such as `America/Los_Angeles` or
+`Europe/Berlin`. Set the timezone before assigning a scheduled playlist.
+`screen update` accepts the same `--timezone`.
+
+### Adslot pages
+
+A seller places an advertising break as a whole `adslot` page, not as a canvas
+primitive. The page carries only `id`, `type`, `adslot_id`, and an optional
+`visibility` schedule; no creative, price, serving fee, or client-chosen duration
+is stored in the playlist, and a selected fill never rewrites the saved document.
+
+```json
+{
+  "id": "lobby_sponsor_break",
+  "type": "adslot",
+  "adslot_id": "ads_lobby",
+  "visibility": {
+    "enabled": true,
+    "windows": [{"days": ["mon", "tue", "wed", "thu", "fri"], "start": "09:00", "end": "18:00"}]
+  }
+}
+```
+
+Keep at least one ordinary page with no visibility rule as the fallback. Adslot
+pages count toward the normal page limits, the slot definition must already exist
+for the project, and the assigned Players must support the adslot capability; a
+slot definition alone does not create an ad break. An ad-bearing playlist is read
+and written under the v2 union: a v1 request answers with an explicit
+`version_required` conflict and the CLI retries v2 rather than filtering the ad
+break out of the document. `playlist preview` renders one labelled placeholder
+for an adslot page because the fill is chosen at runtime, and a playlist bundle
+cannot carry an adslot page. See [advertising](advertising.md).
+
+## Playlist bundle export and import
+
+Use a `screenrig.playlist-bundle/v1` directory to move one playlist and every
+referenced image, video, or soundtrack audio file together.
+
+```bash
+screenrig playlist export pl_EXAMPLE --output ./lobby-bundle
+screenrig playlist export pl_EXAMPLE --output ./lobby-bundle --skip-applications
+screenrig playlist import ./lobby-bundle
+screenrig playlist import ./lobby-bundle --update pl_TARGET
+```
+
+The export destination must not exist. The bundle contains
+`screenrig-bundle.json`, `playlist.json`, and content-addressed
+`media/<sha256>.<canonical-ext>` files. Export snapshots dynamic `all` and `tag`
+selectors to exact `id` or `ids` selectors. An application primitive stops
+export before any media download unless `--skip-applications` is given, which
+drops the application primitives and any page left with no primitives and
+reports the skipped primitive and page ids. Import creates a new playlist by
+default. Display names may repeat. `--name NAME` (1 to 120 characters)
+optionally renames the imported copy; `--update ID` replaces the existing
+playlist instead.
+Updating requires `--update`; `--expect-rev` is optional.
+
+```bash
+screenrig playlist import ./lobby-bundle --name "Lobby loop (copy)"
+```
+
+## Live streams
+
+Upload a ready image in the same project and use its ID as `fallback_media_id`.
+Use at most one stream on a page with duration advance, for example
+`advance: {"mode":"duration","after_ms":30000}`. Preview paints the fallback
+without contacting the stream. Bundle import/export does not support streams.
+
+```json
+{
+  "id": "live",
+  "primitive": "stream",
+  "sources": [
+    {"protocol": "udp-mpegts", "group": "239.10.0.1", "port": 5000},
+    {"protocol": "hls", "url": "https://example.com/live.m3u8"}
+  ],
+  "fallback_media_id": "med_fallback",
+  "muted": true,
+  "rect": {"x": 0, "y": 0, "width": 1920, "height": 1080},
+  "layer": 0,
+  "content_fit": "contain"
+}
+```
+
+Provide one or two sources with unique protocols, in preference order. HLS uses
+public HTTPS without embedded credentials. Web playback requires CORS on the
+playlist, segments, and keys. Optional direct UDP/MPEG-TS multicast uses an IPv4
+ASM group in 239/8 and a port on Android or Qt; enable reception locally first.
+Other Players choose HLS when supplied, otherwise they receive the fallback.
+There is no multicast-to-HLS conversion.
+
+The fallback displays while connecting, stalled, unsupported, or offline. Live
+stream bytes are not cached. Muted defaults to true; browser autoplay can
+require mute. A stream never controls page advance. Use contain, cover, or fill;
+entrance motion is supported, and continuous motion is limited to path.
+
+Apple TV supports image, video, and HLS stream, but rejects playlists containing
+iframe or application. The Linux Player supports web content, HLS, and optional
+UDP/MPEG-TS multicast. HLS is also supported on Web, Android, macOS, and Windows.
+Every Player download is at https://screenrig.ai/downloads/ (Android on Google
+Play: https://play.google.com/store/apps/details?id=ai.screenrig.player). See https://screenrig.ai/docs/players.md for the
+platform matrix.

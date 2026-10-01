@@ -1,0 +1,29 @@
+{
+  "name": "screenrig",
+  "owner": {
+    "name": "ScreenRig"
+  },
+  "description": "Public ScreenRig agent marketplace with a bundled CLI.",
+  "plugins": [
+    {
+      "name": "screenrig",
+      "source": "./plugins/screenrig",
+      "description": "Operate ScreenRig screens, media, and playlists with the bundled CLI.",
+      "version": "26.10.11",
+      "author": {
+        "name": "ScreenRig"
+      },
+      "category": "Developer Tools",
+      "homepage": "https://screenrig.ai",
+      "repository": "https://github.com/screenrig/plugin",
+      "license": "Apache-2.0",
+      "logo": "assets/logo.svg",
+      "tags": [
+        "screenrig",
+        "digital-signage",
+        "kiosk",
+        "agent-cli"
+      ]
+    }
+  ]
+}

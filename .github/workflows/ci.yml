@@ -1,0 +1,249 @@
+name: public plugin gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      after_rebundle:
+        description: Set by the follow-up dispatch that gates an auto-rebundle commit.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-plugin-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - name: Pack current screenrig/cli main
+        run: |
+          repository="screenrig/cli"
+          filename="screenrig-cli.tgz"
+          test "$(jq -r .state components.lock.json)" = resolved
+          test "$(jq -r .cli.repository components.lock.json)" = "${repository}"
+          # Pack current main. Do not refetch a SHA from components.lock.json;
+          # that file is provenance of the tarball just packed.
+          install -d "${RUNNER_TEMP}/screenrig-cli-source"
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" init --quiet
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --depth=1 \
+            "https://github.com/${repository}.git" main
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" checkout --quiet --detach FETCH_HEAD
+          commit="$(git -C "${RUNNER_TEMP}/screenrig-cli-source" rev-parse HEAD)"
+          # Stamp the same CalVer the CLI distributing job used when this
+          # main HEAD is tagged vYY.MM.N, so the tarball hash is stable.
+          cli_version="$(python3 scripts/calver.py cli-stamp --repository "${repository}" --commit "${commit}")"
+          if [ -n "${cli_version}" ]; then
+            export SCREENRIG_VERSION="${cli_version}"
+            git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --depth=1 \
+              "https://github.com/${repository}.git" \
+              "refs/tags/v${cli_version}:refs/tags/v${cli_version}" || true
+          fi
+          npm --prefix "${RUNNER_TEMP}/screenrig-cli-source" ci
+          npm --prefix "${RUNNER_TEMP}/screenrig-cli-source" run build
+          install -d "${RUNNER_TEMP}/screenrig-cli"
+          bash "${RUNNER_TEMP}/screenrig-cli-source/scripts/package-release.sh" \
+            "${RUNNER_TEMP}/screenrig-cli/${filename}"
+          test -f "${RUNNER_TEMP}/screenrig-cli/${filename}"
+          printf '%s' "${commit}" > "${RUNNER_TEMP}/screenrig-cli/commit"
+      - name: Rebuild and verify the committed plugin bundle
+        run: |
+          filename="screenrig-cli.tgz"
+          artifact="${RUNNER_TEMP}/screenrig-cli/${filename}"
+          commit="$(cat "${RUNNER_TEMP}/screenrig-cli/commit")"
+          packed="$(sha256sum "${artifact}" | awk '{print $1}')"
+          locked="$(jq -r .cli.artifact.sha256 components.lock.json)"
+          if [ "${packed}" != "${locked}" ]; then
+            if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+              echo "Committed CLI tarball provenance differs from current screenrig/cli main" >&2
+              echo "packed ${packed}" >&2
+              echo "recorded ${locked}" >&2
+              exit 1
+            fi
+            python3 scripts/build-plugin.py --cli-artifact "${artifact}" --write-lock --cli-commit "${commit}"
+            install -d "${RUNNER_TEMP}/screenrig-cli-bundle-update"
+            cp components.lock.json "${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
+            cp -a plugins/screenrig "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig"
+          fi
+          python3 scripts/build-plugin.py --check --cli-artifact "${artifact}"
+          python3 scripts/validate-plugin.py --cli-artifact "${artifact}" --cli-source "${RUNNER_TEMP}/screenrig-cli-source"
+          python3 scripts/check-public-repo.py
+          python3 scripts/test.py
+      - name: Allow the unprivileged user namespaces Chromium's sandbox needs
+        run: |
+          # Ubuntu 23.10+ confines unprivileged user namespaces with AppArmor,
+          # so Playwright's Chromium finds no usable sandbox. Lift that on this
+          # throwaway runner rather than rendering with a weakened sandbox.
+          # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
+          knob=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test -e "${knob}" || exit 0
+          echo 0 | sudo tee "${knob}" > /dev/null
+      - name: Verify optional dashboard runtime and repeat rendering
+        run: |
+          plugins/screenrig/skills/screenrig-dashboard/scripts/screenrig-dashboard setup > "${RUNNER_TEMP}/dashboard-setup.json"
+          dashboard_runtime="$(jq -r .data.runtime "${RUNNER_TEMP}/dashboard-setup.json")"
+          "${dashboard_runtime}/bin/python" -m playwright install-deps chromium
+          "${dashboard_runtime}/bin/python" -B scripts/test.py --browser DashboardTests
+      - name: Upload rebuilt marketplace CLI when it drifted
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: screenrig-cli-bundle-update
+          path: ${{ runner.temp }}/screenrig-cli-bundle-update/
+          # v4 omits dotfiles unless set; that deleted .claude-plugin/plugin.json.
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1
+      - name: Package deterministic plugin artifact
+        if: github.ref != 'refs/heads/main'
+        run: >-
+          tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0
+          --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig -cf - .
+          | gzip -n -9 > "${RUNNER_TEMP}/screenrig-plugin.tar.gz"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: github.ref != 'refs/heads/main'
+        with:
+          name: screenrig-plugin
+          path: ${{ runner.temp }}/screenrig-plugin.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  distribute:
+    if: github.repository == 'screenrig/plugin' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: screenrig-cli-bundle-update
+          path: ${{ runner.temp }}/screenrig-cli-bundle-update
+      - name: Publish current CLI bundle when screenrig/cli main moved
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AFTER_REBUNDLE: ${{ github.event.inputs.after_rebundle }}
+        run: |
+          update="${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
+          if [ ! -f "${update}" ]; then
+            echo "Committed marketplace CLI already matches screenrig/cli main"
+            exit 0
+          fi
+          old="$(jq -r .cli.artifact.sha256 components.lock.json)"
+          new="$(jq -r .cli.artifact.sha256 "${update}")"
+          if [ "${old}" = "${new}" ]; then
+            echo "Bundled CLI digest unchanged; not committing"
+            exit 0
+          fi
+          if [ "${AFTER_REBUNDLE}" = "true" ]; then
+            # This run exists to gate the rebundle commit the previous run
+            # pushed. Rebundling again would push a fresh ungated tip and
+            # dispatch forever, so never commit from this generation.
+            old_commit="$(jq -r .cli.commit components.lock.json)"
+            new_commit="$(jq -r .cli.commit "${update}")"
+            if [ "${old_commit}" = "${new_commit}" ]; then
+              # Packing screenrig/cli ${old_commit} is not byte-reproducible, so
+              # the digest alone moved while the bundled CLI stayed put. Accept
+              # the recorded provenance and leave this gated tip on main.
+              echo "Bundled CLI is still screenrig/cli ${old_commit}; tarball digest is not reproducible"
+              echo "recorded ${old}"
+              echo "packed ${new}"
+              exit 0
+            fi
+            echo "This run gates rebundle tip $(git rev-parse HEAD), yet screenrig/cli main moved again" >&2
+            echo "recorded ${old_commit} ${old}" >&2
+            echo "packed ${new_commit} ${new}" >&2
+            echo "Not chaining another rebundle; the next push to main bundles ${new_commit}" >&2
+            exit 1
+          fi
+          cp "${update}" components.lock.json
+          rm -rf plugins/screenrig
+          cp -a "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig" plugins/screenrig
+          # download-artifact restores files as 644.
+          chmod 0755 plugins/screenrig/cli/dist/bin.js \
+            plugins/screenrig/skills/screenrig/scripts/screenrig \
+            plugins/screenrig/skills/screenrig/scripts/screenrig-plugin-freshness \
+            plugins/screenrig/skills/screenrig-dashboard/scripts/screenrig-dashboard \
+            plugins/screenrig/skills/screenrig-dashboard/scripts/dashboard.py
+          git add -- plugins/screenrig
+          if git diff --cached --quiet; then
+            # Packing is not byte-reproducible, and a new release tag on the
+            # same CLI commit changes its stamped version, so the digest moves
+            # while the bundle agents install stays identical. Keep main as is.
+            echo "Bundled plugin unchanged; only the CLI tarball digest moved, not committing"
+            exit 0
+          fi
+          git add -- components.lock.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Bundle current screenrig/cli main"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          tip="$(git rev-parse HEAD)"
+          # A GITHUB_TOKEN push never re-fires `on: push`, so this rebundle tip
+          # would carry no check runs at all. Dispatch these gates on the new
+          # tip, flagged as the follow-up generation so it cannot chain forever.
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GITHUB_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --data '{"ref":"main","inputs":{"after_rebundle":"true"}}' \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches"
+          echo "Dispatched public plugin gates for rebundle tip ${tip}"
+      - name: Package the distributing artifact
+        # A release commits its version to main before tagging; pack main as is.
+        run: >-
+          tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0
+          --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig -cf - .
+          | gzip -n -9 > "${RUNNER_TEMP}/screenrig-plugin.tar.gz"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: screenrig-plugin
+          path: ${{ runner.temp }}/screenrig-plugin.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Install checksum-pinned Gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          install -d "${RUNNER_TEMP}/screenrig-tools/gitleaks"
+          archive="${RUNNER_TEMP}/screenrig-tools/gitleaks.tar.gz"
+          curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            --output "${archive}"
+          printf '%s  %s\n' "${GITLEAKS_SHA256}" "${archive}" | sha256sum --check --status
+          tar --extract --gzip --file "${archive}" \
+            --directory "${RUNNER_TEMP}/screenrig-tools/gitleaks" gitleaks
+          chmod 0755 "${RUNNER_TEMP}/screenrig-tools/gitleaks/gitleaks"
+      - name: Scan complete Git history for secrets
+        run: >-
+          "${RUNNER_TEMP}/screenrig-tools/gitleaks/gitleaks" git
+          --redact --no-banner .

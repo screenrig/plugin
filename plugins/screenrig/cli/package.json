@@ -1,0 +1,28 @@
+{
+  "name": "screenrig",
+  "version": "26.10.11",
+  "private": false,
+  "description": "ScreenRig control-plane CLI for agent-driven digital signage and kiosk operations.",
+  "homepage": "https://screenrig.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/screenrig/cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/screenrig/cli/issues"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "screenrig": "./dist/bin.js"
+  },
+  "engines": {
+    "node": ">=20.11"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.7",
+    "ajv": "8.18.0",
+    "ajv-formats": "3.0.1",
+    "commander": "14.0.3"
+  }
+}
