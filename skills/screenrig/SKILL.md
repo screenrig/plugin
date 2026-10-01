@@ -429,7 +429,8 @@ conversation; reuse its `conversation.id` for follow-ups. Read prior messages
 with `support history` and follow replies with `support follow`. Ask a human
 with `--human-requested` and then wait for staff; do not keep soliciting AI
 answers. Do not promise a response time. Commands, cursors and read receipts
-are in [operations](references/operations.md#support-conversations).
+are in [operations](references/operations.md#support-conversations). End resolved
+conversations with `support close --conversation-id ID`; their history is retained.
 
 ## Responses, retries and secrets
 

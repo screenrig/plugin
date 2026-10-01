@@ -261,6 +261,7 @@ support submit (--body TEXT | --body-file FILE) [--conversation-id ID] [--human-
 support history [--conversation-id ID --after SEQUENCE] [--before ID]
 support follow [--conversation-id ID] [--after SEQUENCE] [--timeout MS]
 support read --conversation-id ID --sequence SEQUENCE
+support close --conversation-id ID
 doctor [--repair-config]
 status [--environment production|stage]
 recovery list

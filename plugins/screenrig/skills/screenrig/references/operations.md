@@ -386,6 +386,7 @@ screenrig support history --conversation-id sc_CONVERSATION
 screenrig support submit --conversation-id sc_CONVERSATION --body "Another diagnostic detail."
 screenrig support follow --conversation-id sc_CONVERSATION --after 0 --timeout 60000
 screenrig support read --conversation-id sc_CONVERSATION --sequence 12
+screenrig support close --conversation-id sc_CONVERSATION
 screenrig support submit --conversation-id sc_CONVERSATION --body "Please ask a human." --human-requested
 ```
 
@@ -410,3 +411,6 @@ answer, Luna attempts an AI answer grounded in documentation and project context
 Its replies are identified as AI. `--human-requested`, or an explicit request for
 a person, pauses AI in that conversation. Wait for staff and report that state to
 the user; do not create replacement conversations to bypass their human request.
+
+End a resolved conversation with `support close --conversation-id ID`. Its history
+remains readable; staff can reopen it. Start a new conversation for a new issue.
