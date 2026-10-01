@@ -16,6 +16,37 @@ the archive first. The packer injects the screenRIG browser SDK at
 reaches `window.screenrig` at runtime with no build step and no dependency to
 install.
 
+#### Start the SDK in this order
+
+`window.screenrig` starts `inert` and turns `active` only when the Player's
+handshake and context arrive; a page that is not on screen yet stays inert.
+While inert, `ready()`, `log()`, `emit()`, `emitConfirmed()`, `nextPage()` and
+`kv` throw or reject with code `inert`. Every app starts like this:
+
+```javascript
+const sr = window.screenrig;
+async function start() {
+  render(); // draw the UI; it must also work outside screenRIG
+  if (!sr) return;
+  for (;;) {
+    try { await sr.waitUntilActive(60000); break; }
+    catch (err) { if (err.code !== "activation_timeout") return; }
+  }
+  await sr.ready();
+  // Only from here: emit, emitConfirmed, log, kv, nextPage.
+}
+start();
+```
+
+- Call `ready()` only after `waitUntilActive()` resolves, never before.
+- Check `sr.readyState === "active"` before every SDK call made from an event
+  handler, timer or `catch`. Never call `log()` in a handler that can run while
+  inert: it throws too, and that throw stops the rest of startup, so no event
+  is ever sent.
+- Queue input that arrives before activation and send it after `ready()`. Use
+  `emitConfirmed(code)` when a receipt matters and handle its rejection; plain
+  `emit(code)` is a send attempt.
+
 Released apps run under a strict Content-Security-Policy (`script-src 'self';
 style-src 'self'`), so inline code in the served HTML never runs. The packer
 moves inline `<style>` blocks and inline `<script>` blocks into generated files
@@ -110,12 +141,11 @@ For an interactive kiosk, use application mode with a `max_ms` long enough
 for the intended visit. A duration page advances at its deadline even while a
 visitor is using the app; pointer activity does not extend that deadline.
 Call `nextPage()` after completion or a deliberate idle reset, and explain the
-bounded fallback in the experience. `await window.screenrig.ready()` completes
-the bridge handshake; it does not prove the candidate page is active. Use
-`await window.screenrig.waitUntilActive()` before starting a visitor idle clock
-or sending active-page events. Use `await window.screenrig.emitConfirmed(code)`
-when the UI promises that an event was accepted, and handle its rejection;
-plain `emit(code)` is a send attempt. The receipt resolves only after the
+bounded fallback in the experience. Start the visitor idle clock and send
+events only after the [startup sequence](#start-the-sdk-in-this-order)
+(`waitUntilActive()`, then `ready()`) finishes. Use
+`await window.screenrig.emitConfirmed(code)` when the UI promises that an event
+was accepted, and handle its rejection. The receipt resolves only after the
 backend accepted the event; do not retry automatically after a timeout, since
 the event may already be recorded. Choose a shorter duration only for a
 preview that is supposed to rotate regardless of input.

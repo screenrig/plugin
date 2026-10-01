@@ -411,7 +411,10 @@ rotation, billing and a scheduled-agent recipe are in
 
 For screen controls, reload, screenshots, comments, events and feedback, use
 [operations](references/operations.md). For app uploads, page completion and K/V,
-use [applications](references/applications.md). The [command inventory](references/commands.md)
+use [applications](references/applications.md). App code must
+`await screenrig.waitUntilActive()` before `await screenrig.ready()` and make
+no SDK call, `log()` included, while `readyState` is not `active`; see
+[SDK startup](references/applications.md#start-the-sdk-in-this-order). The [command inventory](references/commands.md)
 provides a compact reference for supported operations.
 
 ## Resolve issues and ask for support
