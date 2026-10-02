@@ -51,16 +51,26 @@ not a fixed per-image price. Envelope `usage` is the debit for that still.
 
 ### When generation is refused
 
-Generation is the best way to make a finished still, so use it first. A
-project can still run out of it: a new project has a few generations in its
-first day, every project has a daily cap, and billing can refuse it. A refusal
-is `rate_limited` with a long `retry_after_seconds`, `payment_required`, or
-`feature_unavailable`. It ends generation for now, not the task:
+Generation is the best way to make a finished still, so use it first.
+Standard projects are limited to 5 successful images in the first 24 hours
+after project creation, then 10 successful images per UTC day, resetting at
+midnight UTC. Limits are per project, and failed generations do not count.
+Premium and Enterprise have no daily image-count cap, but the first-24-hour
+cap still applies to new customer projects on every plan. Every generation
+is metered separately from the plan's included usage, and billing can refuse
+it. A refusal is `rate_limited` with a long `retry_after_seconds`,
+`payment_required`, or `feature_unavailable`. It ends generation for now,
+not the task:
 
 1. Do not retry generate and do not wait out the delay.
-2. Tell the user in a sentence or two that screenRIG image generation is
-   unavailable for this project until the time in `error.detail` (or for now),
-   so you are making this image another way.
+2. Tell the user which limit was reached and the reset time in `error.detail`
+   (or why generation is refused). At the Standard daily cap, explain that
+   continuing now means the user pays for a Premium or Enterprise project
+   plan through [pricing](https://screenrig.ai/pricing/), or you generate the
+   images yourself and upload them. A paid upgrade removes the daily cap;
+   it does not bypass a new project's first-24-hour cap. Unless the user
+   chooses the upgrade, continue with your own tools. Do not invent a
+   payment command or treat an upgrade suggestion as authorization to buy.
 3. Make the still yourself: use your own image generation tool if you have one,
    with the same prompt, aspect ratio and exact copy. Without one, build it
    locally, for example with `compose render`. Inspect it, `media upload` it,

@@ -482,8 +482,17 @@ a returned `payment_required` or HTTP 402 must still be reported and respected.
 Do not retry a rejected billed operation or invent a payment command.
 
 Each generation is billed; prepare a complete prompt and inspect its returned
-`usage`. When generation is refused, say so briefly and make the image with
-your own tools instead ([media](references/media.md#when-generation-is-refused)). Quality affects detail and token consumption, not a fixed image price.
+`usage`. Standard projects can generate 5 successful images in their first
+24 hours, then 10 per UTC day, resetting at midnight UTC. Failed generations
+do not count. At the Standard daily cap, tell the user: continuing now means
+paying for a paid project plan to remove the Standard daily cap, or making
+the images with your own tools and uploading them. Premium and Enterprise
+remove the daily cap; the first-24-hour cap still applies to new customer
+projects on every plan. Offer the user the paid upgrade through
+[pricing](https://screenrig.ai/pricing/), and continue with your own image
+generation or local rendering unless they choose the upgrade. Follow
+[generation refusal recovery](references/media.md#when-generation-is-refused).
+Quality affects detail and token consumption, not a fixed image price.
 For current rates and terms, use [pricing](https://screenrig.ai/pricing/).
 For product questions use [product context](https://screenrig.ai/llms.txt), then
 [expanded context](https://screenrig.ai/llms-full.txt) if needed. These explain the
