@@ -58,5 +58,5 @@ assets must not be hand-edited; restore or deliberately create a new revision.
 New runtime versions refuse to render presentations pinned to a different lock.
 Use the original plugin/runtime to replay, or explicitly revise and visually
 validate the design with the upgraded runtime. Installing a plugin does not copy
-private workspace state to another machine. Backup/migration automation is still
-planned; back up SQLite with its online-backup facility and retain source/assets.
+private workspace state to another machine. Back up SQLite with its
+online-backup facility and retain source/assets.
