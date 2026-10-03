@@ -87,6 +87,18 @@ Existing playlists remain pinned until that replacement is applied.
 On a revision conflict, read the app again before deciding whether to retry;
 do not create a replacement application just to bypass the conflict.
 
+To change the display name without uploading another release:
+
+```bash
+screenrig app rename app_EXAMPLE --name "Lobby welcome"
+```
+
+Names contain 1 to 120 Unicode characters after trimming and no controls. The
+response carries `data.id`, `data.name`, and `data.revision`. The application ID,
+releases, K/V data, and playlist references keep their identities. Use
+`--expect-rev REVISION` for an optional revision guard; renaming to the current
+name leaves the revision unchanged.
+
 ### 2. Write the application primitive
 
 For a timed full-screen application page, pass its `rel_` ID to `playlist init`;

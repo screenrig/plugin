@@ -148,6 +148,7 @@ dashboard reset-sign-in --email ADDRESS
 app pack <directory> [--output FILE]
 app upload <directory> [--name NAME] [--no-wait] [--poll-ms MS]
 app update <id> <directory> [--expect-rev REVISION] [--no-wait] [--poll-ms MS]
+app rename <id> --name NAME [--expect-rev REVISION]
 app list
 app show <id>
 media generate (--prompt TEXT | --prompt-file FILE) [--aspect-ratio RATIO] [--quality low|medium|high] [--tag TAG]
