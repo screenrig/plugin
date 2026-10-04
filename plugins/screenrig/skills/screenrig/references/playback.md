@@ -70,7 +70,12 @@ row, in one request:
   a limit on total duration.
 
 Plays columns:
-`screen_id,playlist_id,page_id,primitive_id,media_id,primitive,started_at,received_at`.
+`screen_id,playlist_id,page_id,primitive_id,media_id,primitive,started_at,received_at,manifest_revision,playlist_revision`.
+
+`manifest_revision` and `playlist_revision` identify the exact published
+content authorized for that play. Use those recorded revisions rather than
+the playlist's current revision when reporting historical playback. An
+absent revision is an empty CSV cell.
 
 Daily totals columns:
 `screen_id,media_id,filename,primitive,day,play_count,last_page_id,last_manifest_revision,first_started_at,last_started_at`.
