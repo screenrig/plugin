@@ -22,30 +22,73 @@ examples, aliases, and option relationships. `exactlyOne`, `atLeastOne`, and
 means the first option requires all remaining options. Read stdin only where
 command help explicitly supports `-`.
 
-### Enroll: create a new project (default)
+### Enroll: create Screens (default)
 
 ```sh
-screenrig agent enroll --email ADDRESS --project-name NAME
+screenrig agent enroll --email ADDRESS --organization NAME
 ```
 
-Default first-run is enroll, and enroll always creates a new project — even when
-the contact email already signs in to another screenRIG project. Propose a
-project name, confirm it with the user, and use the user's actual contact email.
-The server emails the contact address a member invitation for their dashboard
-login; tell the user it is on its way. Nothing waits on it: do not generate an
-invitation link, ask them to sign in, or send them to the dashboard. Go
-straight on to pairing and content. Do not open `agent connect` unless the user
-says this installation should join an existing project. If an unwanted
-existing-project connection is already pending, `screenrig agent enroll --force
---email ADDRESS` discards it and enrolls so the path is not dead-ended. Resume
-`agent connect` only for an intentional existing-project reconnect. An already
-enrolled installation reuses its project. The Player pairing code is the only
-glass-side human step after enroll.
+Enrollment creates an organization with the supplied name, an identity, a
+`Screens` project, its membership and credentials, and a person invitation.
+Use the email supplied by the user; use their organization name or `Screens`
+when it was omitted. Do not ask for a project-name choice. Contact metadata
+never proves identity or grants access. Nothing waits on the invitation;
+continue with pairing and content. Acceptance establishes the responsible
+person and owner, with verified-domain placement when applicable.
 
-If the server rejects the stored credential (`unauthorized`), the project is
-gone for this installation. Run `screenrig agent disconnect --yes` to clear it
-locally, then enroll a new project. A rejected credential is never a reason to
-open `agent connect`.
+When the user says they already have screenRIG and wants to use it, connect to
+that existing project. A rejected credential is not proof the project was
+deleted. List and select another existing membership when appropriate, or
+request explicit connection approval. Resume pending enrollment unchanged;
+`--force` discards its local pending state only when a fresh enrollment was
+requested.
+
+### Projects and organizations
+
+```sh
+screenrig project list
+screenrig project use ID
+screenrig project create NAME [--organization-id ID | --organization NAME]
+screenrig project show
+screenrig project capabilities
+screenrig project rename NAME
+screenrig project moves
+screenrig project move --organization-id ID
+screenrig project transfer-owner --user-id ID
+screenrig project deletion-preview
+screenrig project delete --name NAME --revision N --yes
+screenrig organization list
+screenrig organization rename ID NAME
+```
+
+List verifies this identity's accessible memberships without selecting one.
+Use selects the last-used project. `--project-id ID` pins a cached project for
+one invocation; credentials and retries remain separate by project. Every
+result identifies its organization and project. Project names are unique in
+an organization; organization names can repeat.
+
+List organizations visible to this identity with `organization list`.
+`organization rename ID NAME` requires organization administration and uses
+its explicit ID; it keeps the selected project.
+
+Creation defaults to the current organization and assigns the responsible
+person as owner. An explicit organization is required with no current project.
+The server enforces ten free Standard projects per owner on creation; covered
+projects are admitted by their payer's plan. A successful create selects the
+new project and privately stores its membership credential. After an ambiguous
+failure, rerun the identical command to reuse its saved request.
+
+Moves and ownership transfers require the owner. Choose a destination from
+`project moves`; it carries the project's screens and checks the destination
+payer's pooled limit. Transfer targets an existing verified project member.
+After an ambiguous move or transfer, inspect current state before repeating.
+Deletion requires its preview's current name and revision, its own Standard
+plan, no active screens, wallet obligations or live advertising. It emails
+members and retains a tombstone. A refusal never archives screens for you.
+
+Project usage stays project-scoped. Premium organization coverage pools money,
+monthly allowances and the screen limit across all projects it pays for. A
+project's historical charges retain the payer chosen when they were recorded.
 
 ### Invite people and advertising buyers
 
@@ -89,15 +132,18 @@ fresh installation: it never enrolls, sends a stored credential, or changes the
 stored project or enrollment. The acknowledgment is neutral whether or not the
 address is known; if the address can receive sign-in instructions, the human
 checks its inbox. Delivery is not confirmed, instructions expire after one
-hour, and an ambiguous retry reuses its saved Idempotency-Key.
+hour, and an ambiguous retry reuses its saved Idempotency-Key. Eligible pending
+invitations are refreshed in place, preserving their IDs and revocation, with
+a one-hour resend cooldown.
 
 ### Connect an existing project
 
 Only when the user explicitly asks this installation to join a screenRIG
-project that already exists. First setup is always `agent enroll`.
+project that already exists, including when they say they already have
+screenRIG. Otherwise first setup is `agent enroll`.
 
 ```sh
-screenrig agent connect
+screenrig agent connect [--target-project-id ID]
 ```
 
 By default, this starts or resumes an approval request and reads one status
@@ -108,7 +154,10 @@ resume with `data.next.argv` or `screenrig agent connect`. The human approves in
 the dashboard with their own login (a passkey or a password in production); the
 CLI never receives that credential. The argument array preserves the selected
 config and API origin. Activation returns `data.status: active` and
-`data.connection_complete: true`, without returning a credential.
+`data.connection_complete: true`, without returning a credential. The existing
+identity gains only the approved membership. Cleanup of its original empty
+enrollment Screens project is transactionally guarded. A pending cleanup is
+resumed on agent connect without requesting approval again.
 
 If no snapshot arrives, `data.status_checked` is `false`; do not infer current
 approval state from that result. The CLI tries to open the approval URL in a
@@ -130,19 +179,30 @@ before replacing an agent that lacks a needed permission.
 ## Commands
 
 ```text
+organization list
+organization rename ID NAME
+project list
+project use ID
+project create NAME [--organization-id ID | --organization NAME]
 project show
 project capabilities
 project rename NAME
+project moves
+project move --organization-id ID
+project transfer-owner --user-id ID
+project deletion-preview
+project delete --name NAME --revision N --yes
 invitations create --email ADDRESS[,ADDRESS] [--link]
 invitations create --kind ad-buyer --email ADDRESS[,ADDRESS]
                   [--screen-id IDS] [--slot-id IDS] [--policy trusted|review_required]
 invitations list [--kind member|ad-buyer] [--status STATUS]
 invitations revoke ID
 agent status
-agent enroll --email EMAIL [--project-name NAME] [--name NAME]
+agent enroll --email EMAIL --organization NAME [--name NAME]
              [--intent signage|advertising] [--force]
-agent connect [--name NAME] [--capability NAME]... [--print-url] [--wait | --no-wait] [--timeout MS]
+agent connect [--target-project-id ID] [--name NAME] [--capability NAME]... [--print-url] [--wait | --no-wait] [--timeout MS]
 agent disconnect --yes [--allow-lockout]
+agent revoke-identity --yes
 dashboard open
 dashboard reset-sign-in --email ADDRESS
 app pack <directory> [--output FILE]

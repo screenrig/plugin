@@ -59,59 +59,80 @@ installation. Missing media tools affect upload; see [media](references/media.md
 
 ## First run: enroll a new project
 
-On first setup, enroll. It is the only first-run path, and it always creates a
-new project, even when the contact email already signs in to another screenRIG
-project. Do not run `agent connect`, open the dashboard, or ask the human to
-approve, sign in or claim anything.
+If the user says they already have screenRIG and wants to use it, follow
+[Join an existing project](#join-an-existing-project-only-on-explicit-request).
+Otherwise enroll a new organization, identity and `Screens` project in one
+command. Never infer an account, organization, membership or domain placement
+from an unverified email, a matching name or a displayed login page.
 
-Authenticated commands never create a project as a side effect; they fail with
-`not_enrolled`, and doctor warns about the missing token. Then:
+Authenticated commands never enroll as a side effect; they return
+`not_enrolled`, and doctor warns about the missing credential. Use the contact
+email supplied by the user, asking only when it is missing. Use their supplied
+organization name, or `Screens` when none was given. Do not ask them to choose a
+project name or confirm defaults:
 
-1. Propose a project name, confirm it with the user, and ask for their contact
-   email.
-2. Enroll:
+```bash
+screenrig agent enroll --email ADDRESS --organization NAME
+```
 
-   ```bash
-   screenrig agent enroll --email ADDRESS --project-name NAME
-   ```
+Enrollment names its project `Screens`; `--name` names the agent. Tell the user
+an invitation was requested for their dashboard login, then continue directly
+with pairing and content. No human approval, invitation link or dashboard
+visit blocks first-run work. Acceptance assigns the responsible person and
+project owner; it does not grant other memberships.
 
-3. Tell the user the server is emailing that address a member invitation for
-   their dashboard login. Nothing waits on it: do not generate an invitation
-   link or send them to the dashboard. Go straight on to pairing and content.
+An enrolled installation reuses its selected project. For explicitly requested
+advertising work, add `--intent advertising`: it buys ads without pairing
+screens or authoring playlists. Resume an interrupted enrollment unchanged;
+its organization, email and purpose are bound to the saved request. Discard an
+unwanted pending request only with `agent enroll --force --email ADDRESS
+--organization NAME` when a fresh enrollment is what the user requested.
 
-An already enrolled installation reuses its project. If the work is explicitly
-advertising rather than signage, add `--intent advertising`: that project buys
-ads and does not pair devices or author playlists.
-
-Every first-run problem still ends in enrollment:
-
-- Enroll reports a pending existing-project connection the user did not ask
-  for: `screenrig agent enroll --force --email ADDRESS` discards it and enrolls.
-- The server rejects the stored credential (`unauthorized`): this
-  installation's project is gone. Clear it and enroll:
-
-  ```bash
-  screenrig agent disconnect --yes
-  screenrig agent enroll --email ADDRESS --project-name NAME
-  ```
-
-- A `next` step, hint or doctor path names `agent connect` or the dashboard:
-  do not follow it on first setup.
-
-Consult `screenrig --help` for the installed command's arguments. Never ask the
-user to paste a project bearer into the conversation or command line.
+A rejected credential proves only that it is no longer accepted. If this
+identity has other memberships, use `project list` and select the intended
+project with `project use ID`. Disconnecting revokes only that project's
+membership; `agent revoke-identity --yes` is a separate action affecting all
+memberships. An ambiguous failure retains credentials for reconciliation.
+Never paste a bearer into the conversation, environment or command line.
 
 ### Join an existing project (only on explicit request)
 
-Use `agent connect` only when the user explicitly says this installation should
-join a screenRIG project that already exists, for example "connect to our
-existing Acme project". An email that already has a screenRIG login, an existing
-dashboard, or a CLI message mentioning `agent connect` is not that request.
+When the user asks to use existing screenRIG, start or resume `agent connect`.
+If their intended project ID is known, use `--target-project-id ID`. This asks
+for approval of that specific request and adds a membership to the same
+identity; a matching email or organization name never grants access.
 
-Connection returns promptly by default; a pending success is not active access.
-The human approves in their dashboard. Follow `data.next.argv` after approval and
-require `data.connection_complete: true`. See
-[connection behavior](references/commands.md#connect-an-existing-project).
+Connection returns promptly by default. A pending success means the request
+was submitted. Share its approval handoff privately with the intended person,
+then follow `data.next.argv` and require `data.connection_complete: true`.
+After activation, the CLI removes its original enrollment `Screens` project
+only when it has saved enrollment provenance and the server confirms emptiness
+inside the deletion transaction. Content, other members or agents, and paid
+coverage retain it. If cleanup is pending, rerun `agent connect`; this resumes
+cleanup without another approval. See [connection behavior](references/commands.md#connect-an-existing-project).
+
+### Select and create projects
+
+Projects are coarse containers. Keep work in the current project unless the
+user asks for a separate one. `project list` shows accessible projects grouped
+by organization; `project use ID` selects the last-used project. `--project-id ID`
+targets a cached project for one command without changing that selection.
+Use the organization and project named in each result, and keep retries on the
+same target; a concurrent switch does not redirect a running command.
+
+`project create NAME` defaults to the current organization and makes the
+responsible person the owner. Names are unique within the organization. Use
+`--organization-id ID` to choose an administered organization, or
+`--organization NAME` to choose or create one. The server enforces the creation
+cap of ten free Standard projects per owner; enrollment is rate-limited and
+uncapped. Covered projects can be created beyond the free cap. Never create
+another project or identity to evade an admission refusal.
+
+Only the owner moves or transfers ownership. Read `project moves` before a
+move; screens count against the destination payer's pooled limit. Deletion
+needs the exact name and revision from `project deletion-preview`, the
+project's own Standard plan, no active screens, no wallet obligations and no
+live advertising. It emails members. See [project commands](references/commands.md#projects-and-organizations).
 
 Agent credentials have their own capabilities, separate from project feature
 entitlements: `screens`, `content`, `playlists`, `advertising`, `reports`, and
@@ -151,8 +172,8 @@ route, paste a credential, or silently request broader access.
 
 1. Resolve the official installed plugin and CLI, then verify version, freshness,
    and doctor as above.
-2. Enroll (see [First run](#first-run-enroll-a-new-project)). Connect only a
-   project the user explicitly asked to join.
+2. Enroll (see [First run](#first-run-enroll-a-new-project)), or connect when
+   the user asks to use existing screenRIG.
 3. Read the authenticated project ID, plan, feature flags, feature revision, and
    the server's effective capabilities. Never infer permission from a screen
    quota of zero, a plan name, a dashboard label, or which commands exist.
