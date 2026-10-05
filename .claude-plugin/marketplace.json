@@ -8,7 +8,7 @@
     {
       "name": "screenrig",
       "source": "./plugins/screenrig",
-      "description": "Operate ScreenRig screens, media, and playlists with the bundled CLI.",
+      "description": "Operate ScreenRig screens, media, playlists, applications, and advertising with the bundled CLI.",
       "version": "26.10.159",
       "author": {
         "name": "ScreenRig"
