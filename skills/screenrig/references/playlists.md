@@ -175,7 +175,7 @@ linear gradient. The gradient is `{ "type": "linear", "stops": [...] }` with
 Selector `by` values:
 
 - `id`: one ready `media_id`. `one_at_a_time` must be false.
-- `ids`: 1–32 unique ready IDs.
+- `ids`: 1–1,024 unique ready IDs.
 - `all`: every ready object of that primitive, image or video.
 - `tag`: ready objects of that primitive whose tag matches
   `^[A-Za-z0-9]{1,32}$`.
@@ -184,7 +184,7 @@ Selector `by` values:
 Players resolve all dynamic selectors together at playlist startup and each
 loop boundary. Uploads, removals and tag edits take effect on the next loop;
 the manifest revision stays stable. An empty match skips the primitive and
-any resulting empty page. Each selector resolves at most 32 ready items.
+any resulting empty page. Each selector resolves at most 1,024 ready items.
 
 With `one_at_a_time: true`, each page appearance plays one item and advances
 a persistent cursor. With `false` on a `media_end` page, every matched item
@@ -606,3 +606,74 @@ UDP/MPEG-TS multicast. HLS is also supported on Web, Android, macOS, and Windows
 Every Player download is at https://screenrig.ai/downloads/ (Android on Google
 Play: https://play.google.com/store/apps/details?id=ai.screenrig.player). See https://screenrig.ai/docs/players.md for the
 platform matrix.
+
+### Tag filters and playback batches
+
+Media carries up to 32 unique tags, each 1–32 letters or digits. Replace the
+whole set with `screenrig media update med_ID --tags Summer,Drinks`.
+`--tag Summer` replaces it with one tag; `--clear-tag` clears every tag.
+`media list --tag Summer` matches membership anywhere in the set. Tags are
+case-sensitive and are never authorization.
+
+A dynamic selector can use one `tag` or a `tags` filter object:
+
+```json
+{
+  "by": "tag",
+  "tags": { "all": ["Summer", "Drinks"], "any": ["Lobby", "Patio"], "none": ["Expired"] },
+  "order": "random",
+  "one_at_a_time": false,
+  "batch_size": 3
+}
+```
+
+`all` requires every listed tag, `any` requires at least one, and `none`
+excludes any listed tag. Present groups combine with AND; omitted groups
+impose no condition. Supply at least one nonempty group. Each group accepts
+up to 32 unique tags. `tag` and `tags` are mutually exclusive. A `none`-only
+filter selects all ready media of that primitive except the excluded tags.
+Image selectors select images and video selectors select videos.
+
+The candidate pool contains up to 1,024 ready media per selector, with 1,024
+media references across the complete loop snapshot. A larger match returns
+an error; narrow the filters. `batch_size` is a separate limit of 1–1,024
+items per page visit. On a `media_end` page, `one_at_a_time: false` plays the
+next batch in sequence; omitting `batch_size` plays the remaining pass.
+`one_at_a_time: true` plays one item per appearance and allows only an omitted
+batch size or `batch_size: 1`. Duration and application pages require
+`one_at_a_time: true`. Images on `media_end` also require `dwell_ms`; videos
+cannot loop on that page.
+
+The Player resolves every dynamic media primitive in one request at playlist
+startup and at each loop boundary. Membership is frozen during the loop.
+Uploads, removals, and tagging changes do not regenerate the manifest.
+At the next refresh, removed or newly excluded items leave the pending queue;
+new matches join when the current pass finishes. A final batch may contain
+fewer than the requested number; it does not refill from the next pass.
+Filename order sorts by filename, then media ID. Random order shuffles once
+per complete pass, preserving the remaining order across loop refreshes.
+The cursor is local to the screen, playlist, page, and primitive, persists
+across restart, and resets when the filter, order, or batch policy changes.
+Offline playback uses the last successful snapshot. Empty matches skip the
+primitive and any resulting empty page.
+
+Save the selector object above as `selector.json`, then inspect its current
+candidate catalog before publishing:
+
+```sh
+screenrig media selector-preview selector.json --primitive video
+```
+
+Preview returns `matched_count`, filename-ordered `candidates` with media
+IDs and tags, and the normalized `selector` policy. With random order it
+shows the pool and shuffle policy; it does not choose the Player's shuffle,
+advance a cursor, create a playback grant, or change a manifest. The API is
+`POST /api/v1/selectors/preview` with `{ "primitive": "video", "selector": ... }`.
+It uses the authenticated project and the same matching rules as playback.
+Catalog changes after preview are resolved at playback's next loop boundary.
+
+Static bundle export freezes dynamic matches as exact IDs. It preserves
+one-at-a-time or complete-pass playback; a bounded runtime sequence using
+`batch_size` with `one_at_a_time: false` requires removing that field or
+choosing explicit IDs before export. This prevents silently losing a runtime
+batch cursor in a static bundle.

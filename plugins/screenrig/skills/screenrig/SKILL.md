@@ -518,3 +518,5 @@ For current rates and terms, use [pricing](https://screenrig.ai/pricing/).
 For product questions use [product context](https://screenrig.ai/llms.txt), then
 [expanded context](https://screenrig.ai/llms-full.txt) if needed. These explain the
 product; the installed CLI and its responses determine available operations.
+
+For dynamic media, use the tag filters, playback batches, and `media selector-preview` workflow in [playlists](references/playlists.md#tag-filters-and-playback-batches). Resolve catalog membership once per playlist loop; see that reference for cursor and static bundle behavior.

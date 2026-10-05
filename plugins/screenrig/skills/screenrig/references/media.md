@@ -200,8 +200,10 @@ On a build that converts:
   object. Hyphens are rejected; `ExecIntro2026` is valid and `exec-intro`
   is not. `media list --tag TAG [--primitive image|video|audio]` filters by that tag
   and is the reliable filename → id map after upload.
-  `media update <id> (--tag TAG | --clear-tag)` changes
-  or clears it. Untagged objects are omitted when `--tag` is present on
+  `media update <id> (--tag TAG | --tags TAG1,TAG2 | --clear-tag)`
+  replaces or clears the whole tag set. Use `media selector-preview selector.json
+  --primitive image|video` to inspect combined `all`/`any`/`none` tag filters
+  before publishing; see [Playback batches](playlists.md#tag-filters-and-playback-batches). Untagged objects are omitted when `--tag` is present on
   `media list`.
 - The conversion runs `ffmpeg` and `ffprobe`. They must be on `PATH`, or their
   absolute paths must be in `SCREENRIG_FFMPEG` and `SCREENRIG_FFPROBE`.
