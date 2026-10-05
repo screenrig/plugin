@@ -180,6 +180,19 @@ Selector `by` values:
 - `tag`: ready objects of that primitive whose tag matches
   `^[A-Za-z0-9]{1,32}$`.
 
+`all` and `tag` accept `order: "filename"` (default) or `"random"`.
+Players resolve all dynamic selectors together at playlist startup and each
+loop boundary. Uploads, removals and tag edits take effect on the next loop;
+the manifest revision stays stable. An empty match skips the primitive and
+any resulting empty page. Each selector resolves at most 32 ready items.
+
+With `one_at_a_time: true`, each page appearance plays one item and advances
+a persistent cursor. With `false` on a `media_end` page, every matched item
+plays before the page advances. Random order shuffles once per complete pass;
+refreshing the snapshot preserves the unplayed queue, skips removed items,
+and adds new items on the next pass. Offline playback uses the last snapshot.
+Dynamic selectors on duration or application pages require `one_at_a_time: true`.
+
 `media_end` is valid only on a page with exactly one image or video primitive.
 Video `loop` must be false. An image on `media_end` requires `dwell_ms`.
 `dwell_ms` is rejected on duration and application pages. A video plus a
