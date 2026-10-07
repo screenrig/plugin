@@ -32,7 +32,7 @@ With an AgentID claim code from the AgentID sign-in page, enroll with
 `screenrig agent enroll --agentid-claim CODE --organization NAME` instead of
 `--email`; the invitation goes to the owner's verified email, so do not ask for
 one. A refusal for an invalid or expired claim falls back to `--email`, and an
-already-enrolled AgentID follows [Join an existing project](SKILL.md#join-an-existing-project-only-on-explicit-request).
+already-enrolled AgentID follows [Join an existing project](../SKILL.md#join-an-existing-project-only-on-explicit-request).
 
 Enrollment creates an organization with the supplied name, an identity, a
 `Screens` project, its membership and credentials, and a person invitation.
