@@ -281,9 +281,8 @@ revoked buyers and financial history. The CLI workflow below is optional.
    screenrig screen publish SCREEN_ID ad-breaks.json
    ```
 
-   A v1 read or write of an ad-bearing playlist answers with the explicit
-   `version_required` conflict and the CLI retries the v2 union; the CLI never
-   filters an ad break out of a document.
+   An ad-bearing playlist is an ordinary playlist read and write at
+   `/api/playlists`. The CLI never filters an ad break out of a document.
 
 8. **Report.** A seller sees gross ad income, the serving-fee debit, and net
    credits for its own delivery, plus eligible, empty, failed, and completed

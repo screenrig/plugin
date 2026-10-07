@@ -168,7 +168,7 @@ reserved for damage: a config file other users can read
 `libx264`, or a control plane that does not answer. Read the `ready` row's
 detail too: a `warn` there names each degraded server dependency and prints
 the server's own sentence for it verbatim (for example that application
-upload is unavailable and `POST /api/v1/applications` answers 503
+upload is unavailable and `POST /api/applications` answers 503
 `dependency_unavailable` until the workers run). Relay that sentence to the
 user instead of attempting the `app upload` and reporting the 503.
 

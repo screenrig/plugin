@@ -530,10 +530,9 @@ is stored in the playlist, and a selected fill never rewrites the saved document
 Keep at least one ordinary page with no visibility rule as the fallback. Adslot
 pages count toward the normal page limits, the slot definition must already exist
 for the project, and the assigned Players must support the adslot capability; a
-slot definition alone does not create an ad break. An ad-bearing playlist is read
-and written under the v2 union: a v1 request answers with an explicit
-`version_required` conflict and the CLI retries v2 rather than filtering the ad
-break out of the document. `playlist preview` renders one labelled placeholder
+slot definition alone does not create an ad break. An ad-bearing playlist is an
+ordinary playlist read and write at `/api/playlists`; the CLI never filters an
+ad break out of the document. `playlist preview` renders one labelled placeholder
 for an adslot page because the fill is chosen at runtime, and a playlist bundle
 cannot carry an adslot page. See [advertising](advertising.md).
 
@@ -668,7 +667,7 @@ Preview returns `matched_count`, filename-ordered `candidates` with media
 IDs and tags, and the normalized `selector` policy. With random order it
 shows the pool and shuffle policy; it does not choose the Player's shuffle,
 advance a cursor, create a playback grant, or change a manifest. The API is
-`POST /api/v1/selectors/preview` with `{ "primitive": "video", "selector": ... }`.
+`POST /api/selectors/preview` with `{ "primitive": "video", "selector": ... }`.
 It uses the authenticated project and the same matching rules as playback.
 Catalog changes after preview are resolved at playback's next loop boundary.
 

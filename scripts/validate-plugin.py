@@ -289,7 +289,7 @@ def check_package() -> None:
     packaged_cli = PLUGIN / "cli" / "dist" / "bin.js"
     if packaged_cli.is_file():
         commands_text = packaged_cli.read_text(encoding="utf-8")
-        for fact in ("agent disconnect --yes", "/api/v1/agents/self/disconnect"):
+        for fact in ("agent disconnect --yes", "/api/agents/self/disconnect"):
             if fact not in commands_text:
                 errors.append(f"packaged CLI credential lifecycle missing: {fact}")
         for stale in ("auth revoke --yes", "/api/v1/account/credential/revoke"):
@@ -402,7 +402,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         "token paste": re.compile(r"--token|SCREENRIG_TOKEN", re.IGNORECASE),
         "retired screen creation": re.compile(r"\bscreen\s+create\b", re.IGNORECASE),
         "retired bootstrap onboarding": re.compile(
-            r"#bootstrap=|/api/v1/screens/bootstrap|/runtime/v1/device-sessions/bootstrap|ScreenBootstrap|PlayerBootstrap|bootstrap grant",
+            r"#bootstrap=|/api/v1/screens/bootstrap|/api/screens/bootstrap|/runtime/v1/device-sessions/bootstrap|/screen/device-sessions/bootstrap|ScreenBootstrap|PlayerBootstrap|bootstrap grant",
             re.IGNORECASE,
         ),
         "retired pairing flag": re.compile(r"\bscreen\s+pair\s+--code\b", re.IGNORECASE),

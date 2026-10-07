@@ -185,7 +185,7 @@ screens carrying that exact tag and adds a `TAGS` column.
 
 `screen assign`, `screen reload`, `screen toast`, and `screen tag` take
 several screen ids or `--tag TAG` (not both). Either form is one
-`POST /api/v1/screens/actions` request: one metered request for up to 500
+`POST /api/screens/actions` request: one metered request for up to 500
 screens. `--tag` selects active screens only; archived screens are skipped.
 `--expect-rev` is refused, because revision guards are per screen.
 
