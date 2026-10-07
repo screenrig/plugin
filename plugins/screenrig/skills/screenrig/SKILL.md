@@ -75,6 +75,15 @@ project name or confirm defaults:
 screenrig agent enroll --email ADDRESS --organization NAME
 ```
 
+Email remains the default. An agent that signed in with AgentID receives a
+screenRIG claim code from the AgentID sign-in page: enroll with
+`screenrig agent enroll --agentid-claim CODE --organization NAME` instead of
+`--email`, and do not ask for an email because the invitation goes to the
+owner's verified email. If redemption is refused as invalid or expired, enroll
+with `--email` immediately rather than retrying. If it answers that the AgentID
+is already enrolled, follow
+[Join an existing project](#join-an-existing-project-only-on-explicit-request).
+
 Enrollment names its project `Screens`; `--name` names the agent. Tell the user
 an invitation was requested for their dashboard login, then continue directly
 with pairing and content. No human approval, invitation link or dashboard

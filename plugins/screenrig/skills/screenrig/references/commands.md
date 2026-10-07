@@ -28,6 +28,12 @@ command help explicitly supports `-`.
 screenrig agent enroll --email ADDRESS --organization NAME
 ```
 
+With an AgentID claim code from the AgentID sign-in page, enroll with
+`screenrig agent enroll --agentid-claim CODE --organization NAME` instead of
+`--email`; the invitation goes to the owner's verified email, so do not ask for
+one. A refusal for an invalid or expired claim falls back to `--email`, and an
+already-enrolled AgentID follows [Join an existing project](SKILL.md#join-an-existing-project-only-on-explicit-request).
+
 Enrollment creates an organization with the supplied name, an identity, a
 `Screens` project, its membership and credentials, and a person invitation.
 Use the email supplied by the user; use their organization name or `Screens`
@@ -198,7 +204,7 @@ invitations create --kind ad-buyer --email ADDRESS[,ADDRESS]
 invitations list [--kind member|ad-buyer] [--status STATUS]
 invitations revoke ID
 agent status
-agent enroll --email EMAIL --organization NAME [--name NAME]
+agent enroll --email EMAIL | --agentid-claim CODE --organization NAME [--name NAME]
              [--intent signage|advertising] [--force]
 agent connect [--target-project-id ID] [--name NAME] [--capability NAME]... [--print-url] [--wait | --no-wait] [--timeout MS]
 agent disconnect --yes [--allow-lockout]
