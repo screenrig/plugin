@@ -203,7 +203,9 @@ the flag before calling.
 
 ### Where the SDK runs
 
-The web Player, the Android Player, and the macOS Player host the SDK in full:
+The web Player (including on Samsung Smart Signage and BrightSign, which run it),
+the Android Player, the Linux Player (Linux and Raspberry Pi), and the macOS Player
+host the SDK in full:
 `ready`, `waitUntilActive`, `nextPage`, `emit`, `emitConfirmed` receipts, and
 `screenrig.kv`. Apple TV has no web primitives, so it shows no application or
 iframe content; target it with image, video, and stream pages.
