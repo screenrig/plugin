@@ -88,7 +88,7 @@ screenrig screen reboot --tag Lobby --yes
 
 ```bash
 screenrig screen display scr_LOBBY --power off --for 2h
-screenrig screen display scr_LOBBY --power off --until 2026-10-01T07:00:00Z
+screenrig screen display scr_A scr_B --power off --for 8h
 screenrig screen display --tag Lobby --power on
 screenrig screen display clear scr_LOBBY
 screenrig screen display clear --tag Lobby
@@ -97,8 +97,8 @@ screenrig screen display clear --tag Lobby
 `screen display` is a manual override of the display schedule. `--power on|off`
 sets it (a trailing `on` or `off` after the ids is the same).
 
-- `--until` takes a strict RFC 3339 instant, in the future and at most 7 days
-  ahead. `--for` takes a duration up to `6d23h59m`.
+- `--until` takes a strict RFC 3339 instant (`YYYY-MM-DDTHH:MM:SSZ`), in the
+  future and at most 7 days ahead. `--for` takes a duration up to `6d23h59m`.
 - Without either, the override ends at the display schedule's next boundary.
   A later schedule or timezone change moves that end to the new boundary.
   With no boundary in the next eight days (for example no enabled schedule),
@@ -118,7 +118,7 @@ screenrig screen display-schedule clear scr_LOBBY
 ```
 
 A display schedule lists 1 to 16 windows when the display is **on**, in the
-screen timezone (set one first with `screen set-timezone`). Outside every
+screen timezone (set one first with `screen set-timezone ID --timezone ZONE`, where ZONE is an IANA name such as `Europe/London`, `America/New_York` or `UTC`). Outside every
 window the display goes to standby. The Player evaluates it offline, so it
 keeps working when the network drops.
 

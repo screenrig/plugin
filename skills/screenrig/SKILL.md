@@ -17,6 +17,24 @@ https://play.screenrig.ai). Setup detail is in
 Resolve the project's capabilities and the requested intent before any operation;
 the section below is the only branch that needs a screenRIG screen.
 
+## Quickstart
+
+The common signage path; each step has its section below.
+
+1. Put the bundled launcher on PATH ([Prepare the installation](#prepare-the-installation))
+   and require a `screenrig version` envelope.
+2. Enroll once: `screenrig agent enroll --email ADDRESS --organization NAME`.
+3. Pair the Player: `screenrig screen pair "ABC 234"`, then `screenrig screen show SCREEN_ID`
+   until it reports `state` `active` and `online` true.
+4. Read `observation.surfaces[]` from `screen show` for the size and orientation.
+5. Make the content: upload a finished file, `media generate` a whole poster, or
+   `compose render` editable slides ([content path](#signage-branch-choose-the-content-path)).
+6. `screenrig playlist init SOURCES... --screen-id SCREEN_ID --name NAME --output playlist.json`,
+   then `screenrig screen publish SCREEN_ID playlist.json`.
+7. Check the glass: `screenrig screen screenshot SCREEN_ID`.
+8. For opening hours, first `screenrig screen set-timezone SCREEN_ID --timezone ZONE`
+   (an IANA name such as `Europe/London`), then schedules or display power.
+
 ## Prepare the installation
 
 Node.js 22.11 or newer is required. Resolve the installed plugin root and put its
@@ -24,15 +42,27 @@ launcher on this shell's PATH. Never substitute a global or source-checkout bina
 
 ```bash
 SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
-if [ -n "$SCREENRIG_PLUGIN_ROOT" ]; then
+# The session that installed the plugin has no root variable: ask the runtime's plugin list.
+screenrig_root_from_list() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const l=Array.isArray(j)?j:j.installed||[];const p=l.find(e=>(e.id||e.pluginId)==="screenrig@screenrig"&&e.enabled!==false);const r=p&&(p.installPath||(p.source&&p.source.path));if(r)console.log(r)}catch{}})'; }
+if [ -z "$SCREENRIG_PLUGIN_ROOT" ] && command -v claude >/dev/null 2>&1; then
+  SCREENRIG_PLUGIN_ROOT="$(claude plugin list --json 2>/dev/null | screenrig_root_from_list)"
+fi
+if [ -z "$SCREENRIG_PLUGIN_ROOT" ] && command -v codex >/dev/null 2>&1; then
+  SCREENRIG_PLUGIN_ROOT="$(codex plugin list --json 2>/dev/null | screenrig_root_from_list)"
+fi
+if [ -x "$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig" ]; then
   PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
   screenrig version
+else
+  echo "screenRIG launcher not found (plugin root: ${SCREENRIG_PLUGIN_ROOT:-none}). Install screenrig@screenrig, or follow references/installation.md." >&2
 fi
 ```
 
-If the root is empty, use the runtime's plugin list to find the enabled
-`screenrig@screenrig` installation. Read [installation and updates](references/installation.md)
-for exact lookup, official install commands, and update recovery. Installation
+The snippet finds the root from the runtime's variables, or from `claude plugin list --json`
+or `codex plugin list --json` when they are empty (as in the session that installed the
+plugin), and says so on stderr when no launcher is found. Never hand-write a cache path.
+Read [installation and updates](references/installation.md) for Grok, official install
+commands, and update recovery. Installation
 must respect the user's authorization and the runtime's approval policy.
 
 Require a successful version envelope, then run:
@@ -276,7 +306,7 @@ ask before undoing it. See [operations](references/operations.md).
 
 ## Signage branch: choose the content path
 
-Read the target screen's reported playback surface before choosing aspect ratio.
+Read the target screen's reported `observation.surfaces[]` (from `screen show`) before choosing aspect ratio.
 If it has no observation, ask for the intended orientation or use dimensions the
 user supplied. Preserve source facts and supplied brand assets.
 

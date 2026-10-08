@@ -28,7 +28,7 @@ and a takeover belong to the screen, and fleet forms apply them by `--tag`.
   `screen assign ID --playlist-id PLAYLIST_ID`.
 - **Timezone.** A schedule reads windows in the screen timezone. Without one
   the write is `invalid_request` (exit 8) and `next` points at
-  `screen set-timezone`.
+  `screen set-timezone ID --timezone ZONE`, where ZONE is an IANA name such as `Europe/London`, `America/New_York` or `UTC`.
 - **Storage.** `storage_forecast` covers every playlist the screen can switch
   to (effective, default, every entry, the takeover), so a fit answers whether
   the Player can hold everything its schedule shows. Before scheduling large
@@ -87,7 +87,7 @@ schedule. If one later cannot be shown, its entries are skipped and
 
 ```bash
 screenrig screen takeover scr_LOBBY --playlist-id pl_DRILL --for 30m --reason "Fire drill"
-screenrig screen takeover --tag Lobby --playlist-id pl_CLOSED --until 2026-10-01T18:00:00Z --reason "Closed for inspection"
+screenrig screen takeover --tag Lobby --playlist-id pl_CLOSED --for 2d --reason "Closed for inspection"
 screenrig screen takeover scr_A scr_B --playlist-id pl_NOTICE --until none
 screenrig screen takeover clear --tag Lobby
 ```
@@ -100,8 +100,8 @@ control characters, and travels with the takeover and its events.
   `6d23h59m`; `7d` is refused, which leaves a minute for clock differences.
   Use `--until` for a full 7 days. If the server still refuses the result,
   `next` suggests a shorter `--for`.
-- `--until` takes a strict RFC 3339 instant with seconds and an offset, such
-  as `2026-10-01T18:00:00Z` or `2026-10-01T11:00:00-07:00` (uppercase `T` and
+- `--until` takes a strict RFC 3339 instant with seconds and an offset, in the
+  form `YYYY-MM-DDTHH:MM:SSZ` or `YYYY-MM-DDTHH:MM:SS-07:00` (uppercase `T` and
   `Z`). It is sent normalized to UTC and must be in the future and at most 7
   days ahead.
 - `--until none`, or neither flag, holds the takeover until

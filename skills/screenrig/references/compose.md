@@ -41,13 +41,17 @@ screenrig media list --tag TAG --primitive image
 `width`/`height`/`font`/`background`/`brand`/`text`/`image`/`video`/`motion`/`pages`/`viewing`/`logo`,
 regions `fullpage|left|right|left-third|middle-third|right-third|middle-half|top-half|bottom-half|top|bottom`,
 and inner fields `eyebrow|title|subtitle|text|footer|image|video|iframe|webapp|cards|card|table`
-plus `enter`/`stagger`/`motion`/`align`/`valign`/`fill`/`color`/`z`/`shadow`/`outline`.
+plus `enter`/`stagger`/`motion`/`align`/`valign`/`fill`/`color`/`z`/`shadow`/`outline`/`headline`.
 Author only catalog fields. Unknown keys fail the whole spec. Do not author
 `fontSize`. Do not author `x`/`y`. Do not author Frame trees, recipes, or
 `.layout.json`. On the page, `text` is the copy color. In a
 region, `text` is body copy (a string or an array of lines). Type size is
 procedural from `min(width, height)` and optional `viewing` `near|mid|far`
-(default `mid`). Parse order is `eyebrow`, `title`, `subtitle`, `text`, then
+(default `mid`); `far` sets every role 1.5x larger. For a poster or sale sign,
+set `"headline": true` on the region: its title grows past the role size to the
+largest that fits the region's width and height, one line per `\n` line. `align`
+is `left|center|right`; `valign` is `top|center|bottom`, or `auto` (default),
+which centers and lines up side-by-side regions of the same height. Parse order is `eyebrow`, `title`, `subtitle`, `text`, then
 image/cards/table, footer last. `eyebrow` is the kicker above the headline and
 defaults to `brand`. Region `title` defaults to page `text`. Body `text` uses
 muted (mixed from `text` toward `background`). `subtitle` and `footer` use

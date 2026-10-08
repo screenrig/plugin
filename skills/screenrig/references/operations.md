@@ -22,9 +22,9 @@ screenrig screen storage-forecast scr_EXAMPLE --playlist-id pl_EXAMPLE
 archived screens only. `screen show <id>` still returns an archived row.
 `screen delete` is not a de-associate; it returns `screen_archive_required`.
 
-`screen show <id>` prints the GET screen JSON. After a player reports a
-playback surface, the body may include optional `observation`: `observed_at`
-and `surfaces`. The same GET always includes `online` and `tags`. Optional
+`screen show <id>` prints the GET screen JSON. After a player reports its
+playback surfaces, the body may include optional `observation`: `observed_at`
+and `surfaces[]`. The same GET always includes `online` and `tags`. Optional
 `last_online_at` and `last_ip` appear after the first connect. They are
 read-only.
 

@@ -40,14 +40,26 @@ package.
 
 ```bash
 SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
-if [ -n "$SCREENRIG_PLUGIN_ROOT" ]; then
+# The session that installed the plugin has no root variable: ask the runtime's plugin list.
+screenrig_root_from_list() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const l=Array.isArray(j)?j:j.installed||[];const p=l.find(e=>(e.id||e.pluginId)==="screenrig@screenrig"&&e.enabled!==false);const r=p&&(p.installPath||(p.source&&p.source.path));if(r)console.log(r)}catch{}})'; }
+if [ -z "$SCREENRIG_PLUGIN_ROOT" ] && command -v claude >/dev/null 2>&1; then
+  SCREENRIG_PLUGIN_ROOT="$(claude plugin list --json 2>/dev/null | screenrig_root_from_list)"
+fi
+if [ -z "$SCREENRIG_PLUGIN_ROOT" ] && command -v codex >/dev/null 2>&1; then
+  SCREENRIG_PLUGIN_ROOT="$(codex plugin list --json 2>/dev/null | screenrig_root_from_list)"
+fi
+if [ -x "$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig" ]; then
   PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
   screenrig version
+else
+  echo "screenRIG launcher not found (plugin root: ${SCREENRIG_PLUGIN_ROOT:-none}). Install screenrig@screenrig, or follow references/installation.md." >&2
 fi
 ```
 
-An empty root means use the lookup below before running the CLI; do not add
-`/skills/screenrig/scripts` to PATH. The plugin launcher is scoped to this
+The snippet falls back to `claude plugin list --json` and `codex plugin list --json` when
+the root variables are empty, and prints `screenRIG launcher not found` on stderr when no
+launcher exists; then use the lookup below. Never add `/skills/screenrig/scripts` to PATH
+without a root, and never hand-write a version-pinned cache path. The plugin launcher is scoped to this
 shell session, so a new shell may need the same root lookup and PATH setup.
 
 Require a successful screenRIG JSON envelope from `version` before any
