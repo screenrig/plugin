@@ -112,6 +112,15 @@ pairing or changing content. If it is active, reuse the selected project shown
 in the response. Do not enroll again or ask for an email merely because this
 conversation has no history. Read the current project capabilities before writes.
 
+Production is the default. Use a local, stage, or other non-production connection
+only when the user explicitly requests that environment. Check the API origin
+reported by `doctor` before onboarding or writes. If an inherited override or
+saved configuration selects another environment without that instruction, explain
+the mismatch and select the ordinary production profile explicitly. Preserve the
+other profile and its credentials; never redirect its token to production or
+start a development server to work around the mismatch. Verify the selected
+project again before continuing.
+
 Keep the same configuration for every command in the task. A user-selected
 `--config` path is an explicit override, not a persistent change of the default;
 a shell-only `SCREENRIG_CONFIG` setting may not reach a future conversation.
