@@ -814,8 +814,8 @@ class MCPConnectionTests(unittest.TestCase):
                 self.assertNotIn("identity", scopes)
                 self.assertEqual(set(server), {"type", "url", "scopes" if host == "codex" else "oauth"})
                 for skill_root in (ROOT, ROOT / "plugins/screenrig"):
-                    skill = (skill_root / "skills/screenrig/SKILL.md").read_text()
-                    login_scopes = re.search(r'--scopes ([^\s`]+)', skill).group(1).split(',')
+                    installation = (skill_root / "skills/screenrig/references/installation.md").read_text()
+                    login_scopes = re.search(r'--scopes ([^\s`]+)', installation).group(1).split(',')
                     self.assertEqual(login_scopes, scopes,
                                      "Manual OAuth login must retain screenshot capture permission")
         for root in (ROOT, ROOT / "plugins/screenrig"):

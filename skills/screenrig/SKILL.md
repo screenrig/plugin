@@ -37,6 +37,11 @@ The common signage path; each step has its section below.
 
 ## Choose where commands run
 
+For a screens, playlists or media viewing request, start with
+[interactive cards](#interactive-cards-and-account-authorization). An authenticated
+MCP view does not require CLI setup, doctor or CLI reauthentication. The command
+preflight below applies when the task needs CLI operations.
+
 Use the bundled CLI in the current permitted execution environment. Codex on
 desktop, ChatGPT Work, and a dot can each provide a CLI-capable environment;
 verify the actual runtime before operating. Do not assume the user's computer
@@ -136,14 +141,15 @@ switch from an email address, another tool's visible data, or a browser login.
 
 ## Interactive cards and account authorization
 
-The plugin declares the hosted screenRIG MCP connection for supported Codex
-and Claude plugin hosts. The host discovers it from the package; do not ask
+The plugin declares the hosted screenRIG MCP connection for compatible plugin
+hosts. The host discovers it from the package; do not ask
 the user to enter a server URL, paste a token, or install a credential helper.
 The bundled connection targets production. An explicitly selected alternative
 environment needs a matching host connection; never silently mix environments.
 
-1. Reuse the CLI's saved connection, or complete the first-run enrollment below.
-   Continue using the CLI for pairing, transcoding, uploads and management.
+1. For onboarding or management, reuse the CLI's saved connection or follow
+   first-run enrollment below. For a view-only request, use the authenticated
+   MCP connection directly; do not run CLI diagnostics or enrollment as a gate.
 2. Treat "show my screens", "show my playlists" and "show my media" as requests
    for the interactive view. Discover the plugin's MCP tools before choosing a
    CLI command. Call the matching screen, playlist or media list/get tool through
@@ -152,21 +158,23 @@ environment needs a matching host connection; never silently mix environments.
    connect/sign-in action. The user signs in to screenRIG and approves access
    to the same project. Finish dashboard invitation acceptance or account
    verification if required; do not enroll a second project to fix MCP login.
-4. Confirm the returned project identity matches the CLI-selected project
-   before combining results or making changes. A matching email or screen name
+4. When a CLI project has already been selected for this task, confirm the
+   returned project identity matches it before combining results or making changes. A matching email or screen name
    alone is insufficient. If the user selected another project, resolve that
    selection explicitly rather than claiming the two connections are shared.
 5. Reuse the saved CLI configuration and the host's OAuth session in later
    conversations. The host manages its own token storage and refresh. CLI API
    tokens cannot authenticate MCP; never copy them into headers or the widget.
 
-For Codex hosts with the `codex` executable, inspect `codex mcp list --json`
-and `codex mcp get NAME --json` to identify the matching registered endpoint.
-When it reports that login is needed, run the host's supported OAuth command:
-
-```sh
-codex mcp login NAME --oauth-client-registration cimd --scopes access:manage,screens,content,playlists,reports
-```
+Discover the current host's connection-management and OAuth capabilities. Use
+its supported sign-in action or login command for the registered connection;
+check available tools or command help before claiming the user must start it.
+See [host authentication examples](references/installation.md#host-authentication-examples)
+when command discovery needs help. Do not assume a command installed on the
+machine manages the current host's connection or shares its credential store.
+If login needs a terminal, use a persistent interactive terminal/PTY and retain
+it while the user approves. Give manual sign-in instructions only when no
+supported agent-triggered path is available, using that host's actual controls.
 
 The requested `access:manage` scope is required to capture a fresh screenshot:
 that sends a command to the Player. It also permits other writes within the
@@ -179,24 +187,24 @@ capture is requested, use the single native login flow below with the required
 scope and wait for approval. If the host retains the old grant, explain that its
 connection needs reauthorization; do not loop through login attempts.
 
-Replace `NAME` with the discovered connection name. Start at most one login
-attempt and keep its process/session so you can wait for its result. This
-command opens the approval browser itself: do not also open its URL in another
-tab, run another login, or navigate plugin settings or the dashboard. Tell the
+Start at most one login attempt for the discovered connection and retain its
+process/session so you can wait for its result. If the host opens the approval
+browser, reuse that tab. Otherwise open the authorization URL it provides once.
+Do not start another login or navigate unrelated settings or dashboard pages. Tell the
 user to finish sign-in and approval in that one tab, then wait. Do not operate
 the consent form, alter its scopes, or inspect other signed-in browser sessions
 unless the user explicitly asks for that browser assistance. If browser opening
 fails, offer the existing login URL once; do not start another authorization.
 
-After successful login, rediscover tools once. If this conversation still has
-only the old tools, stop and ask the user to start a fresh conversation. Do not
-retry OAuth, log out, replace another connection, or open settings tabs to force
-a tool refresh. A missing tool after login is not an authentication failure.
+After successful login, rediscover tools once. If still unavailable, use a
+documented native reconnect or tool reload once when supported, then retry
+discovery. Ask for a fresh conversation only if this host cannot reload or the
+bounded retry fails; do not claim every host loads connections only at startup.
+Do not retry OAuth, log out, replace another connection, or open settings tabs
+to force a tool refresh. A missing tool after login is not an authentication failure.
 Only retry login after a confirmed failure and explain that failure first.
-Do not request `identity` for this MCP connection. If the host has a native sign-in
-action instead, use it. In Claude Code, use its MCP authentication flow for the
-plugin-provided server. Do not claim a sign-in command succeeded before it
-finishes, and do not treat a CLI enrollment as MCP authorization.
+Do not request `identity` for this MCP connection. Do not claim sign-in succeeded
+before the host reports completion, or treat CLI enrollment as MCP authorization.
 
 Use the host's discovered connection identifier. The packaged dependency is
 `screenrig-views`; another connection simply named `screenrig` may belong to a
@@ -212,7 +220,13 @@ request cannot render a native card. Continue authorized CLI work and provide
 text or screenshot results only after explaining why the interactive view
 could not be opened and what user action, if any, is needed. Do not silently
 skip discovery or OAuth and substitute a Markdown table for this request.
-Do not promise card rendering on hosts that only expose MCP text tools.
+A successful tool response proves data access, not visual rendering. Do not say
+"the card is above" or "if supported it appeared" without host rendering evidence.
+When only text is exposed, say the data loaded but card rendering is unverified;
+use any available host UI/error evidence to distinguish a renderer limitation
+from a resource failure. Do not repeat login or CLI setup to fix rendering.
+Keep the response brief and omit internal IDs unless resolving an account
+mismatch. Do not promise card rendering on hosts that only expose MCP text tools.
 
 ## First run: enroll a new project
 
