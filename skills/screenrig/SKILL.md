@@ -530,7 +530,7 @@ updates. `SCREENRIG_CONFIG` selects an explicit config path. Normal configuratio
 is under `$XDG_CONFIG_HOME/screenrig`, `%APPDATA%\screenrig` on Windows, or
 `~/.config/screenrig`. Use `doctor` to inspect configuration problems; it also
 shows when the sign-in ends (90 days after its last use, at most one year), and
-the CLI warns 30 and 7 days before. A `session_ended` error means the sign-in
+every command warns in its last 30 days. A `session_ended` error means the sign-in
 was revoked or expired: run `screenrig login` again. `screenrig logout` ends
 this installation's sign-in when the user asks.
 
