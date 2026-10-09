@@ -153,7 +153,7 @@ def check_package() -> None:
         PLUGIN / "LICENSE",
         PLUGIN / "README.md",
         PLUGIN / "SECURITY.md",
-        PLUGIN / "assets" / "logo.svg",
+        PLUGIN / "assets" / "logo.png",
     ]
     for path in required:
         if not path.is_file():
@@ -347,10 +347,11 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             wanted = load(expected / relative)["mcpServers"]
             if actual != wanted:
                 errors.append(f"{relative}: expected public remote MCP with host-managed OAuth only")
-        if load(PLUGIN / ".codex-plugin/mcp.json") != load(expected / ".codex-plugin/mcp.json"):
-            errors.append(".mcp.json: expected public remote MCP with host-managed OAuth only")
+        for relative in (".codex-plugin/mcp.json", "mcp.json", "plugin.json"):
+            if load(PLUGIN / relative) != load(expected / relative):
+                errors.append(f"{relative}: expected generated metadata and public remote MCP with host-managed OAuth only")
     for path in PLUGIN.rglob("*"):
-        if path == PLUGIN / ".codex-plugin/mcp.json":
+        if path in (PLUGIN / ".codex-plugin/mcp.json", PLUGIN / "mcp.json"):
             continue
         if path.is_file() and path.name in {".mcp.json", "mcp.json", "screenrig-mcp-auth.mjs"}:
             errors.append(f"{path.relative_to(ROOT)}: unexpected MCP declaration or retired credential helper")

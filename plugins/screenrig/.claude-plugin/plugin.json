@@ -1,9 +1,9 @@
 {
   "name": "screenrig",
   "version": "26.10.370",
-  "description": "Operate ScreenRig screens, media, playlists, applications, and advertising with the bundled CLI.",
+  "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
   "author": {
-    "name": "ScreenRig"
+    "name": "screenRIG"
   },
   "homepage": "https://screenrig.ai",
   "repository": "https://github.com/screenrig/plugin",
