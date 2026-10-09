@@ -336,13 +336,24 @@ def check_budget() -> None:
 
 
 def check_no_alternate_surfaces(cli_source: Path | None) -> None:
+    # Only the generated remote OAuth declarations are supported. Exact
+    # matching rejects secret headers, executable adapters and private URLs.
+    with tempfile.TemporaryDirectory(prefix="screenrig-manifests-") as temporary:
+        expected = Path(temporary)
+        builder.emit_manifests(expected, builder.METADATA, builder.version())
+        for platform in ("claude", "codex"):
+            relative = f".{platform}-plugin/plugin.json"
+            actual = load(PLUGIN / relative).get("mcpServers")
+            wanted = load(expected / relative)["mcpServers"]
+            if actual != wanted:
+                errors.append(f"{relative}: expected public remote MCP with host-managed OAuth only")
+        if load(PLUGIN / ".codex-plugin/mcp.json") != load(expected / ".codex-plugin/mcp.json"):
+            errors.append(".mcp.json: expected public remote MCP with host-managed OAuth only")
     for path in PLUGIN.rglob("*"):
-        if path.is_file() and path.name in {".mcp.json", "mcp.json"}:
-            errors.append(f"{path.relative_to(ROOT)}: unsupported server declaration")
-        if path.is_file() and path.suffix in {".json", ".md", ".yaml", ".yml"}:
-            text = path.read_text(encoding="utf-8")
-            if re.search(r'"mcpServers"\s*:', text):
-                errors.append(f"{path.relative_to(ROOT)}: unsupported server manifest key")
+        if path == PLUGIN / ".codex-plugin/mcp.json":
+            continue
+        if path.is_file() and path.name in {".mcp.json", "mcp.json", "screenrig-mcp-auth.mjs"}:
+            errors.append(f"{path.relative_to(ROOT)}: unexpected MCP declaration or retired credential helper")
 
     audit_paths = list((ROOT / "skills").rglob("*.md"))
     if cli_source is not None:
@@ -379,7 +390,6 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         errors.append("skills/screenrig/SKILL.md: obsolete skill-text-does-not-upgrade rule remains")
 
     readme_forbidden = {
-        "unsupported server surface": re.compile(r"\bMCP\b"),
         "token paste": re.compile(r"--token|SCREENRIG_TOKEN", re.IGNORECASE),
     }
     for readme in (ROOT / "README.md", PLUGIN / "README.md"):

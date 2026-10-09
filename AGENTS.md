@@ -98,7 +98,7 @@ asks.
   stays readable unless `--json` is explicit. Do not combine the output flags.
   Keep explicit `--json` for the separate freshness helper and scripts that
   must remain compatible with older bundles. Never teach a token flag or pasted bearer.
-- Never write MCP. `validate-plugin.py` rejects MCP manifests.
+- The plugin may declare the public backend MCP endpoint with host-managed OAuth. Generate platform-specific connection metadata in build-plugin.py. Do not bundle MCP server code, credential/header helpers, tokens, private origins or account-specific settings. The CLI and host keep separate API and MCP sessions.
 - Keep the skill operational: launcher, first-use account state, supported task
   paths, errors and verification. Put detailed command families in references.
 - The README addresses prospective users; this file addresses maintainers.

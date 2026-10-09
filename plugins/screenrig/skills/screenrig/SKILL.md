@@ -35,6 +35,23 @@ The common signage path; each step has its section below.
 8. For opening hours, first `screenrig screen set-timezone SCREEN_ID --timezone ZONE`
    (an IANA name such as `Europe/London`), then schedules or display power.
 
+## Choose where commands run
+
+Use the bundled CLI in the current permitted execution environment. Codex on
+desktop, ChatGPT Work, and a dot can each provide a CLI-capable environment;
+verify the actual runtime before operating. Do not assume the user's computer
+is connected or needed.
+
+An ordinary ChatGPT Chat may load this skill without a way to execute the CLI.
+If no shell or other supported CLI execution tool is available, do not claim
+that `version`, `doctor`, enrollment, or playback checks ran. Ask the user to
+open their dot or a ChatGPT Work chat with this plugin and repeat the request
+there. Give them a short message containing their goal and details already
+supplied, without secrets. Ask them to reattach files in the destination
+conversation; do not assume the dot or Work can read this chat's attachments
+or credential state. This skill does not hand an ordinary Chat conversation
+to a dot or Work, so do not claim that a transfer occurred.
+
 ## Prepare the installation
 
 Node.js 22.11 or newer is required. Resolve the installed plugin root and put its
@@ -86,6 +103,96 @@ without refreshing.
 
 Read doctor's individual checks. A missing token is a warning, not a broken
 installation. Missing media tools affect upload; see [media](references/media.md).
+
+## Reuse the saved connection
+
+A new conversation or an application restart is not a first-time installation.
+After `doctor`, run `screenrig agent status` with the same configuration before
+pairing or changing content. If it is active, reuse the selected project shown
+in the response. Do not enroll again or ask for an email merely because this
+conversation has no history. Read the current project capabilities before writes.
+
+Keep the same configuration for every command in the task. A user-selected
+`--config` path is an explicit override, not a persistent change of the default;
+a shell-only `SCREENRIG_CONFIG` setting may not reach a future conversation.
+Prefer the ordinary durable user configuration for normal onboarding. Do not
+create a conversation-specific credential file, search unrelated files for
+credentials, or copy a token into instructions or the plugin directory.
+
+If no connection exists, follow first run below. If authorization is rejected,
+report that and use the documented reconnect flow; do not silently enroll a
+replacement project. Switch projects only when the user requests it, using
+`screenrig project use ID`, then verify `agent status` again. Do not infer a
+switch from an email address, another tool's visible data, or a browser login.
+
+## Interactive cards and account authorization
+
+The plugin declares the hosted screenRIG MCP connection for supported Codex
+and Claude plugin hosts. The host discovers it from the package; do not ask
+the user to enter a server URL, paste a token, or install a credential helper.
+The bundled connection targets production. An explicitly selected alternative
+environment needs a matching host connection; never silently mix environments.
+
+1. Reuse the CLI's saved connection, or complete the first-run enrollment below.
+   Continue using the CLI for pairing, transcoding, uploads and management.
+2. Treat "show my screens", "show my playlists" and "show my media" as requests
+   for the interactive view. Discover the plugin's MCP tools before choosing a
+   CLI command. Call the matching screen, playlist or media list/get tool through
+   the host so it can render the card; a CLI table plus image is only a fallback.
+3. If that connection needs authentication, initiate the host's native OAuth
+   connect/sign-in action. The user signs in to screenRIG and approves access
+   to the same project. Finish dashboard invitation acceptance or account
+   verification if required; do not enroll a second project to fix MCP login.
+4. Confirm the returned project identity matches the CLI-selected project
+   before combining results or making changes. A matching email or screen name
+   alone is insufficient. If the user selected another project, resolve that
+   selection explicitly rather than claiming the two connections are shared.
+5. Reuse the saved CLI configuration and the host's OAuth session in later
+   conversations. The host manages its own token storage and refresh. CLI API
+   tokens cannot authenticate MCP; never copy them into headers or the widget.
+
+For Codex hosts with the `codex` executable, inspect `codex mcp list --json`
+and `codex mcp get NAME --json` to identify the matching registered endpoint.
+When it reports that login is needed, run the host's supported OAuth command:
+
+```sh
+codex mcp login NAME --oauth-client-registration cimd --scopes access:read,screens,content,playlists,reports
+```
+
+Replace `NAME` with the discovered connection name. Start at most one login
+attempt and keep its process/session so you can wait for its result. This
+command opens the approval browser itself: do not also open its URL in another
+tab, run another login, or navigate plugin settings or the dashboard. Tell the
+user to finish sign-in and approval in that one tab, then wait. Do not operate
+the consent form, alter its scopes, or inspect other signed-in browser sessions
+unless the user explicitly asks for that browser assistance. If browser opening
+fails, offer the existing login URL once; do not start another authorization.
+
+After successful login, rediscover tools once. If this conversation still has
+only the old tools, stop and ask the user to start a fresh conversation. Do not
+retry OAuth, log out, replace another connection, or open settings tabs to force
+a tool refresh. A missing tool after login is not an authentication failure.
+Only retry login after a confirmed failure and explain that failure first.
+Do not request `identity` for this MCP connection. If the host has a native sign-in
+action instead, use it. In Claude Code, use its MCP authentication flow for the
+plugin-provided server. Do not claim a sign-in command succeeded before it
+finishes, and do not treat a CLI enrollment as MCP authorization.
+
+Use the host's discovered connection identifier. The packaged dependency is
+`screenrig-views`; another connection simply named `screenrig` may belong to a
+different environment or account. Verify its endpoint and project rather than
+choosing the first similarly named tool. A successful `agent_status` response
+alone does not prove the MCP is attached to the CLI's project. If only a
+connection for another environment is available, leave it intact and initiate
+connection/authentication for the packaged dependency.
+If the host exposes no connection or sign-in action, check that the updated
+plugin is enabled and reload its tools or start a fresh conversation. Report
+that specific host limitation if discovery is still unavailable. A shell HTTP
+request cannot render a native card. Continue authorized CLI work and provide
+text or screenshot results only after explaining why the interactive view
+could not be opened and what user action, if any, is needed. Do not silently
+skip discovery or OAuth and substitute a Markdown table for this request.
+Do not promise card rendering on hosts that only expose MCP text tools.
 
 ## First run: enroll a new project
 

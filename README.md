@@ -49,3 +49,12 @@ This repository contains the canonical skill and generated plugin distribution.
 See [AGENTS.md](https://github.com/screenrig/plugin/blob/main/AGENTS.md) for source layout, regeneration and checks.
 Report vulnerabilities using the [security policy](SECURITY.md).
 The [Apache-2.0 license](LICENSE) covers this plugin and bundled CLI, not the hosted service.
+
+## Interactive views
+
+The package includes a remote screenRIG MCP connection for compatible Codex
+and Claude plugin hosts. When a view needs authorization, sign in to screenRIG
+and approve the project you use with the CLI. The host stores that connection;
+you do not need to copy a token or enter the server URL. The CLI continues to
+handle enrollment, media preparation, pairing and changes. Interactive cards
+require a host that supports MCP Apps; other hosts can return text results.

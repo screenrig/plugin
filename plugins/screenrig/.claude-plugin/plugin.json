@@ -13,5 +13,14 @@
     "digital-signage",
     "kiosk",
     "agent-cli"
-  ]
+  ],
+  "mcpServers": {
+    "screenrig-views": {
+      "type": "http",
+      "url": "https://api.screenrig.ai/mcp",
+      "oauth": {
+        "scopes": "access:read screens content playlists reports"
+      }
+    }
+  }
 }
