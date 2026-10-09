@@ -329,7 +329,7 @@ revoked buyers and financial history. The CLI workflow below is optional.
 
 ## Secrets and reporting
 
-Invitation link URLs, `agent connect` approval handoffs, credentials, and signed
+Invitation link URLs, `screenrig login` sign-in addresses, credentials, and signed
 media URLs stay out of retained conversation and logs. Ad-buyer invitations are
 delivered by email and their create output carries no claim material. Generate a
 member link invitation only when the user explicitly asks for one, print it

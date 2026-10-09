@@ -32,7 +32,7 @@ With an AgentID claim code from the AgentID sign-in page, enroll with
 `screenrig agent enroll --agentid-claim CODE --organization NAME` instead of
 `--email`; the invitation goes to the owner's verified email, so do not ask for
 one. A refusal for an invalid or expired claim falls back to `--email`, and an
-already-enrolled AgentID follows [Join an existing project](../SKILL.md#join-an-existing-project-only-on-explicit-request).
+already-enrolled AgentID follows [Sign in to an existing account](../SKILL.md#sign-in-to-an-existing-account-only-on-explicit-request).
 
 Enrollment creates an organization with the supplied name, an identity, a
 `Screens` project, its membership and credentials, and a person invitation.
@@ -142,45 +142,57 @@ hour, and an ambiguous retry reuses its saved Idempotency-Key. Eligible pending
 invitations are refreshed in place, preserving their IDs and revocation, with
 a one-hour resend cooldown.
 
-### Connect an existing project
+### Sign in to an existing account
 
-Only when the user explicitly asks this installation to join a screenRIG
-project that already exists, including when they say they already have
+Only when the user explicitly asks this installation to use a screenRIG
+account that already exists, including when they say they already have
 screenRIG. Otherwise first setup is `agent enroll`.
 
 ```sh
-screenrig agent connect [--target-project-id ID]
+screenrig login --no-wait [--project ID] [--access read|manage] [--name NAME]
+screenrig login --resume login_ID
+screenrig logout
 ```
 
-By default, this starts or resumes an approval request and reads one status
-snapshot for at most one second. A successful pending result means submission,
-not activation: `data.request_submitted` is `true` and `data.connection_complete`
-is `false`. Send the handoff from `data.approval_url` to the intended user, then
-resume with `data.next.argv` or `screenrig agent connect`. The human approves in
-the dashboard with their own login (a passkey or a password in production); the
-CLI never receives that credential. The argument array preserves the selected
-config and API origin. Activation returns `data.status: active` and
-`data.connection_complete: true`, without returning a credential. The existing
-identity gains only the approved membership. Cleanup of its original empty
-enrollment Screens project is transactionally guarded. A pending cleanup is
-resumed on agent connect without requesting approval again.
+`--no-wait` returns `data.status: pending` with `verification_uri_complete`,
+`user_code`, `expires_at` and a `login_` handle in `data.next.argv`; the handle
+holds no secret. Send the address and code only to the person who approves.
+They sign in to the dashboard with their own login, check the code, choose the
+project, Read only or Manage, and the capabilities, and approve; the CLI never
+receives their credential. `login --resume ID` waits for approval, stores the
+session, selects the approved project and returns `data.status: signed_in`
+with `project`, `organization` and `access`. Without `--no-wait`, `login`
+prints the address and code to stderr and waits. Denial is `login_denied`;
+expiry after 10 minutes is `login_expired`.
 
-If no snapshot arrives, `data.status_checked` is `false`; do not infer current
-approval state from that result. The CLI tries to open the approval URL in a
-browser and prints the handoff URL only when no browser can be opened. `--no-wait`
-explicitly selects the default behavior. `--wait` waits up to 30000 ms;
-`--wait --timeout 10000` sets a shorter approval wait. Timeout accepts
-1–86400000 ms. Without `--wait`, it can shorten but cannot extend the one-second
-snapshot budget. Budget expiry is resumable; approval requests expire after 24
-hours. Denial, cancellation, and expiry return errors.
+Read only lists and reads; a change, publish or purchase returns 403
+`insufficient_access`, and its requests are billed like any agent request.
+`login` again on a signed-in installation adds a project or raises a Read only
+project to Manage. Capabilities stay as approved; see
+[credential scope and 403 recovery](../SKILL.md#credential-scope-refusals).
+`logout` revokes the sign-in and removes the stored tokens; rerunning it is
+safe. Installations from before this sign-in upgrade on their next command
+with no prompt.
 
-Request least privilege with repeatable `--capability NAME`: `screens`,
-`content`, `playlists`, `advertising`, `reports`, or `project`. Omitted requests
-all six; the dashboard can approve a non-empty subset. For ad buying with
-existing creative, use `agent connect --capability advertising --print-url`.
-Read the granted `agent.capabilities` with `agent status`. Capabilities are
-immutable; see [credential scope and 403 recovery](../SKILL.md#credential-scope-refusals)
-before replacing an agent that lacks a needed permission.
+### Service clients
+
+A service client is a server, script or CI job owned by the project, with its
+own key or secret. Manage them only when the user asks; it needs the `project`
+capability and Manage.
+
+```sh
+screenrig service-client create --name NAME [--capability NAME]... [--access read|manage] [--key-file PATH] [--secret-file PATH]
+screenrig service-client list
+screenrig service-client show ID
+screenrig service-client add-key ID --key-file PATH
+screenrig service-client remove-key ID --kid KID
+screenrig service-client add-secret ID --secret-file PATH
+screenrig service-client remove-secret ID --secret-id css_ID
+screenrig service-client revoke ID --yes
+```
+
+`--key-file` sends only the public half of a key. A secret is written only to
+the new 0600 `--secret-file` and is shown once; never print or relay it.
 
 ## Commands
 
@@ -206,7 +218,8 @@ invitations revoke ID
 agent status
 agent enroll --email EMAIL | --agentid-claim CODE --organization NAME [--name NAME]
              [--intent signage|advertising] [--force]
-agent connect [--target-project-id ID] [--name NAME] [--capability NAME]... [--print-url] [--wait | --no-wait] [--timeout MS]
+login [--project ID] [--access read|manage] [--name NAME] [--no-wait] [--resume ID]
+logout
 agent disconnect --yes [--allow-lockout]
 agent revoke-identity --yes
 dashboard open

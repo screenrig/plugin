@@ -90,7 +90,7 @@ installation. Missing media tools affect upload; see [media](references/media.md
 ## First run: enroll a new project
 
 If the user says they already have screenRIG and wants to use it, follow
-[Join an existing project](#join-an-existing-project-only-on-explicit-request).
+[Sign in to an existing account](#sign-in-to-an-existing-account-only-on-explicit-request).
 Otherwise enroll a new organization, identity and `Screens` project in one
 command. Never infer an account, organization, membership or domain placement
 from an unverified email, a matching name or a displayed login page.
@@ -112,7 +112,7 @@ screenRIG claim code from the AgentID sign-in page: enroll with
 owner's verified email. If redemption is refused as invalid or expired, enroll
 with `--email` immediately rather than retrying. If it answers that the AgentID
 is already enrolled, follow
-[Join an existing project](#join-an-existing-project-only-on-explicit-request).
+[Sign in to an existing account](#sign-in-to-an-existing-account-only-on-explicit-request).
 
 Enrollment names its project `Screens`; `--name` names the agent. Tell the user
 an invitation was requested for their dashboard login, then continue directly
@@ -134,21 +134,27 @@ membership; `agent revoke-identity --yes` is a separate action affecting all
 memberships. An ambiguous failure retains credentials for reconciliation.
 Never paste a bearer into the conversation, environment or command line.
 
-### Join an existing project (only on explicit request)
+### Sign in to an existing account (only on explicit request)
 
-When the user asks to use existing screenRIG, start or resume `agent connect`.
-If their intended project ID is known, use `--target-project-id ID`. This asks
-for approval of that specific request and adds a membership to the same
-identity; a matching email or organization name never grants access.
+When the user says they already have screenRIG and want to use it, sign this
+installation in with `screenrig login`; never enroll for them. Hand the
+sign-in to the person first:
 
-Connection returns promptly by default. A pending success means the request
-was submitted. Share its approval handoff privately with the intended person,
-then follow `data.next.argv` and require `data.connection_complete: true`.
-After activation, the CLI removes its original enrollment `Screens` project
-only when it has saved enrollment provenance and the server confirms emptiness
-inside the deletion transaction. Content, other members or agents, and paid
-coverage retain it. If cleanup is pending, rerun `agent connect`; this resumes
-cleanup without another approval. See [connection behavior](references/commands.md#connect-an-existing-project).
+```bash
+screenrig login --no-wait [--project ID] [--access read]
+```
+
+The pending result carries `data.verification_uri_complete`, `data.user_code`
+and a `login_` handle in `data.next.argv`. Send the address and code privately
+to that person: they open it, check that the code matches, choose the project,
+Read only or Manage and the capabilities, and approve. Then run
+`screenrig login --resume ID`, which waits until approval, and require
+`data.status: signed_in`. The code lasts 10 minutes; on `login_expired` start
+again. Ask for `--access read` only when the user asks for read-only access;
+the default is Manage, and the person decides. A matching email or
+organization name never grants access. On an installation that is already
+signed in, `login` adds the approved project to the same identity, or raises a
+Read only project to Manage. See [sign-in behavior](references/commands.md#sign-in-to-an-existing-account).
 
 ### Select and create projects
 
@@ -175,24 +181,18 @@ live advertising. It emails members. See [project commands](references/commands.
 
 Agent credentials have their own capabilities, separate from project feature
 entitlements: `screens`, `content`, `playlists`, `advertising`, `reports`, and
-`project`. Enrollment grants the first agent all six. Connecting an existing
-project requests all six unless you repeat `--capability` for only the areas
-this installation needs. For an ad buyer using existing creative:
-
-```bash
-screenrig agent connect --capability advertising --print-url
-```
-
-If this buyer also uploads media, request `--capability content` as well.
+`project`. Enrollment grants the first agent all six. On `screenrig login` the
+person approving chooses them; tell them which areas this installation needs.
+An ad buyer using existing creative needs only `advertising`, plus `content` if
+it also uploads media.
 Screen publishing commonly needs `screens`, `content`, and `playlists`.
 `reports` permits area reads and is required for events and playback reporting.
 `project` permits project administration, webhooks, invitations, billing and
 browser-link claims. Basic project, current-agent and operation-status reads
 remain available to any active credential.
 
-The human can approve a non-empty subset of the request in the dashboard.
-Resume the same pending request without changing its capabilities, then run
-`screenrig agent status` to read the granted `agent.capabilities`. Check these
+After sign-in, run `screenrig agent status` to read the granted
+`agent.capabilities`. Check these
 alongside `screenrig project capabilities`; project features do not grant agent
 permissions.
 
@@ -200,19 +200,24 @@ permissions.
 
 HTTP 403 `forbidden` with `This agent credential lacks the <name> capability.`
 is a credential-scope refusal, not a billing or transient failure. Stop the
-denied operation and explain the missing permission. Capabilities are immutable:
-with the user's authorization, connect a new agent requesting the required
-capability (repeat for every permission needed), using a separate private
-`--config` path. Obtain dashboard approval, verify the new agent, then disconnect
-the old one. Follow the CLI's `error.next` guidance; never retry through another
+denied operation and explain the missing permission. Capabilities stay as
+approved for a project: with the user's authorization, sign in a new
+installation with a separate private `--config` path
+(`screenrig --config PATH login --no-wait`) and ask the person to approve the
+needed capabilities. Verify the new installation, then disconnect the old one.
+
+HTTP 403 `insufficient_access` means this sign-in is Read only: it lists and
+reads but cannot change, publish or spend. Only with the user's authorization,
+run `screenrig login --no-wait --access manage` and have the person approve
+Manage. Follow the CLI's `error.next` guidance; never retry through another
 route, paste a credential, or silently request broader access.
 
 ### Capability and intent dispatch (before any screen operation)
 
 1. Resolve the official installed plugin and CLI, then verify version, freshness,
    and doctor as above.
-2. Enroll (see [First run](#first-run-enroll-a-new-project)), or connect when
-   the user asks to use existing screenRIG.
+2. Enroll (see [First run](#first-run-enroll-a-new-project)), or sign in with
+   `screenrig login` when the user asks to use existing screenRIG.
 3. Read the authenticated project ID, plan, feature flags, feature revision, and
    the server's effective capabilities. Never infer permission from a screen
    quota of zero, a plan name, a dashboard label, or which commands exist.
@@ -506,8 +511,8 @@ Branch on `ok`, `error.status`, `error.code` and `warnings[].code`.
 On any failure, read `error.detail` (what was wrong, specifically) and
 `error.hint` (what to do about it) before deciding the next step, and pass the
 gist to the user when they need to act. Follow an applicable `error.next.command` without inventing flags,
-except do not follow a connect or dashboard next-step on first setup unless the
-user said this installation should join an existing screenRIG project.
+except do not follow a login or dashboard next-step on first setup unless the
+user said this installation should use an existing screenRIG account.
 Revision guards are optional for most writes: omit `--expect-rev` to write the
 current resource without a prior revision read, or supply it to reject a stale
 write. Advertising mutations are the enforced exception — campaign `update`,
@@ -523,9 +528,13 @@ make the image another way (see [media](references/media.md#when-generation-is-r
 The credential file lives outside the replaceable plugin directory and survives
 updates. `SCREENRIG_CONFIG` selects an explicit config path. Normal configuration
 is under `$XDG_CONFIG_HOME/screenrig`, `%APPDATA%\screenrig` on Windows, or
-`~/.config/screenrig`. Use `doctor` to inspect configuration problems.
+`~/.config/screenrig`. Use `doctor` to inspect configuration problems; it also
+shows when the sign-in ends (90 days after its last use, at most one year), and
+the CLI warns 30 and 7 days before. A `session_ended` error means the sign-in
+was revoked or expired: run `screenrig login` again. `screenrig logout` ends
+this installation's sign-in when the user asks.
 
-An invitation link URL and an `agent connect` approval handoff URL are
+An invitation link URL and a `screenrig login` sign-in address and code are
 themselves credentials, including when `data.url` appears in JSON stdout or a
 browser-open fallback. Deliver each only to the intended person, print a link
 invitation URL once, and exclude both from retained logs and conversation
