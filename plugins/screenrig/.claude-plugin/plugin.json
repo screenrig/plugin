@@ -19,7 +19,7 @@
       "type": "http",
       "url": "https://api.screenrig.ai/mcp",
       "oauth": {
-        "scopes": "access:read screens content playlists reports"
+        "scopes": "access:manage screens content playlists reports"
       }
     }
   }

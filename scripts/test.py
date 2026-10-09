@@ -775,9 +775,14 @@ class MCPConnectionTests(unittest.TestCase):
                 self.assertEqual(server["url"], "https://api.screenrig.ai/mcp")
                 self.assertEqual(server["type"], "http")
                 scopes = server["scopes"] if host == "codex" else server["oauth"]["scopes"].split()
-                self.assertEqual(scopes, ["access:read", "screens", "content", "playlists", "reports"])
+                self.assertEqual(scopes, ["access:manage", "screens", "content", "playlists", "reports"])
                 self.assertNotIn("identity", scopes)
                 self.assertEqual(set(server), {"type", "url", "scopes" if host == "codex" else "oauth"})
+                for skill_root in (ROOT, ROOT / "plugins/screenrig"):
+                    skill = (skill_root / "skills/screenrig/SKILL.md").read_text()
+                    login_scopes = re.search(r'--scopes ([^\s`]+)', skill).group(1).split(',')
+                    self.assertEqual(login_scopes, scopes,
+                                     "Manual OAuth login must retain screenshot capture permission")
         for root in (ROOT, ROOT / "plugins/screenrig"):
             self.assertFalse((root / "skills/screenrig/scripts/screenrig-mcp-auth.mjs").exists())
 
@@ -790,6 +795,7 @@ class MCPConnectionTests(unittest.TestCase):
             original = json.loads(manifest_path.read_text())
             for field, value in (("headers", {"Authorization": "synthetic"}),
                                  ("url", "https://wrong.example/mcp"),
+                                 ("scopes", ["access:read", "screens", "content", "playlists", "reports"]),
                                  ("command", "credential-helper")):
                 manifest = copy.deepcopy(original)
                 manifest["mcpServers"]["screenrig-views"][field] = value

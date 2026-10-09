@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://api.screenrig.ai/mcp",
       "scopes": [
-        "access:read",
+        "access:manage",
         "screens",
         "content",
         "playlists",

@@ -156,8 +156,19 @@ and `codex mcp get NAME --json` to identify the matching registered endpoint.
 When it reports that login is needed, run the host's supported OAuth command:
 
 ```sh
-codex mcp login NAME --oauth-client-registration cimd --scopes access:read,screens,content,playlists,reports
+codex mcp login NAME --oauth-client-registration cimd --scopes access:manage,screens,content,playlists,reports
 ```
+
+The requested `access:manage` scope is required to capture a fresh screenshot:
+that sends a command to the Player. It also permits other writes within the
+approved capabilities; it is not screenshot-only permission. Continue using
+the CLI for pairing and content changes. If the user chooses read-only consent,
+show saved previews and explain that fresh capture is unavailable. An existing
+read-only OAuth grant needs the user's renewed consent before capture can work;
+do not assume updating the plugin upgrades an already issued token. When fresh
+capture is requested, use the single native login flow below with the required
+scope and wait for approval. If the host retains the old grant, explain that its
+connection needs reauthorization; do not loop through login attempts.
 
 Replace `NAME` with the discovered connection name. Start at most one login
 attempt and keep its process/session so you can wait for its result. This

@@ -354,7 +354,7 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
         "keywords": metadata["keywords"],
     }
     # Host-specific OAuth settings; both connect directly to the backend.
-    scopes = ["access:read", "screens", "content", "playlists", "reports"]
+    scopes = ["access:manage", "screens", "content", "playlists", "reports"]
     remote = {"type": "http", "url": "https://api.screenrig.ai/mcp"}
     claude = dict(base)
     claude["mcpServers"] = {"screenrig-views": {**remote, "oauth": {"scopes": " ".join(scopes)}}}
