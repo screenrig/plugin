@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "screenrig",
-  "version": "26.10.392",
+  "version": "26.10.394",
   "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
   "author": {
     "name": "screenRIG"
