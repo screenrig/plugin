@@ -9,7 +9,7 @@
       "name": "screenrig",
       "source": "./plugins/screenrig",
       "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
-      "version": "26.10.388",
+      "version": "26.10.392",
       "author": {
         "name": "screenRIG"
       },
