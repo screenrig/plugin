@@ -382,6 +382,7 @@ class CalVerTests(unittest.TestCase):
             plugin_root = tmp / "screenrig"
             marketplace = tmp / "marketplace.json"
             write_json(plugin_root / "cli" / "package.json", {"name": "screenrig", "version": "26.09.6"})
+            write_json(plugin_root / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
             for platform in ("claude", "codex"):
                 write_json(plugin_root / f".{platform}-plugin" / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
             write_json(marketplace, {"name": "screenrig", "plugins": [{"name": "screenrig", "version": "26.09.6"}]})
@@ -393,7 +394,7 @@ class CalVerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr.strip())
             self.assertEqual(json.loads(marketplace.read_text())["plugins"][0]["version"], "26.09.7")
             for path in (plugin_root / "cli" / "package.json", plugin_root / ".claude-plugin" / "plugin.json",
-                         plugin_root / ".codex-plugin" / "plugin.json"):
+                         plugin_root / ".codex-plugin" / "plugin.json", plugin_root / "plugin.json"):
                 self.assertEqual(json.loads(path.read_text())["version"], "26.09.7", path.name)
 
 

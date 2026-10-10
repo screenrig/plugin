@@ -44,8 +44,11 @@ def stamp_marketplace(path: Path, version: str) -> None:
 
 
 def stamp_plugin_root(plugin_root: Path, version: str) -> None:
-    for platform in ("claude", "codex"):
-        path = plugin_root / f".{platform}-plugin" / "plugin.json"
+    manifests = [plugin_root / f".{platform}-plugin" / "plugin.json" for platform in ("claude", "codex")]
+    portable = plugin_root / "plugin.json"
+    if portable.is_file():
+        manifests.append(portable)
+    for path in manifests:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise SystemExit(f"{path}: expected a JSON object")
