@@ -132,9 +132,9 @@ no timezone or no default playlist fails with `invalid_request`.
 - Takeover: `--until` at most 7 days ahead, `--for` at most `6d23h59m`;
   reason at most 120 characters after trimming.
 - Schedule and takeover writes share per-minute limits: 20 per screen, 600 per
-  project, 60 per IP (`rate_limited`, exit 7, with `retry_after_seconds`). A
-  fleet request larger than what remains of the project budget is refused
-  whole before any screen changes.
+  project, 60 per IP (`rate_limited`, exit 7, with `retry_after_seconds`). Fleet
+  actions have no screen-count cap: exhaustion pauses the action and the CLI
+  waits for the budget before continuing automatically.
 
 ## Verify
 

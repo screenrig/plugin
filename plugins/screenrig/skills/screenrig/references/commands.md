@@ -408,8 +408,8 @@ same idempotency key.
 ### Fleet targeting
 
 `screen assign`, `screen reload`, `screen toast`, and `screen tag` take several
-screen ids or `--tag TAG`, never both, as one metered request for up to 500
-screens. `--tag` selects active screens only. One screen id keeps the
+screen ids or `--tag TAG`, never both, as one metered action with no screen-count cap. The CLI follows bounded
+result pages automatically, keeping the same action key. `--tag` selects active screens only. One screen id keeps the
 single-screen route and envelope; `--expect-rev` applies only there. The fleet
 envelope stays `ok: true` with `data.action`, `matched`, `succeeded`, `failed`,
 and `results[]`; the exit code is the first failed screen's, with warning
@@ -418,13 +418,14 @@ fleet request carries an automatic Idempotency-Key: after an interrupted
 request (timeout or ambiguous transport failure), the identical rerun replays
 finished screens. After a definite partial failure, retry only the failed ids.
 Fleet `reload` and `toast` share a per-project budget of 600 screens per
-minute: a larger request is refused whole with 429 `rate_limited` and
-`Retry-After` before any screen is touched. Per-screen limits (reload 6 per
+minute: the server pauses when that budget is exhausted and the CLI waits
+for `Retry-After` before continuing. Per-screen limits (reload 6 per
 minute, toast 20 per minute) still apply, so single ids can fail with
 `rate_limited`; retry them later. `screen screenshot` with
 several ids or `--tag` writes `<screen_id>.webp` per screen into the
-`--output` directory and refuses `--idempotency-key`. `--tag` matches at most
-500 active screens with one billed list request; the captures are free.
+`--output` directory and refuses `--idempotency-key`. `--tag` matches
+every active screen with the tag, following all list pages; each list page is
+billed and the captures are free.
 Several ids must all be `scr_…` screen ids. An unexpected local failure
 reports `unexpected_error` for that screen, starts no new captures, marks the
 unstarted screens `not_attempted`, and exits 1. `screen publish` stays single-screen. See

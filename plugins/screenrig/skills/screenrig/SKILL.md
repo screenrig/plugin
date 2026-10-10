@@ -401,7 +401,8 @@ screenshot or events.
 ### Fleets
 
 `screen assign`, `reload`, `toast`, and `tag` take several ids or `--tag TAG`
-(active screens only) as one metered request. `screen publish` is
+(active screens only) as one metered action with no screen-count cap. The CLI
+follows bounded result pages automatically under the same action key. `screen publish` is
 single-screen: for a fleet, `playlist create FILE` once, then
 `screen assign --tag TAG --playlist-id ID`. The answer stays `ok: true`; read
 `data.results[]`, where each screen is `ok` or `failed` with its own problem.
@@ -410,13 +411,13 @@ screen's; `fleet_no_match` is exit 0 with nothing changed. After an
 interrupted request (timeout or ambiguous transport failure), rerun the
 identical command: finished screens replay. After a definite partial failure,
 fix the cause and retry only the failed ids. Fleet `reload` and `toast` share
-a 600 screens/minute project budget; a larger request is refused whole with
-429 `rate_limited` and `Retry-After` before any screen changes. Per-screen
+a 600 screens/minute project budget; exhaustion pauses the action and the CLI
+honors `Retry-After` before continuing automatically. Per-screen
 limits (reload 6/min, toast 20/min) return per-screen `rate_limited`; retry
 those ids later.
 Verify with `screen screenshot --tag TAG --output DIR`, one
-`<screen_id>.webp` per screen (`--tag` matches at most 500 active screens
-with one billed list request; captures are free). A `screen.offline` event in `events list` or
+`<screen_id>.webp` per screen (`--tag` matches every active screen
+by following every list page; each list page is billed and captures are free). A `screen.offline` event in `events list` or
 `events follow` (written after 60 s offline) with no later `screen.online`
 marks a dead screen. Details are in [fleets](references/operations.md#fleets-tags-and-fleet-actions).
 

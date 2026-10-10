@@ -185,8 +185,9 @@ screens carrying that exact tag and adds a `TAGS` column.
 
 `screen assign`, `screen reload`, `screen toast`, and `screen tag` take
 several screen ids or `--tag TAG` (not both). Either form is one
-`POST /api/screens/actions` request: one metered request for up to 500
-screens. `--tag` selects active screens only; archived screens are skipped.
+`POST /api/screens/actions` action: one metered action with no screen-count
+cap. The CLI follows bounded result pages automatically, retaining the same key
+and selected screens throughout. `--tag` selects active screens only; archived screens are skipped.
 `--expect-rev` is refused, because revision guards are per screen.
 
 ```bash
@@ -236,8 +237,8 @@ would have returned.
 - A malformed selector or action fails the whole request before any screen
   changes.
 - Fleet `reload` and `toast` share a per-project budget of 600 screens per
-  minute. A request over it is refused whole with 429 `rate_limited` and
-  `Retry-After` before any screen is touched; wait, then rerun or split it.
+  minute. Exhaustion pauses the action; the CLI honors `Retry-After` and
+  continues with the remaining selected screens automatically.
 - Per-screen limits still apply inside fleet actions: reload 6 per minute and
   toast 20 per minute per screen. Those screens fail individually with
   `rate_limited`; retry only those ids later, honoring any retry delay.
@@ -265,9 +266,9 @@ Acceptance does not prove display. Capture every screen in the fleet:
 screenrig screen screenshot --tag Lobby --output ./lobby-shots --concurrency 4
 ```
 
-Several ids or `--tag` fan out on the client. `--tag` makes one billed
-`screen list --tag` request to resolve the fleet and matches at most 500
-active screens; the captures themselves are free. Several ids must all be
+Several ids or `--tag` fan out on the client. `--tag` follows all
+`screen list --tag` pages to resolve every matching active screen with no
+screen-count cap. Each list page is billed; the captures themselves are free. Several ids must all be
 `scr_…` screen ids.
 `--output` is a directory (default the current directory, created if
 missing) and each capture writes `<screen_id>.webp`. `--concurrency` is 1 to
