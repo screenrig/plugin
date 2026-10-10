@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "screenrig-views": {
+      "type": "http",
+      "url": "https://api.screenrig.ai/mcp",
+      "scopes": [
+        "access:manage",
+        "screens",
+        "content",
+        "playlists",
+        "reports"
+      ]
+    }
+  }
+}

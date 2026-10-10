@@ -1,9 +1,9 @@
 {
   "name": "screenrig",
-  "version": "26.10.370",
-  "description": "Operate ScreenRig screens, media, playlists, applications, and advertising with the bundled CLI.",
+  "version": "26.10.388",
+  "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
   "author": {
-    "name": "ScreenRig"
+    "name": "screenRIG"
   },
   "homepage": "https://screenrig.ai",
   "repository": "https://github.com/screenrig/plugin",
@@ -13,5 +13,14 @@
     "digital-signage",
     "kiosk",
     "agent-cli"
-  ]
+  ],
+  "mcpServers": {
+    "screenrig-views": {
+      "type": "http",
+      "url": "https://api.screenrig.ai/mcp",
+      "oauth": {
+        "scopes": "access:manage screens content playlists reports"
+      }
+    }
+  }
 }

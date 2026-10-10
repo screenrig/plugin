@@ -151,3 +151,22 @@ add and install commands above. Grok install must keep `--trust`. Refresh
 updates skill text and the bundled CLI together. After refresh, re-resolve
 the plugin root, prepend scripts to PATH, and require a successful
 `screenrig version` envelope before any other command.
+
+## Host authentication examples
+
+The shared skill uses capability discovery. These examples apply only when the
+executable manages the current host's registered MCP connection; verify installed
+command help first. Other hosts can expose equivalent native sign-in tools.
+Never install a different host CLI just to authenticate the current host.
+
+- Codex: inspect `codex mcp list --json` and `codex mcp get NAME --json`.
+  When supported, initiate `codex mcp login NAME --oauth-client-registration cimd --scopes access:manage,screens,content,playlists,reports`.
+- Claude Code: check `claude mcp login --help`, then use
+  `claude mcp login NAME` in a persistent interactive terminal. The plugin server
+  is commonly `plugin:screenrig:screenrig-views`; use its discovered name.
+  The interactive `/mcp` sign-in panel is a fallback when agent-triggered login
+  is unavailable. Do not assume Desktop or Cowork uses the same controls/store.
+
+Keep one authorization attempt alive until it completes. The person signs in
+and approves; the host stores and refreshes its own OAuth session. Follow the
+shared skill's bounded rediscovery/reconnect flow after successful consent.

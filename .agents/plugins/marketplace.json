@@ -1,7 +1,7 @@
 {
   "name": "screenrig",
   "interface": {
-    "displayName": "ScreenRig"
+    "displayName": "screenRIG"
   },
   "plugins": [
     {

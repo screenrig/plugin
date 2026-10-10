@@ -1,9 +1,9 @@
 {
   "name": "screenrig",
-  "version": "26.10.370",
-  "description": "Operate ScreenRig screens, media, playlists, applications, and advertising with the bundled CLI.",
+  "version": "26.10.388",
+  "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
   "author": {
-    "name": "ScreenRig"
+    "name": "screenRIG"
   },
   "homepage": "https://screenrig.ai",
   "repository": "https://github.com/screenrig/plugin",
@@ -14,20 +14,30 @@
     "kiosk",
     "agent-cli"
   ],
+  "mcpServers": "./.codex-plugin/mcp.json",
   "skills": "./skills/",
   "interface": {
-    "displayName": "ScreenRig",
-    "shortDescription": "Operate ScreenRig with its bundled CLI",
-    "longDescription": "Install the official ScreenRig plugin and operate screens, media, playlists, applications, and advertising through a packaged noninteractive CLI.",
-    "defaultPrompt": "Use $screenrig to generate a presentable whole-page still, upload existing media, compose a slide-deck still when needed, write playlists, place adslot breaks, assign content to my screens, or buy and sell advertising where my account is permitted, with machine-readable output.",
-    "developerName": "ScreenRig",
+    "displayName": "screenRIG",
+    "shortDescription": "Put your content on screens",
+    "longDescription": "Use screenRIG to prepare content, pair Players, upload images and videos, and publish playlists to your screens. In environments that can run the bundled CLI, manage signage and eligible advertising workflows through conversation. Connect your screenRIG account to browse interactive screen, media, and playlist cards in supported MCP Apps hosts. Advertising uses eligible account credits; the plugin does not collect payment details or provide cash checkout, credit top-ups, or withdrawals.",
+    "defaultPrompt": [
+      "Help me get a photo and video playing on my TV.",
+      "Show my screenRIG screens.",
+      "Show my playlists and the content in each one."
+    ],
+    "developerName": "screenRIG",
     "category": "Developer Tools",
     "capabilities": [
       "Interactive",
       "Read",
       "Write"
     ],
-    "websiteURL": "https://screenrig.ai",
-    "brandColor": "#111827"
+    "websiteURL": "https://screenrig.ai/",
+    "brandColor": "#111827",
+    "supportURL": "https://screenrig.ai/contact/",
+    "privacyPolicyURL": "https://screenrig.ai/privacy/",
+    "termsOfServiceURL": "https://screenrig.ai/terms/",
+    "logo": "./assets/logo.png",
+    "composerIcon": "./assets/logo.png"
   }
 }

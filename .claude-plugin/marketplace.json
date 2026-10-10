@@ -1,23 +1,23 @@
 {
   "name": "screenrig",
   "owner": {
-    "name": "ScreenRig"
+    "name": "screenRIG"
   },
-  "description": "Public ScreenRig agent marketplace with a bundled CLI.",
+  "description": "Public screenRIG agent marketplace with a bundled CLI.",
   "plugins": [
     {
       "name": "screenrig",
       "source": "./plugins/screenrig",
-      "description": "Operate ScreenRig screens, media, playlists, applications, and advertising with the bundled CLI.",
-      "version": "26.10.370",
+      "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
+      "version": "26.10.388",
       "author": {
-        "name": "ScreenRig"
+        "name": "screenRIG"
       },
       "category": "Developer Tools",
       "homepage": "https://screenrig.ai",
       "repository": "https://github.com/screenrig/plugin",
       "license": "Apache-2.0",
-      "logo": "assets/logo.svg",
+      "logo": "assets/logo.png",
       "tags": [
         "screenrig",
         "digital-signage",

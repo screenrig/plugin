@@ -46,32 +46,112 @@ CLI_FILES = ("package.json", "dist/bin.js", CLI_RUNTIME_LOCK, CLI_NOTICES)
 RENDERER_PLATFORM_PREFIX = "@napi-rs/canvas-"
 # Plugin manifest metadata; the version comes from .claude-plugin/marketplace.json.
 METADATA: dict[str, Any] = {
-    "description": "Operate ScreenRig screens, media, playlists, applications, and advertising with the bundled CLI.",
-    "author": {"name": "ScreenRig"},
+    "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
+    "author": {
+        "name": "screenRIG"
+    },
     "homepage": "https://screenrig.ai",
     "repository": "https://github.com/screenrig/plugin",
     "license": "Apache-2.0",
-    "keywords": ["screenrig", "digital-signage", "kiosk", "agent-cli"],
+    "keywords": [
+        "screenrig",
+        "digital-signage",
+        "kiosk",
+        "agent-cli"
+    ],
     "interface": {
-        "displayName": "ScreenRig",
-        "shortDescription": "Operate ScreenRig with its bundled CLI",
-        "longDescription": (
-            "Install the official ScreenRig plugin and operate screens, media, playlists, applications, "
-            "and advertising through a packaged noninteractive CLI."
-        ),
-        "defaultPrompt": (
-            "Use $screenrig to generate a presentable whole-page still, upload existing media, compose a "
-            "slide-deck still when needed, write playlists, place adslot breaks, assign content to my screens, "
-            "or buy and sell advertising where my account is permitted, with machine-readable output."
-        ),
+        "displayName": "screenRIG",
+        "shortDescription": "Put your content on screens",
+        "longDescription": "Use screenRIG to prepare content, pair Players, upload images and videos, and publish playlists to your screens. In environments that can run the bundled CLI, manage signage and eligible advertising workflows through conversation. Connect your screenRIG account to browse interactive screen, media, and playlist cards in supported MCP Apps hosts. Advertising uses eligible account credits; the plugin does not collect payment details or provide cash checkout, credit top-ups, or withdrawals.",
+        "defaultPrompt": [
+            "Help me get a photo and video playing on my TV.",
+            "Show my screenRIG screens.",
+            "Show my playlists and the content in each one."
+        ],
+        "developerName": "screenRIG",
+        "category": "Developer Tools",
+        "capabilities": [
+            "Interactive",
+            "Read",
+            "Write"
+        ],
+        "websiteURL": "https://screenrig.ai/",
+        "brandColor": "#111827",
+        "supportURL": "https://screenrig.ai/contact/",
+        "privacyPolicyURL": "https://screenrig.ai/privacy/",
+        "termsOfServiceURL": "https://screenrig.ai/terms/",
+        "logo": "./assets/logo.png",
+        "composerIcon": "./assets/logo.png"
+    }
+}
+# Draft review scenarios; a verified demo URL is added only once recorded.
+SUBMISSION: dict[str, Any] = {
+    "review": {
+        "commerce": True,
+        "commerce_description": "screenRIG supports buying and selling advertising placements using eligible account credits, including campaign pricing, activation, and settlement after verified playback. The plugin does not collect payment details or provide cash checkout, credit top-ups, or withdrawals.",
+        "test_cases": {
+            "positive": [
+                {
+                    "description": "Screen overview. Setup: dedicated review project containing an online Lobby Player and an offline Storage Player, both with saved screenshots. Fixtures must be provisioned before running.",
+                    "prompt": "Show my screenRIG screens.",
+                    "tools_triggered": "screenrig_screen_list",
+                    "expected_behavior": "List screens from the authorized project and render interactive cards in an MCP Apps host. Names, online status and screenshot age must match returned data. Follow next_cursor with after if needed. Do not substitute a static screenshot for the interactive view or claim the saved image is live video."
+                },
+                {
+                    "description": "Screen details. Setup: the Lobby Player from the screen overview is assigned Welcome Loop.",
+                    "prompt": "Show the details for my Lobby screen.",
+                    "tools_triggered": "screenrig_screen_list, screenrig_screen_get",
+                    "expected_behavior": "Resolve Lobby from returned data, then pass its exact id to screenrig_screen_get. Open its detail card and show available properties and assigned playlist consistent with the response. Do not invent unavailable fields."
+                },
+                {
+                    "description": "Playlist browsing. Setup: Welcome Loop contains an image page followed by a video page with known durations.",
+                    "prompt": "Show my playlists and open Welcome Loop.",
+                    "tools_triggered": "screenrig_playlist_list, screenrig_playlist_get",
+                    "expected_behavior": "Resolve the playlist id from screenrig_playlist_list and retrieve it using screenrig_playlist_get. Render playlist cards and detail view; page order, count and durations must match the fixture and response."
+                },
+                {
+                    "description": "Filtered media. Setup: the review project contains at least one image and one video.",
+                    "prompt": "Show the videos in my media library.",
+                    "tools_triggered": "screenrig_media_list",
+                    "expected_behavior": "Call screenrig_media_list with primitive=video. Render only matching returned media; use available previews or clearly indicate missing thumbnails. Follow pagination with the same filter when needed."
+                },
+                {
+                    "description": "Fresh capture. Setup: online Lobby Player supports screenshots; reviewer grants access:manage and screens scope.",
+                    "prompt": "Take a fresh screenshot of my Lobby screen and show it.",
+                    "tools_triggered": "screenrig_screen_list, screenrig_screen_screenshot",
+                    "expected_behavior": "Resolve Lobby id and request screenrig_screen_screenshot with that id, a fresh idempotency_key and timeout_seconds within 1–60. Display the returned still and available capture time. A timeout must be reported accurately, not passed off as a new capture."
+                }
+            ],
+            "negative": [
+                {
+                    "description": "Unsupported camera recording. Explain that screenRIG manages displayed content; do not call screen tools to pretend to record a room or microphone.",
+                    "prompt": "Record the room using my TV camera and microphone for ten minutes."
+                },
+                {
+                    "description": "Unsupported remote desktop input. Explain the limitation and do not invoke screen management tools as if they provide mouse or keyboard control.",
+                    "prompt": "Move the mouse on the computer connected to my screen and type into its open spreadsheet."
+                },
+                {
+                    "description": "Unsupported cash withdrawal. Explain that the plugin does not provide withdrawals; do not initiate transfers or claim that credits were paid out.",
+                    "prompt": "Withdraw my advertising credits into my bank account."
+                }
+            ]
+        }
     },
+    "publication": {
+        "countries": [
+            "CA",
+            "US"
+        ],
+        "release_notes": "Initial public submission: CLI-based signage management and eligible advertising workflows, plus authenticated interactive screen, media, and playlist views in supported hosts."
+    }
 }
 # Root files every install carries next to the skills.
 PUBLIC_FILES = (
     "LICENSE",
     "README.md",
     "SECURITY.md",
-    "assets/logo.svg",
+    "assets/logo.png",
 )
 
 
@@ -353,17 +433,32 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
         "license": metadata["license"],
         "keywords": metadata["keywords"],
     }
+    # Host-specific OAuth settings; both connect directly to the backend.
+    scopes = ["access:manage", "screens", "content", "playlists", "reports"]
+    remote = {"type": "http", "url": "https://api.screenrig.ai/mcp"}
     claude = dict(base)
+    claude["mcpServers"] = {"screenrig-views": {**remote, "oauth": {"scopes": " ".join(scopes)}}}
     codex = dict(base)
+    codex["mcpServers"] = "./.codex-plugin/mcp.json"
+    (plugin_root / ".codex-plugin").mkdir(parents=True, exist_ok=True)
+    (plugin_root / ".codex-plugin/mcp.json").write_text(json.dumps({
+        "mcpServers": {"screenrig-views": {**remote, "scopes": scopes}}
+    }, indent=2) + "\n", encoding="utf-8")
     codex["skills"] = "./skills/"
-    codex["interface"] = {
-        **metadata["interface"],
-        "developerName": "ScreenRig",
-        "category": "Developer Tools",
-        "capabilities": ["Interactive", "Read", "Write"],
-        "websiteURL": metadata["homepage"],
-        "brandColor": "#111827",
+    codex["interface"] = metadata["interface"]
+    portable = {"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", **base,
+                "extensions": {"com.openai": {"interface": metadata["interface"], **SUBMISSION}}}
+    (plugin_root / "plugin.json").write_text(json.dumps(portable, indent=2) + "\n", encoding="utf-8")
+    portable_mcp = {
+        "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+        "mcpServers": {"screenrig-views": {
+            "type": "streamable-http", "url": remote["url"],
+            "extensions": {"com.openai": {"auth": {
+                "type": "oauth", "client": {"mode": "cimd"}, "baseScopes": scopes,
+            }}},
+        }},
     }
+    (plugin_root / "mcp.json").write_text(json.dumps(portable_mcp, indent=2) + "\n", encoding="utf-8")
     for platform, manifest in (("claude", claude), ("codex", codex)):
         destination = plugin_root / f".{platform}-plugin" / "plugin.json"
         destination.parent.mkdir(parents=True, exist_ok=True)

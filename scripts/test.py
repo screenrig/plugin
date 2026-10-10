@@ -747,6 +747,100 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual((self.store.root / "dashboards/test-board/latest.json").read_bytes(), latest)
 
 
+class MCPConnectionTests(unittest.TestCase):
+    def test_portable_submission_and_overlay_stay_aligned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            builder.copy_docs(root)
+            builder.emit_manifests(root, builder.METADATA, "26.10.0-dev")
+            portable = json.loads((root / "plugin.json").read_text())
+            overlay = json.loads((root / ".codex-plugin/plugin.json").read_text())
+            public = portable["extensions"]["com.openai"]
+            self.assertEqual(portable["version"], overlay["version"])
+            self.assertEqual(public["interface"], overlay["interface"])
+            self.assertFalse({"skills", "mcpServers", "apps", "interface"} & portable.keys())
+            self.assertEqual(public["publication"]["countries"], ["CA", "US"])
+            self.assertTrue(public["review"]["commerce"])
+            self.assertEqual(len(public["review"]["test_cases"]["positive"]), 5)
+            self.assertEqual(len(public["review"]["test_cases"]["negative"]), 3)
+            interface = public["interface"]
+            self.assertLessEqual(len(interface["shortDescription"]), 30)
+            self.assertLessEqual(len(interface["defaultPrompt"]), 3)
+            self.assertTrue(all(0 < len(p) <= 128 and "\n" not in p for p in interface["defaultPrompt"]))
+            for field in ("websiteURL", "supportURL", "privacyPolicyURL", "termsOfServiceURL"):
+                self.assertTrue(interface[field].startswith("https://screenrig.ai/"))
+            for field in ("logo", "composerIcon"):
+                icon = root / interface[field]
+                self.assertTrue(icon.resolve().is_relative_to(root.resolve()))
+                data = icon.read_bytes()
+                self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n")
+                self.assertEqual(int.from_bytes(data[16:20], "big"), 512)
+                self.assertEqual(int.from_bytes(data[20:24], "big"), 512)
+            mcp = json.loads((root / "mcp.json").read_text())["mcpServers"]["screenrig-views"]
+            codex = json.loads((root / ".codex-plugin/mcp.json").read_text())["mcpServers"]["screenrig-views"]
+            self.assertEqual(mcp["url"], codex["url"])
+            self.assertEqual(mcp["type"], "streamable-http")
+            auth = mcp["extensions"]["com.openai"]["auth"]
+            self.assertEqual(auth, {"type": "oauth", "client": {"mode": "cimd"}, "baseScopes": codex["scopes"]})
+
+    def test_skill_dependency_matches_registered_server(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            builder.emit_manifests(root, builder.METADATA, builder.version())
+            servers = json.loads((root / ".codex-plugin/mcp.json").read_text())["mcpServers"]
+            for skill_root in (ROOT, ROOT / "plugins/screenrig"):
+                metadata = (skill_root / "skills/screenrig/agents/openai.yaml").read_text()
+                dependency = metadata.split("dependencies:", 1)[1]
+                name = re.search(r'value: "([^"]+)"', dependency).group(1)
+                url = re.search(r'url: "([^"]+)"', dependency).group(1)
+                self.assertIn(name, servers)
+                self.assertEqual(url, servers[name]["url"])
+                self.assertIn('transport: "streamable_http"', dependency)
+
+    def test_remote_oauth_declarations_and_retired_helper(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            builder.emit_manifests(root, builder.METADATA, "26.10.0-dev")
+            for host in ("codex", "claude"):
+                manifest = json.loads((root / f".{host}-plugin/plugin.json").read_text())
+                if host == "codex":
+                    self.assertEqual(manifest["mcpServers"], "./.codex-plugin/mcp.json")
+                    manifest = json.loads((root / ".codex-plugin/mcp.json").read_text())
+                server = manifest["mcpServers"]["screenrig-views"]
+                self.assertEqual(server["url"], "https://api.screenrig.ai/mcp")
+                self.assertEqual(server["type"], "http")
+                scopes = server["scopes"] if host == "codex" else server["oauth"]["scopes"].split()
+                self.assertEqual(scopes, ["access:manage", "screens", "content", "playlists", "reports"])
+                self.assertNotIn("identity", scopes)
+                self.assertEqual(set(server), {"type", "url", "scopes" if host == "codex" else "oauth"})
+                for skill_root in (ROOT, ROOT / "plugins/screenrig"):
+                    installation = (skill_root / "skills/screenrig/references/installation.md").read_text()
+                    login_scopes = re.search(r'--scopes ([^\s`]+)', installation).group(1).split(',')
+                    self.assertEqual(login_scopes, scopes,
+                                     "Manual OAuth login must retain screenshot capture permission")
+        for root in (ROOT, ROOT / "plugins/screenrig"):
+            self.assertFalse((root / "skills/screenrig/scripts/screenrig-mcp-auth.mjs").exists())
+
+    def test_validator_rejects_credential_and_endpoint_overrides(self):
+        validator = load_script("connection_validator", "validate-plugin.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            builder.emit_manifests(root, builder.METADATA, builder.version())
+            manifest_path = root / "mcp.json"
+            original = json.loads(manifest_path.read_text())
+            for field, value in (("headers", {"Authorization": "synthetic"}),
+                                 ("url", "https://wrong.example/mcp"),
+                                 ("scopes", ["access:read", "screens", "content", "playlists", "reports"]),
+                                 ("command", "credential-helper")):
+                manifest = copy.deepcopy(original)
+                manifest["mcpServers"]["screenrig-views"][field] = value
+                write_json(manifest_path, manifest)
+                validator.errors.clear()
+                with patch.object(validator, "PLUGIN", root):
+                    validator.check_no_alternate_surfaces(None)
+                self.assertTrue(any("host-managed OAuth" in error for error in validator.errors))
+
+
 if __name__ == "__main__":
     unittest.main(defaultTest=["LauncherTests", "FreshnessTests", "CalVerTests", "SkillCommandTests",
-                               "DocsOnlyTests", "DependencyBoundaryTests"])
+                               "DocsOnlyTests", "DependencyBoundaryTests", "MCPConnectionTests"])

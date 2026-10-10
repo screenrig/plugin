@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   verify:
+    outputs:
+      bundle_updated: ${{ steps.rebuild.outputs.bundle_updated }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -61,7 +63,9 @@ jobs:
           test -f "${RUNNER_TEMP}/screenrig-cli/${filename}"
           printf '%s' "${commit}" > "${RUNNER_TEMP}/screenrig-cli/commit"
       - name: Rebuild and verify the committed plugin bundle
+        id: rebuild
         run: |
+          echo "bundle_updated=false" >> "${GITHUB_OUTPUT}"
           filename="screenrig-cli.tgz"
           artifact="${RUNNER_TEMP}/screenrig-cli/${filename}"
           commit="$(cat "${RUNNER_TEMP}/screenrig-cli/commit")"
@@ -78,6 +82,7 @@ jobs:
             install -d "${RUNNER_TEMP}/screenrig-cli-bundle-update"
             cp components.lock.json "${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
             cp -a plugins/screenrig "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig"
+            echo "bundle_updated=true" >> "${GITHUB_OUTPUT}"
           fi
           python3 scripts/build-plugin.py --check --cli-artifact "${artifact}"
           python3 scripts/validate-plugin.py --cli-artifact "${artifact}" --cli-source "${RUNNER_TEMP}/screenrig-cli-source"
@@ -99,14 +104,14 @@ jobs:
           "${dashboard_runtime}/bin/python" -m playwright install-deps chromium
           "${dashboard_runtime}/bin/python" -B scripts/test.py --browser DashboardTests
       - name: Upload rebuilt marketplace CLI when it drifted
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.rebuild.outputs.bundle_updated == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: screenrig-cli-bundle-update
           path: ${{ runner.temp }}/screenrig-cli-bundle-update/
           # v4 omits dotfiles unless set; that deleted .claude-plugin/plugin.json.
           include-hidden-files: true
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 1
       - name: Package deterministic plugin artifact
         if: github.ref != 'refs/heads/main'
@@ -135,20 +140,18 @@ jobs:
         with:
           fetch-depth: 0
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        continue-on-error: true
+        if: needs.verify.outputs.bundle_updated == 'true'
         with:
           name: screenrig-cli-bundle-update
           path: ${{ runner.temp }}/screenrig-cli-bundle-update
       - name: Publish current CLI bundle when screenrig/cli main moved
+        if: needs.verify.outputs.bundle_updated == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AFTER_REBUNDLE: ${{ github.event.inputs.after_rebundle }}
         run: |
           update="${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
-          if [ ! -f "${update}" ]; then
-            echo "Committed marketplace CLI already matches screenrig/cli main"
-            exit 0
-          fi
+          test -f "${update}"
           old="$(jq -r .cli.artifact.sha256 components.lock.json)"
           new="$(jq -r .cli.artifact.sha256 "${update}")"
           if [ "${old}" = "${new}" ]; then

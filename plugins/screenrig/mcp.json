@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "screenrig-views": {
+      "type": "streamable-http",
+      "url": "https://api.screenrig.ai/mcp",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "oauth",
+            "client": {
+              "mode": "cimd"
+            },
+            "baseScopes": [
+              "access:manage",
+              "screens",
+              "content",
+              "playlists",
+              "reports"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

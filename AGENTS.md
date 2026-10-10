@@ -35,7 +35,12 @@ byte in the repository counts, not only those in `plugins/screenrig`.
 
 - `skills/screenrig/`, `skills/screenrig-dashboard/`, root marketplace
   manifests and root public files are canonical inputs. Plugin manifest
-  metadata lives in `scripts/build-plugin.py`.
+  metadata, public listing, review cases and country targeting live in
+  `scripts/build-plugin.py`. Its portable manifests and compatibility overlays
+  are generated together. `assets/logo.png` is the marketplace rendering of
+  `assets/logo.svg`; one PNG serves both listing and composer icons. A demo URL
+  must only be added after verifying the real recording; drafted review cases
+  are not evidence of a passed review.
 - `components.lock.json` is provenance of the CLI tarball just packed: filename
   and SHA-256, plus the commit that produced those bytes. It is not a freeze of
   which SHA to fetch.
@@ -70,7 +75,9 @@ byte in the repository counts, not only those in `plugins/screenrig`.
   success: stdout is clean JSON, stderr is empty.
 - The bundled CLI is one minified `cli/dist/bin.js` plus its `package.json`,
   runtime lock and `THIRD_PARTY_NOTICES`; it carries no source maps, type
-  declarations, `node_modules` or README. The repository holds no binary files:
+  declarations, `node_modules` or README. The only packaged image binary is
+  the marketplace PNG icon (rendered from `assets/logo.svg`); no executable
+  binaries are stored:
   the bundled CLI fetches the native renderer its machine needs on first
   render, the dashboard's ECharts is a custom build of only the charts its
   renderer draws, and its two Inter fonts are base64 data URIs in the renderer
@@ -98,7 +105,7 @@ asks.
   stays readable unless `--json` is explicit. Do not combine the output flags.
   Keep explicit `--json` for the separate freshness helper and scripts that
   must remain compatible with older bundles. Never teach a token flag or pasted bearer.
-- Never write MCP. `validate-plugin.py` rejects MCP manifests.
+- The plugin may declare the public backend MCP endpoint with host-managed OAuth. Generate platform-specific connection metadata in build-plugin.py. Do not bundle MCP server code, credential/header helpers, tokens, private origins or account-specific settings. The CLI and host keep separate API and MCP sessions.
 - Keep the skill operational: launcher, first-use account state, supported task
   paths, errors and verification. Put detailed command families in references.
 - The README addresses prospective users; this file addresses maintainers.
