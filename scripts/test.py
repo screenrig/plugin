@@ -374,6 +374,17 @@ class FreshnessTests(unittest.TestCase):
 
 
 class CalVerTests(unittest.TestCase):
+    def test_inventory_covers_every_version_bearing_manifest(self):
+        files = json.loads((ROOT / "release-version-files.json").read_text())
+        self.assertEqual(len(files), len(set(files)))
+        candidates = [ROOT / ".claude-plugin" / "marketplace.json", ROOT / ".agents" / "plugins" / "marketplace.json"]
+        candidates += list((ROOT / "plugins" / "screenrig").rglob("plugin.json"))
+        candidates += [ROOT / "plugins" / "screenrig" / "cli" / "package.json"]
+        for path in candidates:
+            versioned = bool(re.search(r'"version"\s*:', path.read_text()))
+            self.assertEqual(str(path.relative_to(ROOT)) in files, versioned, str(path))
+
+
     def test_stamp_reports_one_version_everywhere(self) -> None:
         # Freshness compares the installed plugin and bundled CLI against the
         # published CalVer, so a bundled CLI left behind would look stale forever.

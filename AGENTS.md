@@ -50,6 +50,9 @@ byte in the repository counts, not only those in `plugins/screenrig`.
 - `scripts/validate-plugin.py` and `scripts/check-public-repo.py` define the
   public/reproducibility boundary. Skill commands must exist in the bundled CLI
   usage; `media generate` and `media download` are required.
+- `release-version-files.json` is the single inventory of version-bearing release
+  files. Version stamping and release tooling read it; add new version-bearing
+  manifests there in the same change that generates them.
 - Plugin versions are CalVer `YY.MM.SERIAL` (UTC). Marketplaces install git
   `main`, so `main` carries the version it distributes. The shared workspace
   release stamps its version into the marketplace, both plugin manifests and

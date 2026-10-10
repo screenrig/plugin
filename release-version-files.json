@@ -1,0 +1,7 @@
+[
+  ".claude-plugin/marketplace.json",
+  "plugins/screenrig/plugin.json",
+  "plugins/screenrig/.claude-plugin/plugin.json",
+  "plugins/screenrig/.codex-plugin/plugin.json",
+  "plugins/screenrig/cli/package.json"
+]

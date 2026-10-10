@@ -43,27 +43,28 @@ def stamp_marketplace(path: Path, version: str) -> None:
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+def release_version_files() -> list[str]:
+    inventory = Path(__file__).resolve().parents[1] / "release-version-files.json"
+    files = json.loads(inventory.read_text(encoding="utf-8"))
+    if not isinstance(files, list) or not files or any(
+        not isinstance(file, str) or not file or Path(file).is_absolute()
+        or ".." in Path(file).parts or str(Path(file)) != file for file in files
+    ) or len(set(files)) != len(files):
+        raise SystemExit(f"{inventory}: expected unique repository-relative paths")
+    return files
+
+
 def stamp_plugin_root(plugin_root: Path, version: str) -> None:
-    manifests = [plugin_root / f".{platform}-plugin" / "plugin.json" for platform in ("claude", "codex")]
-    portable = plugin_root / "plugin.json"
-    if portable.is_file():
-        manifests.append(portable)
-    for path in manifests:
+    prefix = "plugins/screenrig/"
+    for file in release_version_files():
+        if not file.startswith(prefix):
+            continue
+        path = plugin_root / file.removeprefix(prefix)
         data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            raise SystemExit(f"{path}: expected a JSON object")
+        if not isinstance(data, dict) or not isinstance(data.get("version"), str):
+            raise SystemExit(f"{path}: expected a version-bearing JSON object")
         data["version"] = version
         path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    # build-plugin.py packs the bundled CLI at the plugin version (16c4eb8), so
-    # the tree reports one version everywhere. Keep that true when stamping;
-    # otherwise the plugin and its bundled CLI would report different versions.
-    package_path = plugin_root / "cli" / "package.json"
-    if package_path.is_file():
-        package = json.loads(package_path.read_text(encoding="utf-8"))
-        if not isinstance(package, dict):
-            raise SystemExit(f"{package_path}: expected a JSON object")
-        package["version"] = version
-        package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
 
 
 def cli_stamp_for_commit(repository: str, commit: str) -> str | None:
