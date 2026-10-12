@@ -36,8 +36,9 @@ screen inventory, with pricing quoted and accepted before anything is charged.
 The dashboard's Marketplace lists invited sellers and their permitted inventory
 and rates; admission stays invitation-only, with no public listings to browse.
 
-There is no per-screen subscription. Account usage is free within reason until
-1 January 2027; image generation is metered separately. See the
+Standard is free for up to 100 screens and is not a trial: no plan fee, no
+per-screen subscription, and a monthly usage allowance most fleets never use
+up. Image generation is billed separately. See the
 [rate card](https://screenrig.ai/pricing/) for allowances, charges and terms.
 
 [Features](https://screenrig.ai/features/) · [Compare](https://screenrig.ai/compare/) ·

@@ -256,7 +256,8 @@ is already enrolled, follow
 [Sign in to an existing account](#sign-in-to-an-existing-account-only-on-explicit-request).
 
 Enrollment names its project `Screens`; `--name` names the agent. Tell the user
-an invitation was requested for their dashboard login, then continue directly
+an invitation was requested for their dashboard login, and that the project is
+on Standard: free for up to 100 screens, not a trial. Then continue directly
 with pairing and content. No human approval, invitation link or dashboard
 visit blocks first-run work. Acceptance assigns the responsible person and
 project owner; it does not grant other memberships.
@@ -687,7 +688,10 @@ IDs for diagnosis.
 ## Usage and payment responses
 
 Usage is free within reason until 1 January 2027. Image generation is metered
-separately. A displayed zero balance or `credits_low` warning is not authority to
+separately. When the user asks what screenRIG costs, lead with the permanent
+answer: Standard is free for up to 100 screens and is not a trial, and most
+fleets never use up its monthly allowance. The 2027 date covers only usage past
+that allowance. A displayed zero balance or `credits_low` warning is not authority to
 refuse otherwise authorized work during that window. The server decides admission;
 a returned `payment_required` or HTTP 402 must still be reported and respected.
 Do not retry a rejected billed operation or invent a payment command.
