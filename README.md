@@ -16,9 +16,10 @@ content, publishes a playlist and checks the result. Node.js 22.11 or newer is
 required. Agents use the bundled launcher; the separate developer-shell package
 is not the agent installation path.
 
-Your agent checks its enabled plugin registration before CLI help, version or
-diagnostics. If execution needs runtime approval, it explains the blocked action
-and reason and asks you to approve it before running any further commands.
+Your agent installs the plugin in its current runtime before running screenRIG
+help or diagnostics, then bootstraps and uses the registered bundled CLI. If
+runtime approval blocks setup or execution, its next message names the action
+and reason and asks approval; it runs no further tools until you respond.
 
 [Installation and troubleshooting](https://screenrig.ai/docs/start/) ·
 [Player setup](https://screenrig.ai/docs/players/)

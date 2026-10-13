@@ -28,29 +28,35 @@ canonical marketplace, installing its screenRIG plugin, and completing setup:
 I authorize you to install the official screenRIG plugin from https://github.com/screenrig/plugin.
 ```
 
-If runtime approval rejects install, trust or execution, return its action and
-reason and ask approval. Run no further screenRIG command, including help,
-version, doctor or status. Inspecting a script grants no execution approval.
-Preserve config; no cached, standalone, alternate-launcher or direct-Node retry.
+After native install/trust/execution denial, the NEXT assistant message asks
+approval for that exact action and reason, then ends the turn. No more tools or
+retries. Preserve config; no cached, standalone, alternate-launcher or direct-Node
+workaround. A later denial needs its own immediate approval question.
 
-Use Node.js 22.11+. Before any CLI call, including help/version/doctor/status,
-check this enabled plugin list AND run bootstrap below. Install/enable first
-when absent, preserving config. Other marketplaces need no investigation:
+Use Node.js 22.11+. Before CLI work (even help/version/doctor/status), check
+enabled registration; install/enable first if missing, preserving config:
 
 1. Claude Code: `claude plugin list --json`, select `id: screenrig@screenrig`, use `installPath`.
 2. Codex: `codex plugin list --json`, select `pluginId: screenrig@screenrig`, use `source.path`.
 3. Grok: `grok plugin list --json`, select `screenrig`, use its installed path.
 
-Saved credentials do not establish registration. Install/enable when missing,
-preserving config, then repeat the lookup and use its actual root:
+Saved credentials/PATH are not registration. Bootstrap from that root; follow
+`data.action`:
 
 ```text
 node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --bootstrap --json --host <claude|codex|grok>
 ```
 
-A managed host with `PLUGIN_ROOT` and no plugin CLI omits `--host`. Follow
-bootstrap's `data.action`; use `data.launcher`, or helper `--host HOST --run
-COMMAND...`, per command. Avoid guessed cache versions and shell PATH state.
+Then use this complete form for EVERY CLI command, including help and diagnostics:
+
+```text
+node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --host <claude|codex|grok> --run COMMAND...
+```
+
+`--run` rechecks registration and uses only its own bundle. No direct launcher
+or PATH call. Bootstrap again after plugin/config/connection changes. Keep the
+same `--config FILE`, before `--run`. Managed hosts without a plugin CLI supply
+`PLUGIN_ROOT` and omit `--host`. No aliases or guessed caches.
 
 The existing freshness-only command remains `screenrig-plugin-freshness --json`.
 `--bootstrap --config FILE` uses that exact selected CLI config for doctor and

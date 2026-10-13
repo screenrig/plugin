@@ -19,17 +19,20 @@ the section below is the only branch that needs a screenRIG screen.
 
 ## First screen: keep setup short
 
-Before any CLI call, including help, version, doctor or status, check this
-runtime's enabled registration AND run [bootstrap](#prepare-the-installation).
-If missing, install/enable the official plugin first, preserving config. An
-existing executable or saved login replaces neither check. Other marketplaces
-are normal; do not trace their configuration to install this plugin.
+Before CLI work (even help/version/doctor/status), check this runtime's enabled
+plugin registration and [bootstrap](#prepare-the-installation). Install/enable
+first if missing, preserving config. Saved login and PATH are not registration;
+other marketplaces need no investigation.
 
-If runtime approval blocks installation, trust or execution, return the approval
-question immediately: name the rejected action and stated reason. Stop ALL
-screenRIG execution, including help, version, doctor, status and other reads.
-Reading a launcher does not authorize running it. Preserve credentials; no
-retry, alternate launcher, direct Node invocation or standalone CLI workaround.
+Then use helper `--run` for EVERY CLI call; it rechecks registration. No direct
+`data.launcher` or PATH calls. Bootstrap again when plugin/config/connection
+changes. Use documented commands first; read help for missing forms or errors.
+
+After native install/trust/execution denial, the NEXT assistant message asks
+approval for that action and quotes the stated reason, then ends the turn.
+No more tools, inspection, diagnostics or retries. Preserve credentials; no
+alternate launcher, direct Node or standalone workaround. Approval resumes the
+blocked action; another denial needs its own immediate approval question.
 
 For enrollment `rate_limited`, report the retry time and return. Keep the same
 pending request for a later resume. Never launch a sleep, waiter, background
@@ -99,31 +102,23 @@ to a dot or Work, so do not claim that a transfer occurred.
 
 ## Prepare the installation
 
-Node.js 22.11 or newer is required. Check the **current host's** plugin list:
+Use Node.js 22.11+. Look up this host's enabled official plugin:
 
-- Claude Code: `claude plugin list --json`, enabled `screenrig@screenrig`, `installPath`.
-- Codex: `codex plugin list --json`, enabled `screenrig@screenrig`, `source.path`.
-- Grok: `grok plugin list --json`, enabled `screenrig`, its installed path.
+- Claude: `claude plugin list --json`, `screenrig@screenrig`, `installPath`.
+- Codex: `codex plugin list --json`, `screenrig@screenrig`, `source.path`.
+- Grok: `grok plugin list --json`, `screenrig`, its installed path.
 
-If absent or disabled, follow [installation](references/installation.md), then
-repeat the lookup. Keep the saved screenRIG configuration. An existing global
-CLI, a remembered cache path or credentials alone cannot substitute for plugin
-registration. Managed hosts can supply their installed `PLUGIN_ROOT` when they
-expose no plugin-management CLI.
-
-Use the exact root returned by the current host to invoke this helper:
+If missing/disabled, follow [installation](references/installation.md) and repeat
+lookup, preserving config. Use its actual root with normal shell quoting:
 
 ```text
 node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --bootstrap --json --host <claude|codex|grok>
 ```
 
-Managed hosts without that CLI omit `--host`. Use the actual script filename
-with normal quoting for the execution tool; do not guess a versioned cache path
-or assume the user's default shell is the tool's shell. The helper verifies
-registration, runs its own bundled `screenrig version`, checks freshness, runs
-`screenrig doctor` and `screenrig agent status`, and reads active project capabilities.
-It never enrolls, discards saved credentials or selects another project.
-The CLI can refresh the existing saved session during authenticated reads.
+Managed hosts without a plugin CLI supply installed `PLUGIN_ROOT` and omit
+`--host`. Bootstrap checks registration, bundled version, freshness, doctor,
+saved connection and active capabilities. It never enrolls, discards credentials
+or switches projects; authenticated CLI reads can refresh the saved session.
 
 Read `ok`, `data.action`, checks and `data.context`:
 
@@ -141,11 +136,16 @@ Read `ok`, `data.action`, checks and `data.context`:
 - `enroll`: genuine first-run state; follow the minimal flow above.
 - `ready`: reuse this selected project and continue pairing/content.
 
-For every later CLI invocation, use the exact `data.launcher` filename, or run
-this same helper with `--host HOST --run` followed by the CLI arguments. This
-avoids PATH state disappearing between tool calls. In references, `screenrig`
-means that resolved bundled launcher. Never substitute a global executable or
-source checkout, export `SR`, or paste a credential.
+After bootstrap, repeat this complete form for EVERY CLI call:
+
+```text
+node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --host <claude|codex|grok> --run screen pair "ABC 234"
+```
+
+Replace the pair arguments with the command. In references, `screenrig COMMAND...`
+means helper `--run COMMAND...`. Keep the same root/config; put `--config FILE`
+before `--run`. Managed hosts omit `--host`. It refuses unregistered packages
+and forwards CLI stdout/exit status. No alias, `SR`, source checkout or token paste.
 
 The original `screenrig-plugin-freshness --json` remains the standalone
 freshness check. A failed published-version read means continue with the
