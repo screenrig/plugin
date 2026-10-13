@@ -33,57 +33,33 @@ named repository or install `screenrig` from a global package source. Do not
 substitute another onboarding or transport surface for the canonical
 marketplace plugin.
 
-Use the CLI packaged with this skill. It requires Node.js 22.11 or newer.
-Resolve the installed plugin root, prepend its scripts directory to `PATH`
-once, then invoke `screenrig`. Do not export `SR`. Do not install a global
-package.
+Use the packaged CLI with Node.js 22.11 or newer. Before every task, including a
+returning conversation, check the **current runtime's** enabled plugin list:
 
-```bash
-SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
-# The session that installed the plugin has no root variable: ask the runtime's plugin list.
-screenrig_root_from_list() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const l=Array.isArray(j)?j:j.installed||[];const p=l.find(e=>(e.id||e.pluginId)==="screenrig@screenrig"&&e.enabled!==false);const r=p&&(p.installPath||(p.source&&p.source.path));if(r)console.log(r)}catch{}})'; }
-if [ -z "$SCREENRIG_PLUGIN_ROOT" ] && command -v claude >/dev/null 2>&1; then
-  SCREENRIG_PLUGIN_ROOT="$(claude plugin list --json 2>/dev/null | screenrig_root_from_list)"
-fi
-if [ -z "$SCREENRIG_PLUGIN_ROOT" ] && command -v codex >/dev/null 2>&1; then
-  SCREENRIG_PLUGIN_ROOT="$(codex plugin list --json 2>/dev/null | screenrig_root_from_list)"
-fi
-if [ -x "$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig" ]; then
-  PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
-  screenrig version
-else
-  echo "screenRIG launcher not found (plugin root: ${SCREENRIG_PLUGIN_ROOT:-none}). Install screenrig@screenrig, or follow references/installation.md." >&2
-fi
+1. Claude Code: `claude plugin list --json`, select `id: screenrig@screenrig`, use `installPath`.
+2. Codex: `codex plugin list --json`, select `pluginId: screenrig@screenrig`, use `source.path`.
+3. Grok: `grok plugin list --json`, select `screenrig`, use its installed path.
+
+A saved connection or global executable does not establish plugin registration.
+When the plugin is absent/disabled, run the canonical install commands above,
+preserving the user's screenRIG config, and repeat the lookup. Use the actual
+returned root for bootstrap:
+
+```text
+node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --bootstrap --json --host <claude|codex|grok>
 ```
 
-The snippet falls back to `claude plugin list --json` and `codex plugin list --json` when
-the root variables are empty, and prints `screenRIG launcher not found` on stderr when no
-launcher exists; then use the lookup below. Never add `/skills/screenrig/scripts` to PATH
-without a root, and never hand-write a version-pinned cache path. The plugin launcher is scoped to this
-shell session, so a new shell may need the same root lookup and PATH setup.
+A managed host that supplies `PLUGIN_ROOT` and exposes no plugin CLI omits
+`--host`. Bootstrap verifies registration and its own package-relative CLI,
+then checks version, freshness, doctor and saved account state. Follow
+`data.action` in the operating skill; it performs no enrollment, credential reset or project switch. Use `data.launcher` as the exact filename for each subsequent CLI
+command, or the same helper with `--host HOST --run COMMAND...`. Shell PATH
+changes from one tool call may not reach the next. Do not hand-write cache
+versions, use fish syntax in a Bash tool, export `SR`, or install a global package.
 
-Require a successful screenRIG JSON envelope from `version` before any
-other command.
-
-If `SCREENRIG_PLUGIN_ROOT` is empty after installation, recover it without
-guessing:
-
-1. Prefer `GROK_PLUGIN_ROOT` when it is set.
-2. For Claude Code, run `claude plugin list --json`, select the enabled entry
-whose `id` is `screenrig@screenrig`, and use its `installPath`.
-3. For Codex, run `codex plugin list --json`, select the enabled installed
-entry whose `pluginId` is `screenrig@screenrig`, and use its `source.path`.
-4. For Grok, run `grok plugin list` and use the installed screenRIG plugin
-path, then export it as `GROK_PLUGIN_ROOT` for this session.
-5. Prepend `<plugin-root>/skills/screenrig/scripts` to `PATH` and run
-`screenrig version`. Require a successful screenRIG JSON envelope
-before the requested command. Do not export `SR`.
-
-If there is no matching entry, run the exact canonical marketplace add/install
-commands above and repeat this lookup. If installation or lookup still fails,
-report the failing runtime command and the canonical repository URL to the
-user. Do not substitute a globally installed command or download an
-executable.
+The existing freshness-only command remains `screenrig-plugin-freshness --json`.
+`--bootstrap --config FILE` uses that exact selected CLI config for doctor and
+saved-connection checks; keep the same selection for later commands.
 
 Operational commands use JSON by default. If an older installed bundle returns
 prose, add `--json` until the plugin is updated. The separate
@@ -96,36 +72,15 @@ available through `--json --help`. Branch on `ok`, `error.status`, and
 
 ## Detect and refresh
 
-Every time this skill loads and you are about to use screenRIG, compare the
-installed plugin and bundled CLI to the published plugin version on GitHub
-`main`. Skill text and the bundled CLI travel together. Do not PATH-swap in a
-local checkout. Do not `npm i -g screenrig`. Do not install a global package.
+Bootstrap includes freshness. For a freshness-only check, run
+`screenrig-plugin-freshness --json` from the registered package:
 
-After PATH prepend and a successful `screenrig version`, run:
-
-```bash
-screenrig-plugin-freshness --json
-```
-
-Branch on `ok` and `data.action`. Do not parse prose.
-
-The helper finds the plugin it belongs to from its own location, then checks
-the installed plugin and bundled CLI against the published plugin version. It
-orders versions as CalVer. Use its action rather than comparing version strings
-yourself.
-
-- `data.action === "keep"`: the installed copy is the published version or
-  newer. Do not reinstall.
-- `data.action === "refresh"`: the installed plugin version or bundled CLI
-  version is older than the published version. Refresh the plugin so skill
-  text and the bundled CLI update together.
-- `data.action === "continue_installed"`: the GitHub fetch failed. Continue
-  with the installed copy and tell the user the published version could not be
-  read. Do not block the user's task. Do not substitute another source.
-- `data.action === "not_installed"`: the helper is not inside an installed
-  plugin (for example a source checkout), so there is nothing to refresh.
-  Continue, and use the canonical marketplace install when the user wants
-  tracked updates.
+- `keep`: installed plugin and CLI match or exceed the published CalVer; continue.
+- `refresh`: update the plugin and CLI together using the commands below.
+- `continue_installed`: GitHub could not be read; disclose that and continue
+  with the installed package.
+- `not_installed`: this helper is outside a package; use canonical installation
+  and its registered helper for agent work.
 
 When refreshing, probe this host for a native plugin update command and use
 it only if that command exists. Do not invent flags. Probe the installed runtime before using these update forms:
@@ -146,11 +101,9 @@ If `claude plugin update --help` requires `-y` when stdin or stdout is not a
 TTY, pass `-y`. Grok `--trust` stays on install, not on update, unless that
 host's `--help` names it.
 
-If a probed update command is missing, re-run the exact canonical marketplace
-add and install commands above. Grok install must keep `--trust`. Refresh
-updates skill text and the bundled CLI together. After refresh, re-resolve
-the plugin root, prepend scripts to PATH, and require a successful
-`screenrig version` envelope before any other command.
+If the update command is absent, repeat canonical add/install; Grok keeps
+`--trust`. Resolve the updated registry path and rerun bootstrap. Its bundled
+CLI works immediately; a new conversation loads updated skill text.
 
 ## Host authentication examples
 

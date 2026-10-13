@@ -17,23 +17,52 @@ https://play.screenrig.ai). Setup detail is in
 Resolve the project's capabilities and the requested intent before any operation;
 the section below is the only branch that needs a screenRIG screen.
 
+## First screen: keep setup short
+
+Check the current runtime's enabled plugin registration even when the user says
+setup started earlier or a `screenrig` executable already exists. Install the
+official plugin when its registration is missing; preserve saved credentials.
+Run the bundled [bootstrap helper](#prepare-the-installation) before CLI work.
+
+- An active saved connection: reuse its selected project. Ask for neither email
+  nor account confirmation; conversation history and the working directory do
+  not determine whether enrollment finished.
+- A new connection: ask only for a missing contact email. Use an organization
+  already supplied, or `Screens`. Do not ask for organization/project names or
+  whether they have an account. Use existing-account sign-in only when they
+  explicitly requested their existing account.
+- Enroll once, say the dashboard invitation was requested and Standard is free
+  for up to 100 screens, then continue. Dashboard acceptance, passwords and a
+  runtime restart never gate first-screen CLI work.
+- Use the supplied Player code immediately. If it is missing, give the setup
+  link for the device already named and ask for its code. For a browser, say:
+  “Open https://play.screenrig.ai on your screen device and send me the code it
+  shows.” Do not ask for USB/ADB access to pair an Android Player.
+- Use the requested content with sensible defaults. Branding, location,
+  orientation and opening hours are optional unless needed for that request;
+  read dimensions from the paired Player. Do not make an optional questionnaire
+  block a simple welcome sign.
+
+A fresh user's first question is: “What contact email should I use for your
+screenRIG invitation?” Once enrolled, ask for the missing Player code. If those
+facts are already supplied, operate without another confirmation question.
+
 ## Quickstart
 
-The common signage path; each step has its section below.
-
-1. Put the bundled launcher on PATH ([Prepare the installation](#prepare-the-installation))
-   and require a `screenrig version` envelope.
-2. Enroll once: `screenrig agent enroll --email ADDRESS --organization NAME`.
-3. Pair the Player: `screenrig screen pair "ABC 234"`, then `screenrig screen show SCREEN_ID`
-   until it reports `state` `active` and `online` true.
-4. Read `observation.surfaces[]` from `screen show` for the size and orientation.
-5. Make the content: upload a finished file, `media generate` a whole poster, or
-   `compose render` editable slides ([content path](#signage-branch-choose-the-content-path)).
-6. `screenrig playlist init SOURCES... --screen-id SCREEN_ID --name NAME --output playlist.json`,
+1. Verify registration and run bootstrap ([Prepare the installation](#prepare-the-installation)).
+   Reuse an active connection, or enroll once with
+   `screenrig agent enroll --email ADDRESS --organization NAME`.
+2. `screenrig screen pair "ABC 234"`, then `screenrig screen show SCREEN_ID`
+   until `state` is `active` and `online` is true.
+3. Read `observation.surfaces[]` for size and orientation; prepare the requested
+   content ([content path](#signage-branch-choose-the-content-path)).
+4. `screenrig playlist init SOURCES... --screen-id SCREEN_ID --name NAME --output playlist.json`,
    then `screenrig screen publish SCREEN_ID playlist.json`.
-7. Check the glass: `screenrig screen screenshot SCREEN_ID`.
-8. For opening hours, first `screenrig screen set-timezone SCREEN_ID --timezone ZONE`
-   (an IANA name such as `Europe/London`), then schedules or display power.
+5. Request `screenrig screen screenshot SCREEN_ID` and inspect that returned
+   Player image before saying the content is showing. A local preview is a
+   design check. Ask the user to look at the display too.
+6. When requested, set `screenrig screen set-timezone SCREEN_ID --timezone ZONE`
+   before schedules or display power.
 
 ## Choose where commands run
 
@@ -59,55 +88,62 @@ to a dot or Work, so do not claim that a transfer occurred.
 
 ## Prepare the installation
 
-Node.js 22.11 or newer is required. Resolve the installed plugin root and put its
-launcher on this shell's PATH. Never substitute a global or source-checkout binary.
+Node.js 22.11 or newer is required. Check the **current host's** plugin list:
 
-```bash
-SCREENRIG_PLUGIN_ROOT="${GROK_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}}}"
-# The session that installed the plugin has no root variable: ask the runtime's plugin list.
-screenrig_root_from_list() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const l=Array.isArray(j)?j:j.installed||[];const p=l.find(e=>(e.id||e.pluginId)==="screenrig@screenrig"&&e.enabled!==false);const r=p&&(p.installPath||(p.source&&p.source.path));if(r)console.log(r)}catch{}})'; }
-if [ -z "$SCREENRIG_PLUGIN_ROOT" ] && command -v claude >/dev/null 2>&1; then
-  SCREENRIG_PLUGIN_ROOT="$(claude plugin list --json 2>/dev/null | screenrig_root_from_list)"
-fi
-if [ -z "$SCREENRIG_PLUGIN_ROOT" ] && command -v codex >/dev/null 2>&1; then
-  SCREENRIG_PLUGIN_ROOT="$(codex plugin list --json 2>/dev/null | screenrig_root_from_list)"
-fi
-if [ -x "$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts/screenrig" ]; then
-  PATH="$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts:$PATH"
-  screenrig version
-else
-  echo "screenRIG launcher not found (plugin root: ${SCREENRIG_PLUGIN_ROOT:-none}). Install screenrig@screenrig, or follow references/installation.md." >&2
-fi
+- Claude Code: `claude plugin list --json`, enabled `screenrig@screenrig`, `installPath`.
+- Codex: `codex plugin list --json`, enabled `screenrig@screenrig`, `source.path`.
+- Grok: `grok plugin list --json`, enabled `screenrig`, its installed path.
+
+If absent or disabled, follow [installation](references/installation.md), then
+repeat the lookup. Keep the saved screenRIG configuration. An existing global
+CLI, a remembered cache path or credentials alone cannot substitute for plugin
+registration. Managed hosts can supply their installed `PLUGIN_ROOT` when they
+expose no plugin-management CLI.
+
+Use the exact root returned by the current host to invoke this helper:
+
+```text
+node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --bootstrap --json --host <claude|codex|grok>
 ```
 
-The snippet finds the root from the runtime's variables, or from `claude plugin list --json`
-or `codex plugin list --json` when they are empty (as in the session that installed the
-plugin), and says so on stderr when no launcher is found. Never hand-write a cache path.
-Read [installation and updates](references/installation.md) for Grok, official install
-commands, and update recovery. Installation
-must respect the user's authorization and the runtime's approval policy.
+Managed hosts without that CLI omit `--host`. Use the actual script filename
+with normal quoting for the execution tool; do not guess a versioned cache path
+or assume the user's default shell is the tool's shell. The helper verifies
+registration, runs its own bundled `screenrig version`, checks freshness, runs
+`screenrig doctor` and `screenrig agent status`, and reads active project capabilities.
+It never enrolls, discards saved credentials or selects another project.
+The CLI can refresh the existing saved session during authenticated reads.
 
-Require a successful version envelope, then run:
+Read `ok`, `data.action`, checks and `data.context`:
 
-```bash
-screenrig-plugin-freshness --json
-screenrig doctor
-```
+- `install`: install/enable the official plugin in this runtime, then rerun.
+- `refresh`: update it using the installation reference, resolve its new root
+  and rerun. Continue first-screen work with the updated CLI in this session.
+- `repair`: resolve failing installation/config/service checks, then rerun with
+  the same config. Media-tool failures remain visible and affect only content
+  paths that need those tools; enrollment and pairing can continue.
+- `reconnect`: use the documented reconnect/sign-in flow; preserve credentials
+  while resolving failures. Do not enroll a replacement project silently.
+- `resume`: follow the returned exact pending-enrollment/connection instruction;
+  keep its configuration and request unchanged. Do not ask for contact again.
+- `enroll`: genuine first-run state; follow the minimal flow above.
+- `ready`: reuse this selected project and continue pairing/content.
 
-Use `screenrig status` to check current production service availability before
-investigating a service failure. It reads the independent monitor without project
-credentials and reports stale observations as unknown. `screenrig status --environment stage`
-checks stage. Degraded or down explains a service-wide
-condition; keep the monitor's observation time in any diagnosis.
+For every later CLI invocation, use the exact `data.launcher` filename, or run
+this same helper with `--host HOST --run` followed by the CLI arguments. This
+avoids PATH state disappearing between tool calls. In references, `screenrig`
+means that resolved bundled launcher. Never substitute a global executable or
+source checkout, export `SR`, or paste a credential.
 
-For freshness, `keep` means continue, `refresh` means update the plugin using the
-installation reference, `continue_installed` means continue with the installed
-copy and disclose that the published version could not be checked, and
-`not_installed` means the helper is not inside an installed plugin, so continue
-without refreshing.
+The original `screenrig-plugin-freshness --json` remains the standalone
+freshness check. A failed published-version read means continue with the
+installed package and disclose that check; do not block the task. A missing
+credential in doctor is an expected warning before enrollment. Missing media
+tools affect upload; see [media](references/media.md).
 
-Read doctor's individual checks. A missing token is a warning, not a broken
-installation. Missing media tools affect upload; see [media](references/media.md).
+Use `screenrig status` to check production service availability before
+investigating a service failure. Keep the monitor observation time in any
+diagnosis. `screenrig status --environment stage` checks explicitly requested stage.
 
 ## Reuse the saved connection
 
@@ -236,11 +272,9 @@ Otherwise enroll a new organization, identity and `Screens` project in one
 command. Never infer an account, organization, membership or domain placement
 from an unverified email, a matching name or a displayed login page.
 
-Authenticated commands never enroll as a side effect; they return
-`not_enrolled`, and doctor warns about the missing credential. Use the contact
-email supplied by the user, asking only when it is missing. Use their supplied
-organization name, or `Screens` when none was given. Do not ask them to choose a
-project name or confirm defaults:
+Follow the minimal first-screen questions above. Authenticated commands return
+`not_enrolled` until explicit enrollment; missing credentials are a doctor warning.
+Use the supplied email and organization, defaulting the organization to `Screens`:
 
 ```bash
 screenrig agent enroll --email ADDRESS --organization NAME
@@ -255,12 +289,9 @@ with `--email` immediately rather than retrying. If it answers that the AgentID
 is already enrolled, follow
 [Sign in to an existing account](#sign-in-to-an-existing-account-only-on-explicit-request).
 
-Enrollment names its project `Screens`; `--name` names the agent. Tell the user
-an invitation was requested for their dashboard login, and that the project is
-on Standard: free for up to 100 screens, not a trial. Then continue directly
-with pairing and content. No human approval, invitation link or dashboard
-visit blocks first-run work. Acceptance assigns the responsible person and
-project owner; it does not grant other memberships.
+Enrollment names the project `Screens`; `--name` names the agent. Request the
+dashboard invitation and continue pairing. Acceptance assigns the responsible
+person and project owner, granting no other memberships.
 
 An enrolled installation reuses its selected project. For explicitly requested
 advertising work, add `--intent advertising`: it buys ads without pairing

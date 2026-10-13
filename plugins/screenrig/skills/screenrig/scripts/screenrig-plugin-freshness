@@ -88,10 +88,6 @@ function readCliVersion(pluginRoot, env) {
   if (fromSibling) {
     return fromSibling;
   }
-  const fromPath = versionFromScreenrig("screenrig", env);
-  if (fromPath) {
-    return fromPath;
-  }
   const parsed = readJsonFile(path.join(pluginRoot, "cli", "package.json"));
   return parsed ? versionField(parsed.version) : "";
 }
@@ -234,8 +230,171 @@ function success(data, warnings) {
   writeEnvelope({ ok: true, data, warnings: warnings || [] }, 0);
 }
 
+function sameRoot(left, right) {
+  try { return fs.realpathSync(left) === fs.realpathSync(right); } catch { return false; }
+}
+
+function registeredHost(root, host) {
+  if (!host && process.env.PLUGIN_ROOT && sameRoot(process.env.PLUGIN_ROOT, root)) return { source: "host_root" };
+  const hosts = host ? [host] : ["claude", "codex", "grok"];
+  let available = false;
+  for (const name of hosts) {
+    const result = spawnSync(name, ["plugin", "list", "--json"], {
+      encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024, windowsHide: true,
+    });
+    if (result.error && result.error.code === "ENOENT") continue;
+    available = true;
+    if (result.error || result.status !== 0) continue;
+    try {
+      const parsed = JSON.parse(result.stdout);
+      const entries = Array.isArray(parsed) ? parsed : parsed.installed || parsed.plugins || [];
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        if (!entry || entry.enabled === false || entry.installed === false || entry.trusted === false) continue;
+        const id = entry.pluginId || entry.id || entry.name;
+        if (id !== "screenrig@screenrig" && !(name === "grok" && (id === "screenrig" || entry.name === "screenrig"))) continue;
+        const location = entry.installPath || entry.install_path || entry.path || entry.local_path || entry.localPath ||
+          (entry.source && entry.source.path);
+        if (typeof location === "string" && sameRoot(location, root)) return { host: name, source: "plugin_list" };
+      }
+    } catch { /* Report an actionable registration failure without echoing host output. */ }
+  }
+  // Managed hosts can attach a package without exposing a plugin-management CLI.
+  if (!available && !host) {
+    for (const key of ["GROK_PLUGIN_ROOT", "CODEX_PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT", "PLUGIN_ROOT"]) {
+      if (process.env[key] && sameRoot(process.env[key], root)) return { source: "host_root" };
+    }
+  }
+  return null;
+}
+
+function bundled(root, args, config) {
+  return spawnSync(process.execPath, [path.join(root, "cli", "dist", "bin.js"), ...args,
+    ...(config ? ["--config", config] : [])], {
+    encoding: "utf8", timeout: 60000, maxBuffer: 2 * 1024 * 1024, windowsHide: true,
+  });
+}
+
+function envelopeOf(result) {
+  if (result.error || !result.stdout) return null;
+  try { return JSON.parse(result.stdout); } catch { return null; }
+}
+
+function bootstrapFailure(result, envelope, data, step, fallback) {
+  const detail = result.error && result.error.code === "ETIMEDOUT"
+    ? `The bundled CLI ${step} timed out; retry bootstrap with the same configuration.`
+    : result.error ? `The bundled CLI ${step} could not start or return bounded output; check the plugin installation.`
+    : result.signal ? `The bundled CLI ${step} was interrupted; retry with the same configuration.`
+    : `The bundled CLI ${step} failed; inspect its structured diagnostics before continuing.`;
+  const error = envelope && envelope.error || { type: "https://screenrig.ai/problems/usage-error",
+    title: "Usage error", status: 400, code: "usage_error", detail, errors: [] };
+  writeEnvelope({ ok: false, error, data }, result.status || fallback);
+}
+
+async function bootstrap(argv, run) {
+  let host = "", config = "";
+  const command = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--run") { command.push(...argv.slice(index + 1)); break; }
+    if (arg === "--bootstrap" || arg === "--json") continue;
+    if (arg === "--host" || arg === "--config") {
+      const value = argv[++index];
+      if (!value || value.startsWith("--")) { usageError(`${arg} needs a value.`); return; }
+      if (arg === "--host") host = value; else config = value;
+    } else { usageError("Use --bootstrap --json [--host claude|codex|grok] [--config FILE], or --run COMMAND..."); return; }
+  }
+  if (host && !["claude", "codex", "grok"].includes(host)) { usageError("--host must be claude, codex or grok."); return; }
+  if ((run && !command.length) || (!run && !argv.includes("--json"))) { usageError("Bootstrap needs --json; --run needs a CLI command."); return; }
+  const root = path.resolve(__dirname, "..", "..", "..");
+  const registration = readPluginVersion(root) && registeredHost(root, host);
+  if (!registration) {
+    const data = { action: "install", registration: null,
+      next: "Check the current runtime's plugin list and install screenrig@screenrig from https://github.com/screenrig/plugin. Preserve the saved screenRIG configuration, then invoke the helper inside that registered package." };
+    writeEnvelope({ ok: !run, data, warnings: [{ code: "plugin_not_installed", message: data.next }] }, run ? 78 : 0);
+    return;
+  }
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  if (!(major > 22 || (major === 22 && minor >= 11))) {
+    usageError("screenRIG requires Node.js 22.11 or newer; expose a compatible runtime before retrying."); process.exitCode = 69; return;
+  }
+  const launcher = path.join(root, "skills", "screenrig", "scripts", "screenrig");
+  if (run) {
+    const result = spawnSync(process.execPath, [path.join(root, "cli", "dist", "bin.js"), ...command,
+      ...(config ? ["--config", config] : [])], {
+      stdio: "inherit", windowsHide: true,
+    });
+    if (result.error) { usageError("The registered plugin's bundled CLI could not start; reinstall the official plugin and retry."); return; }
+    if (result.signal) { process.kill(process.pid, result.signal); return; }
+    process.exitCode = result.status === null ? 1 : result.status;
+    return;
+  }
+  const versionResult = bundled(root, ["version"]), version = envelopeOf(versionResult);
+  if (versionResult.status !== 0 || !version || version.ok !== true ||
+      !version.data.distribution || version.data.distribution.kind !== "plugin_bundle") {
+    usageError("The registered plugin's bundled version check failed; reinstall the official plugin and retry."); return;
+  }
+  const freshnessResult = spawnSync(process.execPath, [__filename, "--json"], {
+    encoding: "utf8", timeout: 30000, maxBuffer: 1024 * 1024, windowsHide: true,
+  });
+  const freshness = envelopeOf(freshnessResult);
+  if (!freshness || freshness.ok !== true) { usageError("The registered plugin's freshness check failed; rerun it before continuing."); return; }
+  const common = { registration, launcher, version: version.data.version, freshness: freshness.data };
+  if (freshness.data.action === "refresh") {
+    success({ ...common, action: "refresh", next: "Update the official plugin, resolve its new registered path and rerun bootstrap. Saved screenRIG credentials stay in the same user configuration." }); return;
+  }
+  const doctorResult = bundled(root, ["doctor"], config), doctor = envelopeOf(doctorResult);
+  const failedChecks = doctor && doctor.data && Array.isArray(doctor.data.checks)
+    ? doctor.data.checks.filter((check) => check.status === "fail") : [];
+  const mediaCheck = (check) => /^(ffmpeg$|ffprobe$|cwebp$|encoder_|filter_)/.test(check.name);
+  const coreFailures = failedChecks.filter((check) => !mediaCheck(check));
+  if (!doctor || doctor.ok !== true || !doctor.data || !Array.isArray(doctor.data.checks) || coreFailures.length ||
+      (doctorResult.status !== 0 && !failedChecks.length)) {
+    bootstrapFailure(doctorResult, doctor, { ...common, action: "repair", doctor: doctor && doctor.data,
+      next: "Resolve the failing installation/config/service checks and rerun bootstrap with the same configuration." }, "doctor", 5); return;
+  }
+  const warnings = [...(freshness.warnings || [])];
+  if (failedChecks.length) warnings.push({ code: "media_tools_missing",
+    message: "Media-tool checks failed. Account setup and pairing can continue; repair these tools before local upload/transcoding when that content path requires them." });
+  const agentResult = bundled(root, ["agent", "status"], config), agent = envelopeOf(agentResult);
+  if (!agent || agent.ok !== true || agentResult.status !== 0) {
+    bootstrapFailure(agentResult, agent, { ...common, action: "reconnect", doctor: doctor.data,
+      next: "Follow the bundled CLI's documented reconnect flow for the selected project; preserve credentials while reconciling." }, "agent status", 3); return;
+  }
+  const credential = doctor.data.checks.find((check) => check.name === "token");
+  const state = agent.data;
+  const rejected = state.credential_accepted === false || state.local_cleanup_required === true;
+  const active = state.status === "active" && !rejected;
+  let capabilities;
+  if (active) {
+    const result = bundled(root, ["project", "capabilities"], config), envelope = envelopeOf(result);
+    if (!envelope || envelope.ok !== true || result.status !== 0) {
+      bootstrapFailure(result, envelope, { ...common, action: "reconnect", doctor: doctor.data, agent: state,
+        next: "Read the selected project's capabilities successfully before making changes." }, "project capabilities", 3); return;
+    }
+    capabilities = envelope.data;
+  }
+  const firstRun = state.path === "first_run_enroll" && credential && credential.path === "first_run_enroll" && !rejected;
+  const pending = firstRun && credential.next && credential.next.command === "screenrig agent enroll";
+  const action = active ? "ready" : rejected ? "reconnect" : pending || state.status === "connecting" ? "resume"
+    : firstRun ? "enroll" : "reconnect";
+  const next = active
+    ? "Reuse this selected project. Pair the intended Player using its supplied code, or ask only for that missing code. Then publish the requested content and inspect a Player screenshot."
+    : state.next || (pending ? credential.next : action === "enroll"
+      ? "Ask only for the missing contact email. Use the supplied organization or Screens, enroll once, then continue with pairing. If the user explicitly wants an existing account, use sign-in instead."
+      : action === "resume" ? { command: "screenrig agent status", reason: "Inspect the existing pending connection and continue its documented flow; do not enroll a new project." }
+      : credential && credential.next || "Follow the documented reconnect flow for this saved connection; preserve credentials while reconciling.");
+  success({ ...common, action, doctor: doctor.data,
+    agent: state, ...(capabilities ? { capabilities } : {}),
+    ...(agent.context ? { context: agent.context } : {}),
+    next }, warnings);
+}
+
 async function main() {
   const argv = process.argv.slice(2);
+  if (argv.includes("--bootstrap") || argv.includes("--run")) {
+    await bootstrap(argv, argv.includes("--run")); return;
+  }
   if (!argv.includes("--json") || argv.some((arg) => arg !== "--json")) {
     usageError("screenrig-plugin-freshness requires --json and no other arguments.");
     return;

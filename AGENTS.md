@@ -97,9 +97,10 @@ asks.
   marketplace skill. Official install is this plugin: Claude, Codex, and Grok
   marketplace commands, with Grok `--trust` named and `GROK_PLUGIN_ROOT`
   lookup.
-- After install, prepend `$SCREENRIG_PLUGIN_ROOT/skills/screenrig/scripts` to
-  `PATH` once, then run `screenrig version`,
-  `screenrig-plugin-freshness --json`, `doctor`, then content work. Do not
+- After install, verify current-host registration with
+  `screenrig-plugin-freshness --bootstrap --json`; it checks bundled version,
+  freshness, doctor and saved connection. Use its exact launcher per tool call,
+  or helper `--run`; the freshness-only `--json` remains compatible. Do not
   export `SR`. Do not teach `npm i -g screenrig`.
 - Teach implemented account enrollment, connection and Player pairing in the
   operating skill, without making them the marketplace sales pitch.

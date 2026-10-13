@@ -205,6 +205,128 @@ DEFAULT_MARKETPLACE_URL = "https://raw.githubusercontent.com/screenrig/plugin/ma
 
 
 class FreshnessTests(unittest.TestCase):
+    def test_bootstrap_registration_reuse_and_exact_command(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="screenrig-bootstrap-") as temporary:
+            tmp = Path(temporary)
+            root = tmp / "registered plugin"
+            script = install_copy(HELPER, root / "skills/screenrig/scripts/screenrig-plugin-freshness")
+            install_copy(LAUNCHER, script.with_name("screenrig"))
+            write_json(root / "plugin.json", {"name": "screenrig", "version": "26.10.1"})
+            cli = root / "cli/dist/bin.js"
+            cli.parent.mkdir(parents=True)
+            cli.write_text('''const fs = require("fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.TEST_CALLS, JSON.stringify(args)+"\\n");
+let data, code=0;
+if (args.includes("version")) data = {version:"26.10.1",distribution:{kind:"plugin_bundle"}};
+else if (args.includes("doctor")) {
+ if (process.env.TEST_DOCTOR_MODE === "error") {
+  process.stdout.write(JSON.stringify({ok:false,error:{code:"config_invalid",detail:"Fix the selected configuration."}})+"\\n");process.exit(2);
+ }
+ data = {status:"warn", checks:[
+  {name:"token",status:"warn",path:"first_run_enroll",next:{command:process.env.TEST_PENDING ? "screenrig agent enroll" : "screenrig agent enroll --email ADDRESS --organization NAME",reason:"Continue enrollment."}},
+  {name:"api_url",status:"pass",detail:"https://api.screenrig.ai"}]};
+ if (process.env.TEST_DOCTOR_MODE) {code=5;data.status="fail";data.checks.push({name:process.env.TEST_DOCTOR_MODE === "media" ? "ffmpeg" : "config_permissions",status:"fail",detail:"Synthetic missing dependency."});}
+}
+else if (args.includes("agent")) data = process.env.TEST_AGENT_JSON ? JSON.parse(process.env.TEST_AGENT_JSON)
+ : {status:process.env.TEST_AGENT_STATE,...(process.env.TEST_AGENT_STATE === "not_enrolled" ? {path:"first_run_enroll"} : {})};
+else if (args.includes("project")) data = {features:{screens:true}};
+else { process.stdout.write(JSON.stringify({ok:false,error:{code:"synthetic_exit"}})+"\\n");process.exit(7); }
+process.stdout.write(JSON.stringify({ok:true,data,warnings:[]})+"\\n");
+process.exitCode=code;
+''', encoding="utf-8")
+            registry, marketplace, calls = tmp / "registry.json", tmp / "marketplace.json", tmp / "calls.jsonl"
+            write_json(marketplace, {"plugins": [{"version": "26.10.1"}]})
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            host = bin_dir / "claude"
+            host.write_text(f'#!{shutil.which("node")}\nprocess.stdout.write(require("fs").readFileSync(process.env.TEST_REGISTRY));\n')
+            host.chmod(0o755)
+            for name in ("codex", "grok"):
+                install_copy(host, bin_dir / name)
+            environment = without(FRESHNESS_VARS, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+                                  TEST_REGISTRY=str(registry), TEST_CALLS=str(calls), TEST_AGENT_STATE="active",
+                                  SCREENRIG_PUBLISHED_MARKETPLACE_URL=marketplace.as_uri())
+            def run(*args):
+                return subprocess.run(["node", str(script), "--host", "claude", *args],
+                                      env=environment, text=True, capture_output=True, timeout=30)
+            for entries in ([], [{"id": "screenrig@screenrig", "enabled": False, "installPath": str(root)}],
+                            [{"id": "screenrig@screenrig", "installPath": str(tmp / "other")} ]):
+                write_json(registry, entries)
+                result = run("--bootstrap", "--json")
+                self.assertEqual(json.loads(result.stdout)["data"]["action"], "install")
+                self.assertFalse(calls.exists(), "Unregistered packages must not invoke any CLI")
+                result = run("--run", "pair")
+                self.assertEqual(result.returncode, 78)
+                self.assertFalse(calls.exists())
+            write_json(registry, [{"id": "screenrig@screenrig", "enabled": True, "installPath": str(root)}])
+            result = run("--bootstrap", "--json", "--config", str(tmp / "customer-config.json"))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)["data"]
+            self.assertEqual(data["action"], "ready")
+            self.assertEqual(data["registration"], {"host": "claude", "source": "plugin_list"})
+            self.assertEqual(data["launcher"], str(script.with_name("screenrig")))
+            recorded = [json.loads(line) for line in calls.read_text().splitlines()]
+            self.assertFalse(any("enroll" in args for args in recorded))
+            for args in recorded:
+                if "doctor" in args or "agent" in args or "project" in args:
+                    self.assertEqual(args[-2:], ["--config", str(tmp / "customer-config.json")])
+            environment["TEST_AGENT_STATE"] = "not_enrolled"
+            result = run("--bootstrap", "--json")
+            self.assertEqual(json.loads(result.stdout)["data"]["action"], "enroll")
+            for state, action in (
+                ({"status":"disconnected","credential_accepted":False,"local_cleanup_required":True,
+                  "next":{"command":"screenrig agent disconnect --yes","reason":"Clean up rejected credential."}}, "reconnect"),
+                ({"status":"connecting","next":{"command":"screenrig agent status","reason":"Continue pending connection."}}, "resume"),
+                ({"status":"unknown"}, "reconnect"),
+            ):
+                environment["TEST_AGENT_JSON"] = json.dumps(state)
+                result = run("--bootstrap", "--json")
+                data = json.loads(result.stdout)["data"]
+                self.assertEqual(data["action"], action)
+                if "next" in state: self.assertEqual(data["next"], state["next"])
+            environment.pop("TEST_AGENT_JSON")
+            environment["TEST_PENDING"] = "1"
+            result = run("--bootstrap", "--json")
+            self.assertEqual(json.loads(result.stdout)["data"]["action"], "resume")
+            self.assertEqual(json.loads(result.stdout)["data"]["next"]["command"], "screenrig agent enroll")
+            environment.pop("TEST_PENDING")
+            environment["TEST_DOCTOR_MODE"] = "media"
+            result = run("--bootstrap", "--json")
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(json.loads(result.stdout)["data"]["action"], "enroll")
+            self.assertEqual(json.loads(result.stdout)["warnings"][0]["code"], "media_tools_missing")
+            environment["TEST_DOCTOR_MODE"] = "core"
+            result = run("--bootstrap", "--json")
+            self.assertEqual(result.returncode, 5)
+            self.assertEqual(json.loads(result.stdout)["data"]["action"], "repair")
+            environment["TEST_DOCTOR_MODE"] = "error"
+            result = run("--bootstrap", "--json")
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(json.loads(result.stdout)["error"], {"code":"config_invalid","detail":"Fix the selected configuration."})
+            environment.pop("TEST_DOCTOR_MODE")
+            for name, entries in (
+                ("codex", {"installed":[{"pluginId":"screenrig@screenrig","enabled":True,"installed":True,"source":{"path":str(root)}}]}),
+                ("grok", [{"status":"installed","name":"screenrig","path":str(root)}]),
+            ):
+                write_json(registry, entries)
+                result = subprocess.run(["node", str(script), "--host", name, "--bootstrap", "--json"],
+                                        env=environment, text=True, capture_output=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)["data"]["registration"]["host"], name)
+            write_json(registry, [{"id":"screenrig@screenrig","installPath":str(root)}])
+            # An explicitly selected missing host must not borrow another host's root.
+            (bin_dir / "codex").unlink()
+            isolated = {**environment, "PATH": str(bin_dir), "CLAUDE_PLUGIN_ROOT": str(root)}
+            result = subprocess.run([shutil.which("node"), str(script), "--host", "codex", "--run", "synthetic"],
+                                    env=isolated, text=True, capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 78)
+            result = run("--config", str(tmp / "customer-config.json"), "--run", "synthetic", "a value with spaces")
+            self.assertEqual(result.returncode, 7)
+            self.assertEqual(json.loads(result.stdout)["error"]["code"], "synthetic_exit")
+            self.assertEqual(json.loads(calls.read_text().splitlines()[-1]),
+                             ["synthetic", "a value with spaces", "--config", str(tmp / "customer-config.json")])
+
     def test_detect_and_refresh(self) -> None:
         errors: list[str] = []
         text = HELPER.read_text(encoding="utf-8")
