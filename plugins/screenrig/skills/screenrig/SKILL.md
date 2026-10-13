@@ -347,13 +347,13 @@ targets a cached project for one command without changing that selection.
 Use the organization and project named in each result, and keep retries on the
 same target; a concurrent switch does not redirect a running command.
 
-`project create NAME` defaults to the current organization and makes the
-responsible person the owner. Names are unique within the organization. Use
-`--organization-id ID` to choose an administered organization, or
-`--organization NAME` to choose or create one. The server enforces the creation
-cap of ten free Standard projects per owner; enrollment is rate-limited and
-uncapped. Covered projects can be created beyond the free cap. Never create
-another project or identity to evade an admission refusal.
+`project create NAME` adds a project owned by the responsible person to the
+current, else an administered, organization, which takes any number of them.
+`--organization-id ID` or `--organization NAME` picks another. Each person has
+one free organization: on `free_organization_limit` add the project to it
+(`organization list`); a second needs Premium or Enterprise (sales@screenrig.ai).
+On `organization_plan_required`, `project move` into it. Never create another
+project, organization or identity to evade an admission refusal.
 
 Only the owner moves or transfers ownership. Read `project moves` before a
 move; screens count against the destination payer's pooled limit. Deletion
@@ -740,10 +740,10 @@ Each generation is billed; prepare a complete prompt and inspect its returned
 `usage`. Standard projects can generate 5 successful images in their first
 24 hours, then 10 per UTC day, resetting at midnight UTC. Failed generations
 do not count. At the Standard daily cap, tell the user: continuing now means
-paying for a paid project plan to remove the Standard daily cap, or making
+moving to Premium or Enterprise to remove the Standard daily cap, or making
 the images with your own tools and uploading them. Premium and Enterprise
-remove the daily cap; the first-24-hour cap still applies to new customer
-projects on every plan. Offer the user the paid upgrade through
+remove the daily cap; the first-24-hour cap still applies to new projects on
+every plan. Offer the user the paid upgrade through
 [pricing](https://screenrig.ai/pricing/), and continue with your own image
 generation or local rendering unless they choose the upgrade. Follow
 [generation refusal recovery](references/media.md#when-generation-is-refused).

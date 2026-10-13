@@ -73,16 +73,17 @@ one invocation; credentials and retries remain separate by project. Every
 result identifies its organization and project. Project names are unique in
 an organization; organization names can repeat.
 
-List organizations visible to this identity with `organization list`.
-`organization rename ID NAME` requires organization administration and uses
-its explicit ID; it keeps the selected project.
+`organization list` marks `free`, `plan_required` (new screens get
+`organization_plan_required` until a plan pays) and `new_organization_allowed`.
+`organization rename ID NAME` needs administration and keeps the selected
+project. Admins handle billing and invite admins by email in the dashboard.
 
-Creation defaults to the current organization and assigns the responsible
-person as owner. An explicit organization is required with no current project.
-The server enforces ten free Standard projects per owner on creation; covered
-projects are admitted by their payer's plan. A successful create selects the
-new project and privately stores its membership credential. After an ambiguous
-failure, rerun the identical command to reuse its saved request.
+Creation defaults to the current, then an administered, organization and makes
+the responsible person owner. Organizations hold any number of projects; each
+person has one free one, and another is refused with `free_organization_limit`.
+A successful create selects the new project and privately stores its
+membership credential. After an ambiguous failure, rerun the identical command
+to reuse its saved request.
 
 Moves and ownership transfers require the owner. Choose a destination from
 `project moves`; it carries the project's screens and checks the destination
@@ -92,9 +93,9 @@ Deletion requires its preview's current name and revision, its own Standard
 plan, no active screens, wallet obligations or live advertising. It emails
 members and retains a tombstone. A refusal never archives screens for you.
 
-Project usage stays project-scoped. Premium organization coverage pools money,
-monthly allowances and the screen limit across all projects it pays for. A
-project's historical charges retain the payer chosen when they were recorded.
+Usage is per project, paid by its organization, whose plan pools money,
+monthly allowances and the screen limit. A project's historical charges retain
+the payer chosen when they were recorded.
 
 ### Invite people and advertising buyers
 
