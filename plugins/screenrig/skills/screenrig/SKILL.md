@@ -19,15 +19,17 @@ the section below is the only branch that needs a screenRIG screen.
 
 ## First screen: keep setup short
 
-Check the current runtime's enabled plugin registration even when the user says
-setup started earlier or a `screenrig` executable already exists. Install the
-official plugin when its registration is missing; preserve saved credentials.
-Run the bundled [bootstrap helper](#prepare-the-installation) before CLI work.
+Before any CLI call, including help, version, doctor or status, check this
+runtime's enabled plugin registration. An existing executable or saved login
+does not replace it. If missing, install the official plugin, preserve config,
+then run [bootstrap](#prepare-the-installation). Other registered marketplaces
+are normal; do not trace their configuration to install this plugin.
 
-If runtime approval blocks installation, trust or bundled execution, stop
-screenRIG operations. Tell the user the rejected action and stated reason,
-then ask them to approve that action in this runtime. Keep saved credentials;
-do not retry the denial, run a cached copy, or substitute a standalone CLI.
+If runtime approval blocks installation, trust or execution, return the approval
+question immediately: name the rejected action and stated reason. Stop ALL
+screenRIG execution, including help, version, doctor, status and other reads.
+Reading a launcher does not authorize running it. Preserve credentials; no
+retry, alternate launcher, direct Node invocation or standalone CLI workaround.
 
 For enrollment `rate_limited`, report the retry time and return. Keep the same
 pending request for a later resume. Never launch a sleep, waiter, background

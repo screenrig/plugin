@@ -28,12 +28,14 @@ canonical marketplace, installing its screenRIG plugin, and completing setup:
 I authorize you to install the official screenRIG plugin from https://github.com/screenrig/plugin.
 ```
 
-If runtime approval rejects install, trust or execution, stop. Explain the
-rejected action and reason; ask for its approval in this runtime. Preserve
-credentials. A cached copy or standalone CLI is not an approval workaround.
-Use only the canonical marketplace and registered bundled launcher.
+If runtime approval rejects install, trust or execution, return its action and
+reason and ask approval. Run no further screenRIG command, including help,
+version, doctor or status. Inspecting a script grants no execution approval.
+Preserve config; no cached, standalone, alternate-launcher or direct-Node retry.
 
-Use Node.js 22.11+. Before every task, check this runtime's enabled plugin list:
+Use Node.js 22.11+. Check this enabled plugin list BEFORE any CLI call, including
+help/version/doctor/status. Use canonical install directly when absent; other
+marketplaces need no configuration investigation:
 
 1. Claude Code: `claude plugin list --json`, select `id: screenrig@screenrig`, use `installPath`.
 2. Codex: `codex plugin list --json`, select `pluginId: screenrig@screenrig`, use `source.path`.

@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+# Agent workflow: verify current-host registration and bootstrap before CLI
+# calls. After runtime denial, stop ALL screenRIG execution, including help,
+# version, doctor and status; ask approval with its action/reason. Reading this
+# launcher does not authorize execution or an alternate/direct-Node workaround.
+
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 # Preflight only what must exist before Node can run. The bundled CLI diagnoses
