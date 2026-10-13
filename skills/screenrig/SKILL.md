@@ -20,9 +20,9 @@ the section below is the only branch that needs a screenRIG screen.
 ## First screen: keep setup short
 
 Before any CLI call, including help, version, doctor or status, check this
-runtime's enabled plugin registration. An existing executable or saved login
-does not replace it. If missing, install the official plugin, preserve config,
-then run [bootstrap](#prepare-the-installation). Other registered marketplaces
+runtime's enabled registration AND run [bootstrap](#prepare-the-installation).
+If missing, install/enable the official plugin first, preserving config. An
+existing executable or saved login replaces neither check. Other marketplaces
 are normal; do not trace their configuration to install this plugin.
 
 If runtime approval blocks installation, trust or execution, return the approval

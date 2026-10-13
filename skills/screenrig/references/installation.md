@@ -33,9 +33,9 @@ reason and ask approval. Run no further screenRIG command, including help,
 version, doctor or status. Inspecting a script grants no execution approval.
 Preserve config; no cached, standalone, alternate-launcher or direct-Node retry.
 
-Use Node.js 22.11+. Check this enabled plugin list BEFORE any CLI call, including
-help/version/doctor/status. Use canonical install directly when absent; other
-marketplaces need no configuration investigation:
+Use Node.js 22.11+. Before any CLI call, including help/version/doctor/status,
+check this enabled plugin list AND run bootstrap below. Install/enable first
+when absent, preserving config. Other marketplaces need no investigation:
 
 1. Claude Code: `claude plugin list --json`, select `id: screenrig@screenrig`, use `installPath`.
 2. Codex: `codex plugin list --json`, select `pluginId: screenrig@screenrig`, use `source.path`.
