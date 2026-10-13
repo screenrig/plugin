@@ -24,6 +24,15 @@ setup started earlier or a `screenrig` executable already exists. Install the
 official plugin when its registration is missing; preserve saved credentials.
 Run the bundled [bootstrap helper](#prepare-the-installation) before CLI work.
 
+If runtime approval blocks installation, trust or bundled execution, stop
+screenRIG operations. Tell the user the rejected action and stated reason,
+then ask them to approve that action in this runtime. Keep saved credentials;
+do not retry the denial, run a cached copy, or substitute a standalone CLI.
+
+For enrollment `rate_limited`, report the retry time and return. Keep the same
+pending request for a later resume. Never launch a sleep, waiter, background
+enrollment or scheduled retry. A supplied Player code does not remove the wait.
+
 - An active saved connection: reuse its selected project. Ask for neither email
   nor account confirmation; conversation history and the working directory do
   not determine whether enrollment finished.
@@ -124,8 +133,9 @@ Read `ok`, `data.action`, checks and `data.context`:
   paths that need those tools; enrollment and pairing can continue.
 - `reconnect`: use the documented reconnect/sign-in flow; preserve credentials
   while resolving failures. Do not enroll a replacement project silently.
-- `resume`: follow the returned exact pending-enrollment/connection instruction;
-  keep its configuration and request unchanged. Do not ask for contact again.
+- `resume`: follow the exact pending-connection instruction. If it names a
+  retry delay, report its time and return. Keep the request/config unchanged
+  for a later resume; do not ask for contact again.
 - `enroll`: genuine first-run state; follow the minimal flow above.
 - `ready`: reuse this selected project and continue pairing/content.
 
@@ -147,11 +157,8 @@ diagnosis. `screenrig status --environment stage` checks explicitly requested st
 
 ## Reuse the saved connection
 
-A new conversation or an application restart is not a first-time installation.
-After `doctor`, run `screenrig agent status` with the same configuration before
-pairing or changing content. If it is active, reuse the selected project shown
-in the response. Do not enroll again or ask for an email merely because this
-conversation has no history. Read the current project capabilities before writes.
+Bootstrap checks saved account state and project capabilities. Reuse an active
+connection across new conversations and application restarts.
 
 Production is the default. Use a local, stage, or other non-production connection
 only when the user explicitly requests that environment. Check the API origin

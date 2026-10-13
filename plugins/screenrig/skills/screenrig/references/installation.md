@@ -28,34 +28,27 @@ canonical marketplace, installing its screenRIG plugin, and completing setup:
 I authorize you to install the official screenRIG plugin from https://github.com/screenrig/plugin.
 ```
 
-Follow any independent runtime approval policy. Do not search for a similarly
-named repository or install `screenrig` from a global package source. Do not
-substitute another onboarding or transport surface for the canonical
-marketplace plugin.
+If runtime approval rejects install, trust or execution, stop. Explain the
+rejected action and reason; ask for its approval in this runtime. Preserve
+credentials. A cached copy or standalone CLI is not an approval workaround.
+Use only the canonical marketplace and registered bundled launcher.
 
-Use the packaged CLI with Node.js 22.11 or newer. Before every task, including a
-returning conversation, check the **current runtime's** enabled plugin list:
+Use Node.js 22.11+. Before every task, check this runtime's enabled plugin list:
 
 1. Claude Code: `claude plugin list --json`, select `id: screenrig@screenrig`, use `installPath`.
 2. Codex: `codex plugin list --json`, select `pluginId: screenrig@screenrig`, use `source.path`.
 3. Grok: `grok plugin list --json`, select `screenrig`, use its installed path.
 
-A saved connection or global executable does not establish plugin registration.
-When the plugin is absent/disabled, run the canonical install commands above,
-preserving the user's screenRIG config, and repeat the lookup. Use the actual
-returned root for bootstrap:
+Saved credentials do not establish registration. Install/enable when missing,
+preserving config, then repeat the lookup and use its actual root:
 
 ```text
 node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --bootstrap --json --host <claude|codex|grok>
 ```
 
-A managed host that supplies `PLUGIN_ROOT` and exposes no plugin CLI omits
-`--host`. Bootstrap verifies registration and its own package-relative CLI,
-then checks version, freshness, doctor and saved account state. Follow
-`data.action` in the operating skill; it performs no enrollment, credential reset or project switch. Use `data.launcher` as the exact filename for each subsequent CLI
-command, or the same helper with `--host HOST --run COMMAND...`. Shell PATH
-changes from one tool call may not reach the next. Do not hand-write cache
-versions, use fish syntax in a Bash tool, export `SR`, or install a global package.
+A managed host with `PLUGIN_ROOT` and no plugin CLI omits `--host`. Follow
+bootstrap's `data.action`; use `data.launcher`, or helper `--host HOST --run
+COMMAND...`, per command. Avoid guessed cache versions and shell PATH state.
 
 The existing freshness-only command remains `screenrig-plugin-freshness --json`.
 `--bootstrap --config FILE` uses that exact selected CLI config for doctor and

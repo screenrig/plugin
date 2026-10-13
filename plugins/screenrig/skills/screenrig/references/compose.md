@@ -31,8 +31,8 @@ screenrig compose render ./exec-intro.json --output ./exec-intro
 # read ./exec-intro/manifest.json and the region PNGs
 # agent reads the PNGs with vision; do not cat pixels into chat
 # iterate the JSON and re-render
-screenrig media upload ./exec-intro/left.png --tag TAG
-screenrig media list --tag TAG --primitive image
+screenrig media upload ./exec-intro/left.png --tag ExecIntro
+screenrig media list --tag ExecIntro --primitive image
 # playlist page: image primitives at the manifest rects, or one combined image
 # many files: media upload-batch ./images.json --state ./upload-state.json
 ```
@@ -62,18 +62,10 @@ region or `card` `color` overrides every role in that box. Text over a page
 `"none"` or `{ x, y, color, blur? }` to override (`blur` 0–32, omit is 0).
 `outline` is `{ width: 0.5-12, color }` and is off unless set. A card plate is
 backing, so type on a card does not get the automatic shadow.
-On 1920×1080 mid, body wish is about 45 px, title wish is 130 px, and eyebrow
-wish is 32 px. A region
-then applies one scale (about 0.65–1.35) so type fills the box; a single line
-is not grown. Footer stays on the bottom edge. If the region holds image or a
-placeholder, type stays at scale 1 and media takes the leftover. Copy that
-still does not fit at the minimum scale is a `usage_error` naming the region
-(`bottom.card` for an ink plate) and no PNG is written for that page; shorten
-the copy, drop a block, or use a taller region. Regions that sit side by side
-with the same top and height (`left` and `right`, or the three thirds) form a
-row: with automatic vertical alignment they share one type scale and one
-starting line, so menu column titles sit on one baseline whatever each
-column's body length.
+Type fitting is procedural; `compose catalog` owns its rules. Copy that cannot
+fit returns `usage_error` naming the region and writes no PNG for that page;
+shorten it or enlarge the region. Automatic alignment gives side-by-side
+regions with equal top/height one type scale and starting line.
 
 `card` (singular) is a plate. `card.fit` is `region` (default: fill the whole
 region rect) or `ink` (hug measured type plus 24 px pad, placed with the
@@ -155,9 +147,15 @@ document sent to Players. These are separate JSON formats.
 Prefer region `eyebrow`/`title`/`text`/`cards`/`table` for kickers, titles,
 copy, cards and tables so type fitting, font checks and safe-area diagnostics
 still run.
-Keep illustrations as image assets in a region. A deck is `{ "pages": [ {
-"id": "intro", ...page overrides, regions } ] }`. `compose render` of that
-file is enough. `compose batch` adds a contact sheet and `--only ID`.
+Keep illustrations as region images. Region names are direct page keys;
+there is no `regions` wrapper. This minimal page renders as written:
+
+```json
+{"width":1920,"height":1080,"pages":[{"id":"intro","fullpage":{"title":"Welcome visitors","align":"center","valign":"center","headline":true}}]}
+```
+
+`compose render` renders the deck; `compose batch` adds a contact sheet and
+`--only ID`. Media tags use 1–32 letters/digits, for example `ExecIntro`.
 
 ```json
 {
