@@ -75,12 +75,13 @@ an organization; organization names can repeat.
 
 `organization list` marks `free`, `plan_required` (new screens get
 `organization_plan_required` until a plan pays) and `new_organization_allowed`.
-`organization rename ID NAME` needs administration and keeps the selected
-project. Admins handle billing and invite admins by email in the dashboard.
+`organization rename ID NAME` needs administration. Admins handle billing and
+invite admins by email in the dashboard.
 
-Creation defaults to the current, then an administered, organization and makes
-the responsible person owner. Organizations hold any number of projects; each
-person has one free one, and another is refused with `free_organization_limit`.
+Creation defaults to the current, then an administered, organization (a
+verified-domain one overrides both) and makes the responsible person owner.
+Organizations hold any number of projects; each person has one free one,
+and another is refused with `free_organization_limit`.
 A successful create selects the new project and privately stores its
 membership credential. After an ambiguous failure, rerun the identical command
 to reuse its saved request.
