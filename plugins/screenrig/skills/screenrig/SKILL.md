@@ -116,8 +116,8 @@ node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --bootstrap --js
 ```
 
 Managed hosts without a plugin CLI supply installed `PLUGIN_ROOT` and omit
-`--host`. Bootstrap checks registration, bundled version, freshness, doctor,
-saved connection and active capabilities. It never enrolls, discards credentials
+`--host`. Bootstrap checks registration, `screenrig version`, freshness,
+`screenrig doctor`, saved connection and active capabilities. It never enrolls, discards credentials
 or switches projects; authenticated CLI reads can refresh the saved session.
 
 Read `ok`, `data.action`, checks and `data.context`:
