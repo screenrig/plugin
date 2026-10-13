@@ -90,8 +90,8 @@ Moves and ownership transfers require the owner. Choose a destination from
 `project moves`; it carries the project's screens and checks the destination
 payer's pooled limit. Transfer targets an existing verified project member.
 After an ambiguous move or transfer, inspect current state before repeating.
-Deletion requires its preview's current name and revision, its own Standard
-plan, no active screens, wallet obligations or live advertising. It emails
+Deletion requires its preview's current name and revision, no plan of its
+own, no active screens, wallet obligations or live advertising. It emails
 members and retains a tombstone. A refusal never archives screens for you.
 
 Usage is per project, paid by its organization, whose plan pools money,

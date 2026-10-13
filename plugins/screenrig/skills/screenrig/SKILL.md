@@ -357,9 +357,9 @@ project, organization or identity to evade an admission refusal.
 
 Only the owner moves or transfers ownership. Read `project moves` before a
 move; screens count against the destination payer's pooled limit. Deletion
-needs the exact name and revision from `project deletion-preview`, the
-project's own Standard plan, no active screens, no wallet obligations and no
-live advertising. It emails members. See [project commands](references/commands.md#projects-and-organizations).
+needs the exact name and revision from `project deletion-preview`, no plan
+of the project's own, no active screens, no wallet obligations and no live
+advertising. It emails members. See [project commands](references/commands.md#projects-and-organizations).
 
 Agent credentials have their own capabilities, separate from project feature
 entitlements: `screens`, `content`, `playlists`, `advertising`, `reports`, and
