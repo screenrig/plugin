@@ -130,7 +130,7 @@ screenrig dashboard reset-sign-in --email ADDRESS
 
 `dashboard` (bare) and `dashboard open` open the dashboard origin without
 minting a credential and without a network request. The human signs in with
-their own login — a passkey or a password — and switches between their projects
+their own passkey and switches between their projects
 there. If no browser can open, the CLI prints the public origin.
 
 `dashboard reset-sign-in --email ADDRESS` is unauthenticated and works on a

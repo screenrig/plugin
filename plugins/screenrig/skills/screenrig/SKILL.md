@@ -43,7 +43,7 @@ enrollment or scheduled retry. A supplied Player code does not remove the wait.
   whether they have an account. Use existing-account sign-in only when they
   explicitly requested their existing account.
 - Enroll once, say the dashboard invitation was requested and Standard is free
-  for up to 100 screens, then continue. Dashboard acceptance, passwords and a
+  for up to 100 screens, then continue. Dashboard acceptance, passkeys and a
   runtime restart never gate first-screen CLI work.
 - Use the supplied Player code immediately. If it is missing, give the setup
   link for the device already named and ask for its code. For a browser, say:
@@ -423,8 +423,8 @@ route, paste a credential, or silently request broader access.
 
 ### The human's dashboard, invitations, and sign-in reset
 
-The dashboard is where the human signs in with their own login — a passkey or a
-password — and switches between their projects. `screenrig dashboard open`
+The dashboard is where the human signs in with their own passkey and switches
+between their projects. `screenrig dashboard open`
 opens the dashboard origin for them.
 
 Members join this project by email invitation, and advertising buyers are
