@@ -186,9 +186,9 @@ On a build that converts:
   `source_width` / `source_height` beside `width` / `height`. Tell the user
   when their still was resized.
 - Audio for a playlist soundtrack uploads the same way. An MP3 is sent
-  unchanged; WAV, AAC/M4A, OGG, and FLAC are converted to a 192 kb/s MP3
+  unchanged; WAV, AAC/M4A, OGG, and FLAC are converted to a 128 kb/s MP3
   (at most stereo, 44.1 or 48 kHz, tags and cover art dropped), which needs
-  an ffmpeg build with `libmp3lame`. Tracks must run 1 second to 4 hours and
+  an ffmpeg build with `libmp3lame`. Tracks must run 1 second to 3 hours and
   are stored as `primitive` `audio` with `duration_ms` and no width or
   height. Audio never goes on a page; add it to the playlist soundtrack (see
   [playlists](playlists.md#soundtrack)).
