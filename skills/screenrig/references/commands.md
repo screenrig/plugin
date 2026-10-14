@@ -328,8 +328,13 @@ webhooks delete <id> [--expect-rev REVISION]
 webhooks rotate-secret <id> [--expect-rev REVISION]
 webhooks test <id>
 webhooks deliveries <id> [--before CURSOR] [--limit N]
-events list [--after CURSOR] [--limit N]
-events follow [--after CURSOR] [--timeout MS]
+events list [--after CURSOR] [--limit N] [--type TYPE]
+events follow [--after CURSOR] [--timeout MS] [--type TYPE]
+notes list [--all | --resolved] [--about ID] [--author AGENT_ID] [--limit N] [--after CURSOR]
+notes show ID
+notes add TEXT | --file FILE|- [--about screen:ID|playlist:ID] [--ttl 12h|3d] [--replaces ID]
+notes confirm ID
+notes resolve ID REASON
 playback list [--screen-id ID] [--media-id ID] [--day YYYY-MM-DD | --day-from YYYY-MM-DD --day-to YYYY-MM-DD]
               [--format csv] [--output FILE]
 playback plays [--from TIME] [--to TIME] [--screen-id ID] [--media-id ID] [--tag TAG]

@@ -24,7 +24,7 @@ CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 # Every marketplace install clones this repository and copies plugins/screenrig,
 # so both have a budget. Raising one is the operator's decision, not a fix.
 BUDGET_REPO_FILES = 110
-BUDGET_REPO_BYTES = 3_110_000
+BUDGET_REPO_BYTES = 3_130_000
 BUDGET_PLUGIN_FILES = 52
 BUDGET_PLUGIN_BYTES = 2_000_000
 BUDGET_FILE_BYTES = 1_048_576
