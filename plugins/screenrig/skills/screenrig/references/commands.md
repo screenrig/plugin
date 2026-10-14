@@ -310,6 +310,10 @@ kv set --app-id ID <key> --file FILE [--content-type TYPE] [--expect-rev REVISIO
 kv set --app-id ID <key> --value-base64 BASE64 [--content-type TYPE] [--expect-rev REVISION]
 kv delete --app-id ID <key> [--expect-rev REVISION]
 kv list --app-id ID
+kv webhook create --app-id ID <key> [--description TEXT]
+kv webhook list --app-id ID
+kv webhook rotate-secret --app-id ID <webhook_id>
+kv webhook delete --app-id ID <webhook_id>
 comment show screen <id>
 comment show playlist <id> [--page PAGE_ID]
 comment set screen <id> (--json-value JSON | --file FILE)
