@@ -179,10 +179,14 @@ Selector `by` values:
 - `all`: every ready object of that primitive, image or video.
 - `tag`: ready objects of that primitive whose tag matches
   `^[A-Za-z0-9]{1,32}$`.
+- `folder`: ready objects of that primitive directly inside one media
+  folder, named by `folder_id` (`mfd_…`); files in its subfolders are not
+  included.
 
-`all` and `tag` accept `order: "filename"` (default) or `"random"`.
+`all`, `tag` and `folder` accept `order: "filename"` (default) or `"random"`.
 Players resolve all dynamic selectors together at playlist startup and each
-loop boundary. Uploads, removals and tag edits take effect on the next loop;
+loop boundary. Uploads, removals, tag edits and files moved in or out of a
+folder take effect on the next loop;
 the manifest revision stays stable. An empty match skips the primitive and
 any resulting empty page. Each selector resolves at most 1,024 ready items.
 
@@ -550,8 +554,8 @@ screenrig playlist import ./lobby-bundle --update pl_TARGET
 
 The export destination must not exist. The bundle contains
 `screenrig-bundle.json`, `playlist.json`, and content-addressed
-`media/<sha256>.<canonical-ext>` files. Export snapshots dynamic `all` and `tag`
-selectors to exact `id` or `ids` selectors. An application primitive stops
+`media/<sha256>.<canonical-ext>` files. Export snapshots dynamic `all`, `tag`
+and `folder` selectors to exact `id` or `ids` selectors. An application primitive stops
 export before any media download unless `--skip-applications` is given, which
 drops the application primitives and any page left with no primitives and
 reports the skipped primitive and page ids. Import creates a new playlist by
@@ -632,6 +636,20 @@ impose no condition. Supply at least one nonempty group. Each group accepts
 up to 32 unique tags. `tag` and `tags` are mutually exclusive. A `none`-only
 filter selects all ready media of that primitive except the excluded tags.
 Image selectors select images and video selectors select videos.
+
+A folder selector plays the files a person keeps in one folder of the
+dashboard's Media library:
+
+```json
+{ "by": "folder", "folder_id": "mfd_EXAMPLE", "order": "filename", "one_at_a_time": true }
+```
+
+The person organizes folders in the dashboard and copies a folder's
+identifier from its details there; `media show med_ID` reports a file's
+`folder_id`, absent at the library's top level. The folder must exist when
+the playlist is written; it may be empty. Moving files in or out changes
+what playing screens show from their next loop, without a playlist write. A
+folder that is later deleted matches nothing, so its primitive is skipped.
 
 The candidate pool contains up to 1,024 ready media per selector, with 1,024
 media references across the complete loop snapshot. A larger match returns
