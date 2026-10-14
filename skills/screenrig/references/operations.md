@@ -414,3 +414,25 @@ the user; do not create replacement conversations to bypass their human request.
 
 End a resolved conversation with `support close --conversation-id ID`. Its history
 remains readable; staff can reopen it. Start a new conversation for a new issue.
+
+## Cleaning up
+
+```bash
+screenrig screen assign scr_SCREEN --playlist-id pl_KEEP
+screenrig playlist delete pl_OLD
+screenrig media delete med_OLD
+screenrig app delete app_OLD
+screenrig screen archive scr_TEST
+screenrig operations cancel op_ABANDONED
+screenrig invitations revoke inv_UNUSED
+screenrig webhooks delete whk_CHECK
+```
+
+`playlist delete` is refused while any screen, archived or pending included,
+assigns, schedules or takes over with it. `media delete` and `app delete` (every
+release; `application_in_use`) are refused while a screen shows the item, not
+while another playlist references it: check with `playlist show` first. On a
+recurring refresh, delete the replaced media once the new one plays; on
+`resource_conflict`, retry at the next refresh. `screen delete` works only when
+`screen show` reports `deletable: true`; otherwise archive. Delete local renders and previews you wrote unless the user
+wants them.

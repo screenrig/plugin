@@ -232,6 +232,7 @@ app update <id> <directory> [--expect-rev REVISION] [--no-wait] [--poll-ms MS]
 app rename <id> --name NAME [--expect-rev REVISION]
 app list
 app show <id>
+app delete <id> [--expect-rev REVISION]
 media generate (--prompt TEXT | --prompt-file FILE) [--aspect-ratio RATIO] [--quality low|medium|high] [--tag TAG]
                 [--no-progress]
 media upload <file> [--content-type TYPE] [--tag TAG] [--no-wait] [--poll-ms MS]

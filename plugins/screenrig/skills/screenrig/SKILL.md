@@ -665,6 +665,24 @@ no SDK call, `log()` included, while `readyState` is not `active`; see
 [SDK startup](references/applications.md#start-the-sdk-in-this-order). The [command inventory](references/commands.md)
 provides a compact reference for supported operations.
 
+## Keep the project tidy
+
+The project is the customer's account: leave only what they asked for.
+
+- Reuse before creating: update the existing playlist rather than adding one
+  per revision, and rerun an interrupted upload, which returns its media.
+  Tag a task's uploads.
+- Track the IDs you create. Before finishing, delete drafts, superseded
+  playlists, test or replaced uploads, rejected generations, test apps, check
+  webhooks and abandoned operations.
+- Delete a playlist before the media and apps only it used: media and app
+  deletes check only what screens show now. A playlist delete is refused while
+  any screen, archived included, uses it; reassign that screen first.
+- Remove only what you created in this task or what the user names; ask before
+  deleting anything else. Report what you created and removed, with IDs.
+
+See [cleaning up](references/operations.md#cleaning-up).
+
 ## Resolve issues and ask for support
 
 Own diagnosis and resolution for the user: inspect the actual error and current

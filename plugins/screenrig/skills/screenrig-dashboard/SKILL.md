@@ -67,4 +67,6 @@ existing [screenrig skill](../screenrig/SKILL.md). Use its bundled
 normal playlist workflow. The output is already lossy delivery WebP, so avoid a
 second encoding pass. Preserve unrelated playlist content. Follow that skill's
 project, target, retry, and playback-verification rules. A local image is not
-proof of publication or physical display.
+proof of publication or physical display. On a refresh, once the new image is playing,
+delete the media it replaced so the project does not fill with old renders
+(see [cleaning up](../screenrig/references/operations.md#cleaning-up)).
