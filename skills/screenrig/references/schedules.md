@@ -16,6 +16,7 @@ Switches land within about a minute of a boundary. Players need no update.
 | Some pages of one playlist show only at certain times (a breakfast special inside an all-day loop) | Page `visibility` in the playlist; see [page scheduling](playlists.md#page-scheduling-with-visibility) |
 | Whole different playlists by daypart, weekday or date range (breakfast, lunch, dinner menus) | A playlist schedule on the screen |
 | One playlist ahead of everything for a bounded time (emergency notice, closure, fire drill, launch event) | A takeover |
+| Alerts from an emergency notification system (Everbridge, Rave, Alertus, an IPAWS relay) | A CAP trigger |
 
 Visibility travels with the playlist to every screen assigned it. A schedule
 and a takeover belong to the screen, and fleet forms apply them by `--tag`.
@@ -115,6 +116,29 @@ control characters, and travels with the takeover and its events.
 A `--for` rerun after an ambiguous failure computes a new end and is sent as a
 new request; check `screen show` before rerunning. A takeover whose playlist
 cannot be shown ends.
+
+## CAP alert triggers
+
+```bash
+screenrig triggers create --name "Campus alerts" --tag Campus [--for 2h]
+screenrig triggers create --name "Lobby" --screen-id scr_A --screen-id scr_B
+screenrig triggers test trg_ID
+screenrig triggers clear trg_ID
+```
+
+`create` returns `data.url`, `data.username` and `data.password` (shown once,
+warning `trigger_password_shown_once`). The user enters all three in their
+emergency notification system as a CAP 1.2 HTTP POST destination with Basic
+authentication; never put the password in notes, comments or logs. Each Alert
+becomes a takeover of the trigger's own playlist, a full-screen card in the
+severity's colour, on the tag's active screens or up to 500 ids, until the
+alert's `<expires>`, else `--for` (1m to 7d, default 1h). Update redraws it;
+Cancel or AllClear gives the screens back. Test, System and Draft messages
+are ignored. Screens need a default playlist. `triggers show` reports
+`data.alert` and its `screens` counts; `test` shows a 60-second exercise,
+refused (`resource_conflict`, exit 5) while an alert is active, as is
+`delete`. `rotate-secret` stops the old password at once. At most 20 per
+project.
 
 ## Single screen and fleets
 
