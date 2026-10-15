@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate screenRIG screens and advertising with the bundled CLI. Use to upload or generate media, compose slides, publish applications and playlists, assign content, verify playback, place adslot breaks, and buy or manage ad campaigns or sell ad inventory.
+description: Operate screenRIG screens and advertising with the bundled CLI. Use to upload or generate media, compose slides, place built-in cards, publish applications and playlists, assign content, verify playback, place adslot breaks, and buy or manage ad campaigns or sell ad inventory.
 ---
 
 # Operate screenRIG
@@ -513,6 +513,7 @@ user supplied. Preserve source facts and supplied brand assets.
 | Official art plus additional copy | Render one finished still locally, preserving the art, then upload. | [Visual design](references/composition.md) |
 | A finished poster, menu, announcement or other presentable still | Generate the whole page with all exact copy in the prompt; inspect before publishing. | [Media](references/media.md) |
 | Editable title/body/table slides or a measured grid | Local, unbilled `compose render`. | [Compose](references/compose.md) |
+| Drop-in live details: weather, clocks, menus, tickers, gauges or scores, often overlaid | Discover and place a built-in card with static params and dynamic card data. | [Cards](references/playlists.md#built-in-cards-and-feeds) |
 | Playing video, an iframe or an application | Place the live object directly on the playlist. | [Playlists](references/playlists.md), [applications](references/applications.md) |
 | Background music or a jingle across pages | Upload the audio, then add it to the playlist soundtrack. | [Playlists](references/playlists.md#soundtrack) |
 
@@ -532,10 +533,20 @@ fleet with `--codec hevc`; H.264 suits 1080p, and Raspberry Pi 4 plays 1080p.
 Keep the H.264 default for mixed or unverified fleets: each upload has one
 rendition. See [video codec selection](references/media.md) before uploading.
 
+Use built-in cards for drop-in live details and custom applications for complex
+interactions. Run `cards list` and `cards show ID` to choose a card, view and
+theme. Copy its example into playlist JSON; bind a `data` key and use
+`card-data put KEY --file FILE` for dynamic properties without republishing.
+Choose `canvas` for the card's area, or supported `corner` and `chip` views for
+overlays. For weather, rates and other third-party data, rely on screenRIG's
+cached feeds; never call those providers from the agent. See
+[cards and feeds](references/playlists.md#built-in-cards-and-feeds).
+
 ## Signage branch: publish and verify
-The five primitives are `image`, `video`, `stream`, `iframe`, and `application`.
+The six primitives are `image`, `video`, `stream`, `iframe`, `application`, and
+built-in `card`.
 Use streaming only with a compatible backend and Player.
-Image and video use media selectors; stream, iframe, and application do not.
+Image and video use media selectors; stream, iframe, application and card do not.
 Streams require an uploaded image fallback and a duration-based page. Apple TV
 cannot display iframe or application content. Text and
 shapes belong in prepared content, not additional native playlist primitives.

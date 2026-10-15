@@ -1,5 +1,83 @@
 # Playlists, motion, schedules and bundles
 
+## Built-in cards and feeds
+
+Use a built-in card for drop-in live details (weather, clocks, menus, scores,
+gauges or tickers), often overlaid. Use a custom application for complex
+interactions. Cards are drawn by the Player's native interpreter.
+
+```sh
+screenrig cards list --tag weather
+screenrig cards list --category information
+screenrig cards show menu
+```
+
+`cards show` returns static and dynamic property schemas with types, defaults,
+limits and required flags, supported views, the feed and an example placement.
+Copy `example` into a page's `primitives`; replace sample content and set `rect`
+and `layer` for the target screen. Choose a schema-listed `params.theme` and
+supported `params.view`: `canvas` uses the card's area; `corner` and `chip` are
+overlays above other content. Use `content_fit: "fill"`; cards accept `enter`
+and no `motion`. Omitting `major` selects and pins the current major on publish.
+
+```json
+{
+  "id": "menu", "primitive": "card", "card": "menu", "major": 1,
+  "params": { "theme": "neomustard", "title": "Bistro" },
+  "data": "menu-main",
+  "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+  "layer": 0, "content_fit": "fill"
+}
+```
+
+With a data key, `params` holds only static properties; put the dynamic
+properties in a JSON object matching `data_schema`, without a `document`
+wrapper. Without a key, `params` holds the whole configuration.
+
+```sh
+screenrig card-data put menu-main --file menu-data.json
+screenrig playlist create lobby.json
+screenrig screen assign scr_LOBBY --playlist-id pl_LOBBY
+screenrig card-data get menu-main
+screenrig card-data put menu-main --file menu-data.json --expect-rev 3
+screenrig card-data list
+screenrig card-data delete menu-main --expect-rev 4
+```
+
+Prepare a complete playlist containing the placement before `playlist create`.
+`screen publish` and `playlist update` use the same JSON path. Writes check
+current-major params before upload; the server validates bindings and images.
+Stage an unbound data key before publishing, or write it afterwards: a missing
+document hides the bound card until it is written. Data changes notify screens
+without republishing. Documents are project-scoped objects of at most 1 MiB;
+keys cannot start with `feed:`. `--file -` reads stdin. Read the revision and
+guard updates/deletes with `--expect-rev` (If-Match). On `revision_conflict`,
+read and reconcile; on an ambiguous transport failure, rerun the identical
+write with its saved idempotency key. `card_data_invalid` names the bound card
+and property to correct. Deleting hides bound cards until data is written again.
+Card images use `media:<id>` references to ready project images; dynamic data
+requires approved images. Do not supply image URLs.
+
+screenRIG fetches and caches third-party feeds. Never call weather, air quality,
+alerts, exchange-rate, crypto, earthquake or headline providers from the agent.
+Cards derive their feed from static params; never add a `feed` field or write
+a system `feed:` key. To read the same cached data directly:
+
+```sh
+screenrig feeds get weather --lat 49.25 --lon -123
+screenrig feeds get airquality --lat 49.25 --lon -123
+screenrig feeds get alerts --lat 49.25 --lon -123
+screenrig feeds get rates --base EUR
+screenrig feeds get crypto --symbols btc,eth --currency usd
+screenrig feeds get earthquakes --lat 49.25 --lon -123 --radius-km 500
+screenrig feeds get headlines --url https://example.com/news.xml
+```
+
+A pending feed returns `state: pending`, `retry_after_seconds` and `retry_at`
+with exit 0; report its retry time and return without looping. Ready documents
+include `fetchedAt` and `attribution`; show attribution wherever the data shows.
+Inspect a Player screenshot after publishing to confirm card placement and data.
+
 ## Prepare, publish, and edit playlists
 
 For ready images and videos, prepare a full-screen playlist in playback order:
@@ -140,8 +218,8 @@ the existing 4000-character limit applies. Prompts are excluded from diagnostics
 
 ## Playlist writes
 
-Use five primitives: `image`, uploaded `video`, live `stream`, `iframe`, and
-`application`. Streaming requires a compatible backend and Player.
+Use six primitives: `image`, uploaded `video`, live `stream`, `iframe`,
+`application`, and built-in `card`. Streaming requires a compatible backend and Player.
 Do not author native `text`, `box`, or `line` on the wire. Presentable copy
 lives in the generated still. Deck copy and chrome are composed locally,
 uploaded as `image`, and used as one image primitive.

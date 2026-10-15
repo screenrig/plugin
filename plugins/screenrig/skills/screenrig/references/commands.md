@@ -319,6 +319,15 @@ kv set --app-id ID <key> --file FILE [--content-type TYPE] [--expect-rev REVISIO
 kv set --app-id ID <key> --value-base64 BASE64 [--content-type TYPE] [--expect-rev REVISION]
 kv delete --app-id ID <key> [--expect-rev REVISION]
 kv list --app-id ID
+cards list [--tag TAG] [--category CATEGORY]
+cards show <id>
+card-data list
+card-data get <key>
+card-data put <key> --file FILE [--expect-rev REVISION]
+card-data delete <key> --expect-rev REVISION
+feeds get <weather|airquality|alerts|rates|crypto|earthquakes|headlines>
+  [--lat DEGREES --lon DEGREES] [--radius-km KM] [--base CODE]
+  [--symbols IDS] [--currency CODE] [--url URL]
 kv webhook create --app-id ID <key> [--description TEXT]
 kv webhook list --app-id ID
 kv webhook rotate-secret --app-id ID <webhook_id>
