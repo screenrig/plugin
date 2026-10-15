@@ -236,16 +236,18 @@ process.stdout.write(JSON.stringify({ok:true,data,warnings:[]})+"\\n");
 process.exitCode=code;
 ''', encoding="utf-8")
             registry, marketplace, calls = tmp / "registry.json", tmp / "marketplace.json", tmp / "calls.jsonl"
+            grok_config = tmp / "grok.toml"
+            grok_config.write_text("[plugins]\ndisabled=[]\n")
             write_json(marketplace, {"plugins": [{"version": "26.10.1"}]})
             bin_dir = tmp / "bin"
             bin_dir.mkdir()
             host = bin_dir / "claude"
-            host.write_text(f'#!{shutil.which("node")}\nprocess.stdout.write(require("fs").readFileSync(process.env.TEST_REGISTRY));\n')
+            host.write_text("#!"+shutil.which("node")+'\nprocess.stdout.write(process.argv[2] === "inspect" ? JSON.stringify({configSources:{layers:[{path:process.env.TEST_GROK_CONFIG}]}}) : require("fs").readFileSync(process.env.TEST_REGISTRY).toString());\n')
             host.chmod(0o755)
             for name in ("codex", "grok"):
                 install_copy(host, bin_dir / name)
             environment = without(FRESHNESS_VARS, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
-                                  TEST_REGISTRY=str(registry), TEST_CALLS=str(calls), TEST_AGENT_STATE="active",
+                                  TEST_REGISTRY=str(registry), TEST_GROK_CONFIG=str(grok_config), TEST_CALLS=str(calls), TEST_AGENT_STATE="active",
                                   SCREENRIG_PUBLISHED_MARKETPLACE_URL=marketplace.as_uri())
             def run(*args):
                 return subprocess.run(["node", str(script), "--host", "claude", *args],
@@ -314,6 +316,13 @@ process.exitCode=code;
                                         env=environment, text=True, capture_output=True, timeout=30)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(json.loads(result.stdout)["data"]["registration"]["host"], name)
+            for policy in ('[plugins]\ndisabled=["screenrig"]', "[plugins]\ndisabled=[\n# ] policy\n'user/id/screenrig',\n]", '[plugins]\ndisabled=[broken]'):
+                grok_config.write_text(policy)
+                before = calls.read_text()
+                result = subprocess.run(["node", str(script), "--host", "grok", "--run", "version"], env=environment, text=True, capture_output=True, timeout=30)
+                self.assertEqual(result.returncode, 78)
+                self.assertEqual(calls.read_text(), before)
+            grok_config.write_text('[plugins]\ndisabled=["another"]')
             write_json(registry, [{"id":"screenrig@screenrig","installPath":str(root)}])
             # An explicitly selected missing host must not borrow another host's root.
             (bin_dir / "codex").unlink()

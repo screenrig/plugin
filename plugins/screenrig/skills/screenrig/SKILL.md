@@ -38,24 +38,19 @@ For enrollment `rate_limited`, report the retry time and return. Keep the same
 pending request for a later resume. Never launch a sleep, waiter, background
 enrollment or scheduled retry. A supplied Player code does not remove the wait.
 
-- An active saved connection: reuse its selected project. Ask for neither email
-  nor account confirmation; conversation history and the working directory do
-  not determine whether enrollment finished.
-- A new connection: ask only for a missing contact email. Use an organization
-  already supplied, or `Screens`. Do not ask for organization/project names or
-  whether they have an account. Use existing-account sign-in only when they
-  explicitly requested their existing account.
-- Enroll once, say the dashboard invitation was requested and Standard is free
-  for up to 100 screens, then continue. Dashboard acceptance, passkeys and a
-  runtime restart never gate first-screen CLI work.
-- Use the supplied Player code immediately. If it is missing, give the setup
-  link for the device already named and ask for its code. For a browser, say:
-  “Open https://play.screenrig.ai on your screen device and send me the code it
-  shows.” Do not ask for USB/ADB access to pair an Android Player.
-- Use the requested content with sensible defaults. Branding, location,
-  orientation and opening hours are optional unless needed for that request;
-  read dimensions from the paired Player. Do not make an optional questionnaire
-  block a simple welcome sign.
+- Active saved connection: reuse its project without email/account questions.
+  History and working directory do not prove enrollment finished.
+- New connection: ask only for missing contact email. Use the supplied organization
+  or `Screens`; ask for neither names nor account confirmation. Existing-account
+  sign-in is only for an explicit existing-account request.
+- Enroll once; report the requested dashboard invitation and Standard free for
+  up to 100 screens. Continue; acceptance, passkeys and restart never gate CLI work.
+- Use a supplied Player code immediately. Otherwise give the named device's
+  setup link and ask for its code. For a browser: “Open https://play.screenrig.ai
+  on your screen device and send me the code it shows.” No USB/ADB request.
+- Use requested content and sensible defaults; read dimensions from the Player.
+  Branding, location, orientation and hours are optional unless the request
+  needs them. No optional questionnaire before a simple welcome sign.
 
 A fresh user's first question is: “What contact email should I use for your
 screenRIG invitation?” Once enrolled, ask for the missing Player code. If those
@@ -106,7 +101,8 @@ Use Node.js 22.11+. Look up this host's enabled official plugin:
 
 - Claude: `claude plugin list --json`, `screenrig@screenrig`, `installPath`.
 - Codex: `codex plugin list --json`, `screenrig@screenrig`, `source.path`.
-- Grok: `grok plugin list --json`, `screenrig`, its installed path.
+- Grok: `grok plugin list --json`, `screenrig`, its path; enable if disabled.
+  The helper also checks its discovered configuration; installed is not enabled.
 
 If missing/disabled, follow [installation](references/installation.md) and repeat
 lookup, preserving config. Use its actual root with normal shell quoting:
@@ -115,26 +111,23 @@ lookup, preserving config. Use its actual root with normal shell quoting:
 node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --bootstrap --json --host <claude|codex|grok>
 ```
 
-Managed hosts without a plugin CLI supply installed `PLUGIN_ROOT` and omit
+Managed hosts without a plugin CLI supply installed `PLUGIN_ROOT`, omitting
 `--host`. Bootstrap checks registration, `screenrig version`, freshness,
-`screenrig doctor`, saved connection and active capabilities. It never enrolls, discards credentials
-or switches projects; authenticated CLI reads can refresh the saved session.
+`screenrig doctor`, connection and capabilities. It never enrolls, resets
+credentials or switches projects; authenticated reads can refresh the session.
 
 Read `ok`, `data.action`, checks and `data.context`:
 
-- `install`: install/enable the official plugin in this runtime, then rerun.
-- `refresh`: update it using the installation reference, resolve its new root
-  and rerun. Continue first-screen work with the updated CLI in this session.
-- `repair`: resolve failing installation/config/service checks, then rerun with
-  the same config. Media-tool failures remain visible and affect only content
-  paths that need those tools; enrollment and pairing can continue.
-- `reconnect`: use the documented reconnect/sign-in flow; preserve credentials
-  while resolving failures. Do not enroll a replacement project silently.
-- `resume`: follow the exact pending-connection instruction. If it names a
-  retry delay, report its time and return. Keep the request/config unchanged
-  for a later resume; do not ask for contact again.
-- `enroll`: genuine first-run state; follow the minimal flow above.
-- `ready`: reuse this selected project and continue pairing/content.
+- `install`: install/enable in this host, then rerun.
+- `refresh`: update, resolve the new root and rerun; continue in this session.
+- `repair`: fix failing config/service checks with the same config. Media-tool
+  warnings affect only paths needing them; enrollment/pairing can continue.
+- `reconnect`: use reconnect/sign-in, preserving credentials; do not replace
+  the project by enrolling silently.
+- `resume`: follow its exact pending instruction. Report any retry time and
+  return, preserving request/config; do not ask for contact again.
+- `enroll`: genuine first run; use the minimal flow above.
+- `ready`: reuse this project for pairing/content.
 
 After bootstrap, repeat this complete form for EVERY CLI call:
 
@@ -147,11 +140,10 @@ means helper `--run COMMAND...`. Keep the same root/config; put `--config FILE`
 before `--run`. Managed hosts omit `--host`. It refuses unregistered packages
 and forwards CLI stdout/exit status. No alias, `SR`, source checkout or token paste.
 
-The original `screenrig-plugin-freshness --json` remains the standalone
-freshness check. A failed published-version read means continue with the
-installed package and disclose that check; do not block the task. A missing
-credential in doctor is an expected warning before enrollment. Missing media
-tools affect upload; see [media](references/media.md).
+Freshness-only remains `screenrig-plugin-freshness --json`. If publication cannot
+be read, disclose that and continue installed. Before enrollment, missing
+credentials are a doctor warning. Media-tool warnings affect upload; see
+[media](references/media.md).
 
 Use `screenrig status` to check production service availability before
 investigating a service failure. Keep the monitor observation time in any

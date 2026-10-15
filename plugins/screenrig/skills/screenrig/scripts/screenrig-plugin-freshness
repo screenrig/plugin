@@ -8,9 +8,6 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 const { URL } = require("url");
 
-// The published version is what the install's own source publishes: the
-// canonical marketplace installs git main, so main's marketplace entry is the
-// version a refresh would deliver.
 const DEFAULT_MARKETPLACE_URL =
   "https://raw.githubusercontent.com/screenrig/plugin/main/.claude-plugin/marketplace.json";
 const PRODUCT_VERSION = /^(\d{2})\.(0[1-9]|1[0-2])\.([1-9]\d*)$/;
@@ -234,6 +231,34 @@ function sameRoot(left, right) {
   try { return fs.realpathSync(left) === fs.realpathSync(right); } catch { return false; }
 }
 
+function grokEnabled() {
+  const result = spawnSync("grok", ["inspect", "--json"], {
+    encoding: "utf8", timeout: 15000, maxBuffer: 2 * 1024 * 1024, windowsHide: true,
+  });
+  try {
+    const layers = JSON.parse(result.stdout).configSources.layers;
+    if (result.error || result.status !== 0 || !Array.isArray(layers)) return false;
+    for (const layer of layers) {
+      const text = fs.readFileSync(layer.path, "utf8");
+      if (layer.path.endsWith(".json")) {
+        if (JSON.parse(text).enabledPlugins?.["screenrig@screenrig"] === false) return false;
+        continue;
+      }
+      if (/"""|'''|^\s*(?:plugins|"plugins"|'plugins')\s*\./m.test(text)) return false;
+      const section = text.match(/^\s*\[\s*(?:plugins|"plugins"|'plugins')\s*\]\s*(?:#[^\n]*)?\n([\s\S]*?)(?=^\s*\[|$(?![\s\S]))/m)?.[1] || "";
+      const body = section.match(/^\s*(?:disabled|"disabled"|'disabled')\s*=\s*\[((?:[^\]#"']|"(?:\\.|[^"\\])*"|'[^']*'|#[^\n]*)*)\]/m)?.[1];
+      if (body === undefined) continue;
+      const tokens = body.match(/"(?:\\.|[^"\\])*"|'[^']*'|#[^\n]*|[,\s]+/g) || [];
+      if (tokens.join("") !== body) return false;
+      for (const token of tokens.filter((item) => /^["']/.test(item))) {
+        const name = token[0] === "'" ? token.slice(1, -1) : JSON.parse(token);
+        if (name === "screenrig" || name.endsWith("/screenrig")) return false;
+      }
+    }
+    return true;
+  } catch { return false; }
+}
+
 function registeredHost(root, host) {
   if (!host && process.env.PLUGIN_ROOT && sameRoot(process.env.PLUGIN_ROOT, root)) return { source: "host_root" };
   const hosts = host ? [host] : ["claude", "codex", "grok"];
@@ -255,7 +280,7 @@ function registeredHost(root, host) {
         if (id !== "screenrig@screenrig" && !(name === "grok" && (id === "screenrig" || entry.name === "screenrig"))) continue;
         const location = entry.installPath || entry.install_path || entry.path || entry.local_path || entry.localPath ||
           (entry.source && entry.source.path);
-        if (typeof location === "string" && sameRoot(location, root)) return { host: name, source: "plugin_list" };
+        if (typeof location === "string" && sameRoot(location, root) && (name !== "grok" || grokEnabled())) return { host: name, source: "plugin_list" };
       }
     } catch { /* Report an actionable registration failure without echoing host output. */ }
   }
