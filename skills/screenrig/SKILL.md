@@ -315,7 +315,7 @@ installation in with `screenrig login`; never enroll for them. Hand the
 sign-in to the person first:
 
 ```bash
-screenrig login --no-wait [--project ID] [--access read|propose]
+screenrig login --no-wait [--project ID] [--access read|propose|manage]
 ```
 
 The pending result carries `data.verification_uri_complete`, `data.user_code`
@@ -435,7 +435,7 @@ screenrig invitations create --kind ad-buyer --email ADDRESS[,ADDRESS] --screen-
 ```
 
 Email delivery is requested, not proof of arrival; the server emails each
-recipient. A link invitation (`invitations create --email ADDRESS --link`) is
+recipient. A link invitation (`invitations create --link`) is
 an exception, never part of enrollment or setup: use it only when the person
 never used their emailed invitation and later asks to get into the dashboard.
 Print it once and deliver it only to that person, never elsewhere. If the human
@@ -790,7 +790,9 @@ except do not follow a login or dashboard next-step on first setup unless the
 user said this installation should use an existing screenRIG account.
 Revision guards are optional for most writes: omit `--expect-rev` to write the
 current resource without a prior revision read, or supply it to reject a stale
-write. Advertising mutations are the enforced exception — campaign `update`,
+write. The enforced exceptions are `card-data delete`, which requires
+`--expect-rev`, `project delete`, which requires `--name`, `--revision` and
+`--yes`, and advertising mutations — campaign `update`,
 `activate`, `pause`, `resume`, and `accept-rates`, seller `ads network rate`,
 `ads slots update`, and `ads memberships update` require the current revision.
 

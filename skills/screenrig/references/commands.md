@@ -68,9 +68,9 @@ screenrig organization rename ID NAME
 ```
 
 List verifies this identity's accessible memberships without selecting one.
-Use selects the last-used project. `--project-id ID` pins a cached project for
-one invocation; credentials and retries remain separate by project. Every
-result identifies its organization and project. Project names are unique in
+`project use ID` makes ID the last-used (selected) project. `--project-id ID`
+targets one command without changing that selection; credentials and retries
+remain separate by project. Every result identifies its organization and project. Project names are unique in
 an organization; organization names can repeat.
 
 `organization list` marks `free`, `plan_required` (new screens get
@@ -217,7 +217,8 @@ project move --organization-id ID
 project transfer-owner --user-id ID
 project deletion-preview
 project delete --name NAME --revision N --yes
-invitations create --email ADDRESS[,ADDRESS] [--link]
+invitations create --email ADDRESS[,ADDRESS]
+invitations create --link
 invitations create --kind ad-buyer --email ADDRESS[,ADDRESS]
                   [--screen-id IDS] [--slot-id IDS] [--policy trusted|review_required]
 invitations list [--kind member|ad-buyer] [--status STATUS]
@@ -248,8 +249,8 @@ media upload-batch <manifest.json> [--state FILE] [--concurrency N]
                    [--no-transcode] [--tag TAG] [--no-progress]
 media show <id>
 media download <id> [--output FILE]
-media list [--tag TAG] [--primitive image|video]
-media update <id> (--tag TAG | --clear-tag) [--expect-rev REVISION]
+media list [--tag TAG] [--primitive image|video|audio]
+media update <id> (--tag TAG | --tags TAG1,TAG2 | --clear-tag) [--expect-rev REVISION]
 media delete <id> [--expect-rev REVISION]
 compose catalog
 compose render <file> [--output DIRECTORY] [--combined] [--target-width PX --target-height PX] [--safe-area]
@@ -434,7 +435,7 @@ Operational commands default to JSON envelopes. `--json` remains supported;
 remain readable by default; use `screenrig --json --help` for structured help.
 `events follow` emits NDJSON. Progress goes to stderr, separately from stdout.
 
-Global flags include `--json`, `--human`, `--api-url URL`, `--config PATH`,
+Global flags include `--json`, `--human`, `--project-id ID`, `--api-url URL`, `--config PATH`,
 `--request-id ID`, `--idempotency-key KEY`, and `--timeout MS`.
 
 On `revision_conflict`, fetch the resource, reapply the intended change, and

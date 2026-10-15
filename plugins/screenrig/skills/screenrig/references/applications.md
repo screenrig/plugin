@@ -82,7 +82,7 @@ screenrig app update app_EXAMPLE ./lobby-board
 the same packer, upload limits, operation wait, and release result as upload.
 Wait for `data.operation.state: "succeeded"`, then use `playlist replace-release`
 to review the exact page and primitive replacement and all affected screens. Apply
-with the returned impact token and an optional revision guard; see [release replacement](playlists.md#replace-one-application-release).
+with `--apply`; optionally pass the preview's `--expect-impact TOKEN` and/or `--expect-rev` revision guard; see [release replacement](playlists.md#replace-one-application-release).
 Existing playlists remain pinned until that replacement is applied.
 On a revision conflict, read the app again before deciding whether to retry;
 do not create a replacement application just to bypass the conflict.
