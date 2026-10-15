@@ -473,6 +473,16 @@ confirm its location and role, for example
 `screen tag SCREEN_ID --set Lobby,Floor2,Menu`. Tags are 1 to 32 letters or
 digits, up to 16 per screen, and select fleets; they are never authorization.
 
+For displays a device manager runs together (a Google Admin kiosk fleet, an
+MDM), create one fleet link instead of pairing each:
+`fleet-links create --name "Lobby displays" [--tag Lobby] [--playlist-id ID] [--max-screens N]`.
+Every device that opens its `data.url` becomes its own screen with those tags
+and playlist, no code. The URL creates screens: give it only to the person who
+configures the device manager, never in notes, comments or logs. For ChromeOS,
+it is the kiosk app URL (https://screenrig.ai/docs/players.md#chromeos-fleet).
+`fleet-links list|show|update|rotate|delete` manage links; rotate or delete
+stops the old URL at once.
+
 `screen show` reports the display's host details when the Player supplied them
 (platform, model, firmware, identifiers). If a screen shows a pending recovery,
 a display reporting that screen's identifiers has lost its stored identity and
@@ -604,7 +614,9 @@ carries the person's note (`decision_note`): fix it and propose again.
 `review_stale` means the playlist moved on: read it again and propose on top.
 A new playlist has no approved version (`playlist_not_approved`) until its
 review is approved. Agents never approve; `reviews withdraw ID` takes back your
-own proposal.
+own proposal. New media waits for its own review before tag, folder or `all`
+playlists play it. Under Propose, upload a new item rather than retagging
+approved media (`insufficient_access`).
 
 ### Fleets
 

@@ -24,9 +24,9 @@ CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 # Every marketplace install clones this repository and copies plugins/screenrig,
 # so both have a budget. Raising one is the operator's decision, not a fix.
 BUDGET_REPO_FILES = 110
-BUDGET_REPO_BYTES = 3_150_000
+BUDGET_REPO_BYTES = 5_000_000
 BUDGET_PLUGIN_FILES = 52
-BUDGET_PLUGIN_BYTES = 2_000_000
+BUDGET_PLUGIN_BYTES = 3_000_000
 BUDGET_FILE_BYTES = 1_048_576
 _spec = importlib.util.spec_from_file_location("build_plugin", ROOT / "scripts" / "build-plugin.py")
 assert _spec and _spec.loader

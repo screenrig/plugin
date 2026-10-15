@@ -197,17 +197,18 @@ blocks on a WebP. Do not print pixels.
 
 Application K/V is binary-safe. The agent writes it with `kv` commands, and a
 running application reads and writes the same store through
-`window.screenrig.kv.get`, `list`, `set`, and `delete`. Reads need
+`window.screenrig.kv.get`, `list`, `set`, and `delete`, and hears about every
+change through `kv.onChange`. Reads and `onChange` need
 `capabilities["kv.read"]` and writes need `capabilities["kv.write"]`; check
 the flag before calling.
 
 ### Where the SDK runs
 
 The web Player (including on Samsung Smart Signage and BrightSign, which run it),
-the Android Player, the Linux Player (Linux and Raspberry Pi), and the macOS Player
-host the SDK in full:
+the Android Player, the Linux Player (Linux and Raspberry Pi), the Windows Player
+and the macOS Player host the SDK in full:
 `ready`, `waitUntilActive`, `nextPage`, `emit`, `emitConfirmed` receipts, and
-`screenrig.kv`. Apple TV has no web primitives, so it shows no application or
+`screenrig.kv` with `kv.onChange`. Apple TV has no web primitives, so it shows no application or
 iframe content; target it with image, video, and stream pages.
 
 Use exactly one value mode.
@@ -223,3 +224,64 @@ screenrig kv delete --app-id app_EXAMPLE lobby
 `data.content_type` is `application/json`. Base64-decode it in the caller,
 then parse JSON only when the content type says it is JSON. `kv list` omits
 values.
+
+### Update screens the moment data changes
+
+`kv.onChange(handler)` runs the handler whenever a key of this application
+changes, whoever wrote it: `kv set`, the API, an incoming webhook, or the app
+on another screen. Every screen whose playlist shows the app hears it within
+seconds; quick writes to one key may arrive as one change with the newest
+revision. The change carries `key`, `revision` and `deleted`, never the value,
+so read the value with `kv.get`, which resolves to the entry with
+`value_base64` and `content_type`. Subscribe once after `ready()`; the SDK
+keeps the subscription across page changes. It returns a function that
+removes the handler.
+
+```javascript
+async function showMenu() {
+  const entry = await sr.kv.get("menu");
+  render(JSON.parse(new TextDecoder().decode(
+    Uint8Array.from(atob(entry.value_base64), c => c.charCodeAt(0)))));
+}
+// after await sr.ready():
+if (sr.capabilities["kv.read"]) {
+  await showMenu();
+  sr.kv.onChange(change => {
+    if (change.key === "menu" && !change.deleted) showMenu().catch(() => {});
+  });
+}
+```
+
+Prefer this over polling `kv.get` on a timer.
+
+### Let another system write a key: incoming webhook
+
+When data lives in another system (a point of sale, a spreadsheet, Zapier or
+Make, a cron job), create a webhook for the key instead of relaying writes
+yourself. It is one URL that writes one key of one application; the app
+updates through `kv.onChange`.
+
+```bash
+screenrig kv webhook create --app-id app_EXAMPLE menu --description "POS price export"
+```
+
+The answer holds `data.url` and `data.secret` (`srkw_...`). The secret appears
+only in this answer and in `kv webhook rotate-secret`: hand it to the sending
+system or the user at once, and never write it to a file, log, playlist or
+app. The sender posts the raw value with the secret in the Authorization
+header (Bearer, or HTTP Basic with the webhook id as the username and the
+secret as the password); a secret in the URL is never accepted:
+
+```bash
+curl -X POST "$URL" -H "Authorization: Bearer $SECRET" \
+  -H "Content-Type: application/json" --data '{"latte":4.5}'
+```
+
+The body (at most 1 MiB) becomes the key's value and `Content-Type` its
+content type. Each post is a normal K/V write and one billed API request: it
+bumps the revision and answers with the key's metadata, never its value. An
+`Idempotency-Key` header makes a sender's retries safe for 24 hours. Limits:
+120 posts a minute per webhook and 20 webhooks per application. `kv webhook
+list` shows each webhook's key, url and last use, `kv webhook rotate-secret`
+replaces a leaked secret (the old one stops at once), and `kv webhook delete`
+stops the URL and keeps the key's value.

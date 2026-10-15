@@ -310,6 +310,10 @@ kv set --app-id ID <key> --file FILE [--content-type TYPE] [--expect-rev REVISIO
 kv set --app-id ID <key> --value-base64 BASE64 [--content-type TYPE] [--expect-rev REVISION]
 kv delete --app-id ID <key> [--expect-rev REVISION]
 kv list --app-id ID
+kv webhook create --app-id ID <key> [--description TEXT]
+kv webhook list --app-id ID
+kv webhook rotate-secret --app-id ID <webhook_id>
+kv webhook delete --app-id ID <webhook_id>
 comment show screen <id>
 comment show playlist <id> [--page PAGE_ID]
 comment set screen <id> (--json-value JSON | --file FILE)
@@ -328,6 +332,13 @@ webhooks delete <id> [--expect-rev REVISION]
 webhooks rotate-secret <id> [--expect-rev REVISION]
 webhooks test <id>
 webhooks deliveries <id> [--before CURSOR] [--limit N]
+triggers create --name NAME (--tag TAG | --screen-id ID...) [--for DURATION]
+triggers list
+triggers show <id>
+triggers test <id>
+triggers clear <id>
+triggers rotate-secret <id> [--expect-rev REVISION]
+triggers delete <id> [--expect-rev REVISION]
 events list [--after CURSOR] [--limit N] [--type TYPE]
 events follow [--after CURSOR] [--timeout MS] [--type TYPE]
 notes list [--all | --resolved] [--about ID] [--author AGENT_ID] [--limit N] [--after CURSOR]
@@ -487,6 +498,13 @@ exact event types or `prefix.*` prefixes, at most 10 per project. `create` and
 (exit 8), an eleventh webhook `webhook_limit_reached` (exit 5), and more than
 20 `webhooks test` calls per minute `rate_limited` (exit 7). See
 [webhooks](webhooks.md).
+
+### CAP alert triggers
+
+`triggers create` returns the CAP URL, username and password (shown once) an
+emergency notification system posts alerts to; an alert takes the tag or
+screens over until it expires or is cancelled. See
+[schedules](schedules.md#cap-alert-triggers).
 
 ### Storage dry run
 
