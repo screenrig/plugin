@@ -151,7 +151,7 @@ account that already exists, including when they say they already have
 screenRIG. Otherwise first setup is `agent enroll`.
 
 ```sh
-screenrig login --no-wait [--project ID] [--access read|manage] [--name NAME]
+screenrig login --no-wait [--project ID] [--access read|propose|manage] [--name NAME]
 screenrig login --resume login_ID
 screenrig logout
 ```
@@ -160,7 +160,7 @@ screenrig logout
 `user_code`, `expires_at` and a `login_` handle in `data.next.argv`; the handle
 holds no secret. Send the address and code only to the person who approves.
 They sign in to the dashboard with their own login, check the code, choose the
-project, Read only or Manage, and the capabilities, and approve; the CLI never
+project, Read only, Propose or Manage, and the capabilities, and approve; the CLI never
 receives their credential. `login --resume ID` waits for approval, stores the
 session, selects the approved project and returns `data.status: signed_in`
 with `project`, `organization` and `access`. Without `--no-wait`, `login`
@@ -169,8 +169,13 @@ expiry after 10 minutes is `login_expired`.
 
 Read only lists and reads; a change, publish or purchase returns 403
 `insufficient_access`, and its requests are billed like any agent request.
+Propose also uploads media and writes notes, and its playlist and screen
+changes wait for a person's review (see [Reviews](#reviews)); it cannot delete,
+control screens or spend. A project that requires review for agent changes, or
+a responsible person who cannot approve, holds a session to Propose:
+`agent status` reports `access`, `effective_access` and `access_limited_by`.
 `login` again on a signed-in installation adds a project or raises a Read only
-project to Manage. Capabilities stay as approved; see
+or Propose project to Manage. Capabilities stay as approved; see
 [credential scope and 403 recovery](../SKILL.md#credential-scope-refusals).
 `logout` revokes the sign-in and removes the stored tokens; rerunning it is
 safe. Installations from before this sign-in upgrade on their next command
@@ -183,7 +188,7 @@ own key or secret. Manage them only when the user asks; it needs the `project`
 capability and Manage.
 
 ```sh
-screenrig service-client create --name NAME [--capability NAME]... [--access read|manage] [--key-file PATH] [--secret-file PATH]
+screenrig service-client create --name NAME [--capability NAME]... [--access read|propose|manage] [--key-file PATH] [--secret-file PATH]
 screenrig service-client list
 screenrig service-client show ID
 screenrig service-client add-key ID --key-file PATH
@@ -220,7 +225,7 @@ invitations revoke ID
 agent status
 agent enroll --email EMAIL | --agentid-claim CODE --organization NAME [--name NAME]
              [--intent signage|advertising] [--force]
-login [--project ID] [--access read|manage] [--name NAME] [--no-wait] [--resume ID]
+login [--project ID] [--access read|propose|manage] [--name NAME] [--no-wait] [--resume ID]
 logout
 agent disconnect --yes [--allow-lockout]
 agent revoke-identity --yes
@@ -255,14 +260,14 @@ playlist init <inputs...> --name NAME --output FILE [--overwrite] [--screen-id I
               [--target-width PX --target-height PX] [--duration-ms MS] [--fit contain|cover|fill]
               [--no-transcode] [--no-progress] [--poll-ms MS]
 playlist replace-release <id> --page ID --primitive ID --release-id ID
-                         [--apply] [--expect-rev REVISION] [--expect-impact TOKEN]
+                         [--apply] [--expect-rev REVISION] [--expect-impact TOKEN] [--note TEXT]
 playlist preview <file|id> --output DIRECTORY [--contact-sheet] [--frame-ms MS] [--lint-only]
 playlist templates
 playlist validate <file>
-playlist create <file>
-playlist update <id> <file> [--expect-rev REVISION]
+playlist create <file> [--note TEXT]
+playlist update <id> <file> [--expect-rev REVISION] [--note TEXT]
 playlist export <id> --output DIRECTORY [--skip-applications]
-playlist import <directory> [--name NAME] [--update ID [--expect-rev REVISION]]
+playlist import <directory> [--name NAME] [--update ID [--expect-rev REVISION]] [--note TEXT]
 playlist show <id> [--output FILE | --editable] [--overwrite]
 playlist list
 playlist delete <id> [--expect-rev REVISION]
@@ -273,17 +278,17 @@ screen update <id> [--name NAME] [--playlist-id ID] [--timezone ZONE] [--expect-
 screen list [--state archived] [--tag TAG]
 screen show <id>
 screen storage-forecast <id> --playlist-id ID [--playlist-rev REVISION]
-screen publish <id> <file> [--expect-rev REVISION] [--no-wait] [--timeout MS]
-screen assign <id> --playlist-id ID [--expect-rev REVISION]
-screen assign (<id> <id>... | --tag TAG) --playlist-id ID
+screen publish <id> <file> [--expect-rev REVISION] [--no-wait] [--timeout MS] [--note TEXT]
+screen assign <id> --playlist-id ID [--expect-rev REVISION] [--note TEXT]
+screen assign (<id> <id>... | --tag TAG) --playlist-id ID [--note TEXT]
 screen tag <id> (--set TAGS | --add TAGS | --remove TAGS | --clear) [--expect-rev REVISION]
 screen tag (<id> <id>... | --tag TAG) (--set TAGS | --add TAGS | --remove TAGS | --clear)
 screen schedule show <id>
-screen schedule set (<id>... | --tag TAG) --file FILE [--expect-rev REVISION]
-screen schedule clear (<id>... | --tag TAG) [--expect-rev REVISION]
+screen schedule set (<id>... | --tag TAG) --file FILE [--expect-rev REVISION] [--note TEXT]
+screen schedule clear (<id>... | --tag TAG) [--expect-rev REVISION] [--note TEXT]
 screen takeover set (<id>... | --tag TAG) --playlist-id ID [--for DURATION | --until TIME|none]
-                    [--reason TEXT] [--expect-rev REVISION]
-screen takeover clear (<id>... | --tag TAG) [--expect-rev REVISION]
+                    [--reason TEXT] [--expect-rev REVISION] [--note TEXT]
+screen takeover clear (<id>... | --tag TAG) [--expect-rev REVISION] [--note TEXT]
 screen reboot <id> [--expect-rev REVISION]
 screen reboot (<id> <id>... | --tag TAG) --yes
 screen display set (<id>... | --tag TAG) --power on|off [--until TIME | --for DURATION]
@@ -304,6 +309,10 @@ screen toast (<id>... | --tag TAG) --text TEXT [--level info|alert|error] [--dur
 screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
 screen screenshot (<id> <id>... | --tag TAG) [--output DIRECTORY] [--concurrency 1-8]
                   [--timeout MS] [--poll-ms MS]
+reviews list [--state pending|decided|all] [--kind playlist_change|screen_change|ad_creative]
+             [--limit N] [--cursor CURSOR]
+reviews show <id>
+reviews withdraw <id>
 kv get --app-id ID <key>
 kv set --app-id ID <key> --json-value JSON [--expect-rev REVISION]
 kv set --app-id ID <key> --file FILE [--content-type TYPE] [--expect-rev REVISION]
@@ -403,6 +412,7 @@ ads reviews list
 ads reviews show <review-id>
 ads reviews approve <review-id>
 ads reviews reject <review-id> --reason TEXT
+ads reviews request-changes <review-id> --note TEXT
 ads reports spend [--campaign-id ID]
 ads reports delivery --from RFC3339 --to RFC3339
 billing balance
@@ -463,6 +473,23 @@ also needs the screen timezone (`invalid_request`, exit 8). `--expect-rev`
 applies to one screen id only; several ids or `--tag` use the fleet envelope.
 Writes share 20 per screen and 600 per project per minute (`rate_limited`,
 exit 7). See [schedules](schedules.md).
+
+### Reviews
+
+Under Propose, or in a project that requires review for agent changes,
+playlist create and update (also `import --update` and `replace-release
+--apply`), `screen publish`, `screen assign`, schedules and takeovers answer
+`ok: true` with `data.status: pending_review`, `data.review.url` and warning
+`pending_review` instead of applying; `screen publish` stops at
+`stage: pending_review`. Nothing changes on glass until a person approves in
+the dashboard. `--note TEXT` (at most 280 characters) tells the reviewer what
+changed. Give the person the URL; do not poll or repeat the write. Check later
+with `reviews show ID`: `state` is `pending`, `approved`, `rejected`,
+`changes_requested`, `withdrawn`, `superseded` or `stale`, and a rejection or
+change request carries `decision_note`. New media waits for its own review
+before tag, folder or `all` selectors play it. `reviews withdraw ID` takes back
+your own proposal; agents never approve playlist or screen changes. Sellers
+answer buyers' creatives with `ads reviews approve|reject|request-changes`.
 
 ### Reboot and display power
 
