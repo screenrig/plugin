@@ -606,9 +606,14 @@ carries the person's note (`decision_note`): fix it and propose again.
 `review_stale` means the playlist moved on: read it again and propose on top.
 A new playlist has no approved version (`playlist_not_approved`) until its
 review is approved. Agents never approve; `reviews withdraw ID` takes back your
-own proposal. New media waits for its own review before tag, folder or `all`
-playlists play it. Under Propose, upload a new item rather than retagging
-approved media (`insufficient_access`).
+own proposal. Media changes wait too: tag, folder and `all` playlists play a
+new upload only after its own review is approved, and a retag or folder move
+of approved media keeps playing as approved until a person approves it. On
+warning `media_review_pending` from `media update`, tell the person the change
+waits for their review and screens keep the approved tags and folder; its
+review appears in `reviews list` within a few seconds. Do not poll, sleep or
+retry. A rejection or change request puts the tags and folder back; a retag
+that changes no approved playlist applies on its own.
 
 ### Fleets
 

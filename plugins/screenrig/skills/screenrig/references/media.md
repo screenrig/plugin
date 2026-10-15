@@ -201,7 +201,8 @@ On a build that converts:
   is not. `media list --tag TAG [--primitive image|video|audio]` filters by that tag
   and is the reliable filename → id map after upload.
   `media update <id> (--tag TAG | --tags TAG1,TAG2 | --clear-tag)`
-  replaces or clears the whole tag set. Use `media selector-preview selector.json
+  replaces or clears the whole tag set; under review, a retag of approved
+  media warns `media_review_pending` (see [Reviews](commands.md#reviews)). Use `media selector-preview selector.json
   --primitive image|video` to inspect combined `all`/`any`/`none` tag filters
   before publishing; see [Playback batches](playlists.md#tag-filters-and-playback-batches). Untagged objects are omitted when `--tag` is present on
   `media list`.
