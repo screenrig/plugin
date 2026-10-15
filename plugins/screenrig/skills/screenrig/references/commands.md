@@ -491,11 +491,13 @@ and `all` selectors play a new upload only after its own review is approved,
 and `media update` on approved media is `ok` with warning
 `media_review_pending` (next `reviews list`, where its review appears within a
 few seconds) while screens keep its approved tags and folder; a rejection or
-change request puts them back, and a retag that changes no approved playlist
-applies on its own.
+change request puts them back, a rejected upload stays unplayed, and a retag
+that changes no approved playlist and no open proposal applies on its own.
 `reviews show` of a media review lists `media_change` (tags and folder
-`before` and `after`) and `media_playlists`, each with `media_added` and
-`media_removed`. `reviews withdraw ID` takes back
+`before` and `after`, `before` null for a new upload) and `media_playlists`
+(approved playlists and open proposals it joins or leaves), each with
+`media_added` and `media_removed`. A stale media review is replaced by a
+fresh one within seconds. `reviews withdraw ID` takes back
 your own proposal; agents never approve playlist or screen changes. Sellers
 answer buyers' creatives with `ads reviews approve|reject|request-changes`.
 

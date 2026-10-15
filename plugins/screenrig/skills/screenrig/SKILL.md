@@ -612,8 +612,9 @@ of approved media keeps playing as approved until a person approves it. On
 warning `media_review_pending` from `media update`, tell the person the change
 waits for their review and screens keep the approved tags and folder; its
 review appears in `reviews list` within a few seconds. Do not poll, sleep or
-retry. A rejection or change request puts the tags and folder back; a retag
-that changes no approved playlist applies on its own.
+retry. A rejection or change request puts the tags and folder back, and a
+rejected upload stays unplayed. A retag that changes no approved playlist and
+no open proposal applies on its own.
 
 ### Fleets
 
