@@ -370,6 +370,23 @@ characters and a body is at most 4000. `--command` is the command the
 feedback is about. Probe feedback availability through `capabilities.features.feedback`;
 `doctor` reports that check.
 
+`feedback list` returns the project's own submissions, newest first. Each has `status`,
+`open` until screenRIG staff respond and then the status of the latest response:
+`planned`, `fixed`, `declined` or `duplicate`. Each has `responses`, the staff replies in
+chronological order, at most 20. A response has `id`, plain `text` (escape it before
+displaying), `status`, `created_at` and `fixed_in`, present only with status `fixed` when
+staff name the product version that fixes it, for example 26.10.93. Staff replies are the
+only way a submission changes; its title and body stay as filed.
+
+Each staff reply also appends a `feedback.responded` project event: its resource id is
+the submission id and its details carry `response_id`, `status` and `fixed_in`, never the
+reply text. `screenrig events list --type feedback.` and `screenrig events follow` show it;
+read the text with `feedback list`.
+
+After filing feedback, check `feedback list` for a status other than `open`. When the status
+is `fixed` and `fixed_in` is present, tell the user which version fixes it and that updating
+to that version or later picks up the fix. Claim a fix only with a `fixed` response.
+
 
 ## Support conversations
 

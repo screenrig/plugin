@@ -786,7 +786,10 @@ state, read https://screenrig.ai/docs/ and https://screenrig.ai/llms-full.txt,
 then apply and verify the documented fix within the user's authorization.
 Submit a reproducible
 bug with `screenrig feedback bug` or product feedback with `feedback feature`;
-these reports do not open a support chat.
+these reports do not open a support chat. After filing, check `screenrig feedback list`
+for `status` and `responses` (a `feedback.responded` event announces each staff reply).
+A `fixed` response names the version that fixes it in `fixed_in`; tell the user that
+version and claim a fix only with a `fixed` response.
 
 Every plan, including Standard, includes support chat. `screenrig support status`
 reports availability and staffed hours. If support is needed, use `support submit` to start a
