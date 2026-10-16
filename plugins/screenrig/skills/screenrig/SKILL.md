@@ -66,7 +66,11 @@ facts are already supplied, operate without another confirmation question.
 3. Read `observation.surfaces[]` for size and orientation; prepare the requested
    content ([content path](#signage-branch-choose-the-content-path)).
 4. `screenrig playlist init SOURCES... --screen-id SCREEN_ID --name NAME --output playlist.json`,
-   then `screenrig screen publish SCREEN_ID playlist.json`.
+   then `screenrig screen publish SCREEN_ID playlist.json`. `playlist init`
+   refuses a non-empty existing `--output` with exit 2 / `usage_error` and leaves
+   it untouched: choose a new path or pass `--overwrite`. Before publishing,
+   check that init exited 0 and that `data.release_ids` and `data.media_ids`
+   match what you intended.
 5. Request `screenrig screen screenshot SCREEN_ID` and inspect that returned
    Player image before saying the content is showing. A local preview is a
    design check. Ask the user to look at the display too.
@@ -575,8 +579,11 @@ Canvas video stays muted, so the soundtrack is the only sound on the screen.
    IDs, pinned application releases, or HTTPS URLs and `--screen-id`. Local files
    upload during preparation, several at a time, and it returns once every file
    is uploaded and processed. If it is interrupted, rerun the identical command:
-   finished uploads return their existing media IDs. Follow `data.preview.argv`,
-   inspect the result, then use `data.publish.argv`. For layouts, read
+   finished uploads return their existing media IDs. A pinned application page
+   holds 24 hours by default so an app that rotates internally and keeps state
+   is not restarted; `--duration-ms` overrides it, and an application page under
+   60 seconds returns an `application_page_short` warning. Follow
+   `data.preview.argv`, inspect the result, then use `data.publish.argv`. For layouts, read
    [playlists](references/playlists.md).
 3. Publish a new playlist with `screen publish SCREEN_ID FILE`. It assigns the
    playlist and waits, up to two minutes by default, until the Player shows it.

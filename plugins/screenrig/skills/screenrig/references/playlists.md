@@ -134,10 +134,15 @@ instead of uploading again. There is nothing to reconcile by hand.
 
 Each input becomes one full-screen page with a black background and a 200 ms
 crossfade. Images and videos use `--fit contain|cover|fill` (default `contain`).
-Videos are muted, do not loop, and advance on completion. Other pages use
+Videos are muted, do not loop, and advance on completion. Image and iframe pages use
 `--duration-ms` (default 8000). Applications and iframes use `fill`; application
-releases are pinned with timed advancement and no controller privileges. Edit the
-document for application-controlled advancement. The static preview represents
+releases are pinned with timed advancement and no controller privileges, and hold
+86400000 ms (24 hours, the longest `after_ms`) unless `--duration-ms` is given, so
+an app that rotates internally and keeps state is not restarted by the page timer.
+An explicit `--duration-ms` applies to every non-video page, and an application page
+under 60 seconds returns an `application_page_short` warning from `playlist init`,
+`validate`, `preview` and `screen publish`. Edit the document for
+application-controlled advancement. The static preview represents
 applications and iframes with placeholders; verify release readiness, embedding,
 and actual playback through the server and intended Player.
 
@@ -149,7 +154,7 @@ Inspect the preview before publishing. Add `--expect-rev` explicitly to guard ag
 
 To override the canvas, supply both `--target-width` and `--target-height`. These
 also work without a screen, in which case no publish arguments are returned.
-Unknown or multiple reported surfaces require explicit dimensions. Output files are exclusive by default; use `--overwrite` to replace an existing authoring file atomically. An empty file does not count as existing. Parent directories are created automatically. URL and release-ID inputs with explicit dimensions work without login.
+Unknown or multiple reported surfaces require explicit dimensions. Output files are exclusive by default: a non-empty existing `--output` fails with `usage_error` (exit 2) and stays untouched, so choose a new path or use `--overwrite` to replace it atomically. An empty file does not count as existing. Confirm init exited 0 and that `data.release_ids` and `data.media_ids` match the intended inputs before `screen publish`. Parent directories are created automatically. URL and release-ID inputs with explicit dimensions work without login.
 
 `screen publish <screen-id> <file>` creates a new playlist, assigns it with an optional **screen** revision guard, reads back the assignment, and waits for the Player to show it. It does not update an
 existing playlist by name. Display names may repeat; use the playlist ID for an explicit `playlist update`.

@@ -101,9 +101,9 @@ name leaves the revision unchanged.
 
 ### 2. Write the application primitive
 
-For a timed full-screen application page, pass its `rel_` ID to `playlist init`;
+For a full-screen application page, pass its `rel_` ID to `playlist init`;
 see [preparation](playlists.md#prepare-publish-and-edit-playlists). That default has
-no controller privileges. For application-controlled advancement, author this
+no controller privileges and holds the page for 24 hours. For application-controlled advancement, author this
 page fragment instead:
 
 ```json
@@ -137,10 +137,12 @@ page fragment instead:
 ### 3. Choose how the page advances
 
 Use `duration` when the app never signals that it is finished, and omit
-`controller` from its primitive:
+`controller` from its primitive. An app that rotates internally and keeps state
+needs a long hold, since every advance restarts it; `playlist init` writes
+`86400000` (24 hours) and warns below 60 seconds:
 
 ```json
-{ "mode": "duration", "after_ms": 15000 }
+{ "mode": "duration", "after_ms": 86400000 }
 ```
 
 Use `application` when the app calls `window.screenrig.nextPage()`:
