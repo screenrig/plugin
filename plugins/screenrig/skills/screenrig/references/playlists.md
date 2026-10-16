@@ -12,51 +12,68 @@ screenrig cards list --category information
 screenrig cards show menu
 ```
 
-`cards show` returns static and dynamic property schemas with types, defaults,
-limits and required flags, supported views, the feed and an example placement.
-Copy `example` into a page's `primitives`; replace sample content and set `rect`
-and `layer` for the target screen. Choose a schema-listed `params.theme` and
+`cards list` and `cards show` discover catalogue types. `cards show` returns
+static and dynamic property schemas with types, defaults, limits and required
+flags, supported views, the feed and an example placement. Prepare a static
+params JSON object matching its schema, then create an instance:
+
+```sh
+screenrig card create --type menu --file params.json
+screenrig card list
+screenrig card show crd_CARD
+```
+
+Use the returned global `crd_` ID in a page's `primitives`, with `rect` and
+`layer` for the target screen. Create selects the current major unless
+`--major N` pins another. Choose a schema-listed `params.theme` and
 supported `params.view`: `canvas` uses the card's area; `corner` and `chip` are
 overlays above other content. Use `content_fit: "fill"`; cards accept `enter`
-and no `motion`. Omitting `major` selects and pins the current major on publish.
+and no `motion`.
 
 ```json
 {
-  "id": "menu", "primitive": "card", "card": "menu", "major": 1,
-  "params": { "theme": "neomustard", "title": "Bistro" },
-  "data": "menu-main",
+  "id": "menu", "primitive": "card", "card": "crd_CARD",
   "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
   "layer": 0, "content_fit": "fill"
 }
 ```
 
-With a data key, `params` holds only static properties; put the dynamic
-properties in a JSON object matching `data_schema`, without a `document`
-wrapper. Without a key, `params` holds the whole configuration.
+Static params belong to the instance. Put dynamic properties in a JSON object
+matching `data_schema`, without a `document` wrapper:
 
 ```sh
-screenrig card-data put menu-main --file menu-data.json
+screenrig card data put crd_CARD --file menu-data.json
 screenrig playlist create lobby.json
 screenrig screen assign scr_LOBBY --playlist-id pl_LOBBY
-screenrig card-data get menu-main
-screenrig card-data put menu-main --file menu-data.json --expect-rev 3
-screenrig card-data list
-screenrig card-data delete menu-main --expect-rev 4
+screenrig card data get crd_CARD
+screenrig card data put crd_CARD --file menu-data.json --expect-rev 3
+screenrig card params crd_CARD --file params.json
+screenrig card show crd_CARD
 ```
 
 Prepare a complete playlist containing the placement before `playlist create`.
-`screen publish` and `playlist update` use the same JSON path. Writes check
-current-major params before upload; the server validates bindings and images.
-Stage an unbound data key before publishing, or write it afterwards: a missing
-document hides the bound card until it is written. Data changes notify screens
-without republishing. Documents are project-scoped objects of at most 1 MiB;
-keys cannot start with `feed:`. `--file -` reads stdin. Read the revision and
-guard updates/deletes with `--expect-rev` (If-Match). On `revision_conflict`,
+`screen publish` and `playlist update` use the same JSON path. Publication
+resolves the instance and snapshots its static params; after `card params`,
+republish the playlist to show those changes. The server validates params,
+dynamic data and images against the pinned type. Data changes notify screens
+without republishing. JSON inputs are objects of at most 1 MiB; `--file -`
+reads stdin. Read the data revision and guard updates with `--expect-rev`
+(If-Match). On `revision_conflict`,
 read and reconcile; on an ambiguous transport failure, rerun the identical
-write with its saved idempotency key. `card_data_invalid` names the bound card
-and property to correct. Deleting hides bound cards until data is written again.
+create or data write with its saved idempotency key. `card_data_invalid` names
+the card and property to correct. Remove a card from every playlist before
+`card delete crd_CARD`; deletion refuses an instance still in use.
 Card images use `media:<id>` references to ready project images; dynamic data
 requires approved images. Do not supply image URLs.
+
+Existing inline placements (`card` as a catalogue type, `major`, `params`,
+optional named `data` key) and name-keyed `card-data` commands remain compatible
+and return migration warnings. Prefer instance IDs for new placements.
+For an existing key, use `card-data get KEY`, `card-data put KEY --file FILE
+[--expect-rev N]`, `card-data list`, or `card-data delete KEY --expect-rev N`.
+Keys cannot start with `feed:`; deletion hides bound cards until data is written
+again. A placement with a data key keeps only static params; one without a key
+also carries its dynamic properties in params.
 
 screenRIG fetches and caches third-party feeds. Never call weather, air quality,
 alerts, exchange-rate, crypto, earthquake or headline providers from the agent.

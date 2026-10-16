@@ -172,9 +172,15 @@ credentials, or copy a token into instructions or the plugin directory.
 
 If no connection exists, follow first run below. If authorization is rejected,
 report that and use the documented reconnect flow; do not silently enroll a
-replacement project. Switch projects only when the user requests it, using
-`screenrig project use ID`, then verify `agent status` again. Do not infer a
-switch from an email address, another tool's visible data, or a browser login.
+replacement project. Switch projects only when the user requests it. Read
+`screenrig project list`; `in_token` shows which memberships the current sign-in
+carries. If needed, use `screenrig project token --projects ID,ID` to replace
+that subset with the intended consented projects (up to 64), then
+`screenrig project use ID` and verify `agent status`. Discovery grants no access.
+`--project-id ID` selects creates, lists and local names for one call; object
+requests use their global IDs. On `project_required`, select explicitly and retry.
+Do not infer a switch from an email address, another tool's visible data, or a
+browser login. Details are in [projects](references/commands.md#projects-and-organizations).
 
 ## Interactive cards and account authorization
 
@@ -337,13 +343,16 @@ project to Manage. See [sign-in behavior](references/commands.md#sign-in-to-an-e
 
 Projects are coarse containers. Keep work in the current project unless the
 user asks for a separate one. `project list` shows accessible projects grouped
-by organization; `project use ID` selects the last-used project. `--project-id ID`
-targets a cached project for one command without changing that selection.
+by organization and their `in_token` state. Use `project token --projects ID,ID`
+when the intended consented projects are outside the current subset, then
+`project use ID` selects one. `--project-id ID` selects creates, lists and local
+names for one call; object requests use their global IDs.
 Use the organization and project named in each result, and keep retries on the
 same target; a concurrent switch does not redirect a running command.
 
 `project create NAME` adds a project owned by the responsible person to the
 current, else an administered, organization, which takes any number of them.
+It selects the new project; request its subset with `project token --projects ID`.
 `--organization-id ID` or `--organization NAME` picks another. Each person has
 one free organization: on `free_organization_limit` add the project to it
 (`organization list`); a second needs Premium or Enterprise (sales@screenrig.ai).
@@ -534,9 +543,10 @@ Keep the H.264 default for mixed or unverified fleets: each upload has one
 rendition. See [video codec selection](references/media.md) before uploading.
 
 Use built-in cards for drop-in live details and custom applications for complex
-interactions. Run `cards list` and `cards show ID` to choose a card, view and
-theme. Copy its example into playlist JSON; bind a `data` key and use
-`card-data put KEY --file FILE` for dynamic properties without republishing.
+interactions. Run `cards list` and `cards show ID` to choose a type, view and
+theme, then `card create --type ID --file params.json` for its static params.
+Place its returned `crd_` ID in playlist JSON and use
+`card data put crd_ID --file data.json` for dynamic properties without republishing.
 Choose `canvas` for the card's area, or supported `corner` and `chip` views for
 overlays. For weather, rates and other third-party data, rely on screenRIG's
 cached feeds; never call those providers from the agent. See

@@ -54,6 +54,7 @@ requested.
 ```sh
 screenrig project list
 screenrig project use ID
+screenrig project token --projects prj_PROJECT,prj_OTHER
 screenrig project create NAME [--organization-id ID | --organization NAME]
 screenrig project show
 screenrig project capabilities
@@ -67,10 +68,20 @@ screenrig organization list
 screenrig organization rename ID NAME
 ```
 
-List verifies this identity's accessible memberships without selecting one.
-`project use ID` makes ID the last-used (selected) project. `--project-id ID`
-targets one command without changing that selection; credentials and retries
-remain separate by project. Every result identifies its organization and project. Project names are unique in
+List discovers live memberships without selecting one; `in_token` reports
+whether the current access token carries each project. Discovery grants no access.
+`project token --projects ID,ID` replaces the current subset with 1–64 distinct
+consented projects; it never adds consent. After a lost response, retry the
+identical command to reuse its saved rotation request. `project use ID` selects
+a project carried by that token; `project_not_in_token` requires the subset step
+first. The CLI stores one current access token and rotating sign-in, with retry
+state separate by project.
+
+`--project-id ID` selects creates, streams, local names and list narrowing for
+one command without changing the saved selection. Object requests use their
+global IDs, so selection does not redirect an object into another project.
+On `project_required`, select with `project use ID` or `--project-id ID` and retry.
+Results include organization and project context. Project names are unique in
 an organization; organization names can repeat.
 
 `organization list` marks `free`, `plan_required` (new screens get
@@ -82,9 +93,9 @@ Creation defaults to the current, then an administered, organization (a
 verified-domain one overrides both) and makes the responsible person owner.
 Organizations hold any number of projects; each person has one free one,
 and another is refused with `free_organization_limit`.
-A successful create selects the new project and privately stores its
-membership credential. After an ambiguous failure, rerun the identical command
-to reuse its saved request.
+A successful create selects the new project and adds it to this sign-in;
+request its subset with `project token --projects ID`. After an ambiguous
+failure, rerun the identical create command to reuse its saved request.
 
 Moves and ownership transfers require the owner. Choose a destination from
 `project moves`; it carries the project's screens and checks the destination
@@ -184,8 +195,9 @@ with no prompt.
 ### Service clients
 
 A service client is a server, script or CI job owned by the project, with its
-own key or secret. Manage them only when the user asks; it needs the `project`
-capability and Manage.
+own key or secret. Manage them only when the user asks. Changes require identity
+scope and a live organization admin role; reads require a project grant.
+A service client cannot manage service clients.
 
 ```sh
 screenrig service-client create --name NAME [--capability NAME]... [--access read|propose|manage] [--key-file PATH] [--secret-file PATH]
@@ -208,6 +220,7 @@ organization list
 organization rename ID NAME
 project list
 project use ID
+project token --projects ID[,ID]
 project create NAME [--organization-id ID | --organization NAME]
 project show
 project capabilities
@@ -322,6 +335,13 @@ kv delete --app-id ID <key> [--expect-rev REVISION]
 kv list --app-id ID
 cards list [--tag TAG] [--category CATEGORY]
 cards show <id>
+card create --type ID --file FILE [--major N]
+card list
+card show <id>
+card params <id> --file FILE
+card delete <id>
+card data get <id>
+card data put <id> --file FILE [--expect-rev REVISION]
 card-data list
 card-data get <key>
 card-data put <key> --file FILE [--expect-rev REVISION]
