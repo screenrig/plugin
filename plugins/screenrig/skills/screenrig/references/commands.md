@@ -173,13 +173,13 @@ holds no secret. Send the address and code only to the person who approves.
 They sign in to the dashboard with their own login and see one screen with the
 code, project, Read only, Propose or Manage, and the capabilities; they check
 the code against the one you sent and press Connect once. A dashboard sign-in
-from the last day is the proof, so there is no second passkey prompt; an older
+from the last hour is the proof, so there is no second passkey prompt; an older
 sign-in asks for a passkey on Connect. The CLI never receives their credential.
 Send the link (it carries the code) and say the code in the same message. `login --resume ID` waits for approval, stores the
 session, selects the approved project and returns `data.status: signed_in`
 with `project`, `organization` and `access`. Without `--no-wait`, `login`
 prints the address and code to stderr and waits. Denial is `login_denied`;
-expiry after 10 minutes is `login_expired`.
+expiry after 24 hours is `login_expired`.
 
 Read only lists and reads; a change, publish or purchase returns 403
 `insufficient_access`, and its requests are billed like any agent request.
