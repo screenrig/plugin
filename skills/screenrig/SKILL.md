@@ -326,8 +326,12 @@ screenrig login --no-wait [--project ID] [--access read|propose|manage]
 
 The pending result carries `data.verification_uri_complete`, `data.user_code`
 and a `login_` handle in `data.next.argv`. Send the address and code privately
-to that person: they open it, check that the code matches, choose the project,
-the access level and the capabilities, and approve. Then run
+to that person, with the link as the address (it carries the code) and the
+code beside it in the message. The link opens one screen: they check that its
+code matches the one you sent, adjust the project, access level or capabilities
+if they want, and press Connect once, with no second passkey prompt (their
+dashboard sign-in from the last day is the proof; a sign-in older than that
+asks for a passkey on Connect). The dashboard then opens the new agent. Then run
 `screenrig login --resume ID`, which waits until approval, and require
 `data.status: signed_in`. The code lasts 10 minutes; on `login_expired` start
 again. Name the three levels in the hand-off: Read only lists and reads;

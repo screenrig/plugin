@@ -170,9 +170,12 @@ screenrig logout
 `--no-wait` returns `data.status: pending` with `verification_uri_complete`,
 `user_code`, `expires_at` and a `login_` handle in `data.next.argv`; the handle
 holds no secret. Send the address and code only to the person who approves.
-They sign in to the dashboard with their own login, check the code, choose the
-project, Read only, Propose or Manage, and the capabilities, and approve; the CLI never
-receives their credential. `login --resume ID` waits for approval, stores the
+They sign in to the dashboard with their own login and see one screen with the
+code, project, Read only, Propose or Manage, and the capabilities; they check
+the code against the one you sent and press Connect once. A dashboard sign-in
+from the last day is the proof, so there is no second passkey prompt; an older
+sign-in asks for a passkey on Connect. The CLI never receives their credential.
+Send the link (it carries the code) and say the code in the same message. `login --resume ID` waits for approval, stores the
 session, selects the approved project and returns `data.status: signed_in`
 with `project`, `organization` and `access`. Without `--no-wait`, `login`
 prints the address and code to stderr and waits. Denial is `login_denied`;
