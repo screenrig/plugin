@@ -219,9 +219,10 @@ If login needs a terminal, use a persistent interactive terminal/PTY and retain
 it while the user approves. Give manual sign-in instructions only when no
 supported agent-triggered path is available, using that host's actual controls.
 
-The requested `access:manage` scope is required to capture a fresh screenshot:
-that sends a command to the Player. It also permits other writes within the
-approved capabilities; it is not screenshot-only permission. Continue using
+A fresh screenshot sends a command to the Player, so it needs Propose or
+Manage access and the `screens` capability. The requested `access:manage` scope
+also permits other writes within the approved capabilities; it is not
+screenshot-only permission. Continue using
 the CLI for pairing and content changes. If the user chooses read-only consent,
 show saved previews and explain that fresh capture is unavailable. An existing
 read-only OAuth grant needs the user's renewed consent before capture can work;
