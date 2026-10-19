@@ -14,8 +14,9 @@ screenrig cards show menu
 
 `cards list` and `cards show` discover catalogue types. `cards show` returns
 static and dynamic property schemas with types, defaults, limits and required
-flags, supported views, the feed and an example placement. Prepare a static
-params JSON object matching its schema, then create an instance:
+flags, the card's `tier`, its supported `layouts`, its feed and an example of
+a card in a playlist page. Prepare a static params JSON object matching its
+schema, then create an instance:
 
 ```sh
 screenrig card create --type menu --file params.json
@@ -23,20 +24,63 @@ screenrig card list
 screenrig card show crd_CARD
 ```
 
-Use the returned global `crd_` ID in a page's `primitives`, with `rect` and
-`layer` for the target screen. Create selects the current major unless
-`--major N` pins another. Choose a schema-listed `params.theme` and
-supported `params.view`: `canvas` uses the card's area; `corner` and `chip` are
-overlays above other content. Use `content_fit: "fill"`; cards accept `enter`
-and no `motion`.
+Use the returned global `crd_` ID in a page's `primitives`. Carry `layout`
+(required) and `anchor` on the card item. Omit `rect` and `layer` for every
+layout except `free`; the server derives them from the page canvas. Send
+nothing, or send exactly the derived values. Create selects the current major
+unless `--major N` pins another. Choose a schema-listed `params.theme`. Set
+`content_fit: "fill"`. Cards accept `enter` and no `motion`. Compose a page
+with one `center` or `full` card, plus optional `corner`, `chip` and `strip`
+cards.
+
+| Layout | Size | Anchor |
+|---|---|---|
+| `full` | whole canvas | none |
+| `free` | own `rect` and `layer` | none |
+| `center` | 900 x 420, centred | none |
+| `corner` | 270 x 270, flush to the corner | `top-left`, `top-right`, `bottom-left`, `bottom-right` |
+| `chip` | 240 x 70, inset 30 | `top-left`, `top-right`, `bottom-left`, `bottom-right` |
+| `strip` | whole edge by 120 | `top`, `bottom`, `left`, `right` |
+
+Sizes use 1080p design units and scale by min(canvas width, canvas
+height)/1080, so 4K and portrait canvases keep the same apparent size. A
+`core` card takes all six layouts. A `fullscreen` card takes `full` only and
+suits a full landscape or portrait screen. A `stinger` takes none. A page
+holds at most one `full` or `center` card, at most one `corner` or `chip` card
+per corner, and at most one `strip` per edge, plus one presence card sharing
+that edge. Images, videos and web items carry no limit, and any number of
+`free` cards share a page. A `corner` or `chip` on an edge holding a `strip`
+moves inward past the `strip`. A left or right `strip` is the band on that
+edge; the Player turns the card 90 degrees, left counter-clockwise and right
+clockwise, so the item needs nothing extra.
+
+A `center` card in a playlist page:
 
 ```json
 {
   "id": "menu", "primitive": "card", "card": "crd_CARD",
-  "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
-  "layer": 0, "content_fit": "fill"
+  "layout": "center", "content_fit": "fill"
 }
 ```
+
+A `corner` card adds an anchor:
+
+```json
+{
+  "id": "clock", "primitive": "card", "card": "crd_CLOCK",
+  "layout": "corner", "anchor": "top-right", "content_fit": "fill"
+}
+```
+
+Presence cards, such as an alerts bar or a "lightning nearby" chip, appear
+only while their condition holds and draw nothing otherwise; a presence
+`strip` replaces the normal `strip` on its edge while present.
+`card_layout_invalid` (400) signals a missing or unknown `layout`, a missing,
+unknown or unwanted `anchor`, a layout the card's tier does not take, or a
+`rect` or `layer` other than the derived one. `card_layout_conflict` (400)
+signals two cards claiming one place on a page; `errors[0].field` names the
+member. `playlist create`, `playlist update` and `screen publish` also check
+the layout against the card's `layouts` before uploading.
 
 Static params belong to the instance. Put dynamic properties in a JSON object
 matching `data_schema`, without a `document` wrapper:
@@ -255,7 +299,7 @@ size can differ from the pixel dimensions of media rendered from a compose deck.
 A full playlist page is `id`, `canvas`, `transition`, `advance`, optional `visibility`,
 optional `audio_cue`, and `primitives`. A primitive is flat: `id`, a `primitive` field naming
 a supported kind, that primitive's own fields, then `rect`, `layer`, `content_fit`,
-optional `enter`, and optional `motion`. There is no nested content object.
+optional `enter`, and optional `motion`. There is no nested content object. A card item carries `layout` and, for corner, chip and strip, `anchor`; it omits `rect` and `layer` unless its layout is `free`.
 
 Keep the authored playlist JSON as the source of truth. To obtain one from an
 existing playlist, use `playlist show ID --output FILE`; the returned envelope

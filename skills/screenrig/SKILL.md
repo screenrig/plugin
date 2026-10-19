@@ -553,14 +553,23 @@ fleet with `--codec hevc`; H.264 suits 1080p, and Raspberry Pi 4 plays 1080p.
 Keep the H.264 default for mixed or unverified fleets: each upload has one
 rendition. See [video codec selection](references/media.md) before uploading.
 
-Use built-in cards for drop-in live details and custom applications for complex
-interactions. Run `cards list` and `cards show ID` to choose a type, view and
-theme, then `card create --type ID --file params.json` for its static params.
-Place its returned `crd_` ID in playlist JSON and use
-`card data put crd_ID --file data.json` for dynamic properties without republishing.
-Choose `canvas` for the card's area, or supported `corner` and `chip` views for
-overlays. For weather, rates and other third-party data, rely on screenRIG's
-cached feeds; never call those providers from the agent. See
+Use built-in cards for drop-in live details. Use custom applications for
+complex interactions. Run `cards list` and `cards show ID` to choose a type, read
+its tier and supported layouts, and pick a schema-listed theme. Run
+`card create --type ID --file params.json` to create an instance from its
+static params. Put the returned `crd_` ID in a card item on a playlist page. Run
+`card data put crd_ID --file data.json` to set dynamic properties without
+republishing.
+
+Place each card with `layout` (`full`, `center`, `corner`, `chip`, `strip` or
+`free`) and, for `corner`, `chip` and `strip`, an `anchor`. Compose a page with
+one `center` or `full` card, plus optional `corner`, `chip` and `strip` cards;
+omit `rect` and `layer` except for `free`. A `fullscreen` card is for a full
+landscape or portrait screen and takes `full` only. Presence cards, such as an
+alerts bar or a chip, appear only while their condition holds.
+
+For weather, rates and other third-party data, use screenRIG's cached feeds.
+Never call those providers from the agent. See
 [cards and feeds](references/playlists.md#built-in-cards-and-feeds).
 
 ## Signage branch: publish and verify
