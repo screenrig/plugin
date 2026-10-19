@@ -511,7 +511,7 @@ class CalVerTests(unittest.TestCase):
         files = json.loads((ROOT / "release-version-files.json").read_text())
         self.assertEqual(len(files), len(set(files)))
         candidates = [ROOT / ".claude-plugin" / "marketplace.json", ROOT / ".agents" / "plugins" / "marketplace.json"]
-        candidates += list((ROOT / "plugins" / "screenrig").rglob("plugin.json"))
+        candidates += list((ROOT / "plugins" / "screenrig").rglob("*plugin.json"))
         candidates += [ROOT / "plugins" / "screenrig" / "cli" / "package.json"]
         for path in candidates:
             versioned = bool(re.search(r'"version"\s*:', path.read_text()))
@@ -527,6 +527,7 @@ class CalVerTests(unittest.TestCase):
             marketplace = tmp / "marketplace.json"
             write_json(plugin_root / "cli" / "package.json", {"name": "screenrig", "version": "26.09.6"})
             write_json(plugin_root / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
+            write_json(plugin_root / "openclaw.plugin.json", {"id": "screenrig", "version": "26.09.6"})
             for platform in ("claude", "codex"):
                 write_json(plugin_root / f".{platform}-plugin" / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
             write_json(marketplace, {"name": "screenrig", "plugins": [{"name": "screenrig", "version": "26.09.6"}]})
@@ -538,7 +539,8 @@ class CalVerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr.strip())
             self.assertEqual(json.loads(marketplace.read_text())["plugins"][0]["version"], "26.09.7")
             for path in (plugin_root / "cli" / "package.json", plugin_root / ".claude-plugin" / "plugin.json",
-                         plugin_root / ".codex-plugin" / "plugin.json", plugin_root / "plugin.json"):
+                         plugin_root / ".codex-plugin" / "plugin.json", plugin_root / "plugin.json",
+                         plugin_root / "openclaw.plugin.json"):
                 self.assertEqual(json.loads(path.read_text())["version"], "26.09.7", path.name)
 
 
@@ -923,7 +925,14 @@ class MCPConnectionTests(unittest.TestCase):
                 self.assertEqual(int.from_bytes(data[20:24], "big"), 512)
             mcp = json.loads((root / "mcp.json").read_text())["mcpServers"]["screenrig-views"]
             codex = json.loads((root / ".codex-plugin/mcp.json").read_text())["mcpServers"]["screenrig-views"]
+            openclaw = json.loads((root / "openclaw.plugin.json").read_text())
             self.assertEqual(mcp["url"], codex["url"])
+            self.assertEqual(openclaw["version"], portable["version"])
+            self.assertEqual(openclaw["skills"], ["./skills/screenrig", "./skills/screenrig-dashboard"])
+            self.assertEqual(openclaw["mcpServers"]["screenrig-views"], {
+                "url": mcp["url"], "transport": "streamable-http", "auth": "oauth",
+                "oauth": {"scope": "access:manage screens content playlists reports"},
+            })
             self.assertEqual(mcp["type"], "streamable-http")
             auth = mcp["extensions"]["com.openai"]["auth"]
             self.assertEqual(auth, {"type": "oauth", "client": {"mode": "cimd"}, "baseScopes": codex["scopes"]})

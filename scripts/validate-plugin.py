@@ -23,9 +23,9 @@ PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 # Every marketplace install clones this repository and copies plugins/screenrig,
 # so both have a budget. Raising one is the operator's decision, not a fix.
-BUDGET_REPO_FILES = 110
+BUDGET_REPO_FILES = 111
 BUDGET_REPO_BYTES = 5_000_000
-BUDGET_PLUGIN_FILES = 52
+BUDGET_PLUGIN_FILES = 53
 BUDGET_PLUGIN_BYTES = 3_000_000
 BUDGET_FILE_BYTES = 1_572_864
 _spec = importlib.util.spec_from_file_location("build_plugin", ROOT / "scripts" / "build-plugin.py")
@@ -150,6 +150,7 @@ def check_package() -> None:
         PLUGIN / "skills" / "screenrig" / "scripts" / "screenrig",
         PLUGIN / "cli" / "dist" / "bin.js",
         PLUGIN / "cli" / "package.json",
+        PLUGIN / "openclaw.plugin.json",
         PLUGIN / "LICENSE",
         PLUGIN / "README.md",
         PLUGIN / "SECURITY.md",
@@ -347,7 +348,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             wanted = load(expected / relative)["mcpServers"]
             if actual != wanted:
                 errors.append(f"{relative}: expected public remote MCP with host-managed OAuth only")
-        for relative in (".codex-plugin/mcp.json", "mcp.json", "plugin.json"):
+        for relative in (".codex-plugin/mcp.json", "mcp.json", "plugin.json", "openclaw.plugin.json"):
             if load(PLUGIN / relative) != load(expected / relative):
                 errors.append(f"{relative}: expected generated metadata and public remote MCP with host-managed OAuth only")
     for path in PLUGIN.rglob("*"):

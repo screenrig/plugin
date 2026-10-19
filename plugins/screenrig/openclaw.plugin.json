@@ -1,0 +1,25 @@
+{
+  "id": "screenrig",
+  "name": "screenRIG",
+  "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
+  "version": "26.10.624",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "skills": [
+    "./skills/screenrig",
+    "./skills/screenrig-dashboard"
+  ],
+  "mcpServers": {
+    "screenrig-views": {
+      "url": "https://api.screenrig.ai/mcp",
+      "transport": "streamable-http",
+      "auth": "oauth",
+      "oauth": {
+        "scope": "access:manage screens content playlists reports"
+      }
+    }
+  }
+}

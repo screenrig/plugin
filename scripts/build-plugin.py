@@ -459,6 +459,20 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
         }},
     }
     (plugin_root / "mcp.json").write_text(json.dumps(portable_mcp, indent=2) + "\n", encoding="utf-8")
+    openclaw = {
+        "id": PLUGIN_NAME,
+        "name": "screenRIG",
+        "description": metadata["description"],
+        "version": release_version,
+        "configSchema": {"type": "object", "additionalProperties": False, "properties": {}},
+        "skills": ["./skills/screenrig", "./skills/screenrig-dashboard"],
+        "mcpServers": {"screenrig-views": {
+            "url": remote["url"], "transport": "streamable-http",
+            "auth": "oauth", "oauth": {"scope": " ".join(scopes)},
+        }},
+    }
+    (plugin_root / "openclaw.plugin.json").write_text(
+        json.dumps(openclaw, indent=2) + "\n", encoding="utf-8")
     for platform, manifest in (("claude", claude), ("codex", codex)):
         destination = plugin_root / f".{platform}-plugin" / "plugin.json"
         destination.parent.mkdir(parents=True, exist_ok=True)

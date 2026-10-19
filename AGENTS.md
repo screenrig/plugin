@@ -27,7 +27,7 @@ byte in the repository counts, not only those in `plugins/screenrig`.
   full validation.
 - When the counts change, put the before and after numbers in the commit
   message.
-- The budget is 110 repository files and 5,000,000 bytes, 52 plugin files and
+- The budget is 111 repository files and 5,000,000 bytes, 53 plugin files and
   3,000,000 bytes, and no plugin file over 1.5 MiB (raised from 1 MiB by the operator on 2026-10-16). Raising it again is the operator's
   decision, not a fix.
 
