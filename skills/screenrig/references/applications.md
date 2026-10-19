@@ -166,9 +166,10 @@ preview that is supposed to rotate regardless of input.
 
 `controller` is legal only on an `application` primitive whose page uses
 `advance.mode: "application"`. In that mode exactly one application primitive
-must carry `controller: true`. Do not set `controller` on a `duration` or
-`media_end` page, and never set it on an `iframe`. `media_end` also forbids
-`application` and `iframe` primitives on that page.
+must carry `controller: true`. Do not set `controller` on a `duration`,
+`media_end` or `audio_end` page, and never set it on an `iframe`. `media_end`
+also forbids `application` and `iframe` primitives on that page; an
+`audio_end` page may hold an application, which never controls the advance.
 
 ### 4. Create the playlist and assign it to a screen
 

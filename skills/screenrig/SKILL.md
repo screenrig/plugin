@@ -580,8 +580,11 @@ Image and video use media selectors; stream, iframe, application and card do not
 Streams require an uploaded image fallback and a duration-based page. Apple TV
 cannot display iframe or application content. Text and
 shapes belong in prepared content, not additional native playlist primitives.
-Audio is not a primitive: a playlist-level soundtrack of uploaded MP3 tracks
-plays continuously while pages change, and pages may carry an `audio_cue` hint.
+Audio is not a primitive: a playlist-level soundtrack of up to 128 uploaded MP3
+tracks plays continuously while pages change, and pages may carry an `audio_cue`
+hint. A page with `advance.mode` `audio_end` lasts exactly as long as its cued
+track, and `audio.cued: true` plays a track only when a page cues it (see
+[playlists](references/playlists.md#bind-a-page-to-a-track)).
 Canvas video stays muted, so the soundtrack is the only sound on the screen.
 
 1. Prepare and inspect the content at the intended size. Generation stores its

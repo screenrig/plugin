@@ -339,15 +339,24 @@ a persistent cursor. With `false` on a `media_end` page, every matched item
 plays before the page advances. Random order shuffles once per complete pass;
 refreshing the snapshot preserves the unplayed queue, skips removed items,
 and adds new items on the next pass. Offline playback uses the last snapshot.
-Dynamic selectors on duration or application pages require `one_at_a_time: true`.
+Dynamic selectors on duration, application or `audio_end` pages require `one_at_a_time: true`.
 
 `media_end` is valid only on a page with exactly one image or video primitive.
 Video `loop` must be false. An image on `media_end` requires `dwell_ms`.
-`dwell_ms` is rejected on duration and application pages. A video plus a
-lower-third image is two primitives: that page must use `advance.mode`
-`duration`, not `media_end`. Set `after_ms` longer than the clip, or set
-`loop: true`. If `after_ms` equals the clip length, the page cuts when the
-film ends.
+`dwell_ms` is rejected on duration, application and `audio_end` pages. A video
+plus a lower-third image is two primitives, so that page cannot use
+`media_end`. Time it with `advance.mode` `duration`: set `after_ms` longer than
+the clip, or set `loop: true`. If `after_ms` equals the clip length, the page
+cuts when the film ends. When a soundtrack track times the page instead, use
+`audio_end`: its image and video primitives follow the duration rules (no
+`dwell_ms`, `one_at_a_time: true` on dynamic selectors), so a video plus an
+overlay works. A `stream` primitive still needs a `duration` page, and an
+application on an `audio_end` page is never its controller.
+
+`audio_end` ends a page when the soundtrack track its `audio_cue` names ends.
+Use it for a page that lasts exactly as long as a track, such as an album or a
+book with one page per track. See
+[Bind a page to a track](#bind-a-page-to-a-track).
 
 Default `transition` is `{ "type": "crossfade", "duration_ms": 200 }`. Use
 swipe types, object `enter`, and object `motion` sparingly.
@@ -433,7 +442,8 @@ not this two-layer shape.
 ```
 
 Video plus a lower-third image uses the same two-layer shape with
-`advance.mode` `duration`. Do not use `media_end` there.
+`advance.mode` `duration`, or `audio_end` when a soundtrack track times the
+page. Do not use `media_end` there.
 
 ### Page motion
 
@@ -581,12 +591,15 @@ soundtrack track instead of a page.
 }
 ```
 
-- `tracks`: 1 to 32 entries in play order. Track `id` is unique within the
+- `tracks`: 1 to 128 entries in play order. Track `id` is unique within the
   playlist; `media_id` must be a ready `audio` object. The same media may
-  appear under two ids.
+  appear under two ids. A longer list is refused with the limit and the count.
 - `loop` (default `true`) starts again at the first track after the last;
   `false` stops after the last track.
 - `volume` (default `1`) is 0 to 1 and multiplies the Player's own volume.
+- `cued` (default `false`): `true` makes a cued soundtrack, which plays a track
+  only when a page `audio_cue` starts it. See
+  [Bind a page to a track](#bind-a-page-to-a-track).
 - A page `audio_cue` is a hint. When the page becomes current, the Player
   switches to the named track from its start unless it is already playing;
   `restart: true` restarts it even then. The sequence continues from that
@@ -597,6 +610,100 @@ soundtrack track instead of a page.
   browser running the browser Player should allow autoplay (Chromium
   `--autoplay-policy=no-user-gesture-required`); native Players are not
   affected.
+
+### Bind a page to a track
+
+To make a page last exactly as long as a track, or to tie each page of an
+album or a book to its own track, bind the page to the track.
+
+- `advance: { "mode": "audio_end" }` ends the page when the track its
+  `audio_cue` names ends, the way `media_end` ends a page when its video ends.
+  The page must carry an `audio_cue` and the playlist an `audio` soundtrack;
+  otherwise the write is refused. If a Player cannot play the track, the page
+  still lasts the track's length. Image and video
+  primitives follow the `duration` rules: no `dwell_ms`, and `one_at_a_time:
+  true` on every dynamic selector (`all`, `tag`, `folder`, or `ids` with more
+  than one id), even when it matches one object today. Streams still need
+  `duration`. An application may share the page but is never its controller.
+  Send no `after_ms`. `max_ms` is an optional safety hint: the server sets the
+  hard deadline from the track's verified length plus a margin, and
+  `playlist show --output` leaves it out of the document you edit.
+- `audio.cued: true` stops the soundtrack after each track. A track plays only
+  when a page `audio_cue` starts it. It keeps playing under any ordinary pages
+  that follow its page until it ends, and then the soundtrack is silent until
+  the next cue, so a page and its track stay bound. Any number of ordinary
+  pages may sit between bound pages. `loop` has no effect on a cued
+  soundtrack. Without `cued`, the soundtrack moves on to the next track the
+  instant a track ends, so a following page that cues that track
+  (`restart: false`) changes together with it.
+
+A bound page normally cues with `restart: true`, so its track starts with the
+page. A cued album with one page per track and a timed page between songs:
+
+```json
+{
+  "name": "Album",
+  "audio": {
+    "tracks": [
+      { "id": "song1", "media_id": "med_SONG1" },
+      { "id": "song2", "media_id": "med_SONG2" }
+    ],
+    "cued": true
+  },
+  "pages": [
+    {
+      "id": "song1-cover",
+      "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+      "transition": { "type": "crossfade", "duration_ms": 200 },
+      "advance": { "mode": "audio_end" },
+      "audio_cue": { "track": "song1", "restart": true },
+      "primitives": [
+        {
+          "id": "cover",
+          "primitive": "image",
+          "selector": { "by": "id", "media_id": "med_COVER1" },
+          "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "layer": 0,
+          "content_fit": "contain"
+        }
+      ]
+    },
+    {
+      "id": "interlude",
+      "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+      "transition": { "type": "crossfade", "duration_ms": 200 },
+      "advance": { "mode": "duration", "after_ms": 8000 },
+      "primitives": [
+        {
+          "id": "title",
+          "primitive": "image",
+          "selector": { "by": "id", "media_id": "med_TITLE" },
+          "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "layer": 0,
+          "content_fit": "contain"
+        }
+      ]
+    },
+    {
+      "id": "song2-cover",
+      "canvas": { "width": 1920, "height": 1080, "viewport_fit": "contain", "background": "#000000FF" },
+      "transition": { "type": "crossfade", "duration_ms": 200 },
+      "advance": { "mode": "audio_end" },
+      "audio_cue": { "track": "song2", "restart": true },
+      "primitives": [
+        {
+          "id": "cover",
+          "primitive": "image",
+          "selector": { "by": "id", "media_id": "med_COVER2" },
+          "rect": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+          "layer": 0,
+          "content_fit": "contain"
+        }
+      ]
+    }
+  ]
+}
+```
 
 ## Page scheduling with visibility
 
@@ -801,9 +908,11 @@ an error; narrow the filters. `batch_size` is a separate limit of 1–1,024
 items per page visit. On a `media_end` page, `one_at_a_time: false` plays the
 next batch in sequence; omitting `batch_size` plays the remaining pass.
 `one_at_a_time: true` plays one item per appearance and allows only an omitted
-batch size or `batch_size: 1`. Duration and application pages require
-`one_at_a_time: true`. Images on `media_end` also require `dwell_ms`; videos
-cannot loop on that page.
+batch size or `batch_size: 1`. Duration, application and `audio_end` pages
+require `one_at_a_time: true` on every dynamic selector (`all`, `tag`,
+`folder`, or `ids` with more than one id), even when it matches one object
+today. Images on `media_end` also require `dwell_ms`; videos cannot loop on
+that page.
 
 The Player resolves every dynamic media primitive in one request at playlist
 startup and at each loop boundary. Membership is frozen during the loop.
