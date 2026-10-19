@@ -77,8 +77,9 @@ LAUNCHER_ROOT_VARS = ("GROK_PLUGIN_ROOT", "SCREENRIG_PLUGIN_ROOT", "CLAUDE_PLUGI
 
 class LauncherTests(unittest.TestCase):
     def test_node_minimum(self) -> None:
-        node = shutil.which("node")
-        self.assertIsNotNone(node)
+        # A PATH entry may be a version-manager shim that recurses when this
+        # test installs its own `node`. Shebangs need the actual interpreter.
+        node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
         with tempfile.TemporaryDirectory(prefix="screenrig-node-minimum-") as temporary:
             root = Path(temporary)
             launcher = install_copy(LAUNCHER, root / "skills/screenrig/scripts/screenrig")
@@ -106,7 +107,7 @@ class LauncherTests(unittest.TestCase):
                         env=without(LAUNCHER_ROOT_VARS, TEST_NODE_VERSION=version,
                                     PATH=f"{shim.parent}{os.pathsep}{os.environ['PATH']}"),
                     )
-                    self.assertEqual(result.returncode, 0 if accepted else 69)
+                    self.assertEqual(result.returncode, 0 if accepted else 69, result.stderr)
                     self.assertEqual(result.stdout, "bundle\n" if accepted else "")
                     self.assertEqual(result.stderr, "" if accepted else
                                      "ScreenRig requires Node.js 22.11 or newer; upgrade the active node runtime, then retry.\n")
@@ -206,6 +207,7 @@ DEFAULT_MARKETPLACE_URL = "https://raw.githubusercontent.com/screenrig/plugin/ma
 
 class FreshnessTests(unittest.TestCase):
     def test_bootstrap_registration_reuse_and_exact_command(self) -> None:
+        node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
         with tempfile.TemporaryDirectory(prefix="screenrig-bootstrap-") as temporary:
             tmp = Path(temporary)
             root = tmp / "registered plugin"
@@ -242,7 +244,7 @@ process.exitCode=code;
             bin_dir = tmp / "bin"
             bin_dir.mkdir()
             host = bin_dir / "claude"
-            host.write_text("#!"+shutil.which("node")+'\nprocess.stdout.write(process.argv[2] === "inspect" ? JSON.stringify({configSources:{layers:[{path:process.env.TEST_GROK_CONFIG}]}}) : require("fs").readFileSync(process.env.TEST_REGISTRY).toString());\n')
+            host.write_text("#!"+node+'\nprocess.stdout.write(process.argv[2] === "inspect" ? JSON.stringify({configSources:{layers:[{path:process.env.TEST_GROK_CONFIG}]}}) : require("fs").readFileSync(process.env.TEST_REGISTRY).toString());\n')
             host.chmod(0o755)
             for name in ("codex", "grok"):
                 install_copy(host, bin_dir / name)
@@ -327,9 +329,9 @@ process.exitCode=code;
             # An explicitly selected missing host must not borrow another host's root.
             (bin_dir / "codex").unlink()
             isolated = {**environment, "PATH": str(bin_dir), "CLAUDE_PLUGIN_ROOT": str(root)}
-            result = subprocess.run([shutil.which("node"), str(script), "--host", "codex", "--run", "synthetic"],
+            result = subprocess.run([node, str(script), "--host", "codex", "--run", "synthetic"],
                                     env=isolated, text=True, capture_output=True, timeout=30)
-            self.assertEqual(result.returncode, 78)
+            self.assertEqual(result.returncode, 78, result.stderr)
             result = run("--config", str(tmp / "customer-config.json"), "--run", "synthetic", "a value with spaces")
             self.assertEqual(result.returncode, 7)
             self.assertEqual(json.loads(result.stdout)["error"]["code"], "synthetic_exit")
