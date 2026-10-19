@@ -326,6 +326,7 @@ screen toast (<id>... | --tag TAG) --text TEXT [--level info|alert|error] [--dur
 screen screenshot <id> [--output FILE] [--timeout MS] [--poll-ms MS]
 screen screenshot (<id> <id>... | --tag TAG) [--output DIRECTORY] [--concurrency 1-8]
                   [--timeout MS] [--poll-ms MS]
+screen play-page <id> --page-id PAGE_ID
 reviews list [--state pending|decided|all] [--kind playlist_change|screen_change|ad_creative]
              [--limit N] [--cursor CURSOR]
 reviews show <id>
@@ -457,6 +458,11 @@ Operational commands default to JSON envelopes. `--json` remains supported;
 `--human` selects text and conflicts with `--json`. Help and bare command groups
 remain readable by default; use `screenrig --json --help` for structured help.
 `events follow` emits NDJSON. Progress goes to stderr, separately from stdout.
+
+`screen play-page` fails with `page_not_on_screen` when the page is not in the
+playlist the screen plays now, and with `play_page_unsupported` when the Player
+does not support it. Its limit is 20 per minute per screen. It uses no credits
+beyond the normal screen-message rules, as for `screen toast`.
 
 Global flags include `--json`, `--human`, `--project-id ID`, `--api-url URL`, `--config PATH`,
 `--request-id ID`, `--idempotency-key KEY`, and `--timeout MS`.

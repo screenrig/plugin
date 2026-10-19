@@ -71,7 +71,9 @@ facts are already supplied, operate without another confirmation question.
    it untouched: choose a new path or pass `--overwrite`. Before publishing,
    check that init exited 0 and that `data.release_ids` and `data.media_ids`
    match what you intended.
-5. Request `screenrig screen screenshot SCREEN_ID` and inspect that returned
+5. To check a specific page, run
+   `screenrig screen play-page SCREEN_ID --page-id PAGE_ID` first. Request
+   `screenrig screen screenshot SCREEN_ID` and inspect that returned
    Player image before saying the content is showing. A local preview is a
    design check. Ask the user to look at the display too.
 6. When requested, set `screenrig screen set-timezone SCREEN_ID --timezone ZONE`

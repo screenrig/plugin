@@ -13,6 +13,7 @@ screenrig screen unarchive scr_EXAMPLE
 screenrig screen reload scr_EXAMPLE
 screenrig screen toast scr_EXAMPLE --text "Updated lobby loop" --level info
 screenrig screen screenshot scr_EXAMPLE --output ./lobby.webp
+screenrig screen play-page scr_EXAMPLE --page-id page_EXAMPLE
 screenrig screen tag scr_EXAMPLE --set Lobby,Floor2
 screenrig screen list --tag Lobby
 screenrig screen storage-forecast scr_EXAMPLE --playlist-id pl_EXAMPLE
@@ -38,6 +39,19 @@ path is `./<id>.webp`. `--timeout` defaults to 35000 ms and `--poll-ms`
 defaults to 500 ms. There is no `--no-wait`. The returned still is a 960×540
 quarter-resolution WebP: use it for layout proof, not as a full-resolution
 asset or pixel-quality proof. Do not print pixels.
+
+`screen play-page <id> --page-id PAGE_ID` starts that page of the playlist the
+screen is playing now, from its beginning, with the page's own transition. The screen
+then continues its rotation from that page. Run it before `screen screenshot`
+to check one page without waiting for the rotation to reach it. Page ids come
+from `screenrig playlist show PLAYLIST_ID`. The page must be in the playlist
+the screen is playing now: a takeover, else the current schedule entry, else
+the assigned playlist. Otherwise it fails with `page_not_on_screen`, and the
+error names the playlist the screen is playing. A Player without support fails with
+`play_page_unsupported`; update the Player. The request expires after 60
+seconds: a screen offline longer does not act on it later. An ad slot on glass
+finishes first, then the page starts. The limit is 20 per minute per screen. It
+uses no credits beyond the normal screen-message rules, as for `screen toast`.
 
 `screen toast` is the agent mark on a live wall. `--level` is `info`,
 `alert`, or `error`. Omitted `--level` defaults to `info`. The hosted Player shows error toasts; info and alert are diagnostic levels
