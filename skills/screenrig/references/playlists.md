@@ -961,6 +961,11 @@ clocks. `data.rendered_cards` names rendered card versions; `data.placeholders`
 names content that was represented by a box. Application interaction and live
 streams still need Player verification.
 
+Root launches supply Chromium's required `--no-sandbox`; other users retain its
+sandbox. A render failure includes browser console errors and failed-resource
+paths, with credentials and URL query strings removed. Include those diagnostics
+when reporting a failed preview.
+
 Optional `backgroundColor` and `textColor` card params accept `#RRGGBB` or
 `#RRGGBBAA` (CSS alpha order). `backgroundColor: "#382719CC"` makes a translucent
 warm scrim; `#E86A17` makes a solid orange ground. `background: "none"` takes
