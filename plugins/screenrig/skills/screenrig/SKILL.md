@@ -634,7 +634,7 @@ Tell the user where publishing stands as it moves: uploaded and processed
 (`playlist init`), assigned, playing (`screen publish`). A slow upload's
 `data.uploads[].timing` shows which stage took the time.
 
-Native Players cache playlist media within their reported storage. Before
+Players cache playlist media within their reported storage. Before
 assigning a large playlist, dry-run it with
 `screen storage-forecast SCREEN_ID --playlist-id ID`; it writes nothing and
 answers `fit` and `excluded_page_count` (`unknown` when the screen never
@@ -643,7 +643,10 @@ assignment, when it reflects the new content. Absent means
 the Player has not reported, so the fit is unknown. After publishing, watch
 `screen.storage_shortfall` events or `storage_shortfall` (`fit` `partial`,
 `transition_blocked` or `none_fit`). A `partial` fit shows a deterministic
-subset anchored by the first always-visible page. To remedy, use smaller
+subset anchored by the first always-visible page. A CLI `storage_full` warning
+means the Player cannot load some or all playlist content: tell the user to free
+up storage on the device running the Player, then retry; a saved assignment
+does not confirm playback. To remedy, use smaller
 renditions, fewer or shorter videos, split the playlist, or remove unused pages.
 Delivery is billed per download, so avoid republishing churn. See
 [Player storage](references/operations.md#player-storage).

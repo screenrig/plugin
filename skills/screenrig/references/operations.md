@@ -66,7 +66,7 @@ interrupted exports and billing are in [playback](playback.md).
 
 ### Player storage
 
-A native Player caches the images, videos and application packages its
+A Player caches the images, videos and application packages its
 playlist needs. When it reports its storage, `screen show` includes read-only
 `storage`, `storage_forecast` and, while content does not fit,
 `storage_shortfall`. They are health information, never permission, and
@@ -108,7 +108,17 @@ null. A report older than 24 hours is marked stale and still forecast from.
 `revision_conflict`. Right after assignment, read the forecast again, since it
 then reflects the new content before the Player finishes downloading. After
 publishing, watch for `screen.storage_shortfall` events or `storage_shortfall`.
-For `partial`, `transition_blocked` or `none_fit`, make the content smaller:
+CLI `warnings[]` uses `code: "storage_full"` when a screen report, forecast,
+assignment response or publish result reports a storage failure. Its message
+says whether the Player cannot load the playlist, its update, or some pages,
+and asks the user to free up storage on the device running the Player before
+retrying. A successful read or saved assignment remains `ok: true`; check
+the warnings and playback state before telling the user it is playing. The
+same warning appears in human output. An old report is marked stale; confirm
+the device's current storage. Reloading alone does not make more space.
+
+For `partial`, `transition_blocked` or `none_fit`, ask the user to free up
+device storage. You can also make the content smaller:
 use smaller renditions, fewer or shorter videos, remove unused pages, or split
 the playlist so each screen carries less. Put the page that must always show
 first. Content delivery is billed per download, so settle the playlist before
