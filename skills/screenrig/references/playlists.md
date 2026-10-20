@@ -2,13 +2,13 @@
 
 ## Built-in cards and feeds
 
-Use a built-in card for drop-in live details (weather, clocks, menus, scores,
-gauges or tickers), often overlaid. Use a custom application for complex
-interactions. Cards are drawn by the Player's native interpreter.
+A card is a non-interactive live display (weather, clocks, menus, queues, KPIs,
+scores, tickers), full screen or overlaid, drawn by the Player's native
+interpreter. Use an application for what a card cannot do.
 
 ```sh
 screenrig cards list --tag weather
-screenrig cards list --category information
+screenrig cards list --category food
 screenrig cards show menu
 ```
 
@@ -54,12 +54,12 @@ moves inward past the `strip`. A left or right `strip` is the band on that
 edge; the Player turns the card 90 degrees, left counter-clockwise and right
 clockwise, so the item needs nothing extra.
 
-A `center` card in a playlist page:
+A `fullscreen` card such as `menu` takes `full`:
 
 ```json
 {
   "id": "menu", "primitive": "card", "card": "crd_CARD",
-  "layout": "center", "content_fit": "fill"
+  "layout": "full", "content_fit": "fill"
 }
 ```
 
@@ -110,14 +110,9 @@ the card and property to correct. Remove a card from every playlist before
 Card images use `media:<id>` references to ready project images; dynamic data
 requires approved images. Do not supply image URLs.
 
-Existing inline placements (`card` as a catalogue type, `major`, `params`,
-optional named `data` key) and name-keyed `card-data` commands remain compatible
-and return migration warnings. Prefer instance IDs for new placements.
-For an existing key, use `card-data get KEY`, `card-data put KEY --file FILE
-[--expect-rev N]`, `card-data list`, or `card-data delete KEY --expect-rev N`.
-Keys cannot start with `feed:`; deletion hides bound cards until data is written
-again. A placement with a data key keeps only static params; one without a key
-also carries its dynamic properties in params.
+Inline placements (`card` as a catalogue type, `major`, `params`, optional
+`data` key) and the name-keyed `card-data get|put|list|delete` commands are
+deprecated and return migration warnings. Use instance IDs.
 
 screenRIG fetches and caches third-party feeds. Never call weather, air quality,
 alerts, exchange-rate, crypto, earthquake or headline providers from the agent.
@@ -133,6 +128,11 @@ screenrig feeds get crypto --symbols btc,eth --currency usd
 screenrig feeds get earthquakes --lat 49.25 --lon -123 --radius-km 500
 screenrig feeds get headlines --url https://example.com/news.xml
 ```
+
+A card whose feed is not listed above and that has no dynamic properties in
+`cards show` (for example `departures`, `flights`, `scores`) draws its waiting
+state. For other live data, choose a card with dynamic properties and write it
+with `card data put`.
 
 A pending feed returns `state: pending`, `retry_after_seconds` and `retry_at`
 with exit 0; report its retry time and return without looping. Ready documents

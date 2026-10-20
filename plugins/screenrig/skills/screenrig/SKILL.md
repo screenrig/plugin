@@ -82,7 +82,7 @@ facts are already supplied, operate without another confirmation question.
 ## Choose where commands run
 
 For a screens, playlists or media viewing request, start with
-[interactive cards](#interactive-cards-and-account-authorization). An authenticated
+[interactive views](#interactive-views-and-account-authorization). An authenticated
 MCP view does not require CLI setup, doctor or CLI reauthentication. The command
 preflight below applies when the task needs CLI operations.
 
@@ -188,7 +188,7 @@ requests use their global IDs. On `project_required`, select explicitly and retr
 Do not infer a switch from an email address, another tool's visible data, or a
 browser login. Details are in [projects](references/commands.md#projects-and-organizations).
 
-## Interactive cards and account authorization
+## Interactive views and account authorization
 
 The plugin declares the hosted screenRIG MCP connection for compatible plugin
 hosts. The host discovers it from the package; do not ask
@@ -529,12 +529,12 @@ user supplied. Preserve source facts and supplied brand assets.
 | What the page needs | Path | Reference |
 | --- | --- | --- |
 | Finished image or video | Upload the file. | [Media](references/media.md) |
-| Recurring data or reports that need a consistent dashboard image | Use the dashboard skill to preserve schemas and history and render a 4K WebP, then publish it as media. | [Dashboards](../screenrig-dashboard/SKILL.md) |
+| A recurring report with retained history and one fixed dashboard design (live values belong in a card) | Use the dashboard skill to preserve schemas and history and render a 4K WebP, then publish it as media. | [Dashboards](../screenrig-dashboard/SKILL.md) |
 | Official art plus additional copy | Render one finished still locally, preserving the art, then upload. | [Visual design](references/composition.md) |
 | A finished poster, menu, announcement or other presentable still | Generate the whole page with all exact copy in the prompt; inspect before publishing. | [Media](references/media.md) |
 | Editable title/body/table slides or a measured grid | Local, unbilled `compose render`. | [Compose](references/compose.md) |
-| Drop-in live details: weather, clocks, menus, tickers, gauges or scores, often overlaid | Discover and place a built-in card with static params and dynamic card data. | [Cards](references/playlists.md#built-in-cards-and-feeds) |
-| Playing video, an iframe or an application | Place the live object directly on the playlist. | [Playlists](references/playlists.md), [applications](references/applications.md) |
+| Any non-interactive live display, full screen or overlaid: clocks, weather, menus, queues, KPIs, schedules, scores, tickers | Discover and place a card with static params and dynamic card data. | [Cards](references/playlists.md#built-in-cards-and-feeds) |
+| Playing video, an existing web page, or an application (touch or other input, a peripheral, an outside system that pushes data itself, an exact look no card has) | Place the live object directly on the playlist. | [Playlists](references/playlists.md), [applications](references/applications.md) |
 | Background music or a jingle across pages | Upload the audio, then add it to the playlist soundtrack. | [Playlists](references/playlists.md#soundtrack) |
 
 Generation lays out the artwork and type together. Do not generate a background
@@ -553,24 +553,24 @@ fleet with `--codec hevc`; H.264 suits 1080p, and Raspberry Pi 4 plays 1080p.
 Keep the H.264 default for mixed or unverified fleets: each upload has one
 rendition. See [video codec selection](references/media.md) before uploading.
 
-Use built-in cards for drop-in live details. Use custom applications for
-complex interactions. Run `cards list` and `cards show ID` to choose a type, read
-its tier and supported layouts, and pick a schema-listed theme. Run
-`card create --type ID --file params.json` to create an instance from its
-static params. Put the returned `crd_` ID in a card item on a playlist page. Run
-`card data put crd_ID --file data.json` to set dynamic properties without
-republishing.
+Choose a card for any non-interactive display. Choose an application only for
+touch or other input, a peripheral, an outside system that pushes data itself
+(`kv webhook`), or an exact look no card has. A card is JSON: it draws natively
+on every Player (Apple TV included), changes with `card data put` without
+republishing, and suits a rotating loop. An application needs a build, an upload
+and a release replacement for each change, restarts at every page advance, and
+does not display on Apple TV.
 
-Place each card with `layout` (`full`, `center`, `corner`, `chip`, `strip` or
-`free`) and, for `corner`, `chip` and `strip`, an `anchor`. Compose a page with
-one `center` or `full` card, plus optional `corner`, `chip` and `strip` cards;
-omit `rect` and `layer` except for `free`. A `fullscreen` card is for a full
-landscape or portrait screen and takes `full` only. Presence cards, such as an
-alerts bar or a chip, appear only while their condition holds.
-
-For weather, rates and other third-party data, use screenRIG's cached feeds.
-Never call those providers from the agent. See
-[cards and feeds](references/playlists.md#built-in-cards-and-feeds).
+Run `cards list --category CATEGORY` (`time`, `public`, `messages`, `media`,
+`finance`, `retail`, `ops`, `people`, `events`, `sports`, `schools`, `health`,
+`food`, `weather`) and `cards show ID` to choose a type, read its tier and
+layouts, and pick a schema-listed theme. Run `card create --type ID --file
+params.json`, put the returned `crd_` ID in a card item on a playlist page, and
+set dynamic properties with `card data put crd_ID --file data.json`. A
+`fullscreen` card takes `layout: "full"` only; the other layouts, anchors and
+page limits are in [cards and feeds](references/playlists.md#built-in-cards-and-feeds).
+For weather, rates and other third-party data use screenRIG's cached feeds,
+never the providers.
 
 ## Signage branch: publish and verify
 The six primitives are `image`, `video`, `stream`, `iframe`, `application`, and

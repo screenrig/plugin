@@ -2,6 +2,12 @@
 
 ## Putting a web app on a screen
 
+Build an application only for touch or other input, a peripheral, an outside
+system that pushes data itself, or an exact look no [card](playlists.md#built-in-cards-and-feeds)
+has. Every change is an upload plus a release replacement, so draft the layout
+in a local browser at canvas size, keep changing content in K/V, and upload once
+it is settled.
+
 Provide visible in-app Back and Reset controls for kiosk navigation. Do not
 rely on Escape or the platform Back key: the Qt player reserves them for
 operator Settings. Verify keyboard focus and key handling inside the native
