@@ -235,6 +235,22 @@ created playlist can be assigned explicitly with `screen assign`. Publishing nev
 silently refreshes the expected revision. Unfinished recovery stops after the
 24-hour server idempotency window; inspect and reconcile before making more writes.
 
+To rename a playlist without resubmitting its content:
+
+```sh
+screenrig playlist rename pl_EXISTING --name "Cello recordings — 36 tracks" --expect-rev 7
+screenrig playlist patch pl_EXISTING changes.json --expect-rev 7
+```
+
+`playlist patch` accepts a partial JSON object with `name`, `pages` and/or `audio`,
+or `--name NAME` and `--clear-audio`. Omitted fields stay unchanged; supplied pages
+and audio replace the complete value, arrays are not merged, and `audio: null`
+clears the soundtrack. Remove any page audio cues in the same patch when clearing
+their soundtrack. A name-only change preserves content without revalidating its
+authoring format. It follows the existing revision guards, saved retry keys and
+approval policy: `pending_review` waits for a person before changing live content.
+`playlist list --human` includes ID, revision and update time; select by ID.
+
 To edit an existing playlist:
 
 ```sh
