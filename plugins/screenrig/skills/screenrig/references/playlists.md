@@ -947,3 +947,56 @@ one-at-a-time or complete-pass playback; a bounded runtime sequence using
 `batch_size` with `one_at_a_time: false` requires removing that field or
 choosing explicit IDs before export. This prevents silently losing a runtime
 batch cursor in a static bundle.
+
+## Local card previews, data conditions and receipts
+
+Use `card preview TYPE --params params.json --data data.json --output card.png`
+for one card, or `card preview crd_CARD --output card.png` for a saved instance.
+Then run `playlist preview FILE --output preview --contact-sheet` for its full
+page context. Open and inspect the image files before publishing. The CLI runs
+an installed Chromium or Chrome locally; `SCREENRIG_BROWSER` selects its
+executable. It fetches the verified published renderer and fonts and reuses its
+cache. `--now 2026-10-20T18:00:00Z --timezone America/Vancouver` freezes card
+clocks. `data.rendered_cards` names rendered card versions; `data.placeholders`
+names content that was represented by a box. Application interaction and live
+streams still need Player verification.
+
+Optional `backgroundColor` and `textColor` card params accept `#RRGGBB` or
+`#RRGGBBAA` (CSS alpha order). `backgroundColor: "#382719CC"` makes a translucent
+warm scrim; `#E86A17` makes a solid orange ground. `background: "none"` takes
+precedence. `textColor` sets main and secondary text, while `accent` continues
+to colour eyebrows/highlights. Unset properties preserve the theme. Text-card
+bodies keep newlines and put inline bullet separators on separate lines.
+
+`card data put crd_CARD --file data.json --ttl 2h` expires that edition two
+hours after acceptance; `--expires-at ISO` supplies an absolute deadline. Use
+one option at a time. A replacement without either removes expiry. Expired
+data stays inspectable through the agent read but blanks on an updated Player,
+including offline caches. Repeating an identical idempotent write preserves
+its original deadline.
+
+A page can use `"visibility":{"enabled":true,"data":{"key":"crd_CARD",
+"path":"/enabled","equals":true}}`. `key` names card data; `path` is an optional
+JSON Pointer. Without `equals`, the document or field must exist (a present
+null counts); with it, the scalar must equal the supplied value. Missing and
+expired data never match. Keep one ordinary page without visibility as a
+permanent fallback. Date/time bounds can be combined with the data condition.
+Players advertise `page.conditions`; other Players receive conditional pages
+disabled. A screen's `effective_timezone` and `timezone_source` show the
+configured zone, device fallback, or unknown. An explicit UTC zone stays UTC.
+
+Watch project events `screen.card_data_applied` for a rendered edition
+(`manifest_revision`, `page_id`, `primitive_id`, `data_key`, `data_revision`)
+and `screen.playlist_loop_completed` for the first uninterrupted eligible loop
+of a manifest. These are Player receipts, separate from write acceptance.
+Screenshot-ready events continue to identify completed captures.
+
+Use `screen changes scr_SCREEN` to list up to 50 issued composition changes
+retained for 30 days. `screen revert scr_SCREEN --change-id man_CHANGE
+--expect-rev REV` restores that change's preceding composition on that screen
+by creating a separate playlist. Other screens and source playlists stay as
+they are. Live card data stays current, with its expiry. A newer publish,
+assignment, takeover, expired history or unavailable dependency refuses the
+revert. Exact retries return the same accepted assignment. Check the returned
+screen's `manifest_upgrade` or its activation event before claiming the Player
+has applied it.

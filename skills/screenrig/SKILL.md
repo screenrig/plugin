@@ -70,7 +70,8 @@ facts are already supplied, operate without another confirmation question.
    refuses a non-empty existing `--output` with exit 2 / `usage_error` and leaves
    it untouched: choose a new path or pass `--overwrite`. Before publishing,
    check that init exited 0 and that `data.release_ids` and `data.media_ids`
-   match what you intended.
+   match what you intended. Run `screenrig playlist preview playlist.json --output preview --contact-sheet`,
+   open the contact sheet and inspect the pages before `screen publish`.
 5. To check a specific page, run
    `screenrig screen play-page SCREEN_ID --page-id PAGE_ID` first. Request
    `screenrig screen screenshot SCREEN_ID` and inspect that returned
@@ -566,7 +567,17 @@ Run `cards list --category CATEGORY` (`time`, `public`, `messages`, `media`,
 `food`, `weather`) and `cards show ID` to choose a type, read its tier and
 layouts, and pick a schema-listed theme. Run `card create --type ID --file
 params.json`, put the returned `crd_` ID in a card item on a playlist page, and
-set dynamic properties with `card data put crd_ID --file data.json`. A
+set dynamic properties with `card data put crd_ID --file data.json`.
+Render a card locally with `card preview crd_ID --output card.png`; for an
+unpublished design use `card preview TYPE --params params.json --data data.json
+--output card.png`. Open and inspect the PNG. Then render the whole playlist
+with `playlist preview FILE --output preview --contact-sheet` and inspect the
+contact sheet, including cards over their background images. These commands
+use installed Chromium or Chrome locally (`SCREENRIG_BROWSER` selects its
+executable) and the verified published card renderer. `--now ISO --timezone
+ZONE` makes time-dependent designs repeatable. Check `data.placeholders` and
+resolve or explicitly account for every item whose pixels were not rendered.
+A
 `fullscreen` card takes `layout: "full"` only; the other layouts, anchors and
 page limits are in [cards and feeds](references/playlists.md#built-in-cards-and-feeds).
 For weather, rates and other third-party data use screenRIG's cached feeds,
@@ -597,7 +608,8 @@ Canvas video stays muted, so the soundtrack is the only sound on the screen.
    holds 24 hours by default so an app that rotates internally and keeps state
    is not restarted; `--duration-ms` overrides it, and an application page under
    60 seconds returns an `application_page_short` warning. Follow
-   `data.preview.argv`, inspect the result, then use `data.publish.argv`. For layouts, read
+   `data.preview.argv`, open and inspect its local contact sheet, then use `data.publish.argv`.
+   This applies to card-only playlists as well as media pages. For layouts, read
    [playlists](references/playlists.md).
 3. Publish a new playlist with `screen publish SCREEN_ID FILE`. It assigns the
    playlist and waits, up to two minutes by default, until the Player shows it.
