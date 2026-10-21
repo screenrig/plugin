@@ -6,66 +6,67 @@ description: Build and refresh consistent 16:9 dashboard images from recurring J
 # Persistent dashboard images
 
 Use the helper next to this skill: `scripts/screenrig-dashboard` (Windows:
-`scripts/screenrig-dashboard.cmd`). Resolve that path from this installed skill;
-do not substitute a global executable. The helper is independent of the project
-dashboard opened by `screenrig dashboard`.
+`scripts/screenrig-dashboard.cmd`), resolved from this installed skill, never a
+global executable. It is independent of the project dashboard that
+`screenrig dashboard open` shows, and needs no screenRIG login. Run
+`screenrig-dashboard doctor`; if the runtime is missing, `screenrig-dashboard
+setup` installs locked Python 3.11+ packages and Chromium into the user cache
+without touching system Python. `--help`, `commands` and the
+[dashboard schema](schemas/dashboard.json) list arguments and fields. Output is
+JSON envelopes; stdout never carries images. `--workspace PATH` (global, before
+the command) overrides the state directory, which defaults to the user's
+application-data directory (`SCREENRIG_DASHBOARD_HOME` also sets it).
 
-Run `screenrig-dashboard doctor`. If its optional runtime is missing, use
-`screenrig-dashboard setup` as part of an authorized dashboard-generation task.
-Setup needs Python 3.11+ and downloads locked packages and Chromium into the user
-cache. It does not alter system Python. No screenRIG login is needed to generate.
+## Datasets
 
-## Interpret and retain input
+1. Find prior work with `datasets list --search TEXT` and `dashboards list`.
+   Read an existing dataset definition before normalizing; match meaning, units
+   and record grain, not just column names.
+2. Register a new dataset once. Definitions are immutable: a changed meaning
+   needs a new ID.
 
-1. Use `datasets list --search TEXT` and `dashboards list` to find prior work.
-   Default state lives in the user's application-data directory; `--workspace`
-   overrides it. Never store user data in the installed skill or source checkout.
-2. Read the existing dataset definition before normalization. Match meaning,
-   units, and record grain, not just column names. Ask only when ambiguity cannot
-   be resolved from the supplied facts.
-3. For a new dataset, define fields, natural keys, observation timestamps, units,
-   and grain. Read [data contracts](references/data.md). Keep separate source
-   scopes separate even when their metric labels coincide.
-4. Normalize prose and messy tables into typed JSON records and compare them to
-   the source. Preserve the original privately. Retain contradictions, missing
-   intervals, rounded source values, and unknown units. Do not invent rows,
-   equate missing to zero, or reinterpret cumulative totals as daily events.
-5. Register schemas and ingest a batch manifest. Retries are deduplicated.
-   A changed value for an existing natural key fails unless the user requested a
-   correction; `--correct` retains a new revision rather than discarding history.
+   ```json
+   {"id": "daily-orders", "description": "Completed daily orders for one store",
+    "grain": "One record per store per reporting window",
+    "key": ["store", "period_end"], "time_field": "period_end",
+    "fields": {"store": {"type": "string"}, "period_end": {"type": "timestamp"},
+               "orders": {"type": "integer", "minimum": 0, "unit": "orders", "kind": "period_total"}}}
+   ```
+
+3. Normalize messy reports into typed JSON, NDJSON or CSV/TSV records that match
+   the source: decimals as strings, timestamps with offsets, dates as
+   `YYYY-MM-DD`. Keep contradictions, gaps and unknown units; do not invent rows,
+   treat missing as zero, or read cumulative totals as daily events.
+4. `ingest --batch FILE` (`{"inputs":[{"dataset":ID,"path":FILE}]}`, paths
+   relative to the manifest) is atomic and deduplicated. A changed value for an
+   existing key fails unless the user asked for a correction (`--correct`).
 
 ## Create once, refresh repeatedly
 
-On the first run, read [dashboard definitions](references/dashboard.md), choose
-meaningful widgets and write a saved definition. Use dark-modern by default.
-Register it, render real data, inspect the WebP, and revise the first design if
-necessary. Keep the fixed 1920 × 1080 layout; output is 3840 × 2160 WebP.
+First run: write a dashboard definition (fixed 1920 x 1080 layout, widgets
+`metric`, `notice`, `line`, `bar`, `table`, `gauge` bound to `latest`, `table`
+or `series` queries; widgets sit inside x 40..1880, y 116..1028), `dashboards
+register FILE`, `render --dashboard ID`, and inspect the 3840 x 2160 WebP against
+the source; revise if needed. Later runs use `refresh --dashboard ID --batch FILE`,
+which keeps the registered design; change the design only with `dashboards
+revise`. `--as-of` sets a reporting cutoff after the last observation.
 
-Use `refresh --dashboard ID --batch FILE` on subsequent runs. It preserves the
-registered schema, queries, colors, theme, and layout. Design changes use an
-explicit `dashboards revise` request, never an incidental refresh. With one
-daily observation, show one observation; supplied hourly observations can still
-form an intraday chart. Missing hours remain null gaps.
-
-Inspect actual rendered text, numbers, and charts against the source. Report
-material data-quality issues. A funnel must not imply visitor conversion when
-its stages use unrelated populations or include cumulative inventory counts.
-Pick a readable subset when the source exceeds one screen; retain all data and
-state what the image omits.
-
-Return the generated WebP and its immutable result-manifest path. Name whether
-it is a first observation, a refresh, or a correction. A failed render preserves
-the last successful image; inspect returned ingestion status before retrying.
-Read [runtime commands](references/runtime.md) for setup, replay, and recovery.
+Check rendered text, numbers and charts against the source and report data-quality
+problems. Show a subset when the source exceeds one screen and say what is
+omitted. Return the WebP and its `result.json` path, and say whether it is a first
+observation, a refresh or a correction. A failed render keeps the last good image
+(`latest.json`).
 
 ## Publish only when requested
 
-For a request to put the dashboard on a screen, hand the generated WebP to the
-existing [screenrig skill](../screenrig/SKILL.md). Use its bundled
-`media upload FILE --no-transcode` path, then the returned ready media ID in the
-normal playlist workflow. The output is already lossy delivery WebP, so avoid a
-second encoding pass. Preserve unrelated playlist content. Follow that skill's
-project, target, retry, and playback-verification rules. A local image is not
-proof of publication or physical display. On a refresh, once the new image is playing,
-delete the media it replaced so the project does not fill with old renders
-(see [cleaning up](../screenrig/references/operations.md#cleaning-up)).
+Hand the WebP to the [screenrig skill](../screenrig/SKILL.md):
+`media upload FILE --no-transcode`, then the media ID in the normal playlist
+workflow. On a refresh, once the new image plays, delete the media it replaced.
+A local image is not proof of display.
+
+## Linux sandbox
+
+Chromium runs sandboxed. Hosts that confine unprivileged user namespaces (Ubuntu
+23.10+ AppArmor, many containers) fail with `No usable sandbox`; grant that
+browser binary user namespaces rather than rendering without a sandbox. A stale
+`render.lock` directory is removed only after its owner PID has ended.

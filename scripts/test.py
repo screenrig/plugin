@@ -545,25 +545,41 @@ class CalVerTests(unittest.TestCase):
 
 
 # Skill commands must exist in the bundled CLI.
-COMMANDS_REFERENCE = ROOT / "skills" / "screenrig" / "references" / "commands.md"
+SKILL_DOCS = sorted((ROOT / "skills").rglob("*.md"))
 BUNDLED_LAUNCHER = ROOT / "plugins" / "screenrig" / "skills" / "screenrig" / "scripts" / "screenrig"
 REQUIRED_COMMANDS = ("media generate", "media download")
 
 
-def taught_commands(commands_text: str) -> list[str]:
-    found: list[str] = []
-    for raw in commands_text.splitlines():
-        stripped = raw.strip()
-        if not stripped or stripped[0] in "-([" or not re.match(r"^([a-z]+(?: [a-z][a-z0-9-]*)*)\b", stripped):
+def code_lines(markdown: str) -> list[str]:
+    """Inline code spans and fenced-block lines of a Markdown document."""
+    lines: list[str] = []
+    fenced = False
+    for raw in markdown.splitlines():
+        if raw.lstrip().startswith("```"):
+            fenced = not fenced
             continue
+        if fenced:
+            lines.append(raw.strip())
+        else:
+            lines.extend(span.strip() for span in re.findall(r"`([^`]+)`", raw))
+    return lines
+
+
+def taught_commands(markdown: str, groups: set[str]) -> list[str]:
+    """Command words taught in code: after `screenrig`, or opening with a command group."""
+    found: list[str] = []
+    for line in code_lines(markdown):
+        prefixed = re.match(r"(?:\$ )?screenrig\s+(?=[a-z])", line)
+        body = line[prefixed.end():] if prefixed else line
         tokens: list[str] = []
-        for part in stripped.split():
-            if part[0] in "-<([" or not re.fullmatch(r"[a-z][a-z0-9-]*", part):
+        for part in body.split():
+            if not re.fullmatch(r"[a-z][a-z0-9-]*", part):
                 break
             tokens.append(part)
-        command = " ".join(tokens)
-        if tokens and command not in found:
-            found.append(command)
+        if tokens and (prefixed or tokens[0] in groups):
+            command = " ".join(tokens)
+            if command not in found:
+                found.append(command)
     return found
 
 
@@ -577,16 +593,6 @@ class SkillCommandTests(unittest.TestCase):
 
     def test_taught_commands_exist_in_bundled_cli(self) -> None:
         errors: list[str] = []
-        match = re.search(r"## Commands\s+```text\n(.*?)```", COMMANDS_REFERENCE.read_text(encoding="utf-8"), re.S)
-        if match is None:
-            errors.append("skills/screenrig/references/commands.md: Commands list missing")
-        commands_text = match.group(1) if match else ""
-        taught = taught_commands(commands_text)
-        for command in REQUIRED_COMMANDS:
-            if command not in commands_text:
-                errors.append(f"Commands list missing {command}")
-            if command not in taught:
-                taught.append(command)
         help_result = self.run_cli("--json", "help", "--all")
         try:
             envelope = json.loads(help_result.stdout)
@@ -598,8 +604,20 @@ class SkillCommandTests(unittest.TestCase):
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             errors.append("bundled CLI help --all must return a successful structured command inventory")
             inventory = []
-        errors.extend(f"bundled CLI inventory is missing taught command {command}"
-                      for command in taught if command not in inventory)
+        groups = {item.split()[0] for item in inventory}
+        for path in SKILL_DOCS:
+            text = path.read_text(encoding="utf-8")
+            for command in taught_commands(text, groups):
+                # A real command, a group heading toward one, or a command followed by a lowercase argument.
+                known = any(item == command or item.startswith(command + " ") or command.startswith(item + " ")
+                            for item in inventory)
+                if not known:
+                    errors.append(f"{path.relative_to(ROOT)}: taught command is not in the bundled CLI: {command}")
+        for command in REQUIRED_COMMANDS:
+            if not any(command in text for text in (p.read_text(encoding="utf-8") for p in SKILL_DOCS)):
+                errors.append(f"skill docs do not teach {command}")
+            if command not in inventory:
+                errors.append(f"bundled CLI inventory is missing {command}")
 
         generate = self.run_cli("--json", "media", "generate")
         if "Unknown media command" in f"{generate.stdout}\n{generate.stderr}":
@@ -651,10 +669,10 @@ class DocsOnlyTests(unittest.TestCase):
                 dashboard_skill = target / "skills/screenrig-dashboard"
                 self.assertTrue((dashboard_skill / "SKILL.md").is_file())
                 self.assertTrue((dashboard_skill / "scripts/screenrig-dashboard").stat().st_mode & 0o111)
-                (dashboard_skill / "references/obsolete.md").write_text("stale dashboard documentation\n")
+                (dashboard_skill / "obsolete.md").write_text("stale dashboard documentation\n")
                 self.assertEqual(run("--docs-only", "--check"), 1)
                 self.assertEqual(run("--docs-only"), 0)
-                self.assertFalse((dashboard_skill / "references/obsolete.md").exists())
+                self.assertFalse((dashboard_skill / "obsolete.md").exists())
                 self.assertEqual(run("--docs-only", "--check"), 0)
                 for path, content in protected.items():
                     self.assertEqual(path.read_bytes(), content, f"changed protected file: {path}")
