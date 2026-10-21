@@ -51,8 +51,7 @@ Inspect actual rendered text, numbers, and charts against the source. Report
 material data-quality issues. A funnel must not imply visitor conversion when
 its stages use unrelated populations or include cumulative inventory counts.
 Pick a readable subset when the source exceeds one screen; retain all data and
-state what the image omits. Mask or omit unnecessary personal identifiers in
-the visible dashboard while preserving authorized source data privately.
+state what the image omits.
 
 Return the generated WebP and its immutable result-manifest path. Name whether
 it is a first observation, a refresh, or a correction. A failed render preserves
