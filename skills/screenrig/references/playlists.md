@@ -30,8 +30,8 @@ layout except `free`; the server derives them from the page canvas. Send
 nothing, or send exactly the derived values. Create selects the current major
 unless `--major N` pins another. Choose a schema-listed `params.theme`. Set
 `content_fit: "fill"`. Cards accept `enter` and no `motion`. Compose a page
-with one `full`, `center` or `wide` card, plus optional `corner`, `chip` and
-`strip` cards.
+with one `full`, `center` or `wide` card, plus optional `header`, `footer`,
+`corner`, `chip` and `strip` cards.
 
 | Layout | Size | Anchor |
 |---|---|---|
@@ -39,22 +39,29 @@ with one `full`, `center` or `wide` card, plus optional `corner`, `chip` and
 | `free` | own `rect` and `layer` | none |
 | `center` | 900 x 420, centred | none |
 | `wide` | the screen inset 80 from the top and bottom and 30 from the sides | none |
+| `header` | the whole top edge by 80 | none |
+| `footer` | the whole bottom edge by 80 | none |
 | `corner` | 270 x 270, flush to the corner | `top-left`, `top-right`, `bottom-left`, `bottom-right` |
 | `chip` | 240 x 70, inset 30 | `top-left`, `top-right`, `bottom-left`, `bottom-right` |
 | `strip` | whole edge by 120 | `top`, `bottom`, `left`, `right` |
 
 Sizes use 1080p design units and scale by min(canvas width, canvas
 height)/1080, so 4K and portrait canvases keep the same apparent size. A
-`core` card takes all seven layouts. A `fullscreen` card takes `full` only and
+`core` card takes the layouts `cards show` lists for it, and `header` and
+`footer` only on a card made for them. A `fullscreen` card takes `full` only and
 suits a full landscape or portrait screen. A `stinger` takes none. A page
-holds at most one `full`, `center` or `wide` card, at most one `corner` or
-`chip` card per corner, and at most one `strip` per edge, plus one presence
-card sharing that edge. Images, videos and web items carry no limit, and any
-number of `free` cards share a page. A `corner` or `chip` on an edge holding a
-`strip` moves inward past the `strip`; a `center` or `wide` card ignores
-strips, and a `strip` paints over it. A left or right `strip` is the band on
-that edge; the Player turns the card 90 degrees, left counter-clockwise and
-right clockwise, so the item needs nothing extra.
+holds at most one `full`, `center` or `wide` card, at most one `header` and one
+`footer`, at most one `corner` or `chip` card per corner, and at most one
+`strip` per edge, plus one presence card sharing that edge. A `header` takes
+the top edge's normal `strip` slot and a `footer` the bottom edge's, so that
+edge holds no normal `strip`; a presence card may share it. Images, videos and
+web items carry no limit, and any number of `free` cards share a page. A
+`corner` or `chip` on an edge holding a `strip` moves inward 120 past the
+`strip`, and 80 past a `header` or `footer`, the larger when both hold the
+edge; a `center`, `wide`, `header` or `footer` card ignores strips, and a
+`strip` paints over a `center` or `wide` card. A left or right `strip` is the
+band on that edge; the Player turns the card 90 degrees, left counter-clockwise
+and right clockwise, so the item needs nothing extra.
 
 A `fullscreen` card such as `menu` takes `full`:
 
