@@ -20,29 +20,15 @@ if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number
   exit 69
 fi
 
-# Prefer the marketplace bundle path, then plugin-root env vars, then a
-# parent-directory walk (logical, then physical) so a source checkout works.
+# Prefer the marketplace bundle path, then the plugin-root variable the host
+# sets. No other directory is searched: a CLI that merely sits above this
+# script, in a checkout or a project, is never run.
 try_exec() {
   cli=$1
   shift
   if [ -f "$cli" ]; then
     exec node "$cli" "$@"
   fi
-}
-
-walk_exec() {
-  dir=$1
-  shift
-  while :; do
-    if [ -f "$dir/cli/dist/bin.js" ]; then
-      exec node "$dir/cli/dist/bin.js" "$@"
-    fi
-    parent=$(dirname -- "$dir")
-    if [ "$parent" = "$dir" ]; then
-      return 0
-    fi
-    dir=$parent
-  done
 }
 
 try_exec "$script_dir/../../../cli/dist/bin.js" "$@"
@@ -57,11 +43,6 @@ if [ -n "${CLAUDE_PLUGIN_ROOT-}" ]; then
 fi
 if [ -n "${CODEX_PLUGIN_ROOT-}" ]; then
   try_exec "$CODEX_PLUGIN_ROOT/cli/dist/bin.js" "$@"
-fi
-walk_exec "$script_dir" "$@"
-physical_dir=$(CDPATH= cd -- "$script_dir" && pwd -P)
-if [ "$physical_dir" != "$script_dir" ]; then
-  walk_exec "$physical_dir" "$@"
 fi
 
 echo "ScreenRig CLI is missing; install the official ScreenRig plugin from https://github.com/screenrig/plugin, or from a source checkout build cli/dist/bin.js." >&2

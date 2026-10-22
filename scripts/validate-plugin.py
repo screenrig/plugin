@@ -187,13 +187,14 @@ def check_package() -> None:
             "SCREENRIG_PLUGIN_ROOT",
             "CLAUDE_PLUGIN_ROOT",
             "CODEX_PLUGIN_ROOT",
-            "pwd -P",
             "source checkout build cli/dist/bin.js",
         ):
             if fact not in canonical_text:
                 errors.append(f"canonical launcher is missing resolve fact: {fact}")
         if "SCREENRIG_CLI" in canonical_text:
             errors.append("canonical launcher must not add a SCREENRIG_CLI override")
+        if "walk_exec" in canonical_text or "pwd -P" in canonical_text:
+            errors.append("canonical launcher must not search ancestor directories for a CLI")
     freshness = ROOT / "skills" / "screenrig" / "scripts" / "screenrig-plugin-freshness"
     if not freshness.is_file():
         errors.append("skills/screenrig/scripts/screenrig-plugin-freshness: canonical helper missing")

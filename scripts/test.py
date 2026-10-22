@@ -116,11 +116,13 @@ class LauncherTests(unittest.TestCase):
     def test_resolution_order_and_missing_cli(self) -> None:
         errors: list[str] = []
         text = LAUNCHER.read_text(encoding="utf-8")
-        for fact in ("../../../cli/dist/bin.js", *LAUNCHER_ROOT_VARS, "pwd -P", MISSING_MESSAGE):
+        for fact in ("../../../cli/dist/bin.js", *LAUNCHER_ROOT_VARS, MISSING_MESSAGE):
             if fact not in text:
                 errors.append(f"canonical launcher is missing fact: {fact}")
         if "SCREENRIG_CLI" in text:
             errors.append("canonical launcher must not add a SCREENRIG_CLI override")
+        if "walk_exec" in text or "pwd -P" in text:
+            errors.append("canonical launcher must not search ancestor directories for a CLI")
 
         def stub(path: Path, marker: str) -> None:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -166,16 +168,24 @@ class LauncherTests(unittest.TestCase):
                 CLAUDE_PLUGIN_ROOT=claude, CODEX_PLUGIN_ROOT=codex)), "claude\n")
             expect("CODEX_PLUGIN_ROOT last", run(env_launcher, env(CODEX_PLUGIN_ROOT=codex)), "codex\n")
 
+            def expect_missing(label: str, result: subprocess.CompletedProcess[str]) -> None:
+                if result.returncode != 78:
+                    errors.append(f"{label}: exit {result.returncode}, expected 78")
+                if result.stdout:
+                    errors.append(f"{label}: ran a CLI found by walking up ({result.stdout!r})")
+                if result.stderr.strip() != MISSING_MESSAGE:
+                    errors.append(f"{label}: unexpected stderr {result.stderr!r}")
+
             walked = tmp / "checkout"
             stub(walked / "cli" / "dist" / "bin.js", "walk")
             walk_launcher = install(walked / "deep" / "skills" / "screenrig" / "scripts" / "screenrig")
-            expect("parent walk finds checkout CLI", run(walk_launcher, env()), "walk\n")
+            expect_missing("a CLI in an ancestor directory is never run", run(walk_launcher, env()))
 
             env_beats_walk = tmp / "env-beats-walk"
             stub(env_beats_walk / "cli" / "dist" / "bin.js", "walk")
             stub(env_beats_walk / "plugin" / "cli" / "dist" / "bin.js", "env")
             env_walk_launcher = install(env_beats_walk / "deep" / "skills" / "screenrig" / "scripts" / "screenrig")
-            expect("plugin root beats parent walk",
+            expect("plugin root is used, not an ancestor CLI",
                    run(env_walk_launcher, env(GROK_PLUGIN_ROOT=str(env_beats_walk / "plugin"))), "env\n")
 
             physical = tmp / "physical"
@@ -184,7 +194,8 @@ class LauncherTests(unittest.TestCase):
             logical_skill = tmp / "logical" / "nest" / "skills" / "screenrig"
             logical_skill.parent.mkdir(parents=True)
             logical_skill.symlink_to(physical / "nest" / "skills" / "screenrig", target_is_directory=True)
-            expect("physical walk after logical miss", run(logical_skill / "scripts" / "screenrig", env()), "physical\n")
+            expect_missing("a CLI above the symlink target is never run",
+                           run(logical_skill / "scripts" / "screenrig", env()))
 
             missing = tmp / "missing"
             missing_result = run(install(missing / "skills" / "screenrig" / "scripts" / "screenrig"), env())

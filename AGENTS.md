@@ -33,8 +33,10 @@ raising them is the operator's decision.
   `main` carries the released version and the workspace release stamps and tags
   it. CI neither versions nor tags; do not hand-edit versions.
 - The launcher preflights Node.js 22.11+ and nothing else, prefers the
-  package-relative `cli/dist/bin.js`, adds no global npm resolution, and is
-  silent on success (clean JSON on stdout, empty stderr).
+  package-relative `cli/dist/bin.js`, then the host's `*_PLUGIN_ROOT` variable
+  (a source checkout sets `SCREENRIG_PLUGIN_ROOT`), never searches parent
+  directories, adds no global npm resolution, and is silent on success (clean
+  JSON on stdout, empty stderr).
 - The bundled CLI is one minified `cli/dist/bin.js` plus `package.json`, the
   runtime lock and `THIRD_PARTY_NOTICES`: no source maps, `node_modules` or
   executables. The only image binary is the marketplace PNG from `assets/logo.svg`.
