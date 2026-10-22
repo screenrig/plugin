@@ -45,7 +45,7 @@ costs and ads in another invited network; promotional credits do not pay for ads
 Self-promotion uses ordinary playlist content, not a campaign on the project's
 own network (`self_deal`). Cash-out is not available in the CLI: a verified
 financial administrator withdraws in the dashboard. On `insufficient_credits`
-send the user to the dashboard to add credits; on `billing_unavailable` report it
-and invent no payment command or balance. `capability_required` and
+send the user to the dashboard to add credits, and invent no payment command or
+balance. `capability_required` and
 `invitation_*` errors are final until the cause changes. Ad playback evidence is
 not an audited audience count.
