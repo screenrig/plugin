@@ -2,7 +2,7 @@
   "id": "screenrig",
   "name": "screenRIG",
   "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
-  "version": "26.10.816",
+  "version": "26.10.818",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
