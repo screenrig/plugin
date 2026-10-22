@@ -67,6 +67,11 @@ aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
 - `iframe` and `application` use `content_fit: "fill"`; `application` pins a
   `release_id`. A `stream` needs `fallback_media_id` and a `duration` page. Apple
   TV rejects `iframe` and `application`.
+- For YouTube, put the link the user gave (video, Shorts, live, playlist or
+  `youtube.com/channel/UC…/live`) in an `iframe` `src`: the server stores an
+  autoplaying, looping embed without YouTube's controls. Native Players play
+  sound, the web Player plays muted; `mute=1` in the link mutes everywhere.
+  A channel handle (`@name`) is rejected: ask for a video or channel-ID link.
 - `visibility` times are civil (no zone); keep at least one page without it, and
   set the screen timezone before assigning a scheduled playlist. A
   `visibility.data` condition keys off card data.
