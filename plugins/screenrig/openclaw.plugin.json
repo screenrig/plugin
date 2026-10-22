@@ -10,7 +10,8 @@
   },
   "skills": [
     "./skills/screenrig",
-    "./skills/screenrig-dashboard"
+    "./skills/screenrig-dashboard",
+    "./skills/screenrig-view-bridge"
   ],
   "mcpServers": {
     "screenrig-views": {
