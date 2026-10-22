@@ -917,6 +917,9 @@ class MCPConnectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             builder.copy_docs(root)
+            legacy_codex_mcp = root / ".codex-plugin/mcp.json"
+            legacy_codex_mcp.parent.mkdir(parents=True)
+            legacy_codex_mcp.write_text("{}\n")
             builder.emit_manifests(root, builder.METADATA, "26.10.0-dev")
             portable = json.loads((root / "plugin.json").read_text())
             overlay = json.loads((root / ".codex-plugin/plugin.json").read_text())
@@ -942,8 +945,13 @@ class MCPConnectionTests(unittest.TestCase):
                 self.assertEqual(int.from_bytes(data[16:20], "big"), 512)
                 self.assertEqual(int.from_bytes(data[20:24], "big"), 512)
             mcp = json.loads((root / "mcp.json").read_text())["mcpServers"]["screenrig-views"]
-            codex = json.loads((root / ".codex-plugin/mcp.json").read_text())["mcpServers"]["screenrig-views"]
+            codex = json.loads((root / ".mcp.json").read_text())["mcpServers"]["screenrig-views"]
             openclaw = json.loads((root / "openclaw.plugin.json").read_text())
+            self.assertFalse(legacy_codex_mcp.exists())
+            self.assertEqual(
+                {path.name for path in (root / ".codex-plugin").iterdir()},
+                {"plugin.json"},
+            )
             self.assertEqual(mcp["url"], codex["url"])
             self.assertEqual(openclaw["version"], portable["version"])
             self.assertEqual(openclaw["skills"], ["./skills/screenrig", "./skills/screenrig-dashboard"])
@@ -959,7 +967,7 @@ class MCPConnectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             builder.emit_manifests(root, builder.METADATA, builder.version())
-            servers = json.loads((root / ".codex-plugin/mcp.json").read_text())["mcpServers"]
+            servers = json.loads((root / ".mcp.json").read_text())["mcpServers"]
             for skill_root in (ROOT, ROOT / "plugins/screenrig"):
                 metadata = (skill_root / "skills/screenrig/agents/openai.yaml").read_text()
                 dependency = metadata.split("dependencies:", 1)[1]
@@ -976,8 +984,8 @@ class MCPConnectionTests(unittest.TestCase):
             for host in ("codex", "claude"):
                 manifest = json.loads((root / f".{host}-plugin/plugin.json").read_text())
                 if host == "codex":
-                    self.assertEqual(manifest["mcpServers"], "./.codex-plugin/mcp.json")
-                    manifest = json.loads((root / ".codex-plugin/mcp.json").read_text())
+                    self.assertEqual(manifest["mcpServers"], "./.mcp.json")
+                    manifest = json.loads((root / ".mcp.json").read_text())
                 server = manifest["mcpServers"]["screenrig-views"]
                 self.assertEqual(server["url"], "https://api.screenrig.ai/mcp")
                 self.assertEqual(server["type"], "http")

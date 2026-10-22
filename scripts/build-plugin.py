@@ -439,9 +439,10 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
     claude = dict(base)
     claude["mcpServers"] = {"screenrig-views": {**remote, "oauth": {"scopes": " ".join(scopes)}}}
     codex = dict(base)
-    codex["mcpServers"] = "./.codex-plugin/mcp.json"
+    codex["mcpServers"] = "./.mcp.json"
     (plugin_root / ".codex-plugin").mkdir(parents=True, exist_ok=True)
-    (plugin_root / ".codex-plugin/mcp.json").write_text(json.dumps({
+    (plugin_root / ".codex-plugin/mcp.json").unlink(missing_ok=True)
+    (plugin_root / ".mcp.json").write_text(json.dumps({
         "mcpServers": {"screenrig-views": {**remote, "scopes": scopes}}
     }, indent=2) + "\n", encoding="utf-8")
     codex["skills"] = "./skills/"

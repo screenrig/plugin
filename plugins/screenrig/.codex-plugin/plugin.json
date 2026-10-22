@@ -14,7 +14,7 @@
     "kiosk",
     "agent-cli"
   ],
-  "mcpServers": "./.codex-plugin/mcp.json",
+  "mcpServers": "./.mcp.json",
   "skills": "./skills/",
   "interface": {
     "displayName": "screenRIG",
