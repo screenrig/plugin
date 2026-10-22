@@ -35,6 +35,20 @@ screenrig card preview crd_ID --output card.png
   A `state: pending` answer carries `retry_after_seconds`: report it and return.
   Show a feed's `attribution` wherever its data shows.
 
+## Video walls
+
+A kiosk-installed Linux Player drives 2 or 3 displays as one wall. Set it with
+`screenrig screen wall set SCREEN_ID --outputs HDMI-A-1,HDMI-A-2 --arrangement
+row|column [--rotation 0|90|180|270]` (outputs from `screen show`, in physical
+order) and remove it with `screen wall clear SCREEN_ID`; `wall_unsupported`
+means the Player lacks wall support. A wall playlist carries `format`
+(`displays`, `arrangement`, `orientation`), every page canvas is the wall
+canvas, and primitives take `displays` (`[1,2,3]`, `[2]`) or a free `rect`.
+Assigning it to a screen whose wall differs is refused
+(`playlist_format_mismatch`). Canvas sizes, card layouts and video sizing (wall
+aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
+[video walls](https://screenrig.ai/docs/players.md#video-walls).
+
 ## Playlist rules that validation will enforce
 
 - A playlist is `name`, optional `audio`, and `pages`. A page has `id`, `canvas`

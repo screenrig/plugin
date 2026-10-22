@@ -134,6 +134,7 @@ the code it shows. Otherwise leave the screen archived.
 | Non-interactive live display: clocks, weather, menus, queues, KPIs, tickers | built-in card: `cards list`, `cards show`, `card create`, `card data put` ([playlists](references/playlists.md#built-in-cards-and-feeds)) |
 | Touch or other input, a peripheral, an outside system pushing data, an exact look no card has | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md)) |
 | Live video, a web page, background music | `stream` or `iframe` primitive; playlist soundtrack ([playlists](references/playlists.md)) |
+| One Linux Player driving 2 or 3 displays as one wall | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
 
 Prefer a card to an application: a card draws natively on every Player, changes
 with `card data put` without republishing, and suits a rotating loop. App code
