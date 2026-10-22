@@ -45,7 +45,7 @@ screenrig card preview crd_ID --output card.png
 - Primitives are `image`, `video`, `stream`, `iframe`, `application`, `card`.
   Text and shapes are not primitives: compose or generate them into an image.
 - `image` and `video` need a `selector` (`by` `id`, `ids`, `all`, `tag`,
-  `folder`); `media_id` lives inside it. Others take none. Dynamic selectors
+  `folder` with a `folder_id` from `media folder list`); `media_id` lives inside it. Others take none. Dynamic selectors
   resolve at each loop; on duration, application and `audio_end` pages they
   need `one_at_a_time: true`. `media_end` is valid only on a page with exactly
   one image or video; an image there needs `dwell_ms`, a video must not loop.

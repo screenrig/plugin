@@ -134,6 +134,15 @@ weather, rates and other third-party data, never the providers.
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
 names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
+Organize a large library with folders, not tag conventions: `media folder
+create --name Menus [--parent FOLDER_ID]`, then `media move MEDIA_ID...
+--folder FOLDER_ID` (uploads land at the library root; `--root` moves back, and
+folder IDs move too). `media folder list` gives the tree by `parent_id`,
+`media list` each file's `folder_id`, and `media folder update` renames or moves
+a folder. Deleting a folder moves its contents up one level. A `folder`
+selector plays a folder's own files, so moving files or deleting the folder
+changes what those playlists show; under Propose access a move waits for a
+person's review.
 `media generate` blocks for up to about three minutes: leave `--timeout` alone and,
 after a drop, rerun the identical command (it replays under the same key).
 
