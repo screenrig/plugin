@@ -134,17 +134,18 @@ weather, rates and other third-party data, never the providers.
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
 names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
-Organize a large library with folders, not tag conventions: `media folder
-create --name Menus [--parent FOLDER_ID]`, then `media move MEDIA_ID...
---folder FOLDER_ID` (uploads land at the library root; `--root` moves back, and
-folder IDs move too). `media folder list` gives the tree by `parent_id`,
-`media list` each file's `folder_id`, and `media folder update` renames or moves
-a folder. Deleting a folder moves its contents up one level. A `folder`
-selector plays a folder's own files, so moving files or deleting the folder
-changes what those playlists show; under Propose access a move waits for a
-person's review.
 `media generate` blocks for up to about three minutes: leave `--timeout` alone and,
 after a drop, rerun the identical command (it replays under the same key).
+
+Organize a large library with folders, not tag conventions: `media folder
+create --name Menus [--parent FOLDER_ID]`, then `media upload FILE --folder
+FOLDER_ID` (also `upload-batch`) or `media move MEDIA_ID... --folder FOLDER_ID`
+(`--root` moves back, and folder IDs move too). `media folder list` gives the
+tree by `parent_id`, `media list --folder FOLDER_ID|root` one folder's own
+files, and `media folder update` renames or moves a folder. Deleting a folder
+moves its contents up one level. A `folder` selector plays a folder's own files,
+so moving files or deleting the folder changes what those playlists show; under
+Propose access a move waits for a person's review.
 
 Match the design to the screen's dimensions. Generate a finished still whole, not
 a background with composed text. Use real supplied facts, label invented demo
@@ -204,6 +205,22 @@ acceptance is not proof.
 
 Buying and selling follow [advertising](references/advertising.md). Check
 `project capabilities` first; an advertiser workflow needs no screen.
+
+## Other command groups
+
+Reach for these when the task matches; `screenrig GROUP --help` has the rest.
+
+| Group | Reach for it when | First command |
+| --- | --- | --- |
+| `triggers` | An emergency notification system (CAP 1.2) must take screens over by itself | `triggers create --name NAME --tag TAG`, then `triggers test ID` (a 60-second alert on the screens); the URL and password go only to that system's administrator; `--pull FILE` also has the platform read CAP sources |
+| `webhooks` | The agent's own HTTPS endpoint should receive project events as signed POSTs | `webhooks create --url URL --event-types "screen.*"`, then `webhooks test ID` and `webhooks deliveries ID` |
+| `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once) |
+| `card-data` | Dynamic card data addressed by key, where `card data put` uses a `crd_` ID | `card-data put KEY --file FILE`, `card-data list` |
+| `fleet-links` | A device manager (a kiosk app in an admin console) enrolls many displays without pairing codes | `fleet-links create --name NAME --tag TAG --playlist-id ID`; `fleet-links rotate ID` replaces a leaked URL |
+| `operations` | A command returned an `operation_id` (a `--no-wait` upload) and the result is not ready | `operations wait ID` before using it; `operations cancel ID` drops an abandoned one |
+| `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
+| `playback totals`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
+| `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |
 
 ## Keep the project tidy
 

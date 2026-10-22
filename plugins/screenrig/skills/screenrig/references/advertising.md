@@ -29,8 +29,8 @@ the server's answer wins over anything cached. Flags and examples:
 ## Selling
 
 Opt screens in with `ads inventory update`, set the network and default rate
-(`ads network create|rate`), define slots (`ads slots create|update`), invite
-buyers (`invitations create --kind ad-buyer --email ADDRESS --screen-id ID
+(`ads network create|rate`), define slots (`ads slots create|update`; `--vast-tag-url`
+sets your own VAST fallback), invite buyers (`invitations create --kind ad-buyer --email ADDRESS --screen-id ID
 --slot-id ID --policy trusted|review_required`), and approve or reject
 review-required creatives with `ads reviews`. Manage access with
 `ads memberships`. Report with `ads reports delivery`. A slot alone places no
