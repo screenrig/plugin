@@ -112,6 +112,9 @@ and `screen unarchive SCREEN_ID`. A display that reset (`device_reset`) or
 unpaired (`device_unpair`) rotates its key, so unarchive alone does not bring it
 back and hands content to whatever holds the old key. Ask before undoing a
 `project` archive. With no recovery offered, pair the code as a new screen.
+A screen whose display holds a key is never deleted or unpaired remotely; to
+free that display, the user confirms a reset on the Player itself, then you pair
+the code it shows. Otherwise leave the screen archived.
 
 ## Choose the content path
 
