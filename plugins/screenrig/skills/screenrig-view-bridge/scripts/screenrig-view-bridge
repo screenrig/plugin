@@ -1,0 +1,178 @@
+#!/usr/bin/env node
+// Assemble a local page that runs the screenRIG MCP app against saved tool
+// results. The app itself is never bundled: pass the resource the server
+// serves, so the view always matches the connected project's own release.
+
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+
+const PROTOCOL = '2026-01-26';
+
+function fail(detail, next) {
+  process.stdout.write(JSON.stringify({
+    ok: false,
+    error: { code: 'usage_error', detail, next: next ?? 'screenrig-view-bridge --help' },
+  }) + '\n');
+  process.exit(2);
+}
+
+function parse(argv) {
+  const options = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    const flag = argv[index];
+    if (flag === '--help' || flag === '-h') return { help: true };
+    if (!flag.startsWith('--')) fail(`Unexpected argument ${flag}.`);
+    const value = argv[index + 1];
+    if (value === undefined || value.startsWith('--')) fail(`${flag} needs a value.`);
+    options[flag.slice(2)] = value;
+    index += 1;
+  }
+  return options;
+}
+
+const HELP = `Usage: screenrig-view-bridge --app FILE --seed FILE --output FILE
+
+  --app     the ui:// resource text the connected server serves
+  --seed    saved tool results, as described in SKILL.md
+  --output  where to write the page
+
+Writes one self-contained page and prints a JSON envelope naming it.`;
+
+const options = parse(process.argv.slice(2));
+if (options.help) { process.stdout.write(HELP + '\n'); process.exit(0); }
+for (const required of ['app', 'seed', 'output']) {
+  if (!options[required]) fail(`--${required} is required.`);
+}
+
+let app;
+let seed;
+try { app = readFileSync(resolve(options.app), 'utf8'); }
+catch { fail(`Could not read --app ${options.app}.`); }
+try { seed = JSON.parse(readFileSync(resolve(options.seed), 'utf8')); }
+catch { fail(`Could not read --seed ${options.seed} as JSON.`); }
+
+if (!app.includes('ui/initialize')) {
+  fail('That --app file does not carry the view resource; read the ui:// resource from the connected server.');
+}
+
+function normalizeToolResult(result) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) return result;
+  if (Object.hasOwn(result, 'structuredContent') || Object.hasOwn(result, 'content') || Object.hasOwn(result, 'isError')) {
+    return result;
+  }
+  if (result.ok === true && Object.hasOwn(result, 'data')) {
+    return { structuredContent: result.data };
+  }
+  if (result.ok === false) {
+    const error = result.error && typeof result.error === 'object'
+      ? result.error
+      : { code: 'saved_error', detail: 'The saved CLI call failed.' };
+    return { isError: true, structuredContent: { errors: [error] } };
+  }
+  return result;
+}
+
+function normalizeRecord(result) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) return result;
+  if (result.ok === true && Object.hasOwn(result, 'data')) return result.data;
+  if (Object.hasOwn(result, 'structuredContent')) return result.structuredContent;
+  return result;
+}
+
+const tools = Object.fromEntries(Object.entries(seed.tools ?? {}).map(
+  ([name, result]) => [name, normalizeToolResult(result)],
+));
+const byId = Object.fromEntries(Object.entries(seed.by_id ?? {}).map(
+  ([id, result]) => [id, normalizeRecord(result)],
+));
+const images = seed.images ?? {};
+if (!tools.screenrig_screen_list && !tools.screenrig_playlist_list && !tools.screenrig_media_list) {
+  fail('--seed carries no list result; collect at least one of the screen, playlist or media lists.');
+}
+
+const payload = JSON.stringify({ protocol: PROTOCOL, tools, by_id: byId, images })
+  .replace(/</g, '\\u003c');
+
+const escaped = app
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const page = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>screenRIG view</title>
+<style>
+  html,body{margin:0;background:#2A3547;color:#D3D8E0;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  .bar{padding:8px 14px;border-bottom:1px solid #424c5c;color:#9CA3AF;font-size:12px}
+  .bar b{color:#F8B334;font-weight:500}
+  iframe{width:100%;height:780px;border:0;display:block}
+</style></head><body>
+<div class="bar"><b>Saved view</b> &middot; this page answers the view from results collected at ${new Date().toISOString()}. Refresh and Capture report that they need a live host.</div>
+<iframe id="screenrig-view" srcdoc="${escaped}"></iframe>
+<script>
+(function () {
+  var SEED = ${payload};
+  var frame = document.getElementById('screenrig-view');
+
+  function problem(code, detail) {
+    return { isError: true, structuredContent: { errors: [{ code: code, detail: detail }] } };
+  }
+  function saved() {
+    return problem('saved_view', 'This page answers from saved results. A live call needs a host that connects the view to screenRIG.');
+  }
+  function answer(name, args) {
+    if (name === 'screenrig_screen_get' || name === 'screenrig_playlist_get' || name === 'screenrig_media_get') {
+      var record = SEED.by_id[args.id];
+      return record ? { structuredContent: record } : problem('not_found', 'That record is not in this page.');
+    }
+    if (name === 'screenrig_screen_screenshot_current' || name === 'screenrig_media_thumbnail') {
+      var image = SEED.images[args.id];
+      if (!image) return { content: [], structuredContent: {} };
+      return {
+        content: [{ type: 'image', data: image.data, mimeType: image.mimeType }],
+        structuredContent: { captured_at: image.captured_at || null }
+      };
+    }
+    if (args && args.after) return saved();
+    return SEED.tools[name] || saved();
+  }
+
+  window.addEventListener('message', function (event) {
+    var message = event.data || {};
+    if (message.jsonrpc !== '2.0' || message.id === undefined) return;
+    var reply = function (result) {
+      frame.contentWindow.postMessage({ jsonrpc: '2.0', id: message.id, result: result }, '*');
+    };
+    if (message.method === 'ui/initialize') {
+      reply({
+        protocolVersion: SEED.protocol,
+        hostCapabilities: { serverTools: true },
+        hostContext: { theme: 'dark', displayMode: 'inline' }
+      });
+    } else if (message.method === 'tools/call') {
+      reply(answer(message.params.name, message.params.arguments || {}));
+    }
+  });
+})();
+</script>
+</body></html>
+`;
+
+const target = resolve(options.output);
+mkdirSync(dirname(target), { recursive: true });
+writeFileSync(target, page);
+process.stdout.write(JSON.stringify({
+  ok: true,
+  data: {
+    path: target,
+    bytes: Buffer.byteLength(page),
+    protocol: PROTOCOL,
+    tools: Object.keys(tools),
+    records: Object.keys(byId).length,
+    images: Object.keys(images).length,
+  },
+  warnings: Object.keys(images).length ? [] : [{ code: 'no_images', detail: 'No stills were seeded; the view shows its own placeholder.' }],
+}) + '\n');

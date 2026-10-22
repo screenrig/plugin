@@ -67,6 +67,7 @@ def without(names: tuple[str, ...], **extra: str) -> dict[str, str]:
 
 # The package-relative launcher.
 LAUNCHER = ROOT / "skills" / "screenrig" / "scripts" / "screenrig"
+VIEW_BRIDGE = ROOT / "skills" / "screenrig-view-bridge" / "scripts" / "screenrig-view-bridge"
 MISSING_MESSAGE = (
     "ScreenRig CLI is missing; install the official ScreenRig plugin from "
     "https://github.com/screenrig/plugin, or from a source checkout build "
@@ -954,14 +955,18 @@ class MCPConnectionTests(unittest.TestCase):
             )
             self.assertEqual(mcp["url"], codex["url"])
             self.assertEqual(openclaw["version"], portable["version"])
-            self.assertEqual(openclaw["skills"], ["./skills/screenrig", "./skills/screenrig-dashboard"])
+            self.assertEqual(openclaw["skills"], ["./skills/screenrig", "./skills/screenrig-dashboard",
+                                              "./skills/screenrig-view-bridge"])
             self.assertEqual(openclaw["mcpServers"]["screenrig-views"], {
                 "url": mcp["url"], "transport": "streamable-http", "auth": "oauth",
                 "oauth": {"scope": "access:manage screens content playlists reports"},
             })
-            self.assertEqual(mcp["type"], "streamable-http")
-            auth = mcp["extensions"]["com.openai"]["auth"]
-            self.assertEqual(auth, {"type": "oauth", "client": {"mode": "cimd"}, "baseScopes": codex["scopes"]})
+            self.assertEqual(mcp, {
+                "type": "streamable-http",
+                "url": "https://api.screenrig.ai/mcp",
+            })
+            self.assertEqual(codex["scopes"],
+                             ["access:manage", "screens", "content", "playlists", "reports"])
 
     def test_skill_dependency_matches_registered_server(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1021,6 +1026,51 @@ class MCPConnectionTests(unittest.TestCase):
                 self.assertTrue(any("host-managed OAuth" in error for error in validator.errors))
 
 
+class ViewBridgeTests(unittest.TestCase):
+    def render(self, seed: dict) -> tuple[dict, str]:
+        with tempfile.TemporaryDirectory(prefix="screenrig-view-bridge-test-") as temporary:
+            root = Path(temporary)
+            app = root / "app.html"
+            app.write_text("<script>/* ui/initialize */</script>\n", encoding="utf-8")
+            seed_path = root / "seed.json"
+            write_json(seed_path, seed)
+            output = root / "view.html"
+            result = subprocess.run(
+                ["node", str(VIEW_BRIDGE), "--app", str(app), "--seed", str(seed_path),
+                 "--output", str(output)],
+                text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            return json.loads(result.stdout), output.read_text(encoding="utf-8")
+
+    def embedded_seed(self, page: str) -> dict:
+        match = re.search(r"var SEED = (.*);\n  var frame", page)
+        self.assertIsNotNone(match)
+        return json.loads(match.group(1))
+
+    def test_cli_envelopes_are_normalized_for_the_view(self):
+        screen = {"id": "scr_TEST", "label": "Test", "state": "active", "online": True}
+        envelope, page = self.render({
+            "tools": {"screenrig_screen_list": {
+                "ok": True, "data": {"items": [screen], "next_cursor": None}, "warnings": [],
+            }},
+            "by_id": {"scr_TEST": {"ok": True, "data": screen, "warnings": []}},
+            "images": {},
+        })
+        self.assertTrue(envelope["ok"])
+        seed = self.embedded_seed(page)
+        self.assertEqual(seed["tools"]["screenrig_screen_list"], {
+            "structuredContent": {"items": [screen], "next_cursor": None},
+        })
+        self.assertEqual(seed["by_id"]["scr_TEST"], screen)
+
+    def test_collection_contract_includes_media_detail_and_thumbnail(self):
+        skill = (ROOT / "skills/screenrig-view-bridge/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("`screenrig_media_get`", skill)
+        self.assertIn("`screenrig_media_thumbnail`", skill)
+
+
 if __name__ == "__main__":
     unittest.main(defaultTest=["LauncherTests", "FreshnessTests", "CalVerTests", "SkillCommandTests",
-                               "DocsOnlyTests", "DependencyBoundaryTests", "MCPConnectionTests"])
+                               "DocsOnlyTests", "DependencyBoundaryTests", "MCPConnectionTests",
+                               "ViewBridgeTests"])

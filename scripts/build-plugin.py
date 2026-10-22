@@ -433,7 +433,9 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
         "license": metadata["license"],
         "keywords": metadata["keywords"],
     }
-    # Host-specific OAuth settings; both connect directly to the backend.
+    # Host-specific compatibility manifests retain their OAuth hints. The
+    # portable MCP declaration stays transport-only so current Codex clients
+    # can load it and discover OAuth from the remote server.
     scopes = ["access:manage", "screens", "content", "playlists", "reports"]
     remote = {"type": "http", "url": "https://api.screenrig.ai/mcp"}
     claude = dict(base)
@@ -454,9 +456,6 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
         "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
         "mcpServers": {"screenrig-views": {
             "type": "streamable-http", "url": remote["url"],
-            "extensions": {"com.openai": {"auth": {
-                "type": "oauth", "client": {"mode": "cimd"}, "baseScopes": scopes,
-            }}},
         }},
     }
     (plugin_root / "mcp.json").write_text(json.dumps(portable_mcp, indent=2) + "\n", encoding="utf-8")
@@ -466,7 +465,8 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
         "description": metadata["description"],
         "version": release_version,
         "configSchema": {"type": "object", "additionalProperties": False, "properties": {}},
-        "skills": ["./skills/screenrig", "./skills/screenrig-dashboard"],
+        "skills": ["./skills/screenrig", "./skills/screenrig-dashboard",
+                   "./skills/screenrig-view-bridge"],
         "mcpServers": {"screenrig-views": {
             "url": remote["url"], "transport": "streamable-http",
             "auth": "oauth", "oauth": {"scope": " ".join(scopes)},

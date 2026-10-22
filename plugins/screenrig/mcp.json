@@ -3,24 +3,7 @@
   "mcpServers": {
     "screenrig-views": {
       "type": "streamable-http",
-      "url": "https://api.screenrig.ai/mcp",
-      "extensions": {
-        "com.openai": {
-          "auth": {
-            "type": "oauth",
-            "client": {
-              "mode": "cimd"
-            },
-            "baseScopes": [
-              "access:manage",
-              "screens",
-              "content",
-              "playlists",
-              "reports"
-            ]
-          }
-        }
-      }
+      "url": "https://api.screenrig.ai/mcp"
     }
   }
 }

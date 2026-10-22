@@ -91,7 +91,12 @@ If it needs authorization, start the host's native OAuth sign-in once, keep that
 process alive, and let the user approve in one tab. Do not request `identity`,
 loop on login, or copy a CLI token into MCP. Confirm the project matches the
 CLI's before combining results, and say card rendering is unverified unless the
-host shows it. Fresh screenshots need Propose or Manage access. Without a shell,
+host shows it. Where the host passes those results through as text, build the
+card from CLI data and the runtime's own inline render surface:
+[screen cards](references/screen-card.md). To open the view itself there
+instead, the [view bridge skill](../screenrig-view-bridge/SKILL.md) writes it
+as a local page. Fresh screenshots need Propose or
+Manage access. Without a shell,
 do not claim a CLI step ran; ask the user to repeat the request where it can.
 
 ## Pair a screen
