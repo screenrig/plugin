@@ -165,7 +165,7 @@ content, and inspect every render at full size before publishing.
 ## Publish and verify
 
 1. `screenrig playlist init INPUTS... --screen-id SCREEN_ID --name NAME --output FILE`
-   (local files, `med_` IDs, `rel_` releases, HTTPS URLs; a non-empty `--output`
+   (local files, `med_` IDs, `rel_` releases, http(s) page URLs, LAN and `user:pass@` logins included; a non-empty `--output`
    needs `--overwrite`). Rerun an interrupted init unchanged. Check `data.media_ids`.
 2. `playlist preview FILE --output preview --contact-sheet`; open the contact
    sheet and resolve `data.placeholders`.
