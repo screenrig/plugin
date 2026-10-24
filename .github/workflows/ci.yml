@@ -186,6 +186,7 @@ jobs:
           chmod 0755 plugins/screenrig/cli/dist/bin.js \
             plugins/screenrig/skills/screenrig/scripts/screenrig \
             plugins/screenrig/skills/screenrig/scripts/screenrig-plugin-freshness \
+            plugins/screenrig/skills/screenrig-view-bridge/scripts/screenrig-view-bridge \
             plugins/screenrig/skills/screenrig-dashboard/scripts/screenrig-dashboard \
             plugins/screenrig/skills/screenrig-dashboard/scripts/dashboard.py
           git add -- plugins/screenrig
