@@ -1,6 +1,6 @@
 {
   "schema": "screenrig.cli-runtime-dependencies/v1",
-  "package_lock_sha256": "16645958d1f1b2b8c048e5a5577bcf2b1dc8385ecb2361a56e46d927262d945b",
+  "package_lock_sha256": "552ab0a552f9d870d0dc29c6846aa7bd08d05b3b6d837266074676042dd68f8f",
   "packages": [
     {
       "path": "node_modules/@napi-rs/canvas",
@@ -117,9 +117,9 @@
     {
       "path": "node_modules/fast-uri",
       "name": "fast-uri",
-      "version": "3.1.8",
-      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz",
-      "integrity": "sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg=="
+      "version": "3.1.9",
+      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.9.tgz",
+      "integrity": "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ=="
     },
     {
       "path": "node_modules/json-schema-traverse",

@@ -3,10 +3,10 @@
   "state": "resolved",
   "cli": {
     "repository": "screenrig/cli",
-    "commit": "7e42ddfa9b6df08146a8f3ddf2d4cd37df1f74d7",
+    "commit": "08d45e3f546eceffa66b8215b5a2cd4a33a3dcea",
     "artifact": {
       "file": "screenrig-cli.tgz",
-      "sha256": "8356bac5d38555c67a53a313131251adbb3fa1320ae3b4fd7b8933eca9d45b9a"
+      "sha256": "e7c6f6b6e474adaf376e6d17295a31955cdd3aa28d09a97c0233b21e7d1ab6b1"
     }
   }
 }
