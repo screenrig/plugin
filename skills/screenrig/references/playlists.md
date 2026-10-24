@@ -65,8 +65,12 @@ aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
   one image or video; an image there needs `dwell_ms`, a video must not loop.
   Use `media selector-preview` to inspect a selector.
 - `iframe` and `application` use `content_fit: "fill"`; `application` pins a
-  `release_id`. A `stream` needs `fallback_media_id` and a `duration` page. Apple
-  TV rejects `iframe` and `application`.
+  `release_id`. A `stream` needs `fallback_media_id` and a `duration` page. Its
+  `sources` take an `https` HLS URL or a camera's `rtsp://`/`rtsps://` URL as
+  given, login included (`{"url": "…"}` is enough); Android, Amazon and Linux
+  Players open RTSP directly, others show the fallback. UniFi Protect: the
+  camera's channel RTSP URL from Protect. Apple TV rejects `iframe` and
+  `application`.
 - For YouTube, put the link the user gave (video, Shorts, live, playlist or
   `youtube.com/channel/UC…/live`) in an `iframe` `src`: the server stores an
   autoplaying, looping embed without YouTube's controls. Native Players play
