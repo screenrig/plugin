@@ -14,7 +14,7 @@ If runtime approval blocks you, ask me immediately for approval of that action a
 ```
 
 Then describe the content, screen and timing you want. The agent prepares the
-content, publishes a playlist and checks the result. Node.js 22.11 or newer is
+content, publishes a playlist and checks the result. Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x) is
 required. Agents use the bundled launcher; the separate developer-shell package
 is not the agent installation path.
 

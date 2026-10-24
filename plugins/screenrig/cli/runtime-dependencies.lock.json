@@ -1,6 +1,6 @@
 {
   "schema": "screenrig.cli-runtime-dependencies/v1",
-  "package_lock_sha256": "2ec31c783ab0638a88f74b8ecd90848a0735d3e4630a747878a75cf5cabb1bbd",
+  "package_lock_sha256": "16645958d1f1b2b8c048e5a5577bcf2b1dc8385ecb2361a56e46d927262d945b",
   "packages": [
     {
       "path": "node_modules/@napi-rs/canvas",

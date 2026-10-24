@@ -18,7 +18,7 @@ https://screenrig.ai/llms-full.txt.
 
 ## Install and call the CLI
 
-Use Node.js 22.11+. Before any CLI call, find this runtime's enabled `screenrig`
+Use Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x). Before any CLI call, find this runtime's enabled `screenrig`
 plugin (`claude|codex|grok plugin list --json`) and install or enable it per
 [installation](references/installation.md) if missing. Then bootstrap:
 

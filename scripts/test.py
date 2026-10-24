@@ -99,8 +99,11 @@ class LauncherTests(unittest.TestCase):
             shim.chmod(0o755)
             for version, accepted in (
                 ("20.19.0", False), ("22.0.0", False), ("22.10.0", False),
-                ("22.11.0", True), ("22.11.1", True), ("22.12.0", True),
-                ("23.0.0", True), ("24.0.0", True),
+                ("22.11.0", False), ("22.23.3", False), ("22.23.4", True),
+                ("22.24.0", True), ("23.9.0", False), ("24.22.0", False),
+                ("24.22.1", True), ("24.23.0", True), ("25.9.0", False),
+                ("26.12.0", False), ("26.12.1", True), ("27.0.0", True),
+                ("26.13.0-rc.1", False), ("invalid", False),
             ):
                 with self.subTest(version=version):
                     result = subprocess.run(
@@ -111,7 +114,7 @@ class LauncherTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0 if accepted else 69, result.stderr)
                     self.assertEqual(result.stdout, "bundle\n" if accepted else "")
                     self.assertEqual(result.stderr, "" if accepted else
-                                     "ScreenRig requires Node.js 22.11 or newer; upgrade the active node runtime, then retry.\n")
+                                     "ScreenRig requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); upgrade the active node runtime, then retry.\n")
 
     def test_resolution_order_and_missing_cli(self) -> None:
         errors: list[str] = []
@@ -276,6 +279,15 @@ process.exitCode=code;
                 self.assertEqual(result.returncode, 78)
                 self.assertFalse(calls.exists())
             write_json(registry, [{"id": "screenrig@screenrig", "enabled": True, "installPath": str(root)}])
+            preload = tmp / "affected-runtime.cjs"
+            for version in ("22.23.3", "24.22.0", "25.9.0", "26.12.0", "26.13.0-rc.1"):
+                preload.write_text('Object.defineProperty(process.versions, "node", {value: '
+                                   + json.dumps(version) + '});\n')
+                result = subprocess.run([node, "--require", str(preload), str(script),
+                                         "--host", "claude", "--run", "version"],
+                                        env=environment, text=True, capture_output=True, timeout=30)
+                self.assertEqual(result.returncode, 69, result.stderr)
+                self.assertFalse(calls.exists(), "Affected runtimes must not invoke the bundled CLI")
             result = run("--bootstrap", "--json", "--config", str(tmp / "customer-config.json"))
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)["data"]

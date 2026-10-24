@@ -483,12 +483,15 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
 def verify_generated_launcher(plugin_root: Path) -> None:
     cli_version = load_json(plugin_root / "cli" / "package.json").get("version")
     launcher = plugin_root / "skills" / PLUGIN_NAME / "scripts" / "screenrig"
+    # Keep this checkout's selected runtime when verification changes cwd to a
+    # temporary bundle; version-manager shims may select another Node there.
+    node = subprocess.check_output(["node", "-p", "process.execPath"], cwd=ROOT, text=True).strip()
     with tempfile.TemporaryDirectory(prefix="screenrig-plugin-config-") as temporary:
         result = subprocess.run(
             [str(launcher), "--json", "version"],
             cwd=plugin_root,
             env={
-                "PATH": os.environ.get("PATH", ""),
+                "PATH": str(Path(node).parent) + os.pathsep + os.environ.get("PATH", ""),
                 "XDG_CONFIG_HOME": str(Path(temporary) / "config"),
             },
             text=True,
@@ -499,7 +502,8 @@ def verify_generated_launcher(plugin_root: Path) -> None:
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise BuildError("generated plugin launcher did not return JSON offline") from exc
+        raise BuildError(f"generated plugin launcher did not return JSON offline "
+                         f"(exit {result.returncode}): {result.stderr.strip()}") from exc
     data = payload.get("data") if isinstance(payload, dict) else None
     if (
         result.returncode != 0

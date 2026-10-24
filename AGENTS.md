@@ -32,7 +32,7 @@ raising them is the operator's decision.
   ones there when you generate them. Versions are CalVer `YY.MM.SERIAL` (UTC);
   `main` carries the released version and the workspace release stamps and tags
   it. CI neither versions nor tags; do not hand-edit versions.
-- The launcher preflights Node.js 22.11+ and nothing else, prefers the
+- The launcher preflights Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x) and nothing else, prefers the
   package-relative `cli/dist/bin.js`, then the host's `*_PLUGIN_ROOT` variable
   (a source checkout sets `SCREENRIG_PLUGIN_ROOT`), never searches parent
   directories, adds no global npm resolution, and is silent on success (clean
