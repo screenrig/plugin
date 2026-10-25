@@ -145,8 +145,9 @@ weather, rates and other third-party data, never the providers.
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
 names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
-`media generate` blocks for up to about three minutes: leave `--timeout` alone and,
-after a drop, rerun the identical command (it replays under the same key).
+`media generate` waits up to about three minutes for the still: leave `--timeout`
+alone and, after a drop or a timeout, rerun the identical command (it resumes the
+same generation under the same key and never bills twice).
 
 Organize a large library with folders, not tag conventions: `media folder
 create --name Menus [--parent FOLDER_ID]`, then `media upload FILE --folder
