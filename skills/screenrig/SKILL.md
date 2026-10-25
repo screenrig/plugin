@@ -189,7 +189,9 @@ Media changes wait too (`media_review_pending`).
 **Storage.** Players cache playlist media. Before a large assignment run
 `screen storage-forecast SCREEN_ID --playlist-id ID`; on `storage_full` or a
 `partial` fit, ask the user to free device storage or shrink the playlist.
-Delivery is billed per download: settle content before republishing.
+Downloads are free. On Standard the first 1 GB stored is free and a project with
+no credit cannot store more (`payment_required`), so delete unused media instead
+of piling it up.
 
 **Fleets.** `screen assign|reload|toast|tag` take several IDs or `--tag TAG`.
 The answer stays `ok: true`; read `data.results[]` (`fleet_partial_failure`).
@@ -264,11 +266,12 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   identical command (same idempotency key). Honor retry delays. Do not retry
   permission, admission or payment refusals.
 - The server decides admission. Report and respect `payment_required` (HTTP
-  402); never invent a payment command. Standard is free for up to 100 screens
-  and is not a trial; image generation is metered separately and capped per day,
-  with the limit and reset in `error.detail`. If generation is refused, tell the
-  user, offer [pricing](https://screenrig.ai/pricing/), and make the image
-  another way (your own tool, or `compose render`), then `media upload`.
+  402); never invent a payment command. On Standard an upload past the free 1 GB
+  is refused this way. Standard is free for up to 100 screens and is not a
+  trial; image generation is metered separately and capped per day, with the
+  limit and reset in `error.detail`. If generation is refused, tell the user,
+  offer [pricing](https://screenrig.ai/pricing/), and make the image another way
+  (your own tool, or `compose render`), then `media upload`.
 - Never expose secrets: bearer tokens, Authorization headers, cookies, signed
   URLs and webhook secrets stay out of conversation, files and logs, and a
   sign-in address and code, invitation link or fleet-link URL goes only to the
