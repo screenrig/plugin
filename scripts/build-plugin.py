@@ -77,9 +77,9 @@ METADATA: dict[str, Any] = {
         ],
         "websiteURL": "https://screenrig.ai/",
         "brandColor": "#111827",
-        "supportURL": "https://screenrig.ai/contact/",
-        "privacyPolicyURL": "https://screenrig.ai/privacy/",
-        "termsOfServiceURL": "https://screenrig.ai/terms/",
+        "supportURL": "https://screenrig.ai/contact",
+        "privacyPolicyURL": "https://screenrig.ai/privacy",
+        "termsOfServiceURL": "https://screenrig.ai/terms",
         "logo": "./assets/logo.png",
         "composerIcon": "./assets/logo.png"
     }

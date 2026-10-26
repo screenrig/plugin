@@ -18,10 +18,10 @@ content, publishes a playlist and checks the result. Node.js 22.23.4+, 24.22.1+,
 required. Agents use the bundled launcher; the separate developer-shell package
 is not the agent installation path.
 
-[Installation and troubleshooting](https://screenrig.ai/docs/start/) ·
-[Player setup](https://screenrig.ai/docs/players/)
+[Installation and troubleshooting](https://screenrig.ai/docs/start) ·
+[Player setup](https://screenrig.ai/docs/players)
 
-Install a Player from [Downloads](https://screenrig.ai/downloads/): native
+Install a Player from [Downloads](https://screenrig.ai/downloads): native
 Players for Android, the Amazon Signage Stick, Apple TV, macOS, Windows, Linux,
 Raspberry Pi, Samsung Smart Signage and BrightSign, or the Player web app at
 [play.screenrig.ai](https://play.screenrig.ai) in any browser.
@@ -41,11 +41,11 @@ and rates; admission stays invitation-only, with no public listings to browse.
 Standard is free for up to 50 screens and is not a trial: no plan fee, no
 per-screen subscription. Downloads are free, with 1 GB of storage free and
 10,000 agent requests every month. Image generation is billed separately. See
-the [rate card](https://screenrig.ai/pricing/) for allowances, charges and
+the [rate card](https://screenrig.ai/pricing) for allowances, charges and
 terms.
 
-[Features](https://screenrig.ai/features/) · [Compare](https://screenrig.ai/compare/) ·
-[Documentation](https://screenrig.ai/docs/)
+[Features](https://screenrig.ai/features) · [Compare](https://screenrig.ai/compare) ·
+[Documentation](https://screenrig.ai/docs)
 
 ## Contributing
 

@@ -362,7 +362,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
     if cli_source is not None:
         audit_paths.extend(cli_source / relative for relative in CLI_SOURCE_FILES)
     required_marketplace = {
-        "README.md": ["https://screenrig.ai/docs/start/", "SECURITY.md", "Node.js 22.23.4"],
+        "README.md": ["https://screenrig.ai/docs/start", "SECURITY.md", "Node.js 22.23.4"],
         "skills/screenrig/SKILL.md": ["screenrig version", "screenrig-plugin-freshness", "screenrig doctor",
             "not_enrolled", "agent enroll", "payment_required", "pending_review", "screenrig help --all",
             "screen list --state archived", "screen recover", "recovery_pending", "screen unarchive",
