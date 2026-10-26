@@ -104,7 +104,8 @@ do not claim a CLI step ran; ask the user to repeat the request where it can.
 ## Pair a screen
 
 Ask for the code the Player shows (a browser: open https://play.screenrig.ai on
-the screen device); no USB or ADB. `screenrig screen pair "ABC 234"`, then
+the screen device, or play.DOMAIN when `doctor` reports another environment's
+api.DOMAIN); no USB or ADB. `screenrig screen pair "ABC 234"`, then
 `screen show SCREEN_ID` until `state` is `active` and `online` is true. Read
 `observation.surfaces[]` for size and orientation. Tag each screen right after
 pairing (`screen tag SCREEN_ID --set Lobby,Floor2`); tags select fleets and are
@@ -229,7 +230,7 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | `triggers` | An emergency notification system (CAP 1.2) must take screens over by itself | `triggers create --name NAME --tag TAG`, then `triggers test ID` (a 60-second alert on the screens); the URL and password go only to that system's administrator; `--pull FILE` also has the platform read CAP sources |
 | `webhooks` | The agent's own HTTPS endpoint should receive project events as signed POSTs | `webhooks create --url URL --event-types "screen.*"`, then `webhooks test ID` and `webhooks deliveries ID` |
 | `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once) |
-| `card-data` | Dynamic card data addressed by key, where `card data put` uses a `crd_` ID | `card-data put KEY --file FILE`, `card-data list` |
+| `card`, `card data` | A built-in card shows live data (menu, ticker, KPIs) that changes without a republish | `card create --type TYPE --file PARAMS.json`, then `card data put crd_ID --file FILE` |
 | `fleet-links` | A device manager (a kiosk app in an admin console) enrolls many displays without pairing codes | `fleet-links create --name NAME --tag TAG --playlist-id ID`; `fleet-links rotate ID` replaces a leaked URL |
 | `operations` | A command returned an `operation_id` (a `--no-wait` upload) and the result is not ready | `operations wait ID` before using it; `operations cancel ID` drops an abandoned one |
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |

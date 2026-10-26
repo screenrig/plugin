@@ -1,7 +1,8 @@
 # screenRIG
 
-Give your agent a screen. Publish menu boards, videos, dashboards and kiosk
-applications using the official screenRIG plugin and bundled CLI.
+Free digital signage your AI agent runs. Publish menu boards, videos, dashboards
+and kiosk applications using the official screenRIG plugin and bundled CLI.
+screenRIG is free. Pay only if you want more.
 
 ## Get started
 
@@ -38,13 +39,14 @@ screen inventory, with pricing quoted and accepted before anything is charged.
 The dashboard's Marketplace lists invited sellers and their permitted inventory
 and rates; admission stays invitation-only, with no public listings to browse.
 
-screenRIG is free. Pay only if you want more. Standard includes up to 50
-screens, 1 GB of storage and 10,000 agent requests every month, and downloads
-are free. Image generation is billed separately. See the
+Standard includes up to 50 screens, 1 GB of storage and 10,000 agent requests
+every month, and downloads are free. Image generation is billed separately. See the
 [rate card](https://screenrig.ai/pricing) for allowances, charges and terms.
 
 [Features](https://screenrig.ai/features) · [Compare](https://screenrig.ai/compare) ·
-[Documentation](https://screenrig.ai/docs)
+[Documentation](https://screenrig.ai/docs) ·
+[Digital signage guides](https://screenrig.ai/guides) ·
+[Publish content to a TV](https://screenrig.ai/guides/publish-content-to-tv-programmatically)
 
 ## Contributing
 
@@ -55,12 +57,12 @@ The [Apache-2.0 license](LICENSE) covers this plugin and bundled CLI, not the ho
 
 ## Interactive views
 
-The package includes a remote screenRIG MCP connection for compatible Codex
-and Claude plugin hosts. When a view needs authorization, sign in to screenRIG
+The package includes a remote screenRIG connection for compatible Codex and
+Claude plugin hosts. When a view needs authorization, sign in to screenRIG
 and approve the project you use with the CLI. Fresh screenshot capture needs
 Propose or Manage access; the Manage the plugin requests also allows writes
 within the approved capabilities.
 Read-only connections can display saved previews. The host stores the connection;
 you do not need to copy a token or enter the server URL. The CLI continues to
 handle enrollment, media preparation, pairing and changes. Interactive cards
-require a host that supports MCP Apps; other hosts can return text results.
+require a host that supports interactive views; other hosts can return text results.
