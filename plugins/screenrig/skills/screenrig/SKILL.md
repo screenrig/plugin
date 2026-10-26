@@ -268,7 +268,7 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   permission, admission or payment refusals.
 - The server decides admission. Report and respect `payment_required` (HTTP
   402); never invent a payment command. On Standard an upload past the free 1 GB
-  is refused this way. Standard is free for up to 100 screens and is not a
+  is refused this way. Standard is free for up to 50 screens and is not a
   trial; image generation is metered separately and capped per day, with the
   limit and reset in `error.detail`. If generation is refused, tell the user,
   offer [pricing](https://screenrig.ai/pricing/), and make the image another way
