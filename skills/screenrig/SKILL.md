@@ -110,8 +110,10 @@ api.DOMAIN); no USB or ADB. `screenrig screen pair "ABC 234"`, then
 `observation.surfaces[]` for size and orientation. Tag each screen right after
 pairing (`screen tag SCREEN_ID --set Lobby,Floor2`); tags select fleets and are
 not authorization. Displays run by a device manager use `fleet-links create`
-instead of per-screen codes; its URL creates screens, so give it only to the
-person who configures the devices.
+instead of per-screen codes: its URL goes in a kiosk browser, in Android or
+Apple managed app configuration as `fleet_link` (`asset_id` names the screen),
+or in `/etc/screenrig/fleet-link` on Linux; `--expires-at` ends it. Its URL
+creates screens, so give it only to the person who configures the devices.
 
 `screen archive` darkens a screen but keeps its playlist and binding. Before
 pairing a used display, run `screen list --state archived`. If `screen show` reports `recovery_pending`,
