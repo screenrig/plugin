@@ -202,13 +202,28 @@ failed IDs. For a fleet publish, `playlist create FILE` once, then
 `screen assign --tag TAG --playlist-id ID`. Verify with
 `screen screenshot --tag TAG --output DIR`.
 
-**Schedules and takeover.** A screen plays its takeover, else the first matching
-schedule entry, else its default playlist. Set the screen timezone first
-(`screen set-timezone`). Tools: `screen schedule set`, `screen takeover`
-(emergencies, at most 7 days), page `visibility`, `screen display` and
-`display-schedule` (panel power), `screen reboot` (only where the Player
-declares it; fleets need `--yes` and the user's confirmation). Verify with
-`effective_playlist` in `screen show`.
+**Per-screen values.** One playlist shows each screen's own details. Set them
+once per screen: `screen update SCREEN_ID --field store_number=0142 --field
+region=north --location 46.8772,-96.7898 --location-name Fargo`. Card params
+then take `{screen.field.store_number}`, `{screen.name}` and `{screen.timezone}`,
+and a card's `location` may be `"{screen.location}"`
+([playlists](references/playlists.md#per-screen-values)). Set the fields before
+publishing: a missing one shows as empty text. `screen list --field
+region=north` or `--near LAT,LON,KM` finds screens.
+
+**Campaigns, schedules and takeover.** A screen plays its takeover, else the
+first campaign that holds, else the first matching schedule entry, else its
+default playlist. For content across screens (a promotion at every `north`
+store, weekday lunch menus) create one campaign, not per-screen schedules:
+`campaign create --name Lunch --playlist-id ID --tag north --window
+mon-fri@11:00-14:00`. Screens that join its audience later get it too. It needs
+each screen's default playlist and, with `--from`, `--until` or `--window`, its
+timezone (`screen set-timezone`). `campaign screens ID` shows every screen's
+standing and `campaign explain SCREEN_ID` says why one does not play it.
+Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
+7 days), page `visibility`, `screen display` and `display-schedule` (panel
+power), `screen reboot` (only where the Player declares it; fleets need `--yes`
+and the user's confirmation). Verify with `effective_playlist` in `screen show`.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported). Monitor with `events list|follow`, `playback plays|list`
@@ -233,7 +248,7 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | `fleet-links` | A device manager (a kiosk app in an admin console) enrolls many displays without pairing codes | `fleet-links create --name NAME --tag TAG --playlist-id ID`; `fleet-links rotate ID` replaces a leaked URL |
 | `operations` | A command returned an `operation_id` (a `--no-wait` upload) and the result is not ready | `operations wait ID` before using it; `operations cancel ID` drops an abandoned one |
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
-| `playback totals`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
+| `playback totals\|completeness`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
 | `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |
 
 ## Keep the project tidy
