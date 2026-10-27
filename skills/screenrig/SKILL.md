@@ -202,13 +202,19 @@ failed IDs. For a fleet publish, `playlist create FILE` once, then
 `screen assign --tag TAG --playlist-id ID`. Verify with
 `screen screenshot --tag TAG --output DIR`.
 
-**Schedules and takeover.** A screen plays its takeover, else the first matching
-schedule entry, else its default playlist. Set the screen timezone first
-(`screen set-timezone`). Tools: `screen schedule set`, `screen takeover`
-(emergencies, at most 7 days), page `visibility`, `screen display` and
-`display-schedule` (panel power), `screen reboot` (only where the Player
-declares it; fleets need `--yes` and the user's confirmation). Verify with
-`effective_playlist` in `screen show`.
+**Campaigns, schedules and takeover.** A screen plays its takeover, else the
+first campaign that holds, else the first matching schedule entry, else its
+default playlist. For content across screens (a promotion at every `north`
+store, weekday lunch menus) create one campaign, not per-screen schedules:
+`campaign create --name Lunch --playlist-id ID --tag north --window
+mon-fri@11:00-14:00`. Screens that join its audience later get it too. It needs
+each screen's default playlist and, with `--from`, `--until` or `--window`, its
+timezone (`screen set-timezone`). `campaign screens ID` shows every screen's
+standing and `campaign explain SCREEN_ID` says why one does not play it.
+Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
+7 days), page `visibility`, `screen display` and `display-schedule` (panel
+power), `screen reboot` (only where the Player declares it; fleets need `--yes`
+and the user's confirmation). Verify with `effective_playlist` in `screen show`.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported). Monitor with `events list|follow`, `playback plays|list`
