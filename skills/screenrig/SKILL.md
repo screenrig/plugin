@@ -237,8 +237,8 @@ drops one still queued.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported). Monitor with `events list|follow`, `playback plays|list`
-(proof of play, CSV export) and `notifications` (below). `screen reload` asks a
-Player to reload once; acceptance is not proof.
+(proof of play, CSV export), `notifications` and `alerts` (below). `screen reload`
+asks a Player to reload once; acceptance is not proof.
 
 **On site and out of service.** `screen identify SCREEN_ID` shows the screen's
 name over its content for a minute (`--duration 2m`), so the user can tell which
@@ -259,7 +259,8 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | Group | Reach for it when | First command |
 | --- | --- | --- |
 | `triggers` | An emergency notification system (CAP 1.2) must take screens over by itself | `triggers create --name NAME --tag TAG`, then `triggers test ID` (a 60-second alert on the screens); the URL and password go only to that system's administrator; `--pull FILE` also has the platform read CAP sources |
-| `notifications` | A person should hear when a screen goes offline or fails (email), or another system should react (signed webhook) | `notifications list` first: a new project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), and prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `running_hot`, `storage_full`, `content_stuck`, `crashing`; `--tag TAG`, `--hold MINUTES`, `update ID --snooze 1h`. `webhooks` remains for raw event feeds |
+| `notifications` | A person should hear when a screen goes offline or fails (email), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), and prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `running_hot`, `storage_full`, `content_stuck`, `not_playing`, `crashing`; `--tag TAG`, `--hold MINUTES`, `update ID --snooze 1h`. `webhooks` remains for raw event feeds |
+| `alerts` | The user asks what needs attention on the screens, or named screens will be down for maintenance | `alerts list` shows the open problems, one per screen and condition (`--state all` adds resolved; `crashing` is a notice, not an alert). `alerts ack ID` when someone is on it, or `alerts snooze ID --for 4h` to look again later; either skips a notice still in its hold. For maintenance the user names, `alerts mute --tag TAG --for 2h --note TEXT` (or `--screen-id ID`; under 30 days) keeps those screens out of notices and attention; `alerts unmute MUTE_ID` (ids from `alerts mutes`) ends it when the work is done. Changing alerts needs Manage access |
 | `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once) |
 | `card`, `card data` | A built-in card shows live data (menu, ticker, KPIs) that changes without a republish | `card create --type TYPE --file PARAMS.json`, then `card data put crd_ID --file FILE` |
 | `fleet-links` | A device manager (a kiosk app in an admin console) enrolls many displays without pairing codes | `fleet-links create --name NAME --tag TAG --playlist-id ID`; `fleet-links rotate ID` replaces a leaked URL |
@@ -273,9 +274,9 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 The project is the customer's account. Reuse before creating (update the existing
 playlist, rerun interrupted uploads, tag a task's uploads). Track the IDs you
 create; before finishing delete your drafts, replaced playlists, test uploads
-and apps, check notifications and abandoned operations, the playlist before the
-media it used. Remove only what you created or the user names, and report what
-you created and removed.
+and apps, check notifications, mutes and abandoned operations, the playlist
+before the media it used. Remove only what you created or the user names, and
+report what you created and removed.
 
 ## Notes, feedback and support
 
