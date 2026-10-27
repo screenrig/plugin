@@ -85,5 +85,11 @@ aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
   Details: [compose](https://screenrig.ai/docs/compose.md#add-a-soundtrack).
 - An ad break is an `adslot` page (`id`, `type`, `adslot_id`, optional
   `visibility`), not a primitive; keep an ordinary fallback page.
-- `playlist export|import` moves a playlist with its media as a bundle.
+- `playlist export|import` moves image/video media, soundtrack audio and iframe
+  URLs as a bundle. Cards, streams and adslot pages stop export. Applications
+  stop it by default; `--skip-applications` drops them and empty or
+  application-controlled pages, and requires at least one remaining page.
+  For an editable document retaining card/application references in the same
+  project, use `playlist show ID --output playlist.json`; referenced resources
+  stay in that project.
   `playlist patch` and `rename` change only supplied fields.
