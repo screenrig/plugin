@@ -227,9 +227,8 @@ and the user's confirmation). Verify with `effective_playlist` in `screen show`.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported). Monitor with `events list|follow`, `playback plays|list`
-(proof of play, CSV export) and `webhooks create` (verify `ScreenRig-Signature`;
-`data.secret` is shown once). `screen reload` asks a Player to reload once;
-acceptance is not proof.
+(proof of play, CSV export) and `notifications` (below). `screen reload` asks a
+Player to reload once; acceptance is not proof.
 
 ## Advertising
 
@@ -243,13 +242,13 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | Group | Reach for it when | First command |
 | --- | --- | --- |
 | `triggers` | An emergency notification system (CAP 1.2) must take screens over by itself | `triggers create --name NAME --tag TAG`, then `triggers test ID` (a 60-second alert on the screens); the URL and password go only to that system's administrator; `--pull FILE` also has the platform read CAP sources |
-| `webhooks` | The agent's own HTTPS endpoint should receive project events as signed POSTs | `webhooks create --url URL --event-types "screen.*"`, then `webhooks test ID` and `webhooks deliveries ID` |
+| `notifications` | A person should hear when a screen goes offline or fails (email), or another system should react (signed webhook) | `notifications list` first: a new project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), and prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `running_hot`, `storage_full`, `content_stuck`, `crashing`; `--tag TAG`, `--hold MINUTES`, `update ID --snooze 1h`. `webhooks` remains for raw event feeds |
 | `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once) |
 | `card`, `card data` | A built-in card shows live data (menu, ticker, KPIs) that changes without a republish | `card create --type TYPE --file PARAMS.json`, then `card data put crd_ID --file FILE` |
 | `fleet-links` | A device manager (a kiosk app in an admin console) enrolls many displays without pairing codes | `fleet-links create --name NAME --tag TAG --playlist-id ID`; `fleet-links rotate ID` replaces a leaked URL |
 | `operations` | A command returned an `operation_id` (a `--no-wait` upload) and the result is not ready | `operations wait ID` before using it; `operations cancel ID` drops an abandoned one |
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
-| `playback totals`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
+| `playback totals\|completeness`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
 | `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |
 
 ## Keep the project tidy
@@ -257,9 +256,9 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 The project is the customer's account. Reuse before creating (update the existing
 playlist, rerun interrupted uploads, tag a task's uploads). Track the IDs you
 create; before finishing delete your drafts, replaced playlists, test uploads
-and apps, check webhooks and abandoned operations, the playlist before the media
-it used. Remove only what you created or the user names, and report what you
-created and removed.
+and apps, check notifications and abandoned operations, the playlist before the
+media it used. Remove only what you created or the user names, and report what
+you created and removed.
 
 ## Notes, feedback and support
 
