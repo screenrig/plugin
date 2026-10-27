@@ -35,6 +35,28 @@ screenrig card preview crd_ID --output card.png
   A `state: pending` answer carries `retry_after_seconds`: report it and return.
   Show a feed's `attribution` wherever its data shows.
 
+## Per-screen values
+
+Each screen carries its own `fields` (up to 32 lower-case names, values up to
+200 characters) and `location` (latitude, longitude, an optional `name` cards
+show and an `address`). `screen update` sets them: `--field NAME=VALUE`
+(repeatable), `--unset-field NAME`, `--clear-fields`, `--location LAT,LON
+[--location-name NAME] [--address TEXT]`, `--clear-location`. Changing them
+reissues the screen's manifest.
+
+A card's params read them with tokens that screenRIG fills for each screen:
+
+- Any text param: `{screen.name}`, `{screen.timezone}`, `{screen.field.NAME}`,
+  for example `"title": "Store {screen.field.store_number}"`.
+- A card's `location` param: the whole value `"{screen.location}"`, so weather,
+  air quality, alerts, earthquake, moon and prayer-time cards follow each
+  screen. A CAP alert card takes it only without `sources`.
+
+`card create` and playlists accept the tokens. `card preview` shows them as
+written, so check one screen's screenshot after publishing. A screen without
+the field shows empty text; a screen without a location shows the card without
+one.
+
 ## Video walls
 
 A kiosk-installed Linux Player drives 2 or 3 displays as one wall. Set it with

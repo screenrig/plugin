@@ -202,6 +202,15 @@ failed IDs. For a fleet publish, `playlist create FILE` once, then
 `screen assign --tag TAG --playlist-id ID`. Verify with
 `screen screenshot --tag TAG --output DIR`.
 
+**Per-screen values.** One playlist shows each screen's own details. Set them
+once per screen: `screen update SCREEN_ID --field store_number=0142 --field
+region=north --location 46.8772,-96.7898 --location-name Fargo`. Card params
+then take `{screen.field.store_number}`, `{screen.name}` and `{screen.timezone}`,
+and a card's `location` may be `"{screen.location}"`
+([playlists](references/playlists.md#per-screen-values)). Set the fields before
+publishing: a missing one shows as empty text. `screen list --field
+region=north` or `--near LAT,LON,KM` finds screens.
+
 **Campaigns, schedules and takeover.** A screen plays its takeover, else the
 first campaign that holds, else the first matching schedule entry, else its
 default playlist. For content across screens (a promotion at every `north`
