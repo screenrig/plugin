@@ -264,9 +264,19 @@ function registeredHost(root, host) {
   const hosts = host ? [host] : ["claude", "codex", "grok"];
   let available = false;
   for (const name of hosts) {
-    const result = spawnSync(name, ["plugin", "list", "--json"], {
+    const options = {
       encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024, windowsHide: true,
-    });
+    };
+    // Other Codex marketplaces can require unrelated network requests. A
+    // stalled remote catalog must not hide an installed local plugin.
+    const args = ["plugin", "list", "--json"];
+    if (name === "codex") args.push("--marketplace", "screenrig");
+    let result = spawnSync(name, args, options);
+    // Older Codex versions may lack the marketplace filter.
+    if (name === "codex" && result.status !== 0 &&
+        /(?:unexpected|unrecognized|unknown).*--marketplace/i.test(result.stderr || "")) {
+      result = spawnSync(name, ["plugin", "list", "--json"], options);
+    }
     if (result.error && result.error.code === "ENOENT") continue;
     available = true;
     if (result.error || result.status !== 0) continue;

@@ -221,6 +221,45 @@ DEFAULT_MARKETPLACE_URL = "https://raw.githubusercontent.com/screenrig/plugin/ma
 
 
 class FreshnessTests(unittest.TestCase):
+    def test_codex_registration_does_not_depend_on_other_marketplaces(self) -> None:
+        node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
+        with tempfile.TemporaryDirectory(prefix="screenrig-codex-registry-") as temporary:
+            tmp = Path(temporary)
+            root = tmp / "registered plugin"
+            helper = install_copy(HELPER, root / "skills/screenrig/scripts/screenrig-plugin-freshness")
+            write_json(root / "plugin.json", {"name": "screenrig", "version": "26.10.1"})
+            cli = root / "cli/dist/bin.js"
+            cli.parent.mkdir(parents=True)
+            cli.write_text('process.stdout.write(JSON.stringify({ok:true,data:{version:"test"}})+"\\n");\n')
+            host = tmp / "bin/codex"
+            host.parent.mkdir()
+            host.write_text(
+                "#!" + node + '\n'
+                'const args = process.argv.slice(2);\n'
+                'require("fs").appendFileSync(process.env.TEST_HOST_CALLS, JSON.stringify(args)+"\\n");\n'
+                'if (process.env.TEST_LEGACY && args.includes("--marketplace")) { process.stderr.write("unexpected argument \'--marketplace\'"); process.exit(2); }\n'
+                'if (!process.env.TEST_LEGACY && (!args.includes("--marketplace") || args[args.indexOf("--marketplace")+1] !== "screenrig")) process.exit(75);\n'
+                'process.stdout.write(JSON.stringify({installed:[{pluginId:"screenrig@screenrig",installed:true,enabled:process.env.TEST_ENABLED !== "0",source:{path:process.env.TEST_ROOT}}]}));\n'
+            )
+            host.chmod(0o755)
+            calls = tmp / "host-calls.jsonl"
+            env = without(FRESHNESS_VARS, PATH=f"{host.parent}{os.pathsep}{os.environ['PATH']}",
+                          TEST_ROOT=str(root), TEST_HOST_CALLS=str(calls))
+            command = [node, str(helper), "--host", "codex", "--run", "version"]
+            result = subprocess.run(command, env=env, text=True, capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(json.loads(result.stdout)["ok"])
+            self.assertEqual(json.loads(calls.read_text().splitlines()[0]),
+                             ["plugin", "list", "--json", "--marketplace", "screenrig"])
+            result = subprocess.run(command, env={**env, "TEST_ENABLED": "0"}, text=True,
+                                    capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 78)
+            self.assertEqual(json.loads(result.stdout)["data"]["action"], "install")
+            result = subprocess.run(command, env={**env, "TEST_LEGACY": "1"}, text=True,
+                                    capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads(calls.read_text().splitlines()[-1]), ["plugin", "list", "--json"])
+
     def test_bootstrap_registration_reuse_and_exact_command(self) -> None:
         node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
         with tempfile.TemporaryDirectory(prefix="screenrig-bootstrap-") as temporary:
