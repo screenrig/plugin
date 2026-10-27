@@ -124,6 +124,12 @@ A screen whose display holds a key is never deleted or unpaired remotely; to
 free that display, the user confirms a reset on the Player itself, then you pair
 the code it shows. Otherwise leave the screen archived.
 
+To swap failed hardware, pair the new device as its own screen, then
+`screen replace SCREEN_ID --with NEW_SCREEN_ID`. SCREEN_ID keeps its name, tags,
+playlist, schedules and history on the new device, and the device it had is cut
+off after fifteen minutes, so ask first when that one still works. The temporary
+screen is archived as `replaced`; delete it, never unarchive it.
+
 ## Choose the content path
 
 | The page needs | Path |
@@ -224,12 +230,23 @@ Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen reboot` (only where the Player declares it; fleets need `--yes`
 and the user's confirmation). Verify with `effective_playlist` in `screen show`.
+`reboot` and `reload` reach an online screen at once and wait up to 24 hours
+(`--expires-in`) for an offline one: the answer's `state` is `queued`,
+`screen show` lists `commands`, and `screen command cancel SCREEN_ID COMMAND_ID`
+drops one still queued.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported). Monitor with `events list|follow`, `playback plays|list`
 (proof of play, CSV export) and `webhooks create` (verify `ScreenRig-Signature`;
 `data.secret` is shown once). `screen reload` asks a Player to reload once;
 acceptance is not proof.
+
+**On site and out of service.** `screen identify SCREEN_ID` shows the screen's
+name over its content for a minute (`--duration 2m`), so the user can tell which
+display a record is; a Player that cannot answers `identify_unsupported`. To take
+a screen out of service, `screen suspend SCREEN_ID --message "TEXT"` shows the
+notice instead of its content and changes nothing else; `screen resume SCREEN_ID`
+ends it and `screen show` reports `suspension`. Suspend only when the user asks.
 
 ## Advertising
 
