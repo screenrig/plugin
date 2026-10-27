@@ -249,7 +249,7 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | `fleet-links` | A device manager (a kiosk app in an admin console) enrolls many displays without pairing codes | `fleet-links create --name NAME --tag TAG --playlist-id ID`; `fleet-links rotate ID` replaces a leaked URL |
 | `operations` | A command returned an `operation_id` (a `--no-wait` upload) and the result is not ready | `operations wait ID` before using it; `operations cancel ID` drops an abandoned one |
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
-| `playback totals`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
+| `playback totals\|completeness`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
 | `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |
 
 ## Keep the project tidy
