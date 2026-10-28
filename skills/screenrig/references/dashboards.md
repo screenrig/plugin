@@ -58,6 +58,9 @@ republish.
   `bi connection update ID --token-file FILE`. `bi_upstream_unavailable`
   (exit 9): Grafana is unreachable, not public, timed out or has no renderer; the
   detail says which.
+- `bi connection update ID --url ADDRESS` on another host, scheme or port
+  needs `--token-file` (Grafana) or `--secret-file` (Tableau) in the same
+  command: a stored secret is sent only to the address it was saved for.
 - A view plays only on screens of its own project. A playlist exported to
   another project shows `forbidden` there: create a view in that project.
 - Deleting a view leaves screens showing it with `not_found` until their
