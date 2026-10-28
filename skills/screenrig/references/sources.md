@@ -75,4 +75,53 @@ confidential show their times only. Free (transparent) events are left out of a
 
 <!-- sources:rooms -->
 
+## Meeting rooms (`microsoft365`, `google_calendar`)
+
+A room's calendar fills a `room` card (the door sign of exactly one room) or a
+`room-board` card (a building's rooms, up to 60). Create the card first
+(`card create --type room ...` with `room`, `capacity`, `showOrganizer`;
+`--type room-board` with `showTitles`). The cards take no input and the
+sources only read, so nothing is booked, ended or checked in from a screen; the
+card works out free, in use and next on the screen every second, so a sign
+stays right while its screen is offline. An `ics` calendar fills the same
+cards.
+
+- **`microsoft365`** reads Exchange Online room mailboxes with the customer's
+  own Microsoft Entra app. Config: `tenant` (directory id or verified domain,
+  never `common`, `organizations` or `consumers`), `client_id`, `rooms`
+  (`[{key, email, name?, floor?, capacity?}]`), `days`, `time_zone`,
+  `private_title`. Secret `client_secret` (the secret's Value):
+  `--secret client_secret=@secret.txt`. The app needs the Microsoft Graph
+  application permission `Calendars.Read` with admin consent.
+- **`google_calendar`** reads resource calendars as the customer's service
+  account. Config: `rooms` (`[{key, calendar_id, name?, floor?, capacity?}]`),
+  `subject?` (domain-wide delegation), `days`, `time_zone`, `private_title`.
+  Secret `service_account_key`: the JSON key file as Google issues it,
+  `--secret service_account_key=@key.json`; the secret's hint is the account's
+  address, which each room calendar is shared with (See all event details).
+
+The customer's administrator does the setup on their side; ask for no admin
+credentials. Give them the Exchange commands that scope the app to the room
+mailboxes (`New-ApplicationAccessPolicy -AppId CLIENT_ID -PolicyScopeGroupId
+GROUP -AccessRight RestrictAccess`, checked with `Test-ApplicationAccessPolicy
+-AppId CLIENT_ID -Identity ROOM`) and, for meeting titles to show,
+`Set-CalendarProcessing -Identity ROOM -DeleteSubject $false
+-AddOrganizerToSubject $false`. Both secrets go in only as `@FILE` or `-`.
+
+Preview with `source test` and read `data.stats`: `rooms`, `events`, one
+`events_KEY` per room (compare with what the customer sees in their calendar)
+and, for Microsoft 365 when the app also holds `Place.Read.All`, `places_rooms`.
+Set `time_zone` (otherwise days start at UTC midnight and a warning says so).
+Free time is not a booking, tentative counts as busy, private and confidential
+meetings carry `private_title` and no organizer. The document carries titles
+and organizers; a `room` card draws organizers only with `showOrganizer` and a
+`room-board` titles only with `showTitles`.
+
+Errors quote Microsoft's or Google's own text. `auth_failed` with an `AADSTS`
+code or `invalid_grant` is a wrong secret, tenant or key, or a missing consent
+or delegation: the customer fixes it on their side, then `source refresh`.
+`config_invalid` names the room's address when no calendar can be found or
+seen. One room failing fails the sync and names the room (`Room KEY: ...`);
+the card keeps its last good document.
+
 <!-- sources:pos -->
