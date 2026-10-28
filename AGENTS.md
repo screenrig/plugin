@@ -73,8 +73,15 @@ raising them is the operator's decision.
 
 `scripts/test.py` holds every test (`--browser` adds Chromium renders and needs
 the helper's locked runtime). The public/reproducibility boundary is
-`scripts/validate-plugin.py` and `scripts/check-public-repo.py`; taught commands
-must exist in the bundled CLI.
+`scripts/validate-plugin.py` and `scripts/check-public-repo.py`.
+
+`validate-plugin.py` fails when a skill or reference writes, as code, a
+`screenrig` command path missing from the bundled CLI's `help --all`, or an MCP
+tool name the backend does not publish. The tool list comes from a backend
+checkout (`--backend-source`, `SCREENRIG_BACKEND_SOURCE` or a sibling
+`../backend`); without one, tool names go unchecked and the run says so. The
+check judges names only, not flags, arguments, prose or a path written without
+its group (`update|pause` after "campaign").
 
 ```sh
 python3 scripts/validate-plugin.py --budget
