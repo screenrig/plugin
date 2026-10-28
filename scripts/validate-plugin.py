@@ -52,7 +52,8 @@ CLI_SOURCE_FILES = (
     "src/localhost-smoke.ts",
     "src/server-smoke.ts",
 )
-BACKEND_MCP_DIR = Path("internal") / "api"
+MCP_TOOLS_PATH = Path("scripts") / "mcp-tools.json"
+MCP_TOOLS_SCHEMA = "screenrig.mcp-tools/v1"
 errors: list[str] = []
 
 
@@ -82,18 +83,6 @@ def require_cli_source(explicit: str | None) -> Path | None:
         errors.append(f"{origin} is not a ScreenRig CLI checkout (missing {', '.join(missing)})")
         return None
     return path
-
-
-def requested_backend_source(explicit: str | None) -> tuple[Path | None, str | None]:
-    if explicit:
-        return Path(explicit).expanduser(), "--backend-source"
-    env = os.environ.get("SCREENRIG_BACKEND_SOURCE")
-    if env:
-        return Path(env).expanduser(), "SCREENRIG_BACKEND_SOURCE"
-    sibling = ROOT.parent / "backend"
-    if (sibling / BACKEND_MCP_DIR / "mcp.go").is_file():
-        return sibling, "sibling backend checkout"
-    return None, None
 
 
 def display_path(path: Path, cli_source: Path | None) -> str:
@@ -461,10 +450,10 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
 # A skill is read by an agent that then acts on it. A command or tool the product no
 # longer has sends that agent into an error it cannot tell from its own mistake, so
 # every command path and MCP tool name the skills write as code must exist: command
-# paths in the bundled CLI's `help --all` inventory, tool names in the backend's MCP
-# tool list. These checks judge names only. They do not judge flags or arguments,
-# prose, a path written without its group (`update|pause` after "campaign"), or a
-# name outside code. A tool name is not checked without a backend checkout.
+# paths in the bundled CLI's `help --all` inventory, tool names in the MCP tool list
+# the backend publishes (scripts/mcp-tools.json, vendored by contracts.toml). These
+# checks judge names only. They do not judge flags or arguments, prose, a path written
+# without its group (`update|pause` after "campaign"), or a name outside code.
 COMMAND_WORD = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 MCP_TOOL = re.compile(r"(?<![\w./-])screenrig_[a-z0-9]+(?:_[a-z0-9]+)*(?![\w/-]|\.\w)")
 CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.DOTALL)
@@ -605,42 +594,39 @@ def bundled_command_inventory() -> list[str] | None:
     return inventory
 
 
-def published_mcp_tools(source: Path, origin: str | None) -> set[str] | None:
-    """Tool names the backend checkout at ``source`` publishes, or None when it is not a backend checkout."""
-    sources = [path for path in sorted((source / BACKEND_MCP_DIR).glob("mcp*.go")) if not path.name.endswith("_test.go")]
-    names = {name for path in sources
-             for name in re.findall(r'\bname:\s*"(screenrig_[a-z0-9_]+)"', path.read_text(encoding="utf-8"))}
-    if not names:
-        errors.append(f"{origin} is not a ScreenRig backend checkout (no MCP tool names in {BACKEND_MCP_DIR.as_posix()}/mcp*.go)")
+def published_mcp_tools() -> set[str] | None:
+    """Tool names in the vendored backend list, or None when it is missing or malformed."""
+    name = MCP_TOOLS_PATH.as_posix()
+    try:
+        document = json.loads((ROOT / MCP_TOOLS_PATH).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(f"{name} is unreadable ({exc}); contracts.toml vendors it from the backend's api/public/mcp-tools.json")
         return None
-    return names
+    tools = document.get("tools") if isinstance(document, dict) else None
+    if (document.get("schema") != MCP_TOOLS_SCHEMA or not isinstance(tools, list) or not tools
+            or not all(isinstance(tool, str) and re.fullmatch(r"screenrig_[a-z0-9_]+", tool) for tool in tools)):
+        errors.append(f"{name} is not a {MCP_TOOLS_SCHEMA} document of screenrig_ tool names")
+        return None
+    return set(tools)
 
 
-def check_taught_surface(backend_source: str | None) -> None:
+def check_taught_surface() -> None:
     documents = sorted((ROOT / "skills").rglob("*.md"))
     inventory = bundled_command_inventory()
     tree = command_tree(inventory) if inventory else None
-    source, origin = requested_backend_source(backend_source)
-    tools = published_mcp_tools(source, origin) if source else None
-    unchecked_tools = False
+    tools = published_mcp_tools()
     for path in documents:
         text = path.read_text(encoding="utf-8")
         found = taught_command_errors(text, tree) if tree else []
         if tools is not None:
             found.extend(taught_tool_errors(text, tools))
-        elif source is None and any(MCP_TOOL.search(code) for _line, code, _kind in code_regions(text)):
-            unchecked_tools = True
         errors.extend(f"{path.relative_to(ROOT)}:{line}: {problem}" for line, problem in sorted(found))
-    if unchecked_tools:
-        print("MCP tool names: not checked, no backend checkout "
-              "(pass --backend-source, set SCREENRIG_BACKEND_SOURCE, or place screenrig/backend next to this repository)")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli-artifact")
     parser.add_argument("--cli-source")
-    parser.add_argument("--backend-source", help="screenrig/backend checkout that lists the MCP tools the skills may name")
     parser.add_argument("--budget", action="store_true", help="only count files and bytes against the budget")
     args = parser.parse_args()
     if args.budget:
@@ -660,7 +646,7 @@ def main() -> int:
     check_package()
     check_budget()
     check_no_alternate_surfaces(require_cli_source(args.cli_source))
-    check_taught_surface(args.backend_source)
+    check_taught_surface()
     if errors:
         print("ScreenRig plugin validation failed:", file=sys.stderr)
         for error in errors:

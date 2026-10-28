@@ -622,15 +622,13 @@ class SkillCommandTests(unittest.TestCase):
                 env={"PATH": os.environ.get("PATH", ""), "XDG_CONFIG_HOME": str(Path(temporary) / "config")},
             )
 
-    def test_taught_commands_exist_in_bundled_cli(self) -> None:
+    def test_required_commands_exist_in_bundled_cli(self) -> None:
+        # validate-plugin.py judges every command path the skills write; this
+        # keeps the commands the skills cannot do without.
         errors: list[str] = []
         validator.errors.clear()
         inventory = validator.bundled_command_inventory() or []
         errors.extend(validator.errors)
-        tree = validator.command_tree(inventory)
-        for path in SKILL_DOCS:
-            for line, problem in validator.taught_command_errors(path.read_text(encoding="utf-8"), tree):
-                errors.append(f"{path.relative_to(ROOT)}:{line}: {problem}")
         for command in REQUIRED_COMMANDS:
             if not any(command in text for text in (p.read_text(encoding="utf-8") for p in SKILL_DOCS)):
                 errors.append(f"skill docs do not teach {command}")
@@ -721,45 +719,34 @@ class TaughtSurfaceTests(unittest.TestCase):
             [(2, "screenrig_screen_listing"), (2, "screenrig_gone"), (4, "screenrig_screen_frob")],
         )
 
-    def test_skill_tools_exist_in_backend(self) -> None:
-        validator.errors.clear()
-        source, origin = validator.requested_backend_source(None)
-        if source is None:
-            self.skipTest("no backend checkout next to this repository")
-        tools = validator.published_mcp_tools(source, origin)
-        self.assertTrue(tools, validator.errors)
-        self.assertFalse(validator.errors, validator.errors)
-        for path in SKILL_DOCS:
-            self.assertEqual(validator.taught_tool_errors(path.read_text(encoding="utf-8"), tools), [], path.name)
-
-    def test_validator_reads_skills_against_the_cli_and_backend(self) -> None:
+    def test_validator_reads_skills_against_the_cli_and_the_vendored_tools(self) -> None:
         with tempfile.TemporaryDirectory(prefix="screenrig-taught-surface-") as temporary:
             root = Path(temporary) / "plugin"
             (root / "skills" / "screenrig").mkdir(parents=True)
+            (root / "scripts").mkdir()
             (root / "skills" / "screenrig" / "SKILL.md").write_text(
                 "Run `screenrig screen publish ID`, then `screen frobnicate`.\n"
                 "Call `screenrig_screen_list` and `screenrig_gone`.\n", encoding="utf-8")
-            backend = Path(temporary) / "other" / "internal" / "api"
-            backend.mkdir(parents=True)
-            (backend / "mcp.go").write_text('mcpReadTool(mcpToolSpec{name: "screenrig_screen_list"}),\n', encoding="utf-8")
-            with patch.object(validator, "ROOT", root), patch.dict(os.environ, {"SCREENRIG_BACKEND_SOURCE": ""}):
+            tools = root / "scripts" / "mcp-tools.json"
+            with patch.object(validator, "ROOT", root):
+                tools.write_text(json.dumps({"schema": "screenrig.mcp-tools/v1", "tools": ["screenrig_screen_list"]}), encoding="utf-8")
                 validator.errors.clear()
-                validator.check_taught_surface(str(backend.parent.parent))
+                validator.check_taught_surface()
                 self.assertEqual(len(validator.errors), 2, validator.errors)
                 self.assertTrue(validator.errors[0].startswith(
                     "skills/screenrig/SKILL.md:1: `screen frobnicate` is not a screenrig command"))
                 self.assertTrue(validator.errors[1].startswith("skills/screenrig/SKILL.md:2: names MCP tool `screenrig_gone`"))
-                validator.errors.clear()
-                validator.check_taught_surface(str(Path(temporary) / "missing"))
-                self.assertEqual(len(validator.errors), 2, validator.errors)
-                self.assertIn("--backend-source is not a ScreenRig backend checkout", "\n".join(validator.errors))
-                validator.errors.clear()
-                output = io.StringIO()
-                with contextlib.redirect_stdout(output):
-                    validator.check_taught_surface(None)
-                self.assertEqual(len(validator.errors), 1, validator.errors)
-                self.assertIn("screen frobnicate", validator.errors[0])
-                self.assertIn("MCP tool names: not checked", output.getvalue())
+                # A missing or malformed list is a failure, never a skipped check.
+                for write in (lambda: tools.unlink(),
+                              lambda: tools.write_text("{}", encoding="utf-8"),
+                              lambda: tools.write_text(json.dumps({"schema": "screenrig.mcp-tools/v1", "tools": ["Screen List"]}), encoding="utf-8")):
+                    write()
+                    validator.errors.clear()
+                    validator.check_taught_surface()
+                    self.assertEqual(len(validator.errors), 2, validator.errors)
+                    self.assertIn("scripts/mcp-tools.json", validator.errors[0])
+                    self.assertTrue(validator.errors[1].startswith(
+                        "skills/screenrig/SKILL.md:1: `screen frobnicate` is not a screenrig command"), validator.errors)
         validator.errors.clear()
 
 

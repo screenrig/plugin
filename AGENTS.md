@@ -77,11 +77,12 @@ the helper's locked runtime). The public/reproducibility boundary is
 
 `validate-plugin.py` fails when a skill or reference writes, as code, a
 `screenrig` command path missing from the bundled CLI's `help --all`, or an MCP
-tool name the backend does not publish. The tool list comes from a backend
-checkout (`--backend-source`, `SCREENRIG_BACKEND_SOURCE` or a sibling
-`../backend`); without one, tool names go unchecked and the run says so. The
-check judges names only, not flags, arguments, prose or a path written without
-its group (`update|pause` after "campaign").
+tool name missing from `scripts/mcp-tools.json`. That list is the backend's
+public tool list, vendored by `contracts.toml` (`rig contracts sync plugin`; CI
+runs `sha256sum --strict -c contracts.sha256`), so every run checks tool names
+and a missing or malformed list fails. The check judges names only, not flags,
+arguments, prose or a path written without its group (`update|pause` after
+"campaign").
 
 ```sh
 python3 scripts/validate-plugin.py --budget
