@@ -10,7 +10,8 @@ screenrig screen live frame SCREEN_ID --output frames/ --count 5 --interval 1s
 ```
 
 It starts the live session (`--duration`, default 2m, lengthened to cover the
-frames), waits up to `--wait` (default 30s) for the Player to publish, asks the
+frames; a session lasts five minutes at most, so `--count` times `--interval`
+must fit), waits up to `--wait` (default 30s) for the Player to publish, asks the
 media relay for frames, and saves each new frame once as
 `frame-<captured_at>.jpg`. `data.frames` lists `path`, `captured_at`, `width`,
 `height`, `bytes` and `sha256`. The session is left to its lease, and a person
