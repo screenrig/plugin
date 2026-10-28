@@ -114,7 +114,8 @@ instead of per-screen codes: its URL goes in a kiosk browser, in Android or
 Apple managed app configuration as `fleet_link` (`asset_id` names the screen),
 or in `/etc/screenrig/fleet-link` on Linux; `--expires-at` ends it. Its URL
 creates screens, so give it only to the person who configures the devices. A
-factory-reset Android 10+ device with a camera enrolls by QR code instead:
+factory-reset Android 10+ device with a camera enrolls by QR code instead
+(`fleet-links show ID --android-provisioning` prints the payload):
 [Android device owner](references/android-device-owner.md).
 
 `screen archive` darkens a screen but keeps its playlist and binding. Before
