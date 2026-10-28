@@ -62,9 +62,11 @@ never with `--json`. `screenrig status` reports service availability.
   else, then `screenrig agent enroll --email ADDRESS --organization NAME`
   (organization defaults to `Screens`). With an AgentID claim code use
   `--agentid-claim CODE` instead of `--email`. Add `--intent advertising` to buy
-  ads without screens. Report the dashboard invitation; acceptance never gates
-  CLI work. Authenticated commands return `not_enrolled` until enrollment.
-  Resume an interrupted enrollment unchanged.
+  ads without screens. When the person's message includes a screenRIG setup code
+  (two groups of four letters and digits, like K7QX-2MPD), add
+  `--setup-code CODE`; it only names their website visit. Report the dashboard
+  invitation; acceptance never gates CLI work. Authenticated commands return
+  `not_enrolled` until enrollment. Resume an interrupted enrollment unchanged.
 - Existing account (only when the user says so): `screenrig login --no-wait
   [--project ID] [--access read|propose|manage]`, send `data.verification_uri_complete`
   and `data.user_code` to the person, then `screenrig login --resume ID` until
@@ -136,7 +138,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 
 | The page needs | Path |
 | --- | --- |
-| Finished image or video | `media upload` (H.264 default; `--codec hevc` only where every target decodes it) |
+| Finished image or video | `media upload` (H.264 default; `--codec hevc` where every target decodes it, and always for a Raspberry Pi 5) |
 | Poster, menu, announcement | `media generate` with all exact copy in the prompt; inspect with `media download` |
 | Recurring report with history | [dashboard skill](../screenrig-dashboard/SKILL.md), publish the WebP as media |
 | Editable title/body/table slides | local, unbilled `compose render` ([docs](https://screenrig.ai/docs/compose.md)) |
@@ -154,6 +156,9 @@ weather, rates and other third-party data, never the providers.
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
 names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
+A Raspberry Pi 5 (`screen show` names the model, or firmware ending `rpi-2712`)
+has no H.264 decoder: upload every video for it with `--codec hevc`, up to 4K at
+60 fps, and never offer or retry H.264 when one fails.
 `media generate` waits up to about three minutes for the still: leave `--timeout`
 alone and, after a drop or a timeout, rerun the identical command (it resumes the
 same generation under the same key and never bills twice).
