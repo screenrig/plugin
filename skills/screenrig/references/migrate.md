@@ -21,8 +21,10 @@ chat replies or a command line, and never ask for one to be pasted into chat.
    `migrate apply` (Manage access) makes the media, playlists, one waiting
    screen per old screen and the campaigns. It is safe to rerun and never
    changes what an earlier run made: after any stop (`data.stopped.next` is the
-   command), failure or `waiting` item, run the same command again. Do not edit
-   or delete the directory's files until the import is done.
+   command), failure or `waiting` item, run the same command again. A file
+   address that no longer works (`vendor_file_gone`) fails that media alone:
+   run `migrate scan` again, then the same apply. Do not edit or delete the
+   directory's files until the import is done.
 4. Each old display waits under its old name. For each one, install the Player,
    then either read its code to `migrate pair CODE --screen ID` (the source id,
    or the exact old name), or open its link on the device (`fleet-links show ID`
