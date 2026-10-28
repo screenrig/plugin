@@ -47,3 +47,15 @@ one is back. `notifications deliveries ID` shows the grouped screens as
 `skipped` with `last_error` `grouped` and a `group_id`; the notice that said the
 group carries `group` (`id`, `attribute`, `value`, `count`). A signed webhook
 still gets one notice per screen.
+
+## Unsubscribe from email
+
+Every alert and test email has an unsubscribe link for its own recipient, as the
+Unsubscribe button of mail apps and as a footer link. Following it stops that
+notification's email to that one person, without signing in; the others keep
+getting mail, and the person stays in `recipients`. The page it opens has a
+Resubscribe button. `notifications show ID` and `notifications list` say who
+stopped (`unsubscribed`), and `notifications resubscribe ID --user USER_ID`
+mails a person again. When every recipient has unsubscribed, a notice is
+skipped as `no_recipients`. Opening the link only shows the page; never press
+its button for the user, since that ends their alerts.
