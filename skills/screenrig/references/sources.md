@@ -4,8 +4,8 @@ A data source reads an address on a schedule and writes the result to one
 card's dynamic properties, so the card stays current without republishing and
 screens refetch it when it changes. One source writes one card. Use it when the
 data already lives somewhere you can name (a calendar, a Google Sheet, a CSV
-file, a JSON API); use `card data
-put` for data you hold, and `kv webhook` for a system that pushes.
+file, a JSON API, room calendars, a Square or Shopify till); use `card data put`
+for data you hold, and `kv webhook` for a system that pushes.
 
 Commands go through the launcher (`SKILL.md`, "Install and call the CLI").
 The help for `source create` lists the kinds; settings, status codes and
