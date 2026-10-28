@@ -76,3 +76,32 @@ confidential show their times only. Free (transparent) events are left out of a
 <!-- sources:rooms -->
 
 <!-- sources:pos -->
+
+## Menus from a till (`square`, `shopify`)
+
+Fills a `menu` card or a `price-matrix` card from the business's own catalogue.
+Create the card first (`card create --type menu --file PARAMS.json`; the first
+sync replaces its `sections`), then preview and create as above. The document
+cannot carry the currency symbol: set the card's `currency` (`€`); `source test`
+warns while it still shows `$` over other prices.
+
+- `square`: `--secret access_token=@FILE`, the Production access token from the
+  Square Developer Dashboard (`--set environment=sandbox` with the Sandbox
+  token). It reads only, and only from Square, but a Square token cannot be
+  narrowed: keep it in a file. With several locations set `--set location_id=ID`;
+  the failed `source test` lists them.
+- `shopify`: `--set shop=NAME` (the `.myshopify.com` name; a custom domain is
+  refused) and either `--secret access_token=@FILE` (a custom app with
+  `read_products` only) or `--set client_id=ID --secret client_secret=@FILE` (a
+  Dev Dashboard app). `--set 'collections=["hot-drinks","pastries"]'` makes those
+  collections the sections, in order; `--set tag=menu` keeps tagged products.
+
+Both take `include_sections` and `exclude_sections` (section names, as lists),
+`hide_sold_out` (default false: sold-out rows show as sold out) and, for `menu`
+cards, `variations` (`rows`: a row for each size, or `first`). A `price-matrix`
+card shows sizes as up to 6 columns and refuses `variations`. A `menu` card holds
+8 sections of 24 rows, a `price-matrix` 12 of 40: a cut is a `data.warnings`
+entry, so read it. Sold out is the till's own mark or availability, not stock
+counts. A catalogue past 30 Square pages or 500 Shopify products fails with
+`too_large`; name collections or sections. A credential belongs to the
+environment or store it was entered for; `source_secret_required` asks again.
