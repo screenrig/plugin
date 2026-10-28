@@ -8,7 +8,7 @@ anything you must inspect yourself. Live view is free.
 ## Start, watch, stop
 
 ```sh
-screenrig screen live start SCREEN_ID --duration 10m
+screenrig screen live start SCREEN_ID --duration 5m
 screenrig screen live status SCREEN_ID
 screenrig screen live stop SCREEN_ID
 ```
@@ -16,9 +16,10 @@ screenrig screen live stop SCREEN_ID
 `start` asks the Player to publish and reads the session every second for
 `--wait` (default 30s) until `data.publisher.connected` is true. Open or send
 `data.viewer_url`: the dashboard page that shows the video. A start on a live
-session renews it. A session ends when its lease passes (`--duration`, default
-5m; 30s to 1h), after 60 minutes at most, or on `stop`; stop it when the person
-is done.
+session renews it. A session ends by itself five minutes after it started at
+the latest; nothing renews it past that, so start again when the person needs
+more. It ends sooner when its lease passes (`--duration`, 30s to 5m, default 5m)
+or on `stop`; stop it when the person is done.
 
 ## What the answers mean
 
