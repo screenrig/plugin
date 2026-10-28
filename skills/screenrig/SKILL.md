@@ -146,6 +146,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | Touch or other input, a peripheral, an outside system pushing data, an exact look no card has | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md)) |
 | Live video, a web page, background music | `stream` or `iframe` primitive; playlist soundtrack ([playlists](references/playlists.md)) |
 | One Linux Player driving 2 or 3 displays as one wall | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
+| Data that lives elsewhere: a calendar, a sheet, a till, room calendars | `source test`, then `source create`; the card refreshes itself ([sources](references/sources.md)) |
 
 Prefer a card to an application: a card draws natively on every Player, changes
 with `card data put` without republishing, and suits a rotating loop. App code
@@ -272,7 +273,7 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | `card`, `card data` | A built-in card shows live data (menu, ticker, KPIs) that changes without a republish | `card create --type TYPE --file PARAMS.json`, then `card data put crd_ID --file FILE` |
 | `fleet-links` | A device manager (a kiosk app in an admin console) enrolls many displays without pairing codes | `fleet-links create --name NAME --tag TAG --field NAME=VALUE --playlist-id ID` (each new screen starts with those tags and fields); `fleet-links rotate ID` replaces a leaked URL |
 | `operations` | A command returned an `operation_id` (a `--no-wait` upload) and the result is not ready | `operations wait ID` before using it; `operations cancel ID` drops an abandoned one |
-| `source` | A card should stay live from an outside address, such as a calendar, with no republish | [sources](references/sources.md): `source test --kind ics --card crd_ID ...` previews, `source create` saves, `source show ID` proves it; the calendar address is a secret, `--secret calendar_url.KEY=@FILE` |
+| `source` | A card should stay live from data that lives elsewhere, with no republish: calendars, a Google Sheet, a CSV or JSON address, room calendars, a Square or Shopify menu | [sources](references/sources.md): `source test --kind KIND --card crd_ID ...` previews, `source create` saves, `source show ID` proves it; credentials go in as `--secret NAME=@FILE` (`calendar_url.KEY`, `token`, `client_secret`, `service_account_key`, `access_token`) |
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
 | `playback totals\|completeness`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
 | `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |
