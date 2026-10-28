@@ -130,7 +130,14 @@ aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
   A channel handle (`@name`) is rejected: ask for a video or channel-ID link.
 - `visibility` times are civil (no zone); keep at least one page without it, and
   set the screen timezone before assigning a scheduled playlist. A
-  `visibility.data` condition keys off card data.
+  `visibility.data` condition keys off card data. Its key `{screen.weather}`
+  keys off the weather where each screen is (give the screen a location first,
+  `screen update --location`): `{"key":"{screen.weather}","path":"/condition","equals":"rain"}`.
+  `/condition` is clear, cloud, fog, rain, snow, storm or wind; `/band` is
+  freezing (below 0 °C), cold (0-9), mild (10-17), warm (18-24) or hot (25+);
+  `/temperatureC` is whole degrees; `/isDay` is true or false. It is the
+  current weather at the screen, refreshed about hourly, not a forecast; a
+  screen without a location never shows the page.
 - A soundtrack is `audio: {tracks, loop, volume, cued}` (1 to 128 uploaded
   tracks); pages bind with `audio_cue` or `advance: {"mode": "audio_end"}`.
   `playlist update` replaces the whole document, so omitting `audio` removes it.
