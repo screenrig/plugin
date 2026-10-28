@@ -238,7 +238,9 @@ and the user's confirmation). Verify with `effective_playlist` in `screen show`.
 drops one still queued.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
-(absent means unreported). Monitor with `events list|follow`, `playback plays|list`
+(absent means unreported) and, after an outage, `last_outage`: its
+`likely_cause` (a device or Player restart or crash, the screen's network, or a
+screenRIG interruption) is absent when unknown, so never infer one. Monitor with `events list|follow`, `playback plays|list`
 (proof of play, CSV export), `notifications` and `alerts` (below). `screen reload`
 asks a Player to reload once; acceptance is not proof.
 
