@@ -141,7 +141,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | Finished image or video | `media upload` (H.264 default; `--codec hevc` only where every target decodes it; a Raspberry Pi 5 decodes only HEVC) |
 | Poster, menu, announcement | `media generate` with all exact copy in the prompt; inspect with `media download` |
 | Recurring report with history | [dashboard skill](../screenrig-dashboard/SKILL.md), publish the WebP as media |
-| A live Grafana dashboard or Power BI report | `bi connection create grafana\|powerbi`, then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)) |
+| A live Grafana, Power BI or Tableau dashboard | `bi connection create grafana\|powerbi\|tableau` (or a public link), then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)) |
 | Editable title/body/table slides | local, unbilled `compose render` ([docs](https://screenrig.ai/docs/compose.md)) |
 | Non-interactive live display: clocks, weather, menus, queues, KPIs, tickers | built-in card: `cards list`, `cards show`, `card create`, `card data put` ([playlists](references/playlists.md#built-in-cards-and-feeds)) |
 | Touch or other input, a peripheral, an outside system pushing data, an exact look no card has | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md)) |
