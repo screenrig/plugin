@@ -138,7 +138,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 
 | The page needs | Path |
 | --- | --- |
-| Finished image or video | `media upload` (H.264 default; `--codec hevc` only where every target decodes it; a Raspberry Pi 5 decodes only HEVC) |
+| Finished image or video | `media upload` (H.264 default; `--codec hevc` where every target decodes it, and always for a Raspberry Pi 5) |
 | Poster, menu, announcement | `media generate` with all exact copy in the prompt; inspect with `media download` |
 | Recurring report with history | [dashboard skill](../screenrig-dashboard/SKILL.md), publish the WebP as media |
 | A live Grafana, Power BI or Tableau dashboard | `bi connection create grafana\|powerbi\|tableau` (or a public link), then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)) |
@@ -157,6 +157,9 @@ weather, rates and other third-party data, never the providers.
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
 names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
+A Raspberry Pi 5 (`screen show` names the model, or firmware ending `rpi-2712`)
+has no H.264 decoder: upload every video for it with `--codec hevc`, up to 4K at
+60 fps, and never offer or retry H.264 when one fails.
 `media generate` waits up to about three minutes for the still: leave `--timeout`
 alone and, after a drop or a timeout, rerun the identical command (it resumes the
 same generation under the same key and never bills twice).
