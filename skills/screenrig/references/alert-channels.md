@@ -29,7 +29,10 @@ disabled; fix the destination, then `notifications update ID --enable`. For
 PagerDuty the test triggers an information event and resolves it at once, so no
 incident stays open.
 
-A recovered screen's message names the likely cause when `screen show` has one.
+A recovered screen's message names the likely cause when it is known by then. A
+restart of the device or the Player is; the screen's network or a screenRIG
+interruption needs the Player's next health report (up to 15 minutes), so
+`screen show` often has it before any message does.
 Chat notices are free.
 
 ## Grouped notices
@@ -39,14 +42,20 @@ not one per screen: when three or more screens of a project go offline (or hit
 the same condition) within five minutes and share a network address, location
 name, hardware model, Player version or tag, the notice names what they share
 and how many ("8 screens offline · network 203.0.113.7", then the first ten
-names). Screens on three or more separate networks that fall together say a
-shared cause is likely (screenRIG, DNS or an upstream provider). A screen that
-falls later with the same value joins the open group without a new notice, and
+names). Screens on three or more separate networks that fall together are one
+notice that says how many screens on how many networks; it names no cause. A
+screen that falls later with the same value joins the open group without a new notice, and
 one notice says "All 8 screens on network ... are back online" when the last
 one is back. `notifications deliveries ID` shows the grouped screens as
 `skipped` with `last_error` `grouped` and a `group_id`; the notice that said the
 group carries `group` (`id`, `attribute`, `value`, `count`). A signed webhook
 still gets one notice per screen.
+
+A stalled, blank or frozen screen that merely stops being checked (it went
+offline, its display went off, a takeover began) closes its alert, but email,
+Slack, Teams and Telegram send no recovery for it, because nothing showed it
+recovering: its row is `skipped` with `last_error` `no_longer_judged`.
+PagerDuty still resolves the incident.
 
 ## Unsubscribe from email
 
