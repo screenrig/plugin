@@ -194,6 +194,7 @@ content, and inspect every render at full size before publishing.
    (this affects every assigned screen).
 4. Take `screen screenshot SCREEN_ID` and inspect it before saying content is
    showing; a local preview is a design check. `screen play-page` shows one page.
+   Watch a screen live or sample frames: [live view](references/live-view.md).
 
 Playlist JSON rules are in [playlists](references/playlists.md); `playlist
 validate` and `playlist templates` check and seed documents.
