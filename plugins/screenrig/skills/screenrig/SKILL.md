@@ -359,10 +359,25 @@ Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen reboot` (only where the Player declares it; fleets need `--yes`
 and the user's confirmation). Verify with `effective_playlist` in `screen show`.
-`reboot` and `reload` reach an online screen at once and wait up to 24 hours
-(`--expires-in`) for an offline one: the answer's `state` is `queued`,
-`screen show` lists `commands`, and `screen command cancel SCREEN_ID COMMAND_ID`
-drops one still queued.
+`reboot`, `reload` and the three below reach an online screen at once and wait
+up to 24 hours (`--expires-in`) for an offline one: the answer's `state` is
+`queued`, `screen show` lists `commands`, and
+`screen command cancel SCREEN_ID COMMAND_ID` drops one still queued.
+
+Remote maintenance, each for one screen or a group (`--tag TAG`, `--folder ID`
+or several ids; a group needs `--yes` and the user's confirmation):
+`screen clear-cache` deletes the Player's downloaded media, packages and data
+caches (pairing and settings stay) and refetches content, `screen restart-app`
+restarts the Player application, not the device, and `screen update-software`
+checks for the newest Player release and installs it. Each reaches only a Player
+that declares the matching capability (`clear_cache`, `restart_app`, `update`;
+`screen show` lists host capabilities); any other screen answers
+`command_unsupported` and nothing is sent, and in a group that screen fails
+alone. Accepted is not done: the answer's `command_id` appears under `commands`
+in `screen show`, which turns `done` or `failed` with the Player's `cause`
+(for example `cleared`, `restarted`, `up_to_date`, `updated`, `download_failed`)
+and `detail`; a `sent` command with no result stays `sent`. Use `screen reload`
+first to refresh content, and run these only when the user asks.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported) and, after an outage, `last_outage`, whose
