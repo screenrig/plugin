@@ -116,6 +116,8 @@ instead of per-screen codes: its URL goes in a kiosk browser, in Android or
 Apple managed app configuration as `fleet_link` (`asset_id` names the screen),
 or in `/etc/screenrig/fleet-link` on Linux; `--expires-at` ends it. Its URL
 creates screens, so give it only to the person who configures the devices. A
+browser that keeps no storage (vMix, OBS) opens the screen's link instead:
+`screen link create SCREEN_ID` prints it; creating it again replaces it. A
 factory-reset Android 10+ device enrolls by QR code instead:
 [Android device owner](references/android-device-owner.md).
 
