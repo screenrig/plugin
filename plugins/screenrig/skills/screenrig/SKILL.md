@@ -211,7 +211,7 @@ content, and inspect every render at full size before publishing.
    Watch a screen live or sample frames: [live view](references/live-view.md).
 
 Playlist JSON rules are in [playlists](references/playlists.md); `playlist
-validate` and `playlist templates` check and seed documents.
+validate` checks documents.
 
 **Reviews.** When the project requires review or the sign-in is Propose, writes
 return `pending_review` with `data.review.url`. Tell the person it waits for
