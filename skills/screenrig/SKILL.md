@@ -116,8 +116,7 @@ instead of per-screen codes: its URL goes in a kiosk browser, in Android or
 Apple managed app configuration as `fleet_link` (`asset_id` names the screen),
 or in `/etc/screenrig/fleet-link` on Linux; `--expires-at` ends it. Its URL
 creates screens, so give it only to the person who configures the devices. A
-factory-reset Android 10+ device with a camera enrolls by QR code instead
-(`fleet-links show ID --android-provisioning` prints the payload):
+factory-reset Android 10+ device enrolls by QR code instead:
 [Android device owner](references/android-device-owner.md).
 
 `screen archive` darkens a screen but keeps its playlist and binding. Before
@@ -151,7 +150,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | Touch or other input, a peripheral, an exact look no card has | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md)) |
 | Live video, a web page or a Google/Microsoft document, background music | `stream` or `iframe` primitive; playlist soundtrack ([playlists](references/playlists.md)) |
 | One Linux Player driving 2 or 3 displays as one wall | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
-| Data that lives elsewhere: a calendar, a sheet, a till, room calendars | `source test`, then `source create`; the card refreshes itself ([sources](references/sources.md)) |
+| Data that lives elsewhere: a calendar, a sheet, a till | a card plus `source create` ([sources](references/sources.md)) |
 
 Prefer a card to an application: a card draws natively on every Player, changes
 with `card data put` without republishing, and suits a rotating loop. App code
@@ -240,9 +239,8 @@ mon-fri@11:00-14:00`. Screens that join its audience later get it too. It needs
 each screen's default playlist and, with `--from`, `--until` or `--window`, its
 timezone (`screen set-timezone`). `campaign screens ID` shows every screen's
 standing and `campaign explain SCREEN_ID` says why one does not play it;
-`--at TIME` (a time on the screen's clock, or an instant with a zone) asks what
-it will play then, with a verdict per takeover, campaign and schedule entry, and
-`--to TIME` lists the switches: check a plan before its date.
+with `--at TIME` it says what will play then, and `--to TIME` lists the
+switches: check a plan before its date.
 Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen reboot` (only where the Player declares it; fleets need `--yes`
@@ -253,9 +251,8 @@ and the user's confirmation). Verify with `effective_playlist` in `screen show`.
 drops one still queued.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
-(absent means unreported) and, after an outage, `last_outage`: its
-`likely_cause` (a device or Player restart or crash, the screen's network, or a
-screenRIG interruption) is absent when unknown, so never infer one. Monitor with `events list|follow`, `playback plays|list`
+(absent means unreported) and, after an outage, `last_outage`, whose
+`likely_cause` is absent when unknown: never infer one. Monitor with `events list|follow`, `playback plays|list`
 (proof of play, CSV export), `notifications` and `alerts` (below). `screen reload`
 asks a Player to reload once; acceptance is not proof.
 
@@ -278,15 +275,15 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | Group | Reach for it when | First command |
 | --- | --- | --- |
 | `triggers` | An emergency notification system (CAP 1.2) must take screens over by itself | `triggers create --name NAME --tag TAG`, then `triggers test ID` (a 60-second alert on the screens); the URL and password go only to that system's administrator; `--pull FILE` also has the platform read CAP sources |
-| `notifications` | A person should hear when a screen goes offline or fails (email, or chat or pager), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), or `--slack URL`, `--teams URL`, `--pagerduty KEY`, `--telegram TOKEN --telegram-chat ID` to post to the team's chat or pager, one notice per outage and a recovery after it ([alert channels](references/alert-channels.md)), and prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `running_hot`, `storage_full`, `content_stuck`, `not_playing`, `loop_stalled` (online and current but the playlist stopped advancing), `glass_blank`, `glass_frozen` (screenshots over a whole loop were all flat or all alike: [glass verdicts](references/glass-verdicts.md)), `crashing`; `--tag TAG`, `--hold MINUTES`, `update ID --snooze 1h`. `webhooks` remains for raw event feeds |
+| `notifications` | A person should hear when a screen goes offline or fails (email, chat, pager), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), `--slack URL`, `--teams URL`, `--pagerduty KEY`, `--telegram TOKEN --telegram-chat ID`; prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `running_hot`, `storage_full`, `content_stuck`, `not_playing`, `loop_stalled`, `glass_blank`, `glass_frozen`, `crashing`; `--tag TAG`, `--hold MINUTES`, `update ID --snooze 1h`. Channels, grouping and glass verdicts: [notifications](references/notifications.md). `webhooks` remains for raw event feeds |
 | `alerts` | The user asks what needs attention on the screens, or named screens will be down for maintenance | `alerts list` shows the open problems, one per screen and condition (`--state all` adds resolved; `crashing` is a notice, not an alert). `alerts ack ID` when someone is on it, or `alerts snooze ID --for 4h` to look again later; either skips a notice still in its hold. For maintenance the user names, `alerts mute --tag TAG --for 2h --note TEXT` (or `--screen-id ID`; under 30 days) keeps those screens out of notices and attention; `alerts unmute MUTE_ID` (ids from `alerts mutes`) ends it when the work is done. Changing alerts needs Manage access |
-| `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once); for a card, `kv webhook create --card crd_ID --map FILE`, then `kv webhook deliveries ID --card crd_ID` says why a post was refused |
+| `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once); a card's webhook: [card webhooks](references/playlists.md#card-webhooks) |
 | `card`, `card data` | A built-in card shows live data (menu, ticker, KPIs) that changes without a republish | `card create --type TYPE --file PARAMS.json`, then `card data put crd_ID --file FILE` |
 | `fleet-links` | A device manager (a kiosk app in an admin console) enrolls many displays without pairing codes | `fleet-links create --name NAME --tag TAG --field NAME=VALUE --playlist-id ID` (each new screen starts with those tags and fields); `fleet-links rotate ID` replaces a leaked URL |
-| `media sync` | A SharePoint or OneDrive folder, or a Canva design, should stay in step with the library | `media sync create sharepoint --account-id msa_ID --url FOLDER_LINK` or `media sync create canva --account-id msa_ID --design ID`, then play its media folder with a `folder` selector; the Entra app, or the person's Canva consent link, comes first: [media sync](references/media-sync.md) |
+| `media sync` | A SharePoint or OneDrive folder, or a Canva design, should stay in step with the library | `media sync create sharepoint --account-id msa_ID --url FOLDER_LINK` or `media sync create canva --account-id msa_ID --design ID`, then play its media folder with a `folder` selector; set up the account first ([media sync](references/media-sync.md)) |
 | `migrate` | The user moves screens from another signage system | `migrate vendors`, then [migrate](references/migrate.md) |
 | `operations` | A command returned an `operation_id` (a `--no-wait` upload) and the result is not ready | `operations wait ID` before using it; `operations cancel ID` drops an abandoned one |
-| `source` | A card should stay live from data that lives elsewhere, with no republish: calendars, a Google Sheet, a CSV or JSON address, room calendars, a Square or Shopify menu | [sources](references/sources.md): `source test --kind KIND --card crd_ID ...` previews, `source create` saves, `source show ID` proves it; credentials go in as `--secret NAME=@FILE` (`calendar_url.KEY`, `token`, `client_secret`, `service_account_key`, `access_token`) |
+| `source` | A card should stay live from data that lives elsewhere: calendars, a Google Sheet, a CSV or JSON address, room calendars, a Square or Shopify menu | `source test --kind KIND --card crd_ID ...` previews, `source create` saves, `source show ID` proves it; credentials only as `--secret NAME=@FILE` ([sources](references/sources.md)) |
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
 | `playback totals\|completeness`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
 | `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |

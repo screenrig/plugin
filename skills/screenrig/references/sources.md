@@ -72,7 +72,6 @@ exceptions and time zones are expanded on the server; events marked private or
 confidential show their times only. Free (transparent) events are left out of a
 `study-rooms` card. A `study-rooms` card takes one calendar per room.
 
-<!-- sources:tabular -->
 
 ## Sheets, CSV and JSON (`sheets`, `csv`, `json`)
 
@@ -120,7 +119,6 @@ not CSV text or JSON; `not_shared` names the sharing setting to change.
 Warnings count repeated keys and cut rows (10,000 rows, 200 columns) without
 quoting the data.
 
-<!-- sources:rooms -->
 
 ## Meeting rooms (`microsoft365`, `google_calendar`)
 
@@ -171,7 +169,6 @@ or delegation: the customer fixes it on their side, then `source refresh`.
 seen. One room failing fails the sync and names the room (`Room KEY: ...`);
 the card keeps its last good document.
 
-<!-- sources:pos -->
 
 ## Menus from a till (`square`, `shopify`)
 
