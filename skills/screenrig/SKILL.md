@@ -193,7 +193,8 @@ content, and inspect every render at full size before publishing.
    `data.stage` `playing` with `data.playback_verified: true` means the Player
    acknowledged it; `assigned` means it has not, and `data.playback.reason` says why.
    To edit, `playlist show ID --output FILE`, edit, `playlist update ID FILE`
-   (this affects every assigned screen).
+   (this affects every assigned screen). To undo, `playlist revisions ID`, then
+   `playlist promote ID --revision N --expect-rev CURRENT` copies one forward.
 4. Take `screen screenshot SCREEN_ID` and inspect it before saying content is
    showing; a local preview is a design check. `screen play-page` shows one page.
    Watch a screen live or sample frames: [live view](references/live-view.md).
