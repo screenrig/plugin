@@ -21,7 +21,9 @@ screenrig screen list --json
 
 `screen show SCREEN_ID` returns the same fields for one screen; `list` already
 carries every field below, so one call serves a card or a fleet. `--tag TAG`
-narrows to one tag and `--state archived` lists archived screens.
+narrows to one tag, `--folder ID|root` to the screens directly inside one
+screen folder (or outside every folder), and `--state archived` lists archived
+screens.
 
 Take every displayed value from that envelope. Do not retype a number, an id,
 a revision or a timestamp from a previous reply: re-read it here, so the card

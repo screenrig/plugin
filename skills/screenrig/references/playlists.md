@@ -112,13 +112,21 @@ one.
 
 ## Video walls
 
-A kiosk-installed Linux Player drives 2 or 3 displays as one wall. Set it with
-`screenrig screen wall set SCREEN_ID --outputs HDMI-A-1,HDMI-A-2 --arrangement
-row|column [--rotation 0|90|180|270]` (outputs from `screen show`, in physical
-order) and remove it with `screen wall clear SCREEN_ID`; `wall_unsupported`
-means the Player lacks wall support. A wall playlist carries `format`
-(`displays`, `arrangement`, `orientation`), every page canvas is the wall
-canvas, and primitives take `displays` (`[1,2,3]`, `[2]`) or a free `rect`.
+A kiosk-installed Linux Player or a Windows Player drives 2 to 12 displays as
+one wall. Set it with `screenrig screen wall set SCREEN_ID --outputs
+HDMI-A-1,HDMI-A-2 --arrangement row|column|grid [--columns N] [--rotation
+0|90|180|270]` (outputs from `screen show`, such as `HDMI-A-1` on Linux or
+`DISPLAY1` on Windows, listed left to right, then top to bottom) and remove it
+with `screen wall clear SCREEN_ID`; `wall_unsupported` means the Player lacks
+wall support. A grid takes `--columns`, an integer of at least 2 that divides
+the displays into at least 2 rows (12 displays in 4 columns make 3 rows); a row
+or column takes none. Prefer a grid when a row or column would pass 16384 px
+(more than 8 landscape displays in a row), the widest buffer most GPUs
+allocate. A wall playlist carries `format` (`displays`, `arrangement`,
+`orientation`, and `columns` for a grid), every page canvas is the wall canvas
+(a 1920x1080 or portrait 1080x1920 tile times columns and rows: 7680x3240 for
+4x3 landscape), and primitives take `displays` (`[2]`, `[1,2]`, or on a 4x3 grid
+`[1,2,5,6]`: numbers that fill a rectangle of the wall) or a free `rect`.
 Assigning it to a screen whose wall differs is refused
 (`playlist_format_mismatch`). Canvas sizes, card layouts and video sizing (wall
 aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
@@ -165,7 +173,21 @@ video of its folders only (a stinger transition's logo included);
   resolve at each loop; on duration, application and `audio_end` pages they
   need `one_at_a_time: true`. `media_end` is valid only on a page with exactly
   one image or video; an image there needs `dwell_ms`, a video must not loop.
-  Use `media selector-preview` to inspect a selector.
+  Use `media selector-preview FILE --primitive image|video [--rect WxH]` to
+  inspect a selector.
+- Weighted order (share of voice, sponsor rotation): `order: "weighted"` with
+  `weights`, both or neither, plus `one_at_a_time: true` or `batch_size: 1`.
+  `weights` maps `med_` IDs or `tag:NAME` to 1-1000 (64 keys at most); 50/30/20
+  plays exactly 5/3/2 of every 10. An item takes its `med_` key, else its first
+  `tag:` key alphabetically (that weight split among the items carrying it), else
+  weight 1. Key each sponsor by `tag:` so its share holds however many creatives
+  it has. A Player without `selector.weighted` plays random
+  (`selector_order_downgraded`); static export drops weights.
+- `fit: "aspect"` on a dynamic selector keeps files within 5% of the slot's
+  width over height, so a portrait slot never plays a landscape file. Preview
+  needs `--rect WxH` with it and lists the rest as `excluded`
+  (`aspect_mismatch`); weighted previews give each item's `weight`,
+  `share_percent` and the `cycle`, and signed-in `playlist preview` prints them.
 - `iframe` and `application` use `content_fit: "fill"`; `application` pins a
   `release_id`. A `stream` needs `fallback_media_id` and a `duration` page. Its
   `sources` take an `https` HLS URL or a camera's `rtsp://`/`rtsps://` URL as
