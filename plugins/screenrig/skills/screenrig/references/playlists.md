@@ -65,6 +65,29 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
   five minutes. Secrets go to the sender's administrator, never into
   conversation, files or logs.
 
+## Overlay triggers
+
+Home Assistant, a sensor hub or an alerting tool shows words on screens with one
+HTTP POST: a bar over whatever plays, or a full-screen takeover.
+
+```sh
+screenrig triggers create --name "Lobby" --kind overlay --show bar --tag Lobby   # url and secret, shown once
+screenrig triggers test trg_ID           # one-minute test; triggers clear trg_ID ends it
+screenrig triggers deliveries trg_ID     # why each post was shown, ignored or refused
+```
+
+- The sender posts JSON with `Authorization: Bearer SECRET`: `alert_id`, `label`,
+  `title`, `message`, `note`, `duration` (`90s`, `10m`, `until_cleared`; default
+  10m) and `clear` or a `state` of `off`, `closed`, `resolved`. One `alert_id` is
+  one alert; the newest shows; each post holds its alert from now.
+- `--map FILE` builds the post from a tool's body (as card webhooks) and runs every
+  post through it, so leave it off for a sender that posts the members itself.
+  `--style FILE` sets theme and colours, `--signing` adds `ScreenRig-Signature`,
+  `triggers update` changes any of it. A wrong url, a wrong secret and any GET
+  answer the same 404; only `deliveries` says why. A clear is free. Secrets go
+  only to the sender's administrator.
+- Home Assistant example and the full request: <https://screenrig.ai/docs/cli#overlay-triggers>.
+
 ## Per-screen values
 
 Each screen carries its own `fields` (up to 32 lower-case names, values up to
@@ -101,6 +124,31 @@ Assigning it to a screen whose wall differs is refused
 aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
 [video walls](https://screenrig.ai/docs/players.md#video-walls).
 
+## Change one page
+
+`playlist page add PLAYLIST_ID`, `page replace PLAYLIST_ID PAGE_ID` and `page
+remove PLAYLIST_ID PAGE_ID` change one page and leave the others as stored; the
+kept pages are validated again with the new one. `add --media MEDIA_ID` builds a
+full-canvas image or video page on the playlist's canvas (`--seconds`, `--fit`);
+`--file PAGE.json` takes any page. `add` puts the page at the end or in front of
+`--before PAGE_ID`; `replace --media` swaps the media and keeps the dates, and
+with neither `--media` nor `--file` only the dates change.
+
+`--from` and `--until` set the page's `visibility`: `YYYY-MM-DD` or
+`YYYY-MM-DDTHH:MM` in each screen's timezone, `--until` exclusive, and a
+date-only `--until` covers that whole day. `replace --always` removes the dates
+and keeps a switch-off or weekly windows the project set.
+
+Under Propose a page change is a review; your next page change of the same
+playlist joins your pending review, which also lets you replace or remove a page
+still waiting in it, and approving applies them together. Another proposer's
+pending page change makes yours wait (`resource_conflict`) until it is decided.
+
+An uploader changes pages only of its playlists, and its page is an image or
+video of its folders only (a stinger transition's logo included);
+`outside_upload_scope` carries `upload_scope`, what it may use. Invite one with
+`invitations create --kind uploader --folder-id ID --playlist-id ID`.
+
 ## Playlist rules that validation will enforce
 
 - A playlist is `name`, optional `audio`, and `pages`. A page has `id`, `canvas`
@@ -125,8 +173,14 @@ aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
   `application`.
 - For YouTube, put the link the user gave (video, Shorts, live, playlist or
   `youtube.com/channel/UC…/live`) in an `iframe` `src`: the server stores an
-  autoplaying, looping embed without YouTube's controls. Native Players play
-  sound, the web Player plays muted; `mute=1` in the link mutes everywhere.
+  autoplaying, looping embed without YouTube's controls. Every Player plays it
+  with sound where the screen's browser allows sound (the Player web app mutes
+  it when the browser refuses); `mute=1` in the link mutes everywhere. For a
+  page that lasts as long as one video, set the page's advance to
+  `{"mode": "duration", "after_ms": N, "until": "video_end"}`: the page ends
+  when the video does, and `after_ms` is how long it shows when the screen
+  cannot read the video's length. A page with a playlist, a live stream or more
+  than one YouTube video rejects `until` at `advance.until`.
   A channel handle (`@name`) is rejected: ask for a video or channel-ID link.
 - For a Google Slides, Docs or Sheets file, or a PowerPoint, Word or Excel file
   on OneDrive or SharePoint, put the share link, Publish to web link or Embed

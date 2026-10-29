@@ -83,8 +83,9 @@ screenrig triggers deliveries trg_ID     # why each post was shown, ignored or r
 - `--map FILE` builds the post from a tool's body (as card webhooks) and runs every
   post through it, so leave it off for a sender that posts the members itself.
   `--style FILE` sets theme and colours, `--signing` adds `ScreenRig-Signature`,
-  `triggers update` changes any of it. Wrong url, wrong secret and any GET answer the same 404; only
-  `deliveries` says why. A clear is free. Secrets go only to the sender's administrator.
+  `triggers update` changes any of it. A wrong url, a wrong secret and any GET
+  answer the same 404; only `deliveries` says why. A clear is free. Secrets go
+  only to the sender's administrator.
 - Home Assistant example and the full request: <https://screenrig.ai/docs/cli#overlay-triggers>.
 
 ## Per-screen values
@@ -142,8 +143,11 @@ Under Propose a page change is a review; your next page change of the same
 playlist joins your pending review, which also lets you replace or remove a page
 still waiting in it, and approving applies them together. Another proposer's
 pending page change makes yours wait (`resource_conflict`) until it is decided.
-An uploader's page is an image or video of its folders only (a stinger
-transition's logo included).
+
+An uploader changes pages only of its playlists, and its page is an image or
+video of its folders only (a stinger transition's logo included);
+`outside_upload_scope` carries `upload_scope`, what it may use. Invite one with
+`invitations create --kind uploader --folder-id ID --playlist-id ID`.
 
 ## Playlist rules that validation will enforce
 

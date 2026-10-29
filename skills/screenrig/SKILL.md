@@ -86,11 +86,10 @@ never with `--json`. `screenrig status` reports service availability.
   separate `--config` (capabilities) or `login --no-wait --access manage`.
 - `screenrig dashboard open` opens the dashboard for the human;
   `invitations create --email ADDRESS` invites members.
-- An uploader (a person, or `service-client create --uploader`) works only in
-  its playlists and folders: `media upload --folder ID`, `playlist page
-  add|replace|remove`. Anything else is `outside_upload_scope`, whose
-  `upload_scope` lists what it may use. Set one up with `invitations create
-  --kind uploader`; see [playlists](references/playlists.md#change-one-page).
+- An uploader (`invitations create --kind uploader` or `service-client create
+  --uploader`) works only in its folders and playlists (`media upload --folder
+  ID`, `playlist page add|replace|remove`); anything else is
+  `outside_upload_scope` ([one page](references/playlists.md#change-one-page)).
 
 ## Interactive views
 
@@ -121,9 +120,9 @@ instead of per-screen codes: its URL goes in a kiosk browser, in Android or
 Apple managed app configuration as `fleet_link` (`asset_id` names the screen),
 or in `/etc/screenrig/fleet-link` on Linux; `--expires-at` ends it. Its URL
 creates screens, so give it only to the person who configures the devices. A
-browser that keeps no storage (vMix, OBS) opens the screen's link instead:
-`screen link create SCREEN_ID` prints it; creating it again replaces it. A
-factory-reset Android 10+ device enrolls by QR code instead:
+browser that keeps no storage (vMix, OBS) opens the screen's own link
+(`screen link create SCREEN_ID`; rerunning it replaces the link). A
+factory-reset Android 10+ device enrolls by QR code:
 [Android device owner](references/android-device-owner.md).
 
 `screen archive` darkens a screen but keeps its playlist and binding. Before
@@ -164,8 +163,8 @@ with `card data put` without republishing, and suits a rotating loop. App code
 must `await screenrig.waitUntilActive()` before `await screenrig.ready()` and
 make no SDK call while `readyState` is not `active`. An app with nothing to show
 calls `screenrig.skip()` instead of `ready()`: the screen moves on and counts no
-play. Use screenRIG's `feeds` for
-weather, rates and other third-party data, never the providers.
+play. Use screenRIG's `feeds` for weather, rates and other third-party data,
+never the providers.
 
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
 names what is missing, so ask the user to install ffmpeg rather than installing
@@ -284,7 +283,7 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 
 | Group | Reach for it when | First command |
 | --- | --- | --- |
-| `triggers` | An emergency system (CAP 1.2), Home Assistant, a sensor or an alerting tool must show something on screens by itself | CAP: `triggers create --name NAME --tag TAG`; an overlay URL: `triggers create --name NAME --kind overlay --show bar --tag TAG` (a strip over whatever plays) or `--show takeover`; then `triggers test ID`; the URL and password go only to the sender ([overlay triggers](references/playlists.md#overlay-triggers)); `--pull FILE` also has the platform read CAP sources |
+| `triggers` | An emergency system (CAP 1.2), Home Assistant, a sensor or an alerting tool must show something on screens by itself | CAP: `triggers create --name NAME --tag TAG` (`--pull FILE` also reads CAP sources); any other sender: `triggers create --name NAME --kind overlay --show bar\|takeover --tag TAG` ([overlay triggers](references/playlists.md#overlay-triggers)); then `triggers test ID`. The URL and secret go only to the sender's administrator |
 | `notifications` | A person should hear when a screen goes offline or fails (email, chat, pager), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), `--slack URL`, `--teams URL`, `--pagerduty KEY`, `--telegram TOKEN --telegram-chat ID`; prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `running_hot`, `storage_full`, `content_stuck`, `not_playing`, `loop_stalled`, `glass_blank`, `glass_frozen`, `crashing`; `--tag TAG`, `--hold MINUTES`, `update ID --snooze 1h`. Channels, grouping and glass verdicts: [notifications](references/notifications.md). `webhooks` remains for raw event feeds |
 | `alerts` | The user asks what needs attention on the screens, or named screens will be down for maintenance | `alerts list` shows the open problems, one per screen and condition (`--state all` adds resolved; `crashing` is a notice, not an alert). `alerts ack ID` when someone is on it, or `alerts snooze ID --for 4h` to look again later; either skips a notice still in its hold. For maintenance the user names, `alerts mute --tag TAG --for 2h --note TEXT` (or `--screen-id ID`; under 30 days) keeps those screens out of notices and attention; `alerts unmute MUTE_ID` (ids from `alerts mutes`) ends it when the work is done. Changing alerts needs Manage access |
 | `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once); a card's webhook: [card webhooks](references/playlists.md#card-webhooks) |
