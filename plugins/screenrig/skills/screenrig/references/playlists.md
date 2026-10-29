@@ -35,6 +35,36 @@ screenrig card preview crd_ID --output card.png
   A `state: pending` answer carries `retry_after_seconds`: report it and return.
   Show a feed's `attribution` wherever its data shows.
 
+## Card webhooks
+
+An outside system (a CMS, Zapier, a point of sale, a script) pushes data to a
+card with one HTTP POST. Create the webhook, give its administrator the url and
+secret, and read the delivery log when nothing shows.
+
+```sh
+screenrig kv webhook create --card crd_ID --map map.json --description "CMS alerts"   # url and secret, shown once
+screenrig kv webhook update kvw_ID --card crd_ID --map map.json    # also --clear-map, --disable, --signing
+screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each post was written, unchanged or refused
+```
+
+- Without `--map` the posted JSON object (or form) is the card's data document.
+  With it, a template builds the document from the body:
+  `{"title":"{{body.alert.title}}","body":"{{body.alert.message}}"}`;
+  `{{body.items[0].name}}` indexes; a string that is one placeholder keeps the
+  value's type; `{"$each":"{{body.items}}","$limit":20,"$template":{"text":"{{item.title}}"}}`
+  maps an array (also `$group`, `$number` for `$3.50` or `3,50 €`, `$bool`,
+  `$text`); `{{query.NAME}}` reads the URL's query. A missing value is empty in
+  text and leaves a lone value out.
+- The sender sends `Authorization: Bearer SECRET` (or HTTP Basic with the
+  webhook id as user), never the secret in the url. Each post is checked as the
+  card's own data (`card_data_invalid` names the path), an identical document is
+  not rewritten, and an accepted post is one billed API request.
+- A wrong url, a wrong secret, a disabled webhook and any GET answer the same 404;
+  only `deliveries` says why. `--signing` also requires `ScreenRig-Signature:
+  t=UNIX,v1=HEX`, the HMAC-SHA256 of `t.BODY` under `data.signing_secret`, within
+  five minutes. Secrets go to the sender's administrator, never into
+  conversation, files or logs.
+
 ## Per-screen values
 
 Each screen carries its own `fields` (up to 32 lower-case names, values up to
@@ -98,9 +128,28 @@ aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
   autoplaying, looping embed without YouTube's controls. Native Players play
   sound, the web Player plays muted; `mute=1` in the link mutes everywhere.
   A channel handle (`@name`) is rejected: ask for a video or channel-ID link.
+- For a Google Slides, Docs or Sheets file, or a PowerPoint, Word or Excel file
+  on OneDrive or SharePoint, put the share link, Publish to web link or Embed
+  code the user gave in an `iframe` `src`; `playlist init` also takes the
+  `<iframe …>` code as an input. The server stores the embed address. Slides loop
+  and advance on the link's `delayms` (10 s by default, held to the page's
+  `after_ms`, so give the page the time of the whole deck); Docs, Sheets, Word
+  and Excel reload every 5 minutes. Google needs Share → Anyone with the link, or
+  File → Share → Publish to web. Microsoft needs File → Share → Embed on a file
+  its admin lets share with Anyone links; `1drv.ms` and sharing links are
+  rejected. A file that asks viewers to sign in fails with `document_not_shared`
+  naming the setting to change. The screen needs Google or Microsoft on the
+  internet.
 - `visibility` times are civil (no zone); keep at least one page without it, and
   set the screen timezone before assigning a scheduled playlist. A
-  `visibility.data` condition keys off card data.
+  `visibility.data` condition keys off card data. Its key `{screen.weather}`
+  keys off the weather where each screen is (give the screen a location first,
+  `screen update --location`): `{"key":"{screen.weather}","path":"/condition","equals":"rain"}`.
+  `/condition` is clear, cloud, fog, rain, snow, storm or wind; `/band` is
+  freezing (below 0 °C), cold (0-9), mild (10-17), warm (18-24) or hot (25+);
+  `/temperatureC` is whole degrees; `/isDay` is true or false. It is the
+  current weather at the screen, refreshed about hourly, not a forecast; a
+  screen without a location never shows the page.
 - A soundtrack is `audio: {tracks, loop, volume, cued}` (1 to 128 uploaded
   tracks); pages bind with `audio_cue` or `advance: {"mode": "audio_end"}`.
   `playlist update` replaces the whole document, so omitting `audio` removes it.
