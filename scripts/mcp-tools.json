@@ -111,6 +111,12 @@
     "screenrig_screen_unarchive",
     "screenrig_screen_update",
     "screenrig_server_status",
+    "screenrig_source_create",
+    "screenrig_source_delete",
+    "screenrig_source_list",
+    "screenrig_source_refresh",
+    "screenrig_source_test",
+    "screenrig_source_update",
     "screenrig_visibility_open"
   ]
 }
