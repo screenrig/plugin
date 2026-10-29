@@ -110,6 +110,25 @@ written, so check one screen's screenshot after publishing. A screen without
 the field shows empty text; a screen without a location shows the card without
 one.
 
+An `iframe` `src` and `fallback_src` take URL tokens in the path, query or
+fragment of an `http(s)` address, and an `application` takes optional `params`
+(up to 16 names of `[a-z0-9_]{1,32}`, `ticket` and `policy` reserved, values up
+to 512 characters, appended to its launch URL so it reads `location.search`):
+`{screen.id}` (without `scr_`), `{screen.name}`, `{screen.timezone}`,
+`{screen.field.NAME}`, `{screen.location.lat}`, `{screen.location.lon}`,
+`{screen.location.name}`, `{screen.location.address}`. Example `src`:
+`https://maps.example.com/directory?kiosk={screen.field.kiosk_id}`. The write
+stores the template as written; each screen's manifest carries its own address
+with every value percent-encoded. A token in the scheme, host, port or
+credentials, or in a YouTube, Google or Microsoft document or BI view address,
+is `invalid_request`. A screen that lacks a value gets no such iframe or app
+(`screen_fact_missing`; a page left empty is dropped), and every write that
+reaches it, including `screen update`, returns a `screen_fact_missing` warning
+with the tokens and the first 20 screen IDs: set the fields first. Launch
+params reach the web Player and the Players that run it (Tizen, BrightSign,
+webOS, Vega); the Qt, Android, Apple and Windows Players load apps locally. An app learns its screen from `context.screen_id`
+and treats params as untrusted. A template's `url` field may be a whole `src`.
+
 A tag selector's `tag` (and a `tags` entry) may be `{screen.field.NAME}` or
 `{screen.id}` (the screen's ID without `scr_`, so a tag). The server fills it per
 screen, so one playlist plays each screen's own media: media tagged `Lobby` or
