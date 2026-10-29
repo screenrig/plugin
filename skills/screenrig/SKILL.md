@@ -160,7 +160,9 @@ screen is archived as `replaced`; delete it, never unarchive it.
 Prefer a card to an application: a card draws natively on every Player, changes
 with `card data put` without republishing, and suits a rotating loop. App code
 must `await screenrig.waitUntilActive()` before `await screenrig.ready()` and
-make no SDK call while `readyState` is not `active`. Use screenRIG's `feeds` for
+make no SDK call while `readyState` is not `active`. An app with nothing to show
+calls `screenrig.skip()` instead of `ready()`: the screen moves on and counts no
+play. Use screenRIG's `feeds` for
 weather, rates and other third-party data, never the providers.
 
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
