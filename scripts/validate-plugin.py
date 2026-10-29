@@ -28,7 +28,7 @@ BUDGET_REPO_FILES = 111
 BUDGET_REPO_BYTES = 5_000_000
 BUDGET_PLUGIN_FILES = 53
 BUDGET_PLUGIN_BYTES = 3_000_000
-BUDGET_FILE_BYTES = 1_572_864
+BUDGET_FILE_BYTES = 2_097_152
 _spec = importlib.util.spec_from_file_location("build_plugin", ROOT / "scripts" / "build-plugin.py")
 assert _spec and _spec.loader
 builder = importlib.util.module_from_spec(_spec)

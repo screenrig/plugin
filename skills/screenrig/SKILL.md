@@ -149,6 +149,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | The page needs | Path |
 | --- | --- |
 | Finished image or video | `media upload` (H.264 default; `--codec hevc` where every target decodes it, and always for a Raspberry Pi 5) |
+| A new file for media screens already play | `media replace MEDIA_ID FILE` (same ID, so playlists and schedules keep playing it) |
 | Poster, menu, announcement | `media generate` with all exact copy in the prompt; inspect with `media download` |
 | Recurring report with history | [dashboard skill](../screenrig-dashboard/SKILL.md), publish the WebP as media |
 | A live Grafana, Power BI or Tableau dashboard | `bi connection create grafana\|powerbi\|tableau` (or a public link), then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)) |
@@ -189,6 +190,20 @@ files, and `media folder update` renames or moves a folder. Deleting a folder
 moves its contents up one level. A `folder` selector plays a folder's own files,
 so moving files or deleting the folder changes what those playlists show; under
 Propose access a move waits for a person's review.
+
+When a playlist, schedule or selector already plays the media, change its file
+with `media replace MEDIA_ID FILE` instead of uploading again: the ID stays, so
+every screen plays the new file with nothing to republish (`media upload` is for
+a file that is new). The file must be the same kind (image, video or audio) and
+takes the `media upload` options except `--tag` and `--folder`; `--expect-rev`
+from `media show` guards against a change made meanwhile. A different aspect
+ratio is allowed and warns (`aspect_ratio_changed`, naming the playlists): look
+at those playlists afterwards. Under Propose access the replacement waits for a
+person's review (`data.status` `pending_review`) and screens keep the current
+file. Every earlier file stays in the history: `media versions MEDIA_ID` lists
+it, `media restore MEDIA_ID --number N` puts one back as a new version (same
+warnings and review), and `media version delete MEDIA_ID --number N` drops a
+past version and its stored bytes (Manage access).
 
 For a share of voice (sponsors, ad rotation) tag each sponsor's files and give
 the selector `order: "weighted"`, `one_at_a_time: true` and `weights` keyed by
@@ -273,18 +288,51 @@ and a card's `location` may be `"{screen.location}"`
 publishing: a missing one shows as empty text. `screen list --field
 region=north` or `--near LAT,LON,KM` finds screens.
 
-**Campaigns, schedules and takeover.** A screen plays its takeover, else the
-first campaign that holds, else the first matching schedule entry, else its
-own default playlist, else its nearest folder's default. For content across
-screens (a promotion at every `north` store, weekday lunch menus) create one
-campaign, not per-screen schedules: `campaign create --name Lunch --playlist-id
-ID --tag north --window mon-fri@11:00-14:00` (`--folder ID` for a folder).
-Screens that join its audience later get it too. It needs each screen's default
-playlist and, with `--from`, `--until` or `--window`, its timezone
+**Campaigns, schedules and takeover.** A screen's schedule entries and
+campaigns are levels of one stack; it plays the top level that holds: its
+takeover, the campaigns that reach it (priority, then newest), its own schedule
+entries in order, its default playlist, its nearest folder's default. For
+content across screens (a promotion at every `north` store, weekday lunch
+menus) create one campaign, not per-screen schedules: `campaign create --name
+Lunch --playlist-id ID --tag north --window mon-fri@11:00-14:00` (`--folder ID`
+for a folder). Screens that join its audience later get it too. It needs each
+screen's default playlist and, with any date or time rule, its timezone
 (`screen set-timezone`). `campaign screens ID` shows every screen's
 standing and `campaign explain SCREEN_ID` says why one does not play it;
 with `--at TIME` it says what will play then, and `--to TIME` lists the
-switches: check a plan before its date.
+switches: check a plan before its date. The MCP tool `screenrig_schedule_calendar`
+takes a screen, folder, tag or campaign and returns what its screens play over up
+to 93 days: each level's spans (plays, partial, outranked, conditional) and its
+conflicts (two campaigns of one priority holding at once, a level that never
+plays).
+
+A level holds while all its rules hold: `from`, `until`, weekly `windows`,
+`monthly` (day 1-31, or the 1st-4th or last weekday), `dates` (a whole day or
+between times), `except` (dates whose occurrences, overnight tails included,
+are removed), `data` (a card-data condition) and `interaction {idle_s}` (5-3600,
+default 60: plays while someone touches or clicks the screen and drops back
+after `idle_s` without input; typically an interactive page above an attract
+loop). `displays` sets the video-wall outputs it plays on; `start` is `on_time`
+to interrupt the current item at the edge or `next_item` (default) to wait for
+it. An overnight occurrence belongs to the date it starts; a schedule entry needs
+at least one rule, not necessarily `windows`. Players that resolve their own
+stack play `interaction`, `data` and `displays`; `campaign explain` reports any
+other Player's row as `stack_only`. Flags on `campaign create|update`:
+`--monthly SPEC` (`15`, `1st-mon`, `last-sun`, optional `@HH:MM-HH:MM`),
+`--date YYYY-MM-DD[@HH:MM-HH:MM]`, `--except YYYY-MM-DD[,...]` (all repeatable),
+`--on-touch [IDLE_S]`, `--displays N[,N]`, `--start on-time|next-item`, and on
+update `--clear-monthly`, `--clear-dates`, `--clear-except`, `--clear-on-touch`,
+`--clear-displays`. `screen schedule set --file` entries take `monthly`,
+`dates`, `except`, `data`, `interaction`, `displays` and `start`.
+
+```
+screenrig campaign create --name Brunch --playlist-id pl_BRUNCH --tag cafe --monthly 1st-sun@10:00-14:00 --except 2026-12-06
+screenrig campaign create --name Browse --playlist-id pl_MENU --screen-id scr_KIOSK --on-touch 90
+```
+
+The second plays the menu while someone uses the kiosk and returns to its
+default attract loop after 90 idle seconds.
+
 Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen reboot` (only where the Player declares it; fleets need `--yes`

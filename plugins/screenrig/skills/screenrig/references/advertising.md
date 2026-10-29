@@ -36,7 +36,9 @@ review-required creatives with `ads reviews`. Manage access with
 `ads memberships`. Report with `ads reports delivery`. A slot alone places no
 ad: add an `adslot` page to a playlist (see [playlists](playlists.md)) and check
 the assigned Players support it. Tags are public venue metadata, never
-individual demographics.
+individual demographics. `--impressions-per-hour N` records the seller's
+audience estimate for a screen; reports then show `estimated_impressions`
+(per play: N × seconds played ÷ 3600). Prices stay per play.
 
 ## Direct campaigns
 
