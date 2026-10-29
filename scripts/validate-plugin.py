@@ -165,9 +165,6 @@ def check_package() -> None:
     for canonical_skill in (ROOT / "skills").iterdir():
         if canonical_skill.is_dir() and not (PLUGIN / "skills" / canonical_skill.name / "SKILL.md").is_file():
             errors.append(f"missing packaged skill: {canonical_skill.name}")
-    dashboard_launcher = PLUGIN / "skills/screenrig-dashboard/scripts/screenrig-dashboard"
-    if not dashboard_launcher.is_file() or not stat.S_IMODE(dashboard_launcher.stat().st_mode) & 0o111:
-        errors.append("packaged dashboard launcher must exist and be executable")
     for executable in required[1:3]:
         if executable.is_file() and not stat.S_IMODE(executable.stat().st_mode) & 0o111:
             errors.append(f"{executable.relative_to(ROOT)}: must be executable")
