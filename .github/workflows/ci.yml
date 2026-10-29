@@ -85,6 +85,7 @@ jobs:
             echo "bundle_updated=true" >> "${GITHUB_OUTPUT}"
           fi
           python3 scripts/build-plugin.py --check --cli-artifact "${artifact}"
+          sha256sum --strict -c contracts.sha256
           python3 scripts/validate-plugin.py --cli-artifact "${artifact}" --cli-source "${RUNNER_TEMP}/screenrig-cli-source"
           python3 scripts/check-public-repo.py
           python3 scripts/test.py

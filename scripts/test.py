@@ -611,39 +611,7 @@ class CalVerTests(unittest.TestCase):
 SKILL_DOCS = sorted((ROOT / "skills").rglob("*.md"))
 BUNDLED_LAUNCHER = ROOT / "plugins" / "screenrig" / "skills" / "screenrig" / "scripts" / "screenrig"
 REQUIRED_COMMANDS = ("media generate", "media download")
-
-
-def code_lines(markdown: str) -> list[str]:
-    """Inline code spans and fenced-block lines of a Markdown document."""
-    lines: list[str] = []
-    fenced = False
-    for raw in markdown.splitlines():
-        if raw.lstrip().startswith("```"):
-            fenced = not fenced
-            continue
-        if fenced:
-            lines.append(raw.strip())
-        else:
-            lines.extend(span.strip() for span in re.findall(r"`([^`]+)`", raw))
-    return lines
-
-
-def taught_commands(markdown: str, groups: set[str]) -> list[str]:
-    """Command words taught in code: after `screenrig`, or opening with a command group."""
-    found: list[str] = []
-    for line in code_lines(markdown):
-        prefixed = re.match(r"(?:\$ )?screenrig\s+(?=[a-z])", line)
-        body = line[prefixed.end():] if prefixed else line
-        tokens: list[str] = []
-        for part in body.split():
-            if not re.fullmatch(r"[a-z][a-z0-9-]*", part):
-                break
-            tokens.append(part)
-        if tokens and (prefixed or tokens[0] in groups):
-            command = " ".join(tokens)
-            if command not in found:
-                found.append(command)
-    return found
+validator = load_script("skill_validator", "validate-plugin.py")
 
 
 class SkillCommandTests(unittest.TestCase):
@@ -654,28 +622,13 @@ class SkillCommandTests(unittest.TestCase):
                 env={"PATH": os.environ.get("PATH", ""), "XDG_CONFIG_HOME": str(Path(temporary) / "config")},
             )
 
-    def test_taught_commands_exist_in_bundled_cli(self) -> None:
+    def test_required_commands_exist_in_bundled_cli(self) -> None:
+        # validate-plugin.py judges every command path the skills write; this
+        # keeps the commands the skills cannot do without.
         errors: list[str] = []
-        help_result = self.run_cli("--json", "help", "--all")
-        try:
-            envelope = json.loads(help_result.stdout)
-            inventory = envelope["data"]["allCommands"]
-            if help_result.returncode != 0 or envelope.get("ok") is not True:
-                raise ValueError("help failed")
-            if not isinstance(inventory, list) or not all(isinstance(item, str) for item in inventory):
-                raise ValueError("invalid command inventory")
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-            errors.append("bundled CLI help --all must return a successful structured command inventory")
-            inventory = []
-        groups = {item.split()[0] for item in inventory}
-        for path in SKILL_DOCS:
-            text = path.read_text(encoding="utf-8")
-            for command in taught_commands(text, groups):
-                # A real command, a group heading toward one, or a command followed by a lowercase argument.
-                known = any(item == command or item.startswith(command + " ") or command.startswith(item + " ")
-                            for item in inventory)
-                if not known:
-                    errors.append(f"{path.relative_to(ROOT)}: taught command is not in the bundled CLI: {command}")
+        validator.errors.clear()
+        inventory = validator.bundled_command_inventory() or []
+        errors.extend(validator.errors)
         for command in REQUIRED_COMMANDS:
             if not any(command in text for text in (p.read_text(encoding="utf-8") for p in SKILL_DOCS)):
                 errors.append(f"skill docs do not teach {command}")
@@ -694,6 +647,107 @@ class SkillCommandTests(unittest.TestCase):
             if (error.get("code") if isinstance(error, dict) else None) in {None, "unknown_command"}:
                 errors.append("bundled media generate must be a real command, not an unknown command")
         self.assertFalse(errors, "\n".join(errors))
+
+
+class TaughtSurfaceTests(unittest.TestCase):
+    """Skills may write only command paths and MCP tool names that exist (validate-plugin.py)."""
+
+    TREE = validator.command_tree([
+        "screen show", "screen assign", "screen reload", "screen takeover set", "screen takeover clear",
+        "playlist validate", "playlist get", "ads networks list", "ads networks show", "login", "help",
+    ])
+
+    def problems(self, markdown: str) -> list[tuple[int, str]]:
+        return validator.taught_command_errors(markdown, self.TREE)
+
+    def test_existing_paths_pass(self) -> None:
+        document = (
+            "Run `screenrig screen show SCREEN_ID`, `screen assign|reload`, `screen takeover` and\n"
+            "`ads networks list|show`; `screenrig login --no-wait`, `screenrig help --all`, `screenrig help screen show`.\n"
+            "Wrapped: `playlist\nvalidate FILE`.\n"
+            "| Group | First |\n| --- | --- |\n| `screen` | `screen takeover set\\|clear` |\n"
+            "```sh\n$ screenrig playlist get ID   # then `screen show`\n```\n"
+            "1. Step:\n\n   ```sh\n   screenrig screen show ID\n   ```\n"
+        )
+        self.assertEqual(self.problems(document), [])
+
+    def test_unknown_paths_fail_with_their_line(self) -> None:
+        cases = {
+            "`screenrig screen frobnicate ID`": "screen frobnicate",
+            "`screen frobnicate`": "screen frobnicate",
+            "`screenrig nonsense`": "nonsense",
+            "`screenrig help screen frobnicate`": "screen frobnicate",
+            "`screen assign|frobnicate`": "screen frobnicate",
+            "`screen takeover frobnicate`": "screen takeover frobnicate",
+            "`ads networks list|show|frobnicate`": "ads networks frobnicate",
+            "`playlist\nfrobnicate FILE`": "playlist frobnicate",
+            "| `screen takeover set\\|frobnicate` |": "screen takeover frobnicate",
+            "```sh\n$ screenrig screen frobnicate\n```": "screen frobnicate",
+            "1. Step:\n\n   ```sh\n   screenrig screen frobnicate\n   ```": "screen frobnicate",
+        }
+        for document, expected in cases.items():
+            with self.subTest(document=document):
+                problems = self.problems("Intro.\n\n" + document)
+                self.assertEqual(len(problems), 1, problems)
+                self.assertTrue(problems[0][1].startswith(f"`{expected}` is not a screenrig command"), problems)
+        self.assertEqual(self.problems("Intro.\n\nSee `playlist\nfrobnicate FILE` now.")[0][0], 3)
+        self.assertIn("it has assign, reload, show, takeover", self.problems("`screen frobnicate`")[0][1])
+        self.assertIn("did you mean show?", self.problems("`screen shows`")[0][1])
+
+    def test_what_is_not_judged(self) -> None:
+        for document in (
+            "`screenrig` names the product, and screen frobnicate is prose",
+            "After campaign, `update|frobnicate|pause` leaves out its group.",
+            "`screen show SCREEN_ID --frobnicate`, `screen show frobnicate`, `screenrig login Frobnicate`",
+            "`claude plugin frobnicate`, `screenrig-plugin-freshness --frobnicate`, `Screen frobnicate`",
+            "```json\n{\"screenrig\": \"screen frobnicate\"}\n```",
+            "```html\nscreen frobnicate\n```",
+            "```sh\nscreen frobnicate\n```",
+        ):
+            with self.subTest(document=document):
+                self.assertEqual(self.problems(document), [])
+
+    def test_tool_names(self) -> None:
+        tools = {"screenrig_screen_list", "screenrig_screen_get"}
+        document = (
+            "Call `screenrig_screen_list`, and `SCREENRIG_CONFIG`, `scripts/screenrig_view.py`, `screenrig_views.json`,\n"
+            "`screenrig-views`, `screenrig_screen_listing` and `screenrig_gone`.\n"
+            "```json\n{\"screenrig_screen_get\": {}, \"screenrig_screen_frob\": {}}\n```\n"
+        )
+        self.assertEqual(
+            [(line, problem.split("`")[1]) for line, problem in validator.taught_tool_errors(document, tools)],
+            [(2, "screenrig_screen_listing"), (2, "screenrig_gone"), (4, "screenrig_screen_frob")],
+        )
+
+    def test_validator_reads_skills_against_the_cli_and_the_vendored_tools(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="screenrig-taught-surface-") as temporary:
+            root = Path(temporary) / "plugin"
+            (root / "skills" / "screenrig").mkdir(parents=True)
+            (root / "scripts").mkdir()
+            (root / "skills" / "screenrig" / "SKILL.md").write_text(
+                "Run `screenrig screen publish ID`, then `screen frobnicate`.\n"
+                "Call `screenrig_screen_list` and `screenrig_gone`.\n", encoding="utf-8")
+            tools = root / "scripts" / "mcp-tools.json"
+            with patch.object(validator, "ROOT", root):
+                tools.write_text(json.dumps({"schema": "screenrig.mcp-tools/v1", "tools": ["screenrig_screen_list"]}), encoding="utf-8")
+                validator.errors.clear()
+                validator.check_taught_surface()
+                self.assertEqual(len(validator.errors), 2, validator.errors)
+                self.assertTrue(validator.errors[0].startswith(
+                    "skills/screenrig/SKILL.md:1: `screen frobnicate` is not a screenrig command"))
+                self.assertTrue(validator.errors[1].startswith("skills/screenrig/SKILL.md:2: names MCP tool `screenrig_gone`"))
+                # A missing or malformed list is a failure, never a skipped check.
+                for write in (lambda: tools.unlink(),
+                              lambda: tools.write_text("{}", encoding="utf-8"),
+                              lambda: tools.write_text(json.dumps({"schema": "screenrig.mcp-tools/v1", "tools": ["Screen List"]}), encoding="utf-8")):
+                    write()
+                    validator.errors.clear()
+                    validator.check_taught_surface()
+                    self.assertEqual(len(validator.errors), 2, validator.errors)
+                    self.assertIn("scripts/mcp-tools.json", validator.errors[0])
+                    self.assertTrue(validator.errors[1].startswith(
+                        "skills/screenrig/SKILL.md:1: `screen frobnicate` is not a screenrig command"), validator.errors)
+        validator.errors.clear()
 
 
 class DocsOnlyTests(unittest.TestCase):
@@ -1134,5 +1188,5 @@ class ViewBridgeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(defaultTest=["LauncherTests", "FreshnessTests", "CalVerTests", "SkillCommandTests",
-                               "DocsOnlyTests", "DependencyBoundaryTests", "MCPConnectionTests",
+                               "TaughtSurfaceTests", "DocsOnlyTests", "DependencyBoundaryTests", "MCPConnectionTests",
                                "ViewBridgeTests"])

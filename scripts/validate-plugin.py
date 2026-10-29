@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import importlib.util
 import json
 import os
@@ -51,6 +52,8 @@ CLI_SOURCE_FILES = (
     "src/localhost-smoke.ts",
     "src/server-smoke.ts",
 )
+MCP_TOOLS_PATH = Path("scripts") / "mcp-tools.json"
+MCP_TOOLS_SCHEMA = "screenrig.mcp-tools/v1"
 errors: list[str] = []
 
 
@@ -444,6 +447,182 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             errors.append(f"skills/screenrig/SKILL.md: does not teach {taught}")
 
 
+# A skill is read by an agent that then acts on it. A command or tool the product no
+# longer has sends that agent into an error it cannot tell from its own mistake, so
+# every command path and MCP tool name the skills write as code must exist: command
+# paths in the bundled CLI's `help --all` inventory, tool names in the MCP tool list
+# the backend publishes (scripts/mcp-tools.json, vendored by contracts.toml). These
+# checks judge names only. They do not judge flags or arguments, prose, a path written
+# without its group (`update|pause` after "campaign"), or a name outside code.
+COMMAND_WORD = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
+MCP_TOOL = re.compile(r"(?<![\w./-])screenrig_[a-z0-9]+(?:_[a-z0-9]+)*(?![\w/-]|\.\w)")
+CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.DOTALL)
+BLOCK_START = re.compile(r"\s{0,3}(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|\|)")
+SHELL_FENCES = {"", "sh", "bash", "shell", "console", "zsh", "text"}
+
+
+def code_regions(markdown: str) -> list[tuple[int, str, str]]:
+    """``(line, text, kind)`` of every inline code span and fenced-block line.
+
+    ``kind`` is ``span`` or the fence language. A span may wrap across lines, and a
+    ``\\|`` inside a table cell reads as ``|``.
+    """
+    regions: list[tuple[int, str, str]] = []
+    block: list[str] = []
+    first = 1
+    fence: tuple[str, int, str] | None = None
+
+    def flush() -> None:
+        text = "\n".join(block)
+        block.clear()
+        for match in CODE_SPAN.finditer(text):
+            line = first + text.count("\n", 0, match.start())
+            regions.append((line, " ".join(match.group(2).replace("\\|", "|").split()), "span"))
+
+    for number, raw in enumerate(markdown.splitlines(), 1):
+        stripped = raw.strip()
+        if fence:
+            if stripped and set(stripped) == {fence[0]} and len(stripped) >= fence[1]:
+                fence = None
+            else:
+                regions.append((number, stripped, fence[2]))
+            continue
+        opening = re.match(r"\s*(`{3,}|~{3,})\s*([\w+-]*)\s*$", raw)
+        if opening:
+            flush()
+            fence = (opening.group(1)[0], len(opening.group(1)), opening.group(2).lower())
+            continue
+        if not stripped or BLOCK_START.match(raw):
+            flush()
+        if stripped:
+            if not block:
+                first = number
+            block.append(raw)
+    flush()
+    return regions
+
+
+def command_tree(inventory: list[str]) -> dict[str, Any]:
+    """Nested ``{word: children}`` from the CLI's leaf command paths; a leaf has no children."""
+    tree: dict[str, Any] = {}
+    for path in inventory:
+        node = tree
+        for word in path.split():
+            node = node.setdefault(word, {})
+    return tree
+
+
+def unknown_command(words: list[str], tree: dict[str, Any]) -> str | None:
+    """The first command word that the CLI does not have, or None.
+
+    Words are followed while they are lowercase command names under a command group;
+    the first flag, placeholder, quoted or numeric word, or any word under a leaf
+    command (an argument), ends the path. ``a|b|c`` names sibling commands.
+    """
+    node: dict[str, Any] = tree
+    walked: list[str] = []
+    for word in words:
+        if not node:
+            break
+        names = word.split("|")
+        if not all(COMMAND_WORD.fullmatch(name) for name in names):
+            break
+        for name in names:
+            if name not in node:
+                close = difflib.get_close_matches(name, sorted(node), n=3)
+                choices = f"did you mean {', '.join(close)}?" if close else f"it has {', '.join(sorted(node))}"
+                return f"`{' '.join([*walked, name])}` is not a screenrig command; `{' '.join(['screenrig', *walked])}`: {choices}"
+        if len(names) > 1:
+            break
+        node = node[word]
+        walked.append(word)
+    return None
+
+
+def taught_command_errors(markdown: str, tree: dict[str, Any]) -> list[tuple[int, str]]:
+    """Command paths written as ``screenrig ...`` (a span or a shell line) or, in a span, from a command group."""
+    problems: list[tuple[int, str]] = []
+    for line, text, kind in code_regions(markdown):
+        if kind != "span" and kind not in SHELL_FENCES:
+            continue
+        words = text.removeprefix("$ ").split()
+        if not words:
+            continue
+        if words[0] == "screenrig":
+            words = words[1:]
+        elif kind != "span" or words[0] not in tree:
+            continue
+        if words[:1] == ["help"]:
+            words = words[1:]
+        problem = unknown_command(words, tree)
+        if problem:
+            problems.append((line, problem))
+    return problems
+
+
+def taught_tool_errors(markdown: str, tools: set[str]) -> list[tuple[int, str]]:
+    return [(line, f"names MCP tool `{match.group(0)}`, which the backend does not publish")
+            for line, text, _kind in code_regions(markdown)
+            for match in MCP_TOOL.finditer(text) if match.group(0) not in tools]
+
+
+def bundled_command_inventory() -> list[str] | None:
+    """Leaf command paths and aliases from the packaged CLI's own ``help --all``."""
+    wrapper = PLUGIN / "skills" / "screenrig" / "scripts" / "screenrig"
+    if not wrapper.is_file():
+        return None
+    with tempfile.TemporaryDirectory(prefix="screenrig-help-") as temporary:
+        result = subprocess.run(
+            [str(wrapper), "--json", "help", "--all"],
+            cwd=ROOT,
+            env={"PATH": os.environ.get("PATH", ""), "XDG_CONFIG_HOME": str(Path(temporary) / "config")},
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    try:
+        envelope = json.loads(result.stdout)
+        inventory = envelope["data"]["allCommands"]
+        valid = (result.returncode == 0 and envelope.get("ok") is True and isinstance(inventory, list)
+                 and bool(inventory) and all(isinstance(item, str) for item in inventory))
+    except (json.JSONDecodeError, KeyError, TypeError):
+        valid = False
+    if not valid:
+        errors.append("bundled CLI help --all did not return a command inventory; taught commands were not checked")
+        return None
+    return inventory
+
+
+def published_mcp_tools() -> set[str] | None:
+    """Tool names in the vendored backend list, or None when it is missing or malformed."""
+    name = MCP_TOOLS_PATH.as_posix()
+    try:
+        document = json.loads((ROOT / MCP_TOOLS_PATH).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(f"{name} is unreadable ({exc}); contracts.toml vendors it from the backend's api/public/mcp-tools.json")
+        return None
+    tools = document.get("tools") if isinstance(document, dict) else None
+    if (document.get("schema") != MCP_TOOLS_SCHEMA or not isinstance(tools, list) or not tools
+            or not all(isinstance(tool, str) and re.fullmatch(r"screenrig_[a-z0-9_]+", tool) for tool in tools)):
+        errors.append(f"{name} is not a {MCP_TOOLS_SCHEMA} document of screenrig_ tool names")
+        return None
+    return set(tools)
+
+
+def check_taught_surface() -> None:
+    documents = sorted((ROOT / "skills").rglob("*.md"))
+    inventory = bundled_command_inventory()
+    tree = command_tree(inventory) if inventory else None
+    tools = published_mcp_tools()
+    for path in documents:
+        text = path.read_text(encoding="utf-8")
+        found = taught_command_errors(text, tree) if tree else []
+        if tools is not None:
+            found.extend(taught_tool_errors(text, tools))
+        errors.extend(f"{path.relative_to(ROOT)}:{line}: {problem}" for line, problem in sorted(found))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli-artifact")
@@ -467,6 +646,7 @@ def main() -> int:
     check_package()
     check_budget()
     check_no_alternate_surfaces(require_cli_source(args.cli_source))
+    check_taught_surface()
     if errors:
         print("ScreenRig plugin validation failed:", file=sys.stderr)
         for error in errors:

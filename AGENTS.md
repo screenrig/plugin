@@ -73,8 +73,16 @@ raising them is the operator's decision.
 
 `scripts/test.py` holds every test (`--browser` adds Chromium renders and needs
 the helper's locked runtime). The public/reproducibility boundary is
-`scripts/validate-plugin.py` and `scripts/check-public-repo.py`; taught commands
-must exist in the bundled CLI.
+`scripts/validate-plugin.py` and `scripts/check-public-repo.py`.
+
+`validate-plugin.py` fails when a skill or reference writes, as code, a
+`screenrig` command path missing from the bundled CLI's `help --all`, or an MCP
+tool name missing from `scripts/mcp-tools.json`. That list is the backend's
+public tool list, vendored by `contracts.toml` (`rig contracts sync plugin`; CI
+runs `sha256sum --strict -c contracts.sha256`), so every run checks tool names
+and a missing or malformed list fails. The check judges names only, not flags,
+arguments, prose or a path written without its group (`update|pause` after
+"campaign").
 
 ```sh
 python3 scripts/validate-plugin.py --budget

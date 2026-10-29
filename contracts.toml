@@ -1,0 +1,9 @@
+# What the plugin vendors. `rig contracts sync plugin` rewrites it; CI runs
+# `sha256sum --strict -c contracts.sha256`.
+
+[[source]]
+repo = "backend"
+
+[source.files]
+# The names of the MCP tools, so a skill that names a removed tool fails validation.
+"scripts/mcp-tools.json" = "api/public/mcp-tools.json"
