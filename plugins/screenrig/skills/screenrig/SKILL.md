@@ -114,9 +114,11 @@ the screen device, or play.DOMAIN when `doctor` reports another environment's
 api.DOMAIN); no USB or ADB. `screenrig screen pair "ABC 234"`, then
 `screen show SCREEN_ID` until `state` is `active` and `online` is true. Read
 `observation.surfaces[]` for size and orientation. Tag each screen right after
-pairing (`screen tag SCREEN_ID --set Lobby,Floor2`); tags select fleets and are
-not authorization. Displays run by a device manager use `fleet-links create`
-instead of per-screen codes: its URL goes in a kiosk browser, in Android or
+pairing (`screen tag SCREEN_ID --set Lobby,Floor2`) and, for a large estate,
+file it in a folder (`screen move SCREEN_ID --folder ID`); tags and folders
+select fleets and are not authorization. Displays run by a device manager use
+`fleet-links create` instead of per-screen codes: its URL goes in a kiosk
+browser, in Android or
 Apple managed app configuration as `fleet_link` (`asset_id` names the screen),
 or in `/etc/screenrig/fleet-link` on Linux; `--expires-at` ends it. Its URL
 creates screens, so give it only to the person who configures the devices. A
@@ -224,12 +226,29 @@ Downloads are free. On Standard the first 1 GB stored is free and a project with
 no credit cannot store more (`payment_required`), so delete unused media instead
 of piling it up.
 
-**Fleets.** `screen assign|reload|toast|tag` take several IDs or `--tag TAG`.
-The answer stays `ok: true`; read `data.results[]` (`fleet_partial_failure`).
-Rerun an interrupted command unchanged; after a partial failure retry only the
-failed IDs. For a fleet publish, `playlist create FILE` once, then
-`screen assign --tag TAG --playlist-id ID`. Verify with
+**Fleets.** `screen assign|reload|toast|tag` take several IDs, `--tag TAG` or
+`--folder ID`. The answer stays `ok: true`; read `data.results[]`
+(`fleet_partial_failure`). Rerun an interrupted command unchanged; after a
+partial failure retry only the failed IDs. For a fleet publish, `playlist create
+FILE` once, then `screen assign --tag TAG --playlist-id ID`. Verify with
 `screen screenshot --tag TAG --output DIR`.
+
+**Screen folders.** A folder says where a screen is, one place per screen
+(property, building, level, zone); a tag marks a group that cuts across places
+(`overhead`, `menu-board`). Use a folder for "everything in this building", a
+tag for "every menu board", or both:
+`--audience '{"all":[{"folder":"sfd_ID"},{"tag":"overhead"}]}'`.
+`screen folder create --name NAME [--parent ID] [--default-playlist-id ID]`,
+`list`, `show`, `update` and `delete` build the tree, `screen move ID...
+--folder ID|--root` files screens and folders (`scr_` and `sfd_` IDs mixed), and
+`screen list --folder ID|root` lists one folder's own screens. `--folder ID` on a
+fleet command or `campaign create|update` reaches the folder and every folder
+inside it. A folder's default playlist plays on its screens with no playlist of
+their own (`effective_playlist.source` is `folder`). A move or re-parent
+re-resolves the screens within about 15 seconds, and the answer's `levels` lists
+the campaigns and folder defaults they gain or lose: tell the user. Deleting a
+folder moves its contents up and is refused while a campaign names it. Folders
+nest 10 deep, 1,000 to a project; writes need Manage access.
 
 **Per-screen values.** One playlist shows each screen's own details. Set them
 once per screen: `screen update SCREEN_ID --field store_number=0142 --field
@@ -242,12 +261,13 @@ region=north` or `--near LAT,LON,KM` finds screens.
 
 **Campaigns, schedules and takeover.** A screen plays its takeover, else the
 first campaign that holds, else the first matching schedule entry, else its
-default playlist. For content across screens (a promotion at every `north`
-store, weekday lunch menus) create one campaign, not per-screen schedules:
-`campaign create --name Lunch --playlist-id ID --tag north --window
-mon-fri@11:00-14:00`. Screens that join its audience later get it too. It needs
-each screen's default playlist and, with `--from`, `--until` or `--window`, its
-timezone (`screen set-timezone`). `campaign screens ID` shows every screen's
+own default playlist, else its nearest folder's default. For content across
+screens (a promotion at every `north` store, weekday lunch menus) create one
+campaign, not per-screen schedules: `campaign create --name Lunch --playlist-id
+ID --tag north --window mon-fri@11:00-14:00` (`--folder ID` for a folder).
+Screens that join its audience later get it too. It needs each screen's default
+playlist and, with `--from`, `--until` or `--window`, its timezone
+(`screen set-timezone`). `campaign screens ID` shows every screen's
 standing and `campaign explain SCREEN_ID` says why one does not play it;
 with `--at TIME` it says what will play then, and `--to TIME` lists the
 switches: check a plan before its date.
