@@ -388,7 +388,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         errors.append("skills/screenrig/SKILL.md: obsolete skill-text-does-not-upgrade rule remains")
 
     readme_forbidden = {
-        "token paste": re.compile(r"--token|SCREENRIG_TOKEN", re.IGNORECASE),
+        "token paste": re.compile(r"--token(?!-file\b)|SCREENRIG_TOKEN", re.IGNORECASE),
     }
     for readme in (ROOT / "README.md", PLUGIN / "README.md"):
         if not readme.is_file():
@@ -407,7 +407,7 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             r"|first-use enrollment",
             re.IGNORECASE,
         ),
-        "token paste": re.compile(r"--token|SCREENRIG_TOKEN", re.IGNORECASE),
+        "token paste": re.compile(r"--token(?!-file\b)|SCREENRIG_TOKEN", re.IGNORECASE),
         "retired screen creation": re.compile(r"\bscreen\s+create\b", re.IGNORECASE),
         "retired bootstrap onboarding": re.compile(
             r"#bootstrap=|/api/v1/screens/bootstrap|/api/screens/bootstrap|/runtime/v1/device-sessions/bootstrap|/screen/device-sessions/bootstrap|ScreenBootstrap|PlayerBootstrap|bootstrap grant",
