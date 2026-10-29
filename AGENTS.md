@@ -37,9 +37,15 @@ raising them is the operator's decision.
   (a source checkout sets `SCREENRIG_PLUGIN_ROOT`), never searches parent
   directories, adds no global npm resolution, and is silent on success (clean
   JSON on stdout, empty stderr).
-- The bundled CLI is one minified `cli/dist/bin.js` plus `package.json`, the
-  runtime lock and `THIRD_PARTY_NOTICES`: no source maps, `node_modules` or
-  executables. The only image binary is the marketplace PNG from `assets/logo.svg`.
+- The bundled CLI is the minified `cli/dist/bin.js` and the flat `cli/dist/*.js`
+  chunks it loads per command group, its `cli/assets/` files, `package.json`, the
+  runtime lock and `THIRD_PARTY_NOTICES`: no source maps, `node_modules`, native
+  modules or executables. The only image binary is the listing PNG from
+  `assets/logo.svg`.
+- The Claude plugin directory reads at most 256 KiB of any script or document
+  and holds a larger one for review; `validate-plugin.py --budget` fails on one.
+  Nothing in the plugin may download and run code (the CLI fetches no renderer
+  or other binary).
 - Do not commit, push, tag or publish unless asked.
 
 ## Skill content

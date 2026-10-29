@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "screenrig",
   "version": "26.10.1137",
-  "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
+  "description": "Free, agent-driven digital signage. Your AI agent puts images, videos, menu boards and live apps on your TVs and kiosks, keeps every screen current from your docs, sheets and calendar, and checks what each one plays. screenRIG is free. Pay only if you want more.",
   "author": {
     "name": "screenRIG"
   },
@@ -10,10 +10,19 @@
   "repository": "https://github.com/screenrig/plugin",
   "license": "Apache-2.0",
   "keywords": [
-    "screenrig",
     "digital-signage",
+    "signage",
+    "screens",
+    "tv",
+    "displays",
     "kiosk",
-    "agent-cli"
+    "menu-board",
+    "playlists",
+    "android-tv",
+    "fire-tv",
+    "apple-tv",
+    "raspberry-pi",
+    "screenrig"
   ],
   "extensions": {
     "com.openai": {

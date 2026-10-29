@@ -38,15 +38,15 @@ LOCK_PATH = ROOT / "components.lock.json"
 LOCK_SCHEMA = "screenrig.plugin-components-lock/v1"
 CLI_RUNTIME_LOCK = "runtime-dependencies.lock.json"
 CLI_NOTICES = "THIRD_PARTY_NOTICES"
-# The plugin ships these files of the CLI release: one bundled executable with
-# every runtime dependency inside it, its manifest, the lock the first render
-# checks the downloaded renderer against, and the bundled packages' licenses.
-CLI_FILES = ("package.json", "dist/bin.js", CLI_RUNTIME_LOCK, CLI_NOTICES)
-# The CLI fetches the renderer platform package for its machine on first render.
-RENDERER_PLATFORM_PREFIX = "@napi-rs/canvas-"
+# The plugin ships these files of the CLI release: its manifest, the runtime
+# dependency lock, the bundled packages' licenses, the bundled executable
+# dist/bin.js with the dist/*.js chunks it loads on demand, and the assets/ files
+# it reads at run time. Every dependency is bundled inside dist/.
+CLI_FIXED_FILES = ("package.json", CLI_RUNTIME_LOCK, CLI_NOTICES)
+CLI_ENTRY = "dist/bin.js"
 # Plugin manifest metadata; the version comes from .claude-plugin/marketplace.json.
 METADATA: dict[str, Any] = {
-    "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
+    "description": "Free, agent-driven digital signage. Your AI agent puts images, videos, menu boards and live apps on your TVs and kiosks, keeps every screen current from your docs, sheets and calendar, and checks what each one plays. screenRIG is free. Pay only if you want more.",
     "author": {
         "name": "screenRIG"
     },
@@ -54,10 +54,19 @@ METADATA: dict[str, Any] = {
     "repository": "https://github.com/screenrig/plugin",
     "license": "Apache-2.0",
     "keywords": [
-        "screenrig",
         "digital-signage",
+        "signage",
+        "screens",
+        "tv",
+        "displays",
         "kiosk",
-        "agent-cli"
+        "menu-board",
+        "playlists",
+        "android-tv",
+        "fire-tv",
+        "apple-tv",
+        "raspberry-pi",
+        "screenrig"
     ],
     "interface": {
         "displayName": "screenRIG",
@@ -84,6 +93,14 @@ METADATA: dict[str, Any] = {
         "composerIcon": "./assets/logo.png"
     }
 }
+# Claude plugin directory listing screenshots: media kit images on the public
+# site (the directory takes https:// URLs, not plugin files).
+LISTING_SCREENSHOTS = [
+    "https://screenrig.ai/static-resources/downloads/mediakit/photos/product/screenrig-product-agent-phone-9382822e.jpg",
+    "https://screenrig.ai/static-resources/downloads/mediakit/photos/product/screenrig-product-player-menu-board-2b09adb5.jpg",
+    "https://screenrig.ai/static-resources/downloads/mediakit/screenshots/dashboard/screenrig-dashboard-screens-a3891b64.png",
+    "https://screenrig.ai/static-resources/downloads/mediakit/screenshots/player/screenrig-player-cafe-menu-f7c4464e.png",
+]
 # Review scenarios and the creator-supplied recording for submission.
 SUBMISSION: dict[str, Any] = {
     "review": {
@@ -258,7 +275,6 @@ def verify_cli_runtime_bundle(cli_root: Path) -> None:
     noticed = noticed_packages(cli_root)
     locked: set[str] = set()
     bundled_names: set[str] = set()
-    renderers = 0
     for package in packages:
         if not isinstance(package, dict):
             raise BuildError(f"bundled CLI artifact has an invalid {CLI_RUNTIME_LOCK} package entry")
@@ -275,14 +291,9 @@ def verify_cli_runtime_bundle(cli_root: Path) -> None:
             or not any(value.startswith("sha512-") for value in integrity.split())
         ):
             raise BuildError(f"bundled CLI artifact has an unsafe {CLI_RUNTIME_LOCK} package entry")
-        if name.startswith(RENDERER_PLATFORM_PREFIX):
-            renderers += 1
-            continue
         locked.add(f"{name}@{version_value}")
         if f"{name}@{version_value}" in noticed:
             bundled_names.add(name)
-    if renderers == 0:
-        raise BuildError(f"bundled CLI artifact {CLI_RUNTIME_LOCK} has no renderer download records")
     if noticed - locked:
         raise BuildError(f"{CLI_NOTICES} names packages outside {CLI_RUNTIME_LOCK}: {sorted(noticed - locked)}")
     try:
@@ -317,12 +328,29 @@ def version() -> str:
     return value
 
 
+def cli_layout_errors(files: list[str]) -> list[str]:
+    """``files`` (relative to the CLI root) must be the fixed files, flat dist/*.js chunks and assets/ files."""
+    errors = [f"missing {relative}" for relative in (*CLI_FIXED_FILES, CLI_ENTRY) if relative not in files]
+    for relative in files:
+        parts = relative.split("/")
+        if relative in CLI_FIXED_FILES:
+            continue
+        if len(parts) == 2 and parts[0] == "dist" and parts[1].endswith(".js"):
+            continue
+        if len(parts) == 2 and parts[0] == "assets":
+            continue
+        errors.append(f"unexpected file {relative}")
+    return errors
+
+
 def cli_files(cli_root: Path) -> tuple[str, ...]:
-    missing = [relative for relative in CLI_FILES if not (cli_root / relative).is_file()]
-    if missing:
-        raise BuildError(f"bundled CLI artifact is missing {', '.join(missing)}")
+    files = sorted(path.relative_to(cli_root).as_posix() for path in cli_root.rglob("*") if path.is_file())
+    files = [relative for relative in files if relative in CLI_FIXED_FILES or relative.split("/")[0] in ("dist", "assets")]
+    errors = cli_layout_errors(files)
+    if errors:
+        raise BuildError(f"bundled CLI artifact: {'; '.join(errors)}")
     verify_cli_runtime_bundle(cli_root)
-    return CLI_FILES
+    return tuple(files)
 
 
 def verify_cli_artifact(artifact: Path) -> None:
@@ -441,7 +469,13 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
     remote = {"type": "http", "url": "https://api.screenrig.ai/mcp"}
     claude = dict(base)
     claude["mcpServers"] = {"screenrig-views": {**remote, "oauth": {"scopes": " ".join(scopes)}}}
+    # Claude plugin directory listing: icon and the links shown beside it.
+    claude["icon"] = metadata["interface"]["logo"]
     claude["privacyPolicyUrl"] = metadata["interface"]["privacyPolicyURL"]
+    claude["termsOfServiceUrl"] = metadata["interface"]["termsOfServiceURL"]
+    claude["supportUrl"] = metadata["interface"]["supportURL"]
+    claude["documentationUrl"] = "https://screenrig.ai/docs"
+    claude["screenshots"] = LISTING_SCREENSHOTS
     codex = dict(base)
     codex["mcpServers"] = "./.mcp.json"
     (plugin_root / ".codex-plugin").mkdir(parents=True, exist_ok=True)
@@ -564,7 +598,7 @@ def build(
             if not commit:
                 raise BuildError("--write-lock requires --cli-commit or a sibling ../cli checkout")
             write_component_lock(commit, artifact)
-    (cli_root / "dist" / "bin.js").chmod(0o755)
+    (cli_root / CLI_ENTRY).chmod(0o755)
     emit_manifests(plugin_root, METADATA, release_version)
     verify_generated_launcher(plugin_root)
     return plugin_root

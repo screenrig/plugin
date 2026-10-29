@@ -12,11 +12,11 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # every other dependency itself and reports it in its JSON envelope, so a
 # dependency that one command needs must never fail this shared entry point.
 if ! command -v node >/dev/null 2>&1; then
-  echo "ScreenRig requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); install or expose a compatible node runtime, then retry." >&2
+  echo "screenRIG requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); install or expose a compatible node runtime, then retry." >&2
   exit 69
 fi
 if ! node -e 'const [major, minor, patch] = process.versions.node.split(".").map(Number); const minimum = {22: [23, 4], 24: [22, 1], 26: [12, 1]}[major]; process.exit(/^\d+\.\d+\.\d+$/.test(process.versions.node) && (major > 26 || !!minimum && (minor > minimum[0] || minor === minimum[0] && patch >= minimum[1])) ? 0 : 1)' >/dev/null 2>&1; then
-  echo "ScreenRig requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); upgrade the active node runtime, then retry." >&2
+  echo "screenRIG requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); upgrade the active node runtime, then retry." >&2
   exit 69
 fi
 
@@ -45,5 +45,5 @@ if [ -n "${CODEX_PLUGIN_ROOT-}" ]; then
   try_exec "$CODEX_PLUGIN_ROOT/cli/dist/bin.js" "$@"
 fi
 
-echo "ScreenRig CLI is missing; install the official ScreenRig plugin from https://github.com/screenrig/plugin, or from a source checkout build cli/dist/bin.js." >&2
+echo "screenRIG CLI is missing; install the official screenRIG plugin from https://github.com/screenrig/plugin, or from a source checkout build cli/dist/bin.js." >&2
 exit 78

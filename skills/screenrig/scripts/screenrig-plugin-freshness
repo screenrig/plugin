@@ -42,20 +42,11 @@ function versionField(value) {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : "";
 }
 
+// The release stamps the plugin's version into its bundled CLI package, so that
+// file names the installed plugin version on every host.
 function readPluginVersion(pluginRoot) {
-  const files = [
-    path.join(pluginRoot, ".claude-plugin", "plugin.json"),
-    path.join(pluginRoot, ".codex-plugin", "plugin.json"),
-    path.join(pluginRoot, "plugin.json"),
-  ];
-  for (const file of files) {
-    const parsed = readJsonFile(file);
-    const version = parsed ? versionField(parsed.version) : "";
-    if (version) {
-      return version;
-    }
-  }
-  return "";
+  const parsed = readJsonFile(path.join(pluginRoot, "cli", "package.json"));
+  return parsed ? versionField(parsed.version) : "";
 }
 
 function versionFromScreenrig(command, env) {
@@ -259,48 +250,87 @@ function grokEnabled() {
   } catch { return false; }
 }
 
+// The marketplace a plugin list entry came from: the part after "@" in its id,
+// or the host's own marketplace field. Our GitHub marketplace is "screenrig";
+// a host's plugin directory has its own name.
+function entryMarketplace(entry, id) {
+  const marker = id.indexOf("@");
+  const named = marker >= 0 ? id.slice(marker + 1) : entry.marketplace || entry.marketplaceName || "";
+  return typeof named === "string" ? named : "";
+}
+
+// A plugin list entry is this plugin when it is named screenrig, from any
+// marketplace, and installed at this root.
+function listedHere(entries, root, name) {
+  for (const entry of entries) {
+    if (!entry || entry.enabled === false || entry.installed === false || entry.trusted === false) continue;
+    const id = entry.pluginId || entry.id || entry.name;
+    if (typeof id !== "string" || (id.split("@")[0] !== "screenrig" && entry.name !== "screenrig")) continue;
+    const location = entry.installPath || entry.install_path || entry.path || entry.local_path || entry.localPath ||
+      (entry.source && entry.source.path);
+    if (typeof location === "string" && sameRoot(location, root) && (name !== "grok" || grokEnabled())) {
+      return { host: name, marketplace: entryMarketplace(entry, id), source: "plugin_list" };
+    }
+  }
+  return null;
+}
+
+function pluginList(name, args) {
+  const options = { encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024, windowsHide: true };
+  let result = spawnSync(name, args, options);
+  // Older Codex versions may lack the marketplace filter.
+  if (name === "codex" && result.status !== 0 &&
+      /(?:unexpected|unrecognized|unknown).*--marketplace/i.test(result.stderr || "")) {
+    result = spawnSync(name, ["plugin", "list", "--json"], options);
+  }
+  if (result.error && result.error.code === "ENOENT") return { available: false, entries: [] };
+  if (result.error || result.status !== 0) return { available: true, entries: [] };
+  try {
+    const parsed = JSON.parse(result.stdout);
+    const entries = Array.isArray(parsed) ? parsed : parsed.installed || parsed.plugins || [];
+    return { available: true, entries: Array.isArray(entries) ? entries : [] };
+  } catch {
+    // Report an actionable registration failure without echoing host output.
+    return { available: true, entries: [] };
+  }
+}
+
+const ROOT_VARIABLE_HOSTS = { GROK_PLUGIN_ROOT: "grok", CODEX_PLUGIN_ROOT: "codex", CLAUDE_PLUGIN_ROOT: "claude", PLUGIN_ROOT: "" };
+
 function registeredHost(root, host) {
   if (!host && process.env.PLUGIN_ROOT && sameRoot(process.env.PLUGIN_ROOT, root)) return { source: "host_root" };
   const hosts = host ? [host] : ["claude", "codex", "grok"];
   let available = false;
   for (const name of hosts) {
-    const options = {
-      encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024, windowsHide: true,
-    };
-    // Other Codex marketplaces can require unrelated network requests. A
-    // stalled remote catalog must not hide an installed local plugin.
-    const args = ["plugin", "list", "--json"];
-    if (name === "codex") args.push("--marketplace", "screenrig");
-    let result = spawnSync(name, args, options);
-    // Older Codex versions may lack the marketplace filter.
-    if (name === "codex" && result.status !== 0 &&
-        /(?:unexpected|unrecognized|unknown).*--marketplace/i.test(result.stderr || "")) {
-      result = spawnSync(name, ["plugin", "list", "--json"], options);
-    }
-    if (result.error && result.error.code === "ENOENT") continue;
+    // Other Codex marketplaces can require unrelated network requests, so the
+    // screenrig marketplace is read first: a stalled remote catalog must not
+    // hide a plugin installed from it. A copy from another marketplace (a
+    // host's plugin directory) is looked for in the full list after that.
+    const filtered = name === "codex";
+    const listed = pluginList(name, filtered ? ["plugin", "list", "--json", "--marketplace", "screenrig"] : ["plugin", "list", "--json"]);
+    if (!listed.available) continue;
     available = true;
-    if (result.error || result.status !== 0) continue;
-    try {
-      const parsed = JSON.parse(result.stdout);
-      const entries = Array.isArray(parsed) ? parsed : parsed.installed || parsed.plugins || [];
-      if (!Array.isArray(entries)) continue;
-      for (const entry of entries) {
-        if (!entry || entry.enabled === false || entry.installed === false || entry.trusted === false) continue;
-        const id = entry.pluginId || entry.id || entry.name;
-        if (id !== "screenrig@screenrig" && !(name === "grok" && (id === "screenrig" || entry.name === "screenrig"))) continue;
-        const location = entry.installPath || entry.install_path || entry.path || entry.local_path || entry.localPath ||
-          (entry.source && entry.source.path);
-        if (typeof location === "string" && sameRoot(location, root) && (name !== "grok" || grokEnabled())) return { host: name, source: "plugin_list" };
-      }
-    } catch { /* Report an actionable registration failure without echoing host output. */ }
+    const found = listedHere(listed.entries, root, name) ||
+      (filtered ? listedHere(pluginList(name, ["plugin", "list", "--json"]).entries, root, name) : null);
+    if (found) return found;
   }
   // Managed hosts can attach a package without exposing a plugin-management CLI.
   if (!available && !host) {
-    for (const variable of ["GROK_PLUGIN_ROOT", "CODEX_PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT", "PLUGIN_ROOT"]) {
-      if (process.env[variable] && sameRoot(process.env[variable], root)) return { source: "host_root" };
+    for (const [variable, named] of Object.entries(ROOT_VARIABLE_HOSTS)) {
+      if (process.env[variable] && sameRoot(process.env[variable], root)) return { ...(named ? { host: named } : {}), source: "host_root" };
     }
   }
   return null;
+}
+
+// Where this installation came from, sent with enrollment and sign-in so a
+// signup can be traced to the host and marketplace that installed the plugin:
+// "claude/screenrig", "codex/screenrig", or a host directory's marketplace name.
+function installSource(registration) {
+  if (!registration || !registration.host) return "";
+  const marketplace = String(registration.marketplace || "").toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-").replace(/^[^a-z0-9]+/, "").slice(0, 64);
+  return marketplace ? `${registration.host}/${marketplace}` : registration.host;
 }
 
 function bundled(root, args, config) {
@@ -355,9 +385,11 @@ async function bootstrap(argv, run) {
   }
   const launcher = path.join(root, "skills", "screenrig", "scripts", "screenrig");
   if (run) {
+    const source = installSource(registration);
     const result = spawnSync(process.execPath, [path.join(root, "cli", "dist", "bin.js"), ...command,
       ...(config ? ["--config", config] : [])], {
       stdio: "inherit", windowsHide: true,
+      env: { ...process.env, ...(source ? { SCREENRIG_INSTALL_SOURCE: source } : {}) },
     });
     if (result.error) { usageError("The registered plugin's bundled CLI could not start; reinstall the official plugin and retry."); return; }
     if (result.signal) { process.kill(process.pid, result.signal); return; }
@@ -369,10 +401,15 @@ async function bootstrap(argv, run) {
       !version.data.distribution || version.data.distribution.kind !== "plugin_bundle") {
     usageError("The registered plugin's bundled version check failed; reinstall the official plugin and retry."); return;
   }
-  const freshnessResult = spawnSync(process.execPath, [__filename, "--json"], {
-    encoding: "utf8", timeout: 30000, maxBuffer: 1024 * 1024, windowsHide: true,
-  });
-  const freshness = envelopeOf(freshnessResult);
+  // A copy from a host's plugin directory updates there once that directory
+  // publishes a release, so it is never compared with GitHub's latest.
+  const managedBy = registration.marketplace && registration.marketplace !== "screenrig" ? registration.marketplace : "";
+  const freshness = managedBy
+    ? { ok: true, warnings: [], data: { action: "keep", stale: false, updates_from: managedBy,
+      installed_plugin_version: readPluginVersion(root) || null, installed_cli_version: version.data.version } }
+    : envelopeOf(spawnSync(process.execPath, [__filename, "--json"], {
+      encoding: "utf8", timeout: 30000, maxBuffer: 1024 * 1024, windowsHide: true,
+    }));
   if (!freshness || freshness.ok !== true) { usageError("The registered plugin's freshness check failed; rerun it before continuing."); return; }
   const common = { registration, launcher, version: version.data.version, freshness: freshness.data };
   if (freshness.data.action === "refresh") {
@@ -438,8 +475,8 @@ async function main() {
   const env = process.env;
   // The helper ships at <plugin-root>/skills/screenrig/scripts, so its own path
   // names the plugin it belongs to; an environment root is the fallback for a
-  // copy run from elsewhere. A root counts only when it carries a plugin
-  // manifest version: a source checkout or a loose copy has none.
+  // copy run from elsewhere. A root counts only when it carries the bundled CLI
+  // with its stamped version: a source checkout or a loose copy has none.
   const scriptRoot = path.resolve(__dirname, "..", "..", "..");
   const pluginRoot = [scriptRoot, pluginRootFromEnv(env)].find((root) => root && readPluginVersion(root));
   if (!pluginRoot) {

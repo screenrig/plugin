@@ -64,7 +64,7 @@ def without(names: tuple[str, ...], **extra: str) -> dict[str, str]:
 LAUNCHER = ROOT / "skills" / "screenrig" / "scripts" / "screenrig"
 VIEW_BRIDGE = ROOT / "skills" / "screenrig-view-bridge" / "scripts" / "screenrig-view-bridge"
 MISSING_MESSAGE = (
-    "ScreenRig CLI is missing; install the official ScreenRig plugin from "
+    "screenRIG CLI is missing; install the official screenRIG plugin from "
     "https://github.com/screenrig/plugin, or from a source checkout build "
     "cli/dist/bin.js."
 )
@@ -109,7 +109,7 @@ class LauncherTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0 if accepted else 69, result.stderr)
                     self.assertEqual(result.stdout, "bundle\n" if accepted else "")
                     self.assertEqual(result.stderr, "" if accepted else
-                                     "ScreenRig requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); upgrade the active node runtime, then retry.\n")
+                                     "screenRIG requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); upgrade the active node runtime, then retry.\n")
 
     def test_resolution_order_and_missing_cli(self) -> None:
         errors: list[str] = []
@@ -222,7 +222,7 @@ class FreshnessTests(unittest.TestCase):
             tmp = Path(temporary)
             root = tmp / "registered plugin"
             helper = install_copy(HELPER, root / "skills/screenrig/scripts/screenrig-plugin-freshness")
-            write_json(root / "plugin.json", {"name": "screenrig", "version": "26.10.1"})
+            write_json(root / "cli/package.json", {"name": "screenrig", "version": "26.10.1"})
             cli = root / "cli/dist/bin.js"
             cli.parent.mkdir(parents=True)
             cli.write_text('process.stdout.write(JSON.stringify({ok:true,data:{version:"test"}})+"\\n");\n')
@@ -255,6 +255,61 @@ class FreshnessTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(json.loads(calls.read_text().splitlines()[-1]), ["plugin", "list", "--json"])
 
+    def test_directory_install_source_and_updates(self) -> None:
+        """A copy from a host's plugin directory is registered, never told to
+        refresh from GitHub, and passes its install source to the CLI."""
+        node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
+        with tempfile.TemporaryDirectory(prefix="screenrig-directory-") as temporary:
+            tmp = Path(temporary)
+            root = tmp / "directory plugin"
+            script = install_copy(HELPER, root / "skills/screenrig/scripts/screenrig-plugin-freshness")
+            install_copy(LAUNCHER, script.with_name("screenrig"))
+            write_json(root / "cli/package.json", {"name": "screenrig", "version": "26.10.1"})
+            cli = root / "cli/dist/bin.js"
+            cli.parent.mkdir(parents=True)
+            cli.write_text('''const fs = require("fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.TEST_CALLS, JSON.stringify({args, source: process.env.SCREENRIG_INSTALL_SOURCE ?? null})+"\\n");
+let data;
+if (args.includes("version")) data = {version:"26.10.1",distribution:{kind:"plugin_bundle"}};
+else if (args.includes("doctor")) data = {status:"pass", checks:[{name:"token",status:"pass"}]};
+else if (args.includes("agent")) data = {status:"active"};
+else if (args.includes("project")) data = {features:{screens:true}};
+process.stdout.write(JSON.stringify({ok:true,data,warnings:[]})+"\\n");
+''', encoding="utf-8")
+            registry, marketplace, calls = tmp / "registry.json", tmp / "marketplace.json", tmp / "calls.jsonl"
+            # GitHub's marketplace is ahead of what the directory has published.
+            write_json(marketplace, {"plugins": [{"version": "26.11.5"}]})
+            bin_dir = tmp / "bin"
+            bin_dir.mkdir()
+            host = bin_dir / "claude"
+            host.write_text("#!" + node + '\nprocess.stdout.write(require("fs").readFileSync(process.env.TEST_REGISTRY).toString());\n')
+            host.chmod(0o755)
+            environment = without(FRESHNESS_VARS, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}", TEST_REGISTRY=str(registry),
+                                  TEST_CALLS=str(calls), SCREENRIG_PUBLISHED_MARKETPLACE_URL=marketplace.as_uri())
+
+            def run(*args):
+                return subprocess.run(["node", str(script), "--host", "claude", *args],
+                                      env=environment, text=True, capture_output=True, timeout=30)
+
+            for marketplace_name, action in (("Claude-Plugins Official", "ready"), ("screenrig", "refresh")):
+                calls.unlink(missing_ok=True)
+                write_json(registry, [{"id": f"screenrig@{marketplace_name}", "installPath": str(root)}])
+                result = run("--bootstrap", "--json")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                data = json.loads(result.stdout)["data"]
+                self.assertEqual(data["registration"], {"host": "claude", "marketplace": marketplace_name, "source": "plugin_list"})
+                self.assertEqual(data["action"], action)
+                if action == "ready":
+                    self.assertEqual(data["freshness"]["updates_from"], marketplace_name)
+                    self.assertFalse(data["freshness"]["stale"])
+                result = run("--run", "version")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                sources = {json.loads(line)["source"] for line in calls.read_text().splitlines()
+                           if "version" in json.loads(line)["args"]}
+                expected = "claude/claude-plugins-official" if action == "ready" else "claude/screenrig"
+                self.assertIn(expected, sources)
+
     def test_bootstrap_registration_reuse_and_exact_command(self) -> None:
         node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
         with tempfile.TemporaryDirectory(prefix="screenrig-bootstrap-") as temporary:
@@ -262,7 +317,7 @@ class FreshnessTests(unittest.TestCase):
             root = tmp / "registered plugin"
             script = install_copy(HELPER, root / "skills/screenrig/scripts/screenrig-plugin-freshness")
             install_copy(LAUNCHER, script.with_name("screenrig"))
-            write_json(root / "plugin.json", {"name": "screenrig", "version": "26.10.1"})
+            write_json(root / "cli/package.json", {"name": "screenrig", "version": "26.10.1"})
             cli = root / "cli/dist/bin.js"
             cli.parent.mkdir(parents=True)
             cli.write_text('''const fs = require("fs");
@@ -326,7 +381,7 @@ process.exitCode=code;
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)["data"]
             self.assertEqual(data["action"], "ready")
-            self.assertEqual(data["registration"], {"host": "claude", "source": "plugin_list"})
+            self.assertEqual(data["registration"], {"host": "claude", "marketplace": "screenrig", "source": "plugin_list"})
             self.assertEqual(data["launcher"], str(script.with_name("screenrig")))
             recorded = [json.loads(line) for line in calls.read_text().splitlines()]
             self.assertFalse(any("enroll" in args for args in recorded))
@@ -418,8 +473,8 @@ process.exitCode=code;
             destination.chmod(destination.stat().st_mode | stat.S_IXUSR)
 
         def plugin_tree(root: Path, version: str) -> None:
-            write_json(root / ".claude-plugin" / "plugin.json", {"name": "screenrig", "version": version})
-            write_json(root / ".codex-plugin" / "plugin.json", {"name": "screenrig", "version": version})
+            # The release stamps the plugin version into the bundled CLI package.
+            write_json(root / "cli" / "package.json", {"name": "screenrig", "version": version})
 
         def marketplace_file(path: Path, version: str | None) -> None:
             entry: dict[str, object] = {"name": "screenrig"}
@@ -510,7 +565,7 @@ process.exitCode=code;
                    published=None, plugin="26.09.7", cli="26.09.7", warning="published_version_unavailable")
 
             # With no plugin root in the environment the helper reads its own
-            # install location, and with no plugin manifest anywhere it says so
+            # install location, and with no bundled CLI anywhere it says so
             # instead of reporting a refresh that can never converge.
             installed_root = tmp / "installed" / "screenrig"
             plugin_tree(installed_root, "26.09.7")
@@ -522,7 +577,7 @@ process.exitCode=code;
                    stale=False, published="26.09.7", plugin="26.09.7", cli="26.09.7")
             expect("no plugin root", run(helper, loose), action="not_installed", stale=False, published=None,
                    plugin=None, cli="26.09.7", warning="plugin_not_installed")
-            expect("environment root without a plugin manifest",
+            expect("environment root without a bundled CLI",
                    run(helper, env(SCREENRIG_PLUGIN_ROOT=str(scripts),
                                    SCREENRIG_PUBLISHED_MARKETPLACE_URL=file_url(release_marketplace))),
                    action="not_installed", stale=False, published=None, plugin=None, cli="26.09.7",
@@ -793,7 +848,7 @@ class DependencyBoundaryTests(unittest.TestCase):
 
     def test_allowlist_is_the_reviewed_production_set(self) -> None:
         self.assertEqual(set(checker.ALLOWED_CLI_PRODUCTION_DEPENDENCIES),
-                         {"@napi-rs/canvas", "ajv", "ajv-formats", "commander"})
+                         {"ajv", "ajv-formats", "commander"})
 
     def check_with(self, mutation=None) -> list[str]:
         original_load = checker.load
