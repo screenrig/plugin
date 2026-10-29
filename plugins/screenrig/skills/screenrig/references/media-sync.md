@@ -1,14 +1,12 @@
-# Keep a SharePoint or OneDrive folder, or a Canva design, in step with the library
+# Keep a SharePoint or OneDrive folder in step with the library
 
 Use it when a person's images, videos or audio live in a SharePoint or OneDrive
-for work folder, or when a Canva design is the content, and screens must follow
-it without uploading again. A sync imports the files into a media folder,
-replaces the bytes of a changed file under the same media ID (every playlist
-that plays it updates, with no republish) and takes a file removed at the source
-out of play. SharePoint reads through the customer's own Microsoft Entra app;
-Canva reads through a person's Canva account (see "A Canva design" below).
-Office files and PDFs are not media: show those with a document link in a
-playlist.
+for work folder and screens must follow it without uploading again. A sync
+imports the files into a media folder, replaces the bytes of a changed file
+under the same media ID (every playlist that plays it updates, with no
+republish) and takes a file removed at the source out of play. SharePoint reads
+through the customer's own Microsoft Entra app. Office files and PDFs are not
+media: show those with a document link in a playlist.
 
 ## The app, done by a Microsoft 365 administrator
 
@@ -72,43 +70,3 @@ screenrig media sync show msy_ID                  # what the last run did
 Creating accounts and syncs needs Manage access. Accounts and syncs belong to
 one project. The secret is sealed on the server and shown only as its last four
 characters; pass it only with `--secret-file`.
-
-## A Canva design
-
-A sync can follow a Canva design: its pages become images (or one video) in a
-media folder and are replaced under the same media IDs whenever the design
-changes in Canva. screenRIG is the Canva integration; a person signs in to Canva
-once and the connection belongs to the project, so syncs keep running when
-people change.
-
-```sh
-screenrig media sync account add canva --name "Marketing Canva"   # prints data.authorize_url
-```
-
-Send that link to the person who owns the Canva account (or open it yourself if
-that is you). They open it in a browser signed in to Canva and allow access; the
-page then says Canva is connected. The link works once, for about 15 minutes,
-and the CLI never opens a browser. Then:
-
-```sh
-screenrig media sync account show msa_ID                  # state ready once they consented
-screenrig media sync account designs msa_ID --query menu  # ids, titles, page counts
-screenrig media sync create canva --account-id msa_ID --design DESIGN_ID_OR_URL \
-  [--pages 1,3-5] [--format png|mp4] [--folder-id mfd_ID] [--every 15m]
-```
-
-- `png` (default) makes one image per page named "TITLE - page N.png"; `mp4`
-  makes one video. Pass a design id or its canva.com/design/ID/... address.
-  Documents and presentations export as page images; there is no PDF format.
-- Each run asks Canva when the design last changed and exports only when it
-  moved (`media sync run msy_ID --force` exports anyway). Long videos take
-  minutes. A page the design no longer has leaves play like a removed file.
-  Play the folder with a `folder` selector, as above.
-- `canva_reconnect_required` (the person left Canva or revoked access): run
-  `media sync account connect msa_ID` and send the new link. `state: error` with
-  `design_unavailable` means the connected person can no longer open the design;
-  the media is kept.
-- `media sync account delete msa_ID` (after deleting its syncs) ends the
-  connection at Canva; the imported media stays.
-- `canva_not_configured` means this server has no Canva integration: tell the
-  person; nothing can be done from the CLI.
