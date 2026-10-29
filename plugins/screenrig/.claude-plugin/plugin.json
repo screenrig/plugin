@@ -1,7 +1,7 @@
 {
   "name": "screenrig",
-  "version": "26.10.1115",
-  "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
+  "version": "26.10.1146",
+  "description": "Free, agent-driven digital signage. Your AI agent puts images, videos, menu boards and live apps on your TVs and kiosks, keeps every screen current from your docs, sheets and calendar, and checks what each one plays. screenRIG is free. Pay only if you want more.",
   "author": {
     "name": "screenRIG"
   },
@@ -9,10 +9,19 @@
   "repository": "https://github.com/screenrig/plugin",
   "license": "Apache-2.0",
   "keywords": [
-    "screenrig",
     "digital-signage",
+    "signage",
+    "screens",
+    "tv",
+    "displays",
     "kiosk",
-    "agent-cli"
+    "menu-board",
+    "playlists",
+    "android-tv",
+    "fire-tv",
+    "apple-tv",
+    "raspberry-pi",
+    "screenrig"
   ],
   "mcpServers": {
     "screenrig-views": {
@@ -22,5 +31,16 @@
         "scopes": "access:manage screens content playlists reports"
       }
     }
-  }
+  },
+  "icon": "./assets/logo.png",
+  "privacyPolicyUrl": "https://screenrig.ai/privacy",
+  "termsOfServiceUrl": "https://screenrig.ai/terms",
+  "supportUrl": "https://screenrig.ai/contact",
+  "documentationUrl": "https://screenrig.ai/docs",
+  "screenshots": [
+    "https://screenrig.ai/static-resources/downloads/mediakit/photos/product/screenrig-product-agent-phone-9382822e.jpg",
+    "https://screenrig.ai/static-resources/downloads/mediakit/photos/product/screenrig-product-player-menu-board-2b09adb5.jpg",
+    "https://screenrig.ai/static-resources/downloads/mediakit/screenshots/dashboard/screenrig-dashboard-screens-a3891b64.png",
+    "https://screenrig.ai/static-resources/downloads/mediakit/screenshots/player/screenrig-player-cafe-menu-f7c4464e.png"
+  ]
 }

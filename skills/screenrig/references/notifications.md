@@ -15,7 +15,7 @@ channel's own first notice went out.
 | `--telegram TOKEN --telegram-chat CHAT_ID` | A bot token and the chat id (`-1001234567890`) or `@channelname` | Posts an HTML message |
 
 Each needs `--conditions`. Never put the credential on the command line where
-the user's shell history keeps it: pass `-` and pipe it in, as in
+the user's shell history keeps it: use `-` and pipe it in, as in
 `printf '%s\n' "$URL" | screenrig notifications create --slack - --conditions screen_offline`.
 The credential is sealed and never shown again; `notifications show ID` gives a
 masked `destination_hint` (`https://hooks.slack.com/…/x9Zq`, or `…a1b2` for a key
@@ -67,7 +67,7 @@ its button for the user, since that ends their alerts.
 
 ## Glass verdicts
 
-ScreenRig also checks what a screen shows, from the reports and screenshots it receives and never by asking the Player. A verdict appears in `screen show ID` (`data.glass`), in `alerts` and in `notifications`. Each check prefers missing a problem to raising a false one: no verdict means "fine or not judged", never "proven playing".
+screenRIG also checks what a screen shows, from the reports and screenshots it receives and never by asking the Player. A verdict appears in `screen show ID` (`data.glass`), in `alerts` and in `notifications`. Each check prefers missing a problem to raising a false one: no verdict means "fine or not judged", never "proven playing".
 
 A stalled, blank or frozen screen that merely stops being checked (it went
 offline, its display went off, a takeover began) closes its alert, but email,
@@ -77,7 +77,7 @@ PagerDuty still resolves the incident.
 
 ### loop_stalled: the playlist stopped advancing
 
-The screen is online, its display is on, its content is current and its Player reports nothing wrong, yet no image or video start has reached ScreenRig for 1.5 times its loop's longest run between media starts (at least a minute) plus three minutes of reporting slack. That points to a hung renderer, a stalled decoder or a Player that stopped advancing. It says what `not_playing` (the Player reports an error), `content_stuck` (the update), `screen_offline` and `display_disconnected` cannot.
+The screen is online, its display is on, its content is current and its Player reports nothing wrong, yet no image or video start has reached screenRIG for 1.5 times its loop's longest run between media starts (at least a minute) plus three minutes of reporting slack. That points to a hung renderer, a stalled decoder or a Player that stopped advancing. It says what `not_playing` (the Player reports an error), `content_stuck` (the update), `screen_offline` and `display_disconnected` cannot.
 
 - Read it: `screen show ID` prints "Playlist stalled since ..." and `data.glass.playback` has `verdict` `stalled`, `since`, `last_media_start_at` and `threshold_s`. `alerts list` shows it as condition `loop_stalled`; `notifications create ... --conditions loop_stalled` announces it after `--hold` minutes.
 - Act on it: look with `screen screenshot ID`, then `screen reload ID`. It clears by itself when the next media start arrives (`verdict` `playing`), or when the screen stops being judged (`unjudged`: it went offline, was archived, or a takeover began). Only the media start is a recovery.
@@ -87,10 +87,24 @@ It does not judge a screen whose Player sends no play numbers, a loop of one pag
 
 ### glass_blank and glass_frozen: the screenshots show nothing, or nothing moves
 
-Every screenshot of a screen (yours, the dashboard's, or one ScreenRig asks for) is reduced to a small brightness grid; no pixels are kept. One flat frame is not a verdict: it can be a transition between pages or a page that is black on purpose, and identical frames can be a two-page loop sampled in step with its period. So a flat frame, or a frame like the one more than the longest page earlier, only makes ScreenRig suspicious. It then asks the Player for more screenshots, a little under the shortest page apart, until they span the loop plus its longest page. The verdict is `blank` when all of them were one flat tone and `frozen` when all were the same picture; one frame that disagrees drops the suspicion without a trace.
+Every screenshot of a screen (yours, the dashboard's, or one screenRIG asks for) is reduced to a small brightness grid; no pixels are kept. One flat frame is not a verdict: it can be a transition between pages or a page that is black on purpose, and identical frames can be a two-page loop sampled in step with its period. So a flat frame, or a frame like the one more than the longest page earlier, only makes screenRIG suspicious. It then asks the Player for more screenshots, a little under the shortest page apart, until they span the loop plus its longest page. The verdict is `blank` when all of them were one flat tone and `frozen` when all were the same picture; one frame that disagrees drops the suspicion without a trace.
 
 - Read it: `screen show ID` prints "Blank screen since ..." or "Frozen picture since ..." and `data.glass.picture` has `verdict`, `since` and `judged_at`. `alerts list` shows condition `glass_blank` or `glass_frozen`; `notifications create ... --conditions glass_blank,glass_frozen` announces them after `--hold` minutes.
 - `screen screenshot ID` saves the image and reports `data.frame.flat` for that one image, beside the screen's `data.picture` verdict if it has one. A flat image alone is no verdict; the human output says so.
 - Act on it: look with `screen screenshot ID`, then `screen reload ID`. A verdict is looked at again every 10 minutes even when nobody is watching, and ends (`verified`) after two screenshots in a row that show a moving picture, or (`unjudged`) when the screen goes offline, is archived or is no longer judged. Only `verified` is a recovery; `unjudged` closes the alert without a recovery message.
 
 It does not judge a screen that is offline, whose display is off, standing by or disconnected, that is under a takeover or suspended, that is a video wall, or whose status is an error or whose update is not current; a loop of one page, with a page that has nothing on it, with no image or card page that is always in it (video, stream, iframe and application captures can come back black), with a page shorter than 6.25 seconds, with a page whose length the playlist does not fix (it plays to the end of its media, an application, an adslot break), or too long to cover with 30 captures; and a capture the Player reported as failed (a privacy frame). A loop whose every page is black on purpose reads as blank, and one whose every page looks alike reads as frozen. There is no "wrong content" verdict: a capture does not say which page was on glass.
+
+## source_failed and source_stale: a data feed breaks
+
+These two conditions are about a data source (`source create`), not a screen.
+`source_failed` opens when a refresh of the source fails and clears when one
+works; `source_stale` opens when a failing source's last good data is older than
+its `stale_after_seconds`, the moment the data expires on every screen and pages
+that depend on it fall back, and clears with the next refresh that works.
+`notifications create ... --conditions source_failed,source_stale` announces them
+after `--hold` minutes (a short hold is right for a feed a room sign depends on).
+A notice names the source and links its page; it is never grouped, is not a
+screen alert (`alerts list` never shows it), and `--tag` never matches a source, so
+leave it off. `source show ID` says why (`status.error`, `status.stale`,
+`data_expires_at`); `source refresh ID` retries now.

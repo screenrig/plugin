@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate screenRIG screens and advertising with the bundled CLI. Use to upload or generate media, compose slides, place built-in cards, publish applications and playlists, assign content, verify playback, place adslot breaks, and buy or manage ad campaigns or sell ad inventory.
+description: Run digital signage on TVs, kiosks and displays with screenRIG's bundled CLI. Use to put images, videos, generated stills, built-in cards, web pages and apps on screens, pair Players, publish and schedule playlists, verify playback with screenshots, place adslot breaks, and buy or manage ad campaigns or sell ad inventory.
 ---
 
 # Operate screenRIG
@@ -151,9 +151,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | Finished image or video | `media upload` (H.264 default; `--codec hevc` where every target decodes it, and always for a Raspberry Pi 5) |
 | A new file for media screens already play | `media replace MEDIA_ID FILE` (same ID, so playlists and schedules keep playing it) |
 | Poster, menu, announcement | `media generate` with all exact copy in the prompt; inspect with `media download` |
-| Recurring report with history | [dashboard skill](../screenrig-dashboard/SKILL.md), publish the WebP as media |
 | A live Grafana, Power BI or Tableau dashboard | `bi connection create grafana\|powerbi\|tableau` (or a public link), then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)) |
-| Editable title/body/table slides | local, unbilled `compose render` ([docs](https://screenrig.ai/docs/compose.md)) |
 | Non-interactive live display: clocks, weather, menus, queues, KPIs, tickers | built-in card: `cards list`, `cards show`, `card create`, `card data put` ([playlists](references/playlists.md#built-in-cards-and-feeds)) |
 | An outside system pushing data a card shows (a CMS, Zapier, a point of sale, a script) | card webhook: `kv webhook create --card crd_ID --map FILE`; the sender POSTs JSON to its url ([playlists](references/playlists.md#card-webhooks)) |
 | Touch or other input, a peripheral, an exact look no card has | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md)) |
@@ -228,16 +226,14 @@ content, and inspect every render at full size before publishing.
 1. `screenrig playlist init INPUTS... --screen-id SCREEN_ID --name NAME --output FILE`
    (local files, `med_` IDs, `rel_` releases, http(s) page URLs, LAN and `user:pass@` logins included; a non-empty `--output`
    needs `--overwrite`). Rerun an interrupted init unchanged. Check `data.media_ids`.
-2. `playlist preview FILE --output preview --contact-sheet`; open the contact
-   sheet and resolve `data.placeholders`.
-3. `screenrig screen publish SCREEN_ID FILE` creates, assigns and waits.
+2. `screenrig screen publish SCREEN_ID FILE` creates, assigns and waits.
    `data.stage` `playing` with `data.playback_verified: true` means the Player
    acknowledged it; `assigned` means it has not, and `data.playback.reason` says why.
    To edit, `playlist show ID --output FILE`, edit, `playlist update ID FILE`
    (this affects every assigned screen). To undo, `playlist revisions ID`, then
    `playlist promote ID --revision N --expect-rev CURRENT` copies one forward.
-4. Take `screen screenshot SCREEN_ID` and inspect it before saying content is
-   showing; a local preview is a design check. `screen play-page` shows one page.
+3. Take `screen screenshot SCREEN_ID` and inspect it before saying content is
+   showing. `screen play-page` shows one page.
    Watch a screen live or sample frames: [live view](references/live-view.md).
 
 Playlist JSON rules are in [playlists](references/playlists.md); `playlist
@@ -334,14 +330,51 @@ screenrig campaign create --name Browse --playlist-id pl_MENU --screen-id scr_KI
 The second plays the menu while someone uses the kiosk and returns to its
 default attract loop after 90 idle seconds.
 
+**Schedule import.** For a sheet of schedule lines (a venue's spreadsheet of
+screen codes, file names, start and end times) do not create levels one by one.
+`screenrig schedule import FILE --name NAME` (CSV, XLSX or JSON rows) checks
+every row and prints its errors by column, the levels it makes and the calendar
+of the screens it changes; it writes nothing. Correct the sheet, run it again,
+show the user the preview, and add `--commit` only with their go-ahead: all rows
+apply or none does, and a project that changed since the preview is refused
+(`schedule_import_stale`; run it again). `schedule template` writes a sheet with
+the columns: `target` (a screen id, a screen field value such as a room code, or
+a name; `folder:NAME`; `tag:NAME`), `content` (a media file name,
+`playlist:NAME`), `start` and `end` (`2026-11-05 18:00`; an end that is a date
+alone closes that day), and optionally `timezone`, `days` (`Mon-Fri`), `daily
+start` and `daily end`, `priority` (0-100, higher wins), `name` and `display`.
+Times are read on each screen's own clock; a screen needs its timezone and a
+default playlist. Rows that agree on content, times and priority become one
+level: one screen gets an entry in its own schedule, several screens, a folder
+or a tag one shared level (a campaign). The same `--name` updates the levels it
+made and removes those whose rows are gone; the same sheet again changes
+nothing. MCP: `screenrig_schedule_import_preview` and
+`screenrig_schedule_import_commit` (with the preview's `fingerprint`) take
+`rows` as objects keyed by column.
+
 Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen reboot` (only where the Player declares it; fleets need `--yes`
 and the user's confirmation). Verify with `effective_playlist` in `screen show`.
-`reboot` and `reload` reach an online screen at once and wait up to 24 hours
-(`--expires-in`) for an offline one: the answer's `state` is `queued`,
-`screen show` lists `commands`, and `screen command cancel SCREEN_ID COMMAND_ID`
-drops one still queued.
+`reboot`, `reload` and the three below reach an online screen at once and wait
+up to 24 hours (`--expires-in`) for an offline one: the answer's `state` is
+`queued`, `screen show` lists `commands`, and
+`screen command cancel SCREEN_ID COMMAND_ID` drops one still queued.
+
+Remote maintenance, each for one screen or a group (`--tag TAG`, `--folder ID`
+or several ids; a group needs `--yes` and the user's confirmation):
+`screen clear-cache` deletes the Player's downloaded media, packages and data
+caches (pairing and settings stay) and refetches content, `screen restart-app`
+restarts the Player application, not the device, and `screen update-software`
+checks for the newest Player release and installs it. Each reaches only a Player
+that declares the matching capability (`clear_cache`, `restart_app`, `update`;
+`screen show` lists host capabilities); any other screen answers
+`command_unsupported` and nothing is sent, and in a group that screen fails
+alone. Accepted is not done: the answer's `command_id` appears under `commands`
+in `screen show`, which turns `done` or `failed` with the Player's `cause`
+(for example `cleared`, `restarted`, `up_to_date`, `updated`, `download_failed`)
+and `detail`; a `sent` command with no result stays `sent`. Use `screen reload`
+first to refresh content, and run these only when the user asks.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported) and, after an outage, `last_outage`, whose
@@ -376,9 +409,10 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | `media sync` | A SharePoint or OneDrive folder should stay in step with the library | `media sync create sharepoint --account-id msa_ID --url FOLDER_LINK`, then play its media folder with a `folder` selector; set up the account first ([media sync](references/media-sync.md)) |
 | `migrate` | The user moves screens from another signage system | `migrate vendors`, then [migrate](references/migrate.md) |
 | `operations` | A command returned an `operation_id` (a `--no-wait` upload) and the result is not ready | `operations wait ID` before using it; `operations cancel ID` drops an abandoned one |
-| `source` | A card should stay live from data that lives elsewhere: calendars, a Google Sheet, a CSV or JSON address, room calendars, a Square or Shopify menu | `source test --kind KIND --card crd_ID ...` previews, `source create` saves, `source show ID` proves it; credentials only as `--secret NAME=@FILE` ([sources](references/sources.md)) |
+| `source` | A card should stay live from data that lives elsewhere: calendars, a Google Sheet, a CSV or JSON address, room calendars, a venue's Momentus bookings, a Square or Shopify menu | `source test --kind KIND --card crd_ID ...` previews, `source create` saves, `source show ID` proves it; `source rooms ID` maps a venue's rooms to screens; credentials only as `--secret NAME=@FILE` ([sources](references/sources.md)) |
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
 | `playback totals\|completeness`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
+| `reports` | The user wants health, uptime or alerts for a property by folder, tag or screen, a file to hand someone (CSV, XLSX, PDF), a sponsor's or advertiser's proof of play, a report emailed on a schedule, or a full copy of the project | `reports list`, then `reports show fleet_health` (every folder rolls up the folders inside it; `--group-by screen --folder-id ID --direct` for a folder's own screens). `--format pdf\|xlsx\|csv --output FILE` writes it, and the alerts, uptime, health, playback and ads report commands take the same flags. `reports show proof_of_play --advertiser NAME --format pdf` is the statement for an advertiser. `reports subscriptions create --kind KIND --cadence weekly --format pdf --recipients MEMBERS` emails project members only (user ids or member emails); `reports subscriptions send ID` mails it now and the subscription shows `last_status` and `last_error`. `project export DIR` writes JSON, original media with a hash manifest, CSV and the event log, never secrets; rerun it to continue. [reports](references/reports.md) |
 | `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |
 
 ## Keep the project tidy
@@ -417,7 +451,7 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   generation is metered separately and capped per day, with the
   limit and reset in `error.detail`. If generation is refused, tell the user,
   offer [pricing](https://screenrig.ai/pricing), and make the image another way
-  (your own tool, or `compose render`), then `media upload`.
+  with your own tool, then `media upload`.
 - Never expose secrets: bearer tokens, Authorization headers, cookies, signed
   URLs and webhook secrets stay out of conversation, files and logs, and a
   sign-in address and code, invitation link or fleet-link URL goes only to the

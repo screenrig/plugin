@@ -18,7 +18,7 @@ raising them is the operator's decision.
 
 ## Sources and generation
 
-- Canonical inputs: `skills/screenrig/`, `skills/screenrig-dashboard/`, the root
+- Canonical inputs: `skills/`, the root
   marketplace manifests and root public files. Plugin metadata, listing and
   review cases live in `scripts/build-plugin.py`, which generates
   `plugins/screenrig/` and the portable manifests. Never edit `plugins/screenrig/`
@@ -37,9 +37,15 @@ raising them is the operator's decision.
   (a source checkout sets `SCREENRIG_PLUGIN_ROOT`), never searches parent
   directories, adds no global npm resolution, and is silent on success (clean
   JSON on stdout, empty stderr).
-- The bundled CLI is one minified `cli/dist/bin.js` plus `package.json`, the
-  runtime lock and `THIRD_PARTY_NOTICES`: no source maps, `node_modules` or
-  executables. The only image binary is the marketplace PNG from `assets/logo.svg`.
+- The bundled CLI is the minified `cli/dist/bin.js` and the flat `cli/dist/*.js`
+  chunks it loads per command group, its `cli/assets/` files, `package.json`, the
+  runtime lock and `THIRD_PARTY_NOTICES`: no source maps, `node_modules`, native
+  modules or executables. The only image binary is the listing PNG from
+  `assets/logo.svg`.
+- The Claude plugin directory reads at most 256 KiB of any script or document
+  and holds a larger one for review; `validate-plugin.py --budget` fails on one.
+  Nothing in the plugin may download and run code (the CLI fetches no renderer
+  or other binary).
 - Do not commit, push, tag or publish unless asked.
 
 ## Skill content
@@ -62,17 +68,10 @@ raising them is the operator's decision.
 - Keep skill text generic: no operator host paths or internal tooling names.
   Native platform names are not download or store claims. Add a demo URL only
   for a real recording.
-- The dashboard helper authors locally: it does not import the CLI's modules or
-  call the control plane, its Python/browser dependencies stay out of the
-  launcher, and tests use synthetic fixtures. Regenerate `requirements.lock` from
-  `requirements.in` with `uv pip compile --generate-hashes --no-header
-  --no-annotate --only-binary :all:`, and vendored assets and fonts with
-  `scripts/sync-dashboard-assets.py`.
 
 ## Checks
 
-`scripts/test.py` holds every test (`--browser` adds Chromium renders and needs
-the helper's locked runtime). The public/reproducibility boundary is
+`scripts/test.py` holds every test. The public/reproducibility boundary is
 `scripts/validate-plugin.py` and `scripts/check-public-repo.py`.
 
 `validate-plugin.py` fails when a skill or reference writes, as code, a

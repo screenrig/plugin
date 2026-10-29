@@ -4,7 +4,7 @@ A data source reads an address on a schedule and writes the result to one
 card's dynamic properties, so the card stays current without republishing and
 screens refetch it when it changes. One source writes one card. Use it when the
 data already lives somewhere you can name (a calendar, a Google Sheet, a CSV
-file, a JSON API, room calendars, a Square or Shopify till); use `card data put`
+file, a JSON API, room calendars, a venue's booking system, a Square or Shopify till); use `card data put`
 for data you hold, and `kv webhook` for a system that pushes.
 
 Commands go through the launcher (`SKILL.md`, "Install and call the CLI").
@@ -53,7 +53,13 @@ again.
 good document; `status.error.code` and `.message` say why) or `disabled`.
 `ok` means the last fetch worked and the card accepted the document; it does
 not say the upstream data is right or current, or that a screen shows the card.
-Failures back off by themselves; `source refresh` retries now. Common codes:
+Failures back off by themselves; `source refresh` retries now. A source keeps its
+last good data on the card for `stale_after_seconds` (`--stale-after`, 1m to 7d,
+`none` keeps it until the next refresh); a failing source past that has
+`status.stale` true, its documents have expired on every screen, and pages that
+depend on the data have fallen back. `data_expires_at` says when. A
+notification on `source_failed` and `source_stale` says when a feed breaks and
+when its data goes stale (`notifications create --conditions source_failed,source_stale`). Common codes:
 `parse_failed` (the address returned a web page: use the calendar's ICS
 address), `unreachable` (public http(s) on port 80 or 443 only), `auth_failed`,
 `http_status`, `card_data_invalid`. Problems on create: `source_target_taken`
@@ -168,6 +174,45 @@ or delegation: the customer fixes it on their side, then `source refresh`.
 `config_invalid` names the room's address when no calendar can be found or
 seen. One room failing fails the sync and names the room (`Room KEY: ...`);
 the card keeps its last good document.
+
+
+## A venue's booking system (`momentus`)
+
+Reads the functions (each use of a room, with its dates and times) and spaces of
+a Momentus Enterprise installation (formerly Ungerboeck, EBMS) with an API user
+the venue's administrator creates in Momentus (Main Menu, Api Users). Ask for no
+admin login: they give you the server address, the organization code, the API
+user's id, one Key GUID and the Secret GUID, and you enter the two GUIDs as
+`--secret api_key=@FILE` and `--secret api_secret=@FILE`.
+
+Config: `base_url` (the https address of the Momentus web server, such as
+`https://momentus.example.com/prod`), `organization`, `api_user`, `time_zone`
+(set it: Momentus keeps local dates and times), `days`, and either `rooms`
+(`[{key, space, name?, floor?, capacity?, area?}]`, `space` is the Momentus
+space code) or nothing, which makes every space Momentus lists a room (key =
+the code in lower case; `space_filter` narrows it). `exclude_status_codes` lists
+the function status codes that are cancelled or not to be shown; Momentus status
+codes are the venue's own, so ask. It fills an `events` card (the event
+directory), a `room-board` card, or a `room` card for exactly one room.
+
+One source can also keep each screen to its own room. Set `room_key_prefix`
+(for example `momentus-room-`) and the source writes a `room` document per room
+under that prefix plus the room's key. Place a `room` card with the card's
+`data` set to `momentus-room-{screen.field.room}` and give each room's screen
+the field: `screen update SCR --field room=ballroom-a`. `area_key_prefix` does
+the same for a hallway display, a `room-board` of the rooms sharing an `area`
+(set on each room, or by `area_field`'s screens). `source rooms src_ID` is the
+check: rooms no screen shows, and screens with no room field or a value that
+names no room (it suggests the room it probably meant). Fix with `screen update
+SCR --field room=KEY`. A page whose `visibility.data` key is the same template
+falls back to the next page when the data has expired.
+
+It refreshes every minute (30s floor), so a room change shows within about a
+minute. `stale_after_seconds` defaults to 30 minutes. `source test` shows the
+rooms and events read and `data.stats` (`functions`, `functions_other_spaces`,
+`events_KEY`). The status never quotes Momentus's own text: `auth_failed`
+means the API user, key or secret is wrong or may not read functions and spaces;
+a 400 means `function_filter` or `space_filter` is not a valid Momentus search.
 
 
 ## Menus from a till (`square`, `shopify`)

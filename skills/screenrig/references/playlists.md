@@ -228,7 +228,8 @@ video of its folders only (a stinger transition's logo included);
   `primitive`, its own fields, `rect`, `layer`, `content_fit`, optional `enter`
   and `motion`).
 - Primitives are `image`, `video`, `stream`, `iframe`, `application`, `card`.
-  Text and shapes are not primitives: compose or generate them into an image.
+  Text and shapes are not primitives: generate them into an image with
+  `media generate`, or show live text with a built-in card.
 - `image` and `video` need a `selector` (`by` `id`, `ids`, `all`, `tag`,
   `folder` with a `folder_id` from `media folder list`); `media_id` lives inside it. Others take none. Dynamic selectors
   resolve at each loop; on duration, application and `audio_end` pages they
@@ -248,7 +249,7 @@ video of its folders only (a stinger transition's logo included);
   width over height, so a portrait slot never plays a landscape file. Preview
   needs `--rect WxH` with it and lists the rest as `excluded`
   (`aspect_mismatch`); weighted previews give each item's `weight`,
-  `share_percent` and the `cycle`, and signed-in `playlist preview` prints them.
+  `share_percent` and the `cycle`.
 - `media availability MEDIA_ID --file RULE.json [--expect-rev N]` (or `--clear`)
   sets when `all`, `tag` and `folder` selectors may pick a file; `by` `id`/`ids`,
   cards, soundtracks and ad creatives ignore it. The rule is the schedule's clock
@@ -319,7 +320,7 @@ video of its folders only (a stinger transition's logo included);
 - A soundtrack is `audio: {tracks, loop, volume, cued}` (1 to 128 uploaded
   tracks); pages bind with `audio_cue` or `advance: {"mode": "audio_end"}`.
   `playlist update` replaces the whole document, so omitting `audio` removes it.
-  Details: [compose](https://screenrig.ai/docs/compose.md#add-a-soundtrack).
+  Details: [soundtracks](https://screenrig.ai/docs/compose.md#add-a-soundtrack).
 - An ad break is an `adslot` page (`id`, `type`, `adslot_id`, optional
   `visibility`), not a primitive; keep an ordinary fallback page.
 - `playlist export|import` moves image/video media, soundtrack audio and iframe
