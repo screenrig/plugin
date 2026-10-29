@@ -18,7 +18,7 @@ raising them is the operator's decision.
 
 ## Sources and generation
 
-- Canonical inputs: `skills/screenrig/`, `skills/screenrig-dashboard/`, the root
+- Canonical inputs: `skills/`, the root
   marketplace manifests and root public files. Plugin metadata, listing and
   review cases live in `scripts/build-plugin.py`, which generates
   `plugins/screenrig/` and the portable manifests. Never edit `plugins/screenrig/`
@@ -62,17 +62,10 @@ raising them is the operator's decision.
 - Keep skill text generic: no operator host paths or internal tooling names.
   Native platform names are not download or store claims. Add a demo URL only
   for a real recording.
-- The dashboard helper authors locally: it does not import the CLI's modules or
-  call the control plane, its Python/browser dependencies stay out of the
-  launcher, and tests use synthetic fixtures. Regenerate `requirements.lock` from
-  `requirements.in` with `uv pip compile --generate-hashes --no-header
-  --no-annotate --only-binary :all:`, and vendored assets and fonts with
-  `scripts/sync-dashboard-assets.py`.
 
 ## Checks
 
-`scripts/test.py` holds every test (`--browser` adds Chromium renders and needs
-the helper's locked runtime). The public/reproducibility boundary is
+`scripts/test.py` holds every test. The public/reproducibility boundary is
 `scripts/validate-plugin.py` and `scripts/check-public-repo.py`.
 
 `validate-plugin.py` fails when a skill or reference writes, as code, a

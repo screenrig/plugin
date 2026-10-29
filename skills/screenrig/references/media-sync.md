@@ -69,4 +69,4 @@ screenrig media sync show msy_ID                  # what the last run did
 
 Creating accounts and syncs needs Manage access. Accounts and syncs belong to
 one project. The secret is sealed on the server and shown only as its last four
-characters; pass it only with `--secret-file`.
+characters; give it only through `--secret-file`.

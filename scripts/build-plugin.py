@@ -467,8 +467,7 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
         "description": metadata["description"],
         "version": release_version,
         "configSchema": {"type": "object", "additionalProperties": False, "properties": {}},
-        "skills": ["./skills/screenrig", "./skills/screenrig-dashboard",
-                   "./skills/screenrig-view-bridge"],
+        "skills": ["./skills/screenrig", "./skills/screenrig-view-bridge"],
         "mcpServers": {"screenrig-views": {
             "url": remote["url"], "transport": "streamable-http",
             "auth": "oauth", "oauth": {"scope": " ".join(scopes)},

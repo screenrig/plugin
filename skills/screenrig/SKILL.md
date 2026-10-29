@@ -151,7 +151,6 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | Finished image or video | `media upload` (H.264 default; `--codec hevc` where every target decodes it, and always for a Raspberry Pi 5) |
 | A new file for media screens already play | `media replace MEDIA_ID FILE` (same ID, so playlists and schedules keep playing it) |
 | Poster, menu, announcement | `media generate` with all exact copy in the prompt; inspect with `media download` |
-| Recurring report with history | [dashboard skill](../screenrig-dashboard/SKILL.md), publish the WebP as media |
 | A live Grafana, Power BI or Tableau dashboard | `bi connection create grafana\|powerbi\|tableau` (or a public link), then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)) |
 | Editable title/body/table slides | local, unbilled `compose render` ([docs](https://screenrig.ai/docs/compose.md)) |
 | Non-interactive live display: clocks, weather, menus, queues, KPIs, tickers | built-in card: `cards list`, `cards show`, `card create`, `card data put` ([playlists](references/playlists.md#built-in-cards-and-feeds)) |
@@ -333,6 +332,28 @@ screenrig campaign create --name Browse --playlist-id pl_MENU --screen-id scr_KI
 
 The second plays the menu while someone uses the kiosk and returns to its
 default attract loop after 90 idle seconds.
+
+**Schedule import.** For a sheet of schedule lines (a venue's spreadsheet of
+screen codes, file names, start and end times) do not create levels one by one.
+`screenrig schedule import FILE --name NAME` (CSV, XLSX or JSON rows) checks
+every row and prints its errors by column, the levels it makes and the calendar
+of the screens it changes; it writes nothing. Correct the sheet, run it again,
+show the user the preview, and add `--commit` only with their go-ahead: all rows
+apply or none does, and a project that changed since the preview is refused
+(`schedule_import_stale`; run it again). `schedule template` writes a sheet with
+the columns: `target` (a screen id, a screen field value such as a room code, or
+a name; `folder:NAME`; `tag:NAME`), `content` (a media file name,
+`playlist:NAME`), `start` and `end` (`2026-11-05 18:00`; an end that is a date
+alone closes that day), and optionally `timezone`, `days` (`Mon-Fri`), `daily
+start` and `daily end`, `priority` (0-100, higher wins), `name` and `display`.
+Times are read on each screen's own clock; a screen needs its timezone and a
+default playlist. Rows that agree on content, times and priority become one
+level: one screen gets an entry in its own schedule, several screens, a folder
+or a tag one shared level (a campaign). The same `--name` updates the levels it
+made and removes those whose rows are gone; the same sheet again changes
+nothing. MCP: `screenrig_schedule_import_preview` and
+`screenrig_schedule_import_commit` (with the preview's `fingerprint`) take
+`rows` as objects keyed by column.
 
 Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel

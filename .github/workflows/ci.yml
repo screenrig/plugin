@@ -89,21 +89,6 @@ jobs:
           python3 scripts/validate-plugin.py --cli-artifact "${artifact}" --cli-source "${RUNNER_TEMP}/screenrig-cli-source"
           python3 scripts/check-public-repo.py
           python3 scripts/test.py
-      - name: Allow the unprivileged user namespaces Chromium's sandbox needs
-        run: |
-          # Ubuntu 23.10+ confines unprivileged user namespaces with AppArmor,
-          # so Playwright's Chromium finds no usable sandbox. Lift that on this
-          # throwaway runner rather than rendering with a weakened sandbox.
-          # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
-          knob=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
-          test -e "${knob}" || exit 0
-          echo 0 | sudo tee "${knob}" > /dev/null
-      - name: Verify optional dashboard runtime and repeat rendering
-        run: |
-          plugins/screenrig/skills/screenrig-dashboard/scripts/screenrig-dashboard setup > "${RUNNER_TEMP}/dashboard-setup.json"
-          dashboard_runtime="$(jq -r .data.runtime "${RUNNER_TEMP}/dashboard-setup.json")"
-          "${dashboard_runtime}/bin/python" -m playwright install-deps chromium
-          "${dashboard_runtime}/bin/python" -B scripts/test.py --browser DashboardTests
       - name: Upload rebuilt marketplace CLI when it drifted
         if: github.ref == 'refs/heads/main' && steps.rebuild.outputs.bundle_updated == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -187,9 +172,7 @@ jobs:
           chmod 0755 plugins/screenrig/cli/dist/bin.js \
             plugins/screenrig/skills/screenrig/scripts/screenrig \
             plugins/screenrig/skills/screenrig/scripts/screenrig-plugin-freshness \
-            plugins/screenrig/skills/screenrig-view-bridge/scripts/screenrig-view-bridge \
-            plugins/screenrig/skills/screenrig-dashboard/scripts/screenrig-dashboard \
-            plugins/screenrig/skills/screenrig-dashboard/scripts/dashboard.py
+            plugins/screenrig/skills/screenrig-view-bridge/scripts/screenrig-view-bridge
           git add -- plugins/screenrig
           if git diff --cached --quiet; then
             # Packing is not byte-reproducible, and a new release tag on the
