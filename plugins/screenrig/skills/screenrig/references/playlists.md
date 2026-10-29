@@ -171,7 +171,21 @@ video of its folders only (a stinger transition's logo included);
   resolve at each loop; on duration, application and `audio_end` pages they
   need `one_at_a_time: true`. `media_end` is valid only on a page with exactly
   one image or video; an image there needs `dwell_ms`, a video must not loop.
-  Use `media selector-preview` to inspect a selector.
+  Use `media selector-preview FILE --primitive image|video [--rect WxH]` to
+  inspect a selector.
+- Weighted order (share of voice, sponsor rotation): `order: "weighted"` with
+  `weights`, both or neither, plus `one_at_a_time: true` or `batch_size: 1`.
+  `weights` maps `med_` IDs or `tag:NAME` to 1-1000 (64 keys at most); 50/30/20
+  plays exactly 5/3/2 of every 10. An item takes its `med_` key, else its first
+  `tag:` key alphabetically (that weight split among the items carrying it), else
+  weight 1. Key each sponsor by `tag:` so its share holds however many creatives
+  it has. A Player without `selector.weighted` plays random
+  (`selector_order_downgraded`); static export drops weights.
+- `fit: "aspect"` on a dynamic selector keeps files within 5% of the slot's
+  width over height, so a portrait slot never plays a landscape file. Preview
+  needs `--rect WxH` with it and lists the rest as `excluded`
+  (`aspect_mismatch`); weighted previews give each item's `weight`,
+  `share_percent` and the `cycle`, and signed-in `playlist preview` prints them.
 - `iframe` and `application` use `content_fit: "fill"`; `application` pins a
   `release_id`. A `stream` needs `fallback_media_id` and a `duration` page. Its
   `sources` take an `https` HLS URL or a camera's `rtsp://`/`rtsps://` URL as
