@@ -169,8 +169,14 @@ transition's logo included).
   `application`.
 - For YouTube, put the link the user gave (video, Shorts, live, playlist or
   `youtube.com/channel/UC…/live`) in an `iframe` `src`: the server stores an
-  autoplaying, looping embed without YouTube's controls. Native Players play
-  sound, the web Player plays muted; `mute=1` in the link mutes everywhere.
+  autoplaying, looping embed without YouTube's controls. Every Player plays it
+  with sound where the screen's browser allows sound (the Player web app mutes
+  it when the browser refuses); `mute=1` in the link mutes everywhere. For a
+  page that lasts as long as one video, set the page's advance to
+  `{"mode": "duration", "after_ms": N, "until": "video_end"}`: the page ends
+  when the video does, and `after_ms` is how long it shows when the screen
+  cannot read the video's length. A page with a playlist, a live stream or more
+  than one YouTube video rejects `until` at `advance.until`.
   A channel handle (`@name`) is rejected: ask for a video or channel-ID link.
 - For a Google Slides, Docs or Sheets file, or a PowerPoint, Word or Excel file
   on OneDrive or SharePoint, put the share link, Publish to web link or Embed
