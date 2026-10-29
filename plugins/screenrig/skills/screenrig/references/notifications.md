@@ -94,3 +94,17 @@ Every screenshot of a screen (yours, the dashboard's, or one screenRIG asks for)
 - Act on it: look with `screen screenshot ID`, then `screen reload ID`. A verdict is looked at again every 10 minutes even when nobody is watching, and ends (`verified`) after two screenshots in a row that show a moving picture, or (`unjudged`) when the screen goes offline, is archived or is no longer judged. Only `verified` is a recovery; `unjudged` closes the alert without a recovery message.
 
 It does not judge a screen that is offline, whose display is off, standing by or disconnected, that is under a takeover or suspended, that is a video wall, or whose status is an error or whose update is not current; a loop of one page, with a page that has nothing on it, with no image or card page that is always in it (video, stream, iframe and application captures can come back black), with a page shorter than 6.25 seconds, with a page whose length the playlist does not fix (it plays to the end of its media, an application, an adslot break), or too long to cover with 30 captures; and a capture the Player reported as failed (a privacy frame). A loop whose every page is black on purpose reads as blank, and one whose every page looks alike reads as frozen. There is no "wrong content" verdict: a capture does not say which page was on glass.
+
+## source_failed and source_stale: a data feed breaks
+
+These two conditions are about a data source (`source create`), not a screen.
+`source_failed` opens when a refresh of the source fails and clears when one
+works; `source_stale` opens when a failing source's last good data is older than
+its `stale_after_seconds`, the moment the data expires on every screen and pages
+that depend on it fall back, and clears with the next refresh that works.
+`notifications create ... --conditions source_failed,source_stale` announces them
+after `--hold` minutes (a short hold is right for a feed a room sign depends on).
+A notice names the source and links its page; it is never grouped, is not a
+screen alert (`alerts list` never shows it), and `--tag` never matches a source, so
+leave it off. `source show ID` says why (`status.error`, `status.stale`,
+`data_expires_at`); `source refresh ID` retries now.
