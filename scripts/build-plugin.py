@@ -84,9 +84,10 @@ METADATA: dict[str, Any] = {
         "composerIcon": "./assets/logo.png"
     }
 }
-# Draft review scenarios; a verified demo URL is added only once recorded.
+# Review scenarios and the creator-supplied recording for submission.
 SUBMISSION: dict[str, Any] = {
     "review": {
+        "demo_recording_url": "https://drive.google.com/file/d/1pW-ohPjCHR35XzFJcmrKFZB-Wg45buGs/view?usp=sharing",
         "commerce": True,
         "commerce_description": "screenRIG supports buying and selling advertising placements using eligible account credits, including campaign pricing, activation, and settlement after verified playback. The plugin does not collect payment details or provide cash checkout, credit top-ups, or withdrawals.",
         "test_cases": {

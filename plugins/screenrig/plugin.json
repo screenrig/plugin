@@ -42,6 +42,7 @@
         "composerIcon": "./assets/logo.png"
       },
       "review": {
+        "demo_recording_url": "https://drive.google.com/file/d/1pW-ohPjCHR35XzFJcmrKFZB-Wg45buGs/view?usp=sharing",
         "commerce": true,
         "commerce_description": "screenRIG supports buying and selling advertising placements using eligible account credits, including campaign pricing, activation, and settlement after verified playback. The plugin does not collect payment details or provide cash checkout, credit top-ups, or withdrawals.",
         "test_cases": {
