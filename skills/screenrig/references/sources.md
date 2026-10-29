@@ -3,8 +3,9 @@
 A data source reads an address on a schedule and writes the result to one
 card's dynamic properties, so the card stays current without republishing and
 screens refetch it when it changes. One source writes one card. Use it when the
-data already lives somewhere you can name (a calendar today); use `card data
-put` for data you hold, and `kv webhook` for a system that pushes.
+data already lives somewhere you can name (a calendar, a Google Sheet, a CSV
+file, a JSON API, room calendars, a Square or Shopify till); use `card data put`
+for data you hold, and `kv webhook` for a system that pushes.
 
 Commands go through the launcher (`SKILL.md`, "Install and call the CLI").
 The help for `source create` lists the kinds; settings, status codes and
@@ -72,6 +73,52 @@ confidential show their times only. Free (transparent) events are left out of a
 `study-rooms` card. A `study-rooms` card takes one calendar per room.
 
 <!-- sources:tabular -->
+
+## Sheets, CSV and JSON (`sheets`, `csv`, `json`)
+
+These fill any card. The settings carry a `mapping`, a JSON template that builds
+the card's data from what was read; the card's own schema decides whether the
+result is accepted, so `source test` is the loop: edit the mapping until
+`data.valid` is true.
+
+- `sheets`: `{url, sheet?, header_row, key_column?, mapping}`, no secret. The
+  sheet must be shared (Share, General access, Anyone with the link, Viewer) or
+  published to the web, else the status is `not_shared`: ask its owner, never
+  sign in for them. `url` is the link they copy; `sheet` names a tab.
+- `csv`: `{url, delimiter?, header_row, key_column?, auth, header_name?, mapping}`.
+  `json`: `{url, auth, header_name?, rows_path?, key_field?, mapping}`.
+- `auth` is `none`, `bearer` or `header` (with `header_name`, such as
+  `X-API-Key`). The token is `--secret token=@FILE`, sent only to the address's
+  own origin: pointing the source at another site asks for it again.
+
+Mapping roots. Tables: `rows` (objects by column key), `columns` (`[{key,
+name}]`) and, with `key_column`, `by_key`. JSON: `body` and, with `rows_path`
+plus `key_field`, `by_key`. A header becomes a key in lower case with `_` for
+anything else (`Sold out` is `sold_out`). Prefer `by_key` to positions: a key
+keeps pointing at its row when someone sorts the sheet. Cells are text:
+`{"$number": "{{item.price}}"}` reads `$4.50` or `3,50` (with `"$decimal": ","`),
+`{"$bool": "{{item.sold_out}}"}` reads yes, x or 1. `{"$each": "{{rows}}",
+"$template": T}` maps a list; `{"$group": "{{rows}}", "$by": "{{item.section}}",
+"$template": T}` groups, with `group.key` and `group.items` inside. A missing
+column leaves its member out, and the card then names what it lacks.
+
+A `menu` sheet with columns Section, Item, Price:
+
+    {"sections": {"$group": "{{rows}}", "$by": "{{item.section}}", "$template": {
+      "name": "{{group.key}}",
+      "items": {"$each": "{{group.items}}", "$template": {
+        "name": "{{item.item}}", "price": {"$number": "{{item.price}}"}}}}}}
+
+A `kpi` sheet with columns Metric, Value and `key_column` Metric:
+
+    {"tiles": [{"label": "Revenue", "value": {"$number": "{{by_key.Revenue.value}}"}}]}
+
+To see what a source reads, test with the mapping `{"columns": "{{columns}}",
+"rows": "{{rows}}"}`: the card refuses it, and `data.document` shows every key
+and row. `parse_failed` means the address returned a web page or a file that is
+not CSV text or JSON; `not_shared` names the sharing setting to change.
+Warnings count repeated keys and cut rows (10,000 rows, 200 columns) without
+quoting the data.
 
 <!-- sources:rooms -->
 
