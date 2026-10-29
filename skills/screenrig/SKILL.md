@@ -172,6 +172,7 @@ never the providers.
 names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
 An image or video up to 16383 pixels per edge and 8192 by 8192 pixels in area uploads, so an ultra-wide LED master such as 9216 by 2160 goes up with `--no-transcode`; the default transcode fits each edge within 3840 pixels.
+A video upload can be at most the project's plan limit, 500 MB on Standard and 1 GB on every other plan (`project capabilities` states `media_video_bytes`); a larger video is refused before it is read.
 A Raspberry Pi 5 (`screen show` names the model, or firmware ending `rpi-2712`)
 has no H.264 decoder: upload every video for it with `--codec hevc`, up to 4K at
 60 fps, and never offer or retry H.264 when one fails.
