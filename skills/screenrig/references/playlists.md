@@ -101,6 +101,24 @@ Assigning it to a screen whose wall differs is refused
 aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
 [video walls](https://screenrig.ai/docs/players.md#video-walls).
 
+## Change one page
+
+`playlist page add PLAYLIST_ID`, `page replace PLAYLIST_ID PAGE_ID` and `page
+remove PLAYLIST_ID PAGE_ID` change one page and leave the others as stored; the
+kept pages are validated again with the new one. `add --media MEDIA_ID` builds a
+full-canvas image or video page on the playlist's canvas (`--seconds`, `--fit`);
+`--file PAGE.json` takes any page. `add` puts the page at the end or in front of
+`--before PAGE_ID`; `replace --media` swaps the media and keeps the dates, and
+with neither `--media` nor `--file` only the dates change.
+
+`--from` and `--until` set the page's `visibility`: `YYYY-MM-DD` or
+`YYYY-MM-DDTHH:MM` in each screen's timezone, `--until` exclusive, and a
+date-only `--until` covers that whole day. `replace --always` removes the dates.
+
+Under Propose a page change is a review; the next page change of the same
+playlist joins that pending review, and approving applies them together. An
+uploader's page is an image or video of its folders only.
+
 ## Playlist rules that validation will enforce
 
 - A playlist is `name`, optional `audio`, and `pages`. A page has `id`, `canvas`

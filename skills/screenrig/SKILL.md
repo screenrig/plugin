@@ -86,6 +86,11 @@ never with `--json`. `screenrig status` reports service availability.
   separate `--config` (capabilities) or `login --no-wait --access manage`.
 - `screenrig dashboard open` opens the dashboard for the human;
   `invitations create --email ADDRESS` invites members.
+- An uploader (a person, or `service-client create --uploader`) works only in
+  its playlists and folders: `media upload --folder ID`, `playlist page
+  add|replace|remove`. Anything else is `outside_upload_scope`, whose
+  `upload_scope` lists what it may use. Set one up with `invitations create
+  --kind uploader`; see [playlists](references/playlists.md#change-one-page).
 
 ## Interactive views
 
