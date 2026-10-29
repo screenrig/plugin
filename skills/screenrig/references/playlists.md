@@ -80,9 +80,10 @@ screenrig triggers deliveries trg_ID     # why each post was shown, ignored or r
   `title`, `message`, `note`, `duration` (`90s`, `10m`, `until_cleared`; default
   10m) and `clear` or a `state` of `off`, `closed`, `resolved`. One `alert_id` is
   one alert; the newest shows; each post holds its alert from now.
-- `--map FILE` builds the post from a tool's body (as card webhooks), `--style FILE`
-  sets theme and colours, `--signing` adds `ScreenRig-Signature`, `triggers update`
-  changes any of it. Wrong url, wrong secret and any GET answer the same 404; only
+- `--map FILE` builds the post from a tool's body (as card webhooks) and runs every
+  post through it, so leave it off for a sender that posts the members itself.
+  `--style FILE` sets theme and colours, `--signing` adds `ScreenRig-Signature`,
+  `triggers update` changes any of it. Wrong url, wrong secret and any GET answer the same 404; only
   `deliveries` says why. A clear is free. Secrets go only to the sender's administrator.
 - Home Assistant example and the full request: <https://screenrig.ai/docs/cli#overlay-triggers>.
 
