@@ -140,7 +140,9 @@ kept pages are validated again with the new one. `add --media MEDIA_ID` builds a
 full-canvas image or video page on the playlist's canvas (`--seconds`, `--fit`);
 `--file PAGE.json` takes any page. `add` puts the page at the end or in front of
 `--before PAGE_ID`; `replace --media` swaps the media and keeps the dates, and
-with neither `--media` nor `--file` only the dates change.
+with neither `--media` nor `--file` only the dates change. To change the file
+itself everywhere a media item plays, use `media replace MEDIA_ID FILE`: the pages
+stay as they are.
 
 `--from` and `--until` set the page's `visibility`: `YYYY-MM-DD` or
 `YYYY-MM-DDTHH:MM` in each screen's timezone, `--until` exclusive, and a

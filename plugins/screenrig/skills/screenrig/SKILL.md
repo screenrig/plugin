@@ -149,6 +149,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | The page needs | Path |
 | --- | --- |
 | Finished image or video | `media upload` (H.264 default; `--codec hevc` where every target decodes it, and always for a Raspberry Pi 5) |
+| A new file for media screens already play | `media replace MEDIA_ID FILE` (same ID, so playlists and schedules keep playing it) |
 | Poster, menu, announcement | `media generate` with all exact copy in the prompt; inspect with `media download` |
 | Recurring report with history | [dashboard skill](../screenrig-dashboard/SKILL.md), publish the WebP as media |
 | A live Grafana, Power BI or Tableau dashboard | `bi connection create grafana\|powerbi\|tableau` (or a public link), then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)) |
@@ -189,6 +190,20 @@ files, and `media folder update` renames or moves a folder. Deleting a folder
 moves its contents up one level. A `folder` selector plays a folder's own files,
 so moving files or deleting the folder changes what those playlists show; under
 Propose access a move waits for a person's review.
+
+When a playlist, schedule or selector already plays the media, change its file
+with `media replace MEDIA_ID FILE` instead of uploading again: the ID stays, so
+every screen plays the new file with nothing to republish (`media upload` is for
+a file that is new). The file must be the same kind (image, video or audio) and
+takes the `media upload` options except `--tag` and `--folder`; `--expect-rev`
+from `media show` guards against a change made meanwhile. A different aspect
+ratio is allowed and warns (`aspect_ratio_changed`, naming the playlists): look
+at those playlists afterwards. Under Propose access the replacement waits for a
+person's review (`data.status` `pending_review`) and screens keep the current
+file. Every earlier file stays in the history: `media versions MEDIA_ID` lists
+it, `media restore MEDIA_ID --number N` puts one back as a new version (same
+warnings and review), and `media version delete MEDIA_ID --number N` drops a
+past version and its stored bytes (Manage access).
 
 For a share of voice (sponsors, ad rotation) tag each sponsor's files and give
 the selector `order: "weighted"`, `one_at_a_time: true` and `weights` keyed by
