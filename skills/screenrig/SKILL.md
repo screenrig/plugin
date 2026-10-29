@@ -189,6 +189,13 @@ moves its contents up one level. A `folder` selector plays a folder's own files,
 so moving files or deleting the folder changes what those playlists show; under
 Propose access a move waits for a person's review.
 
+For a share of voice (sponsors, ad rotation) tag each sponsor's files and give
+the selector `order: "weighted"`, `one_at_a_time: true` and `weights` keyed by
+`tag:SPONSOR`; 50/30/20 plays exactly 5/3/2 of every 10. For a portrait or
+landscape slot add `fit: "aspect"`. Before publishing run `media
+selector-preview FILE --primitive image --rect WxH` and read each `share_percent`
+(`references/playlists.md`).
+
 Match the design to the screen's dimensions. Generate a finished still whole, not
 a background with composed text. Use real supplied facts, label invented demo
 content, and inspect every render at full size before publishing.
