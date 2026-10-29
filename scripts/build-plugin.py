@@ -441,6 +441,7 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
     remote = {"type": "http", "url": "https://api.screenrig.ai/mcp"}
     claude = dict(base)
     claude["mcpServers"] = {"screenrig-views": {**remote, "oauth": {"scopes": " ".join(scopes)}}}
+    claude["privacyPolicyUrl"] = metadata["interface"]["privacyPolicyURL"]
     codex = dict(base)
     codex["mcpServers"] = "./.mcp.json"
     (plugin_root / ".codex-plugin").mkdir(parents=True, exist_ok=True)

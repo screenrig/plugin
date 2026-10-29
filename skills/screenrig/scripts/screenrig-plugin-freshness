@@ -296,8 +296,8 @@ function registeredHost(root, host) {
   }
   // Managed hosts can attach a package without exposing a plugin-management CLI.
   if (!available && !host) {
-    for (const key of ["GROK_PLUGIN_ROOT", "CODEX_PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT", "PLUGIN_ROOT"]) {
-      if (process.env[key] && sameRoot(process.env[key], root)) return { source: "host_root" };
+    for (const variable of ["GROK_PLUGIN_ROOT", "CODEX_PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT", "PLUGIN_ROOT"]) {
+      if (process.env[variable] && sameRoot(process.env[variable], root)) return { source: "host_root" };
     }
   }
   return null;
@@ -396,7 +396,7 @@ async function bootstrap(argv, run) {
     bootstrapFailure(agentResult, agent, { ...common, action: "reconnect", doctor: doctor.data,
       next: "Follow the bundled CLI's documented reconnect flow for the selected project; preserve credentials while reconciling." }, "agent status", 3); return;
   }
-  const credential = doctor.data.checks.find((check) => check.name === "token");
+  const tokenCheck = doctor.data.checks.find((check) => check.name === "token");
   const state = agent.data;
   const rejected = state.credential_accepted === false || state.local_cleanup_required === true;
   const active = state.status === "active" && !rejected;
@@ -409,16 +409,16 @@ async function bootstrap(argv, run) {
     }
     capabilities = envelope.data;
   }
-  const firstRun = state.path === "first_run_enroll" && credential && credential.path === "first_run_enroll" && !rejected;
-  const pending = firstRun && credential.next && credential.next.command === "screenrig agent enroll";
+  const firstRun = state.path === "first_run_enroll" && tokenCheck && tokenCheck.path === "first_run_enroll" && !rejected;
+  const pending = firstRun && tokenCheck.next && tokenCheck.next.command === "screenrig agent enroll";
   const action = active ? "ready" : rejected ? "reconnect" : pending || state.status === "connecting" ? "resume"
     : firstRun ? "enroll" : "reconnect";
   const next = active
     ? "Reuse this selected project. Pair the intended Player using its supplied code, or ask only for that missing code. Then publish the requested content and inspect a Player screenshot."
-    : state.next || (pending ? credential.next : action === "enroll"
+    : state.next || (pending ? tokenCheck.next : action === "enroll"
       ? "Ask only for the missing contact email. Use the supplied organization or Screens, enroll once, then continue with pairing. If the user explicitly wants an existing account, use sign-in instead."
       : action === "resume" ? { command: "screenrig agent status", reason: "Inspect the existing pending connection and continue its documented flow; do not enroll a new project." }
-      : credential && credential.next || "Follow the documented reconnect flow for this saved connection; preserve credentials while reconciling.");
+      : tokenCheck && tokenCheck.next || "Follow the documented reconnect flow for this saved connection; preserve credentials while reconciling.");
   success({ ...common, action, doctor: doctor.data,
     agent: state, ...(capabilities ? { capabilities } : {}),
     ...(agent.context ? { context: agent.context } : {}),

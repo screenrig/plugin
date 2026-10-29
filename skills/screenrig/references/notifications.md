@@ -15,7 +15,7 @@ channel's own first notice went out.
 | `--telegram TOKEN --telegram-chat CHAT_ID` | A bot token and the chat id (`-1001234567890`) or `@channelname` | Posts an HTML message |
 
 Each needs `--conditions`. Never put the credential on the command line where
-the user's shell history keeps it: pass `-` and pipe it in, as in
+the user's shell history keeps it: use `-` and pipe it in, as in
 `printf '%s\n' "$URL" | screenrig notifications create --slack - --conditions screen_offline`.
 The credential is sealed and never shown again; `notifications show ID` gives a
 masked `destination_hint` (`https://hooks.slack.com/…/x9Zq`, or `…a1b2` for a key

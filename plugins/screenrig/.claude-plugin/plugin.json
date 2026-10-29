@@ -22,5 +22,6 @@
         "scopes": "access:manage screens content playlists reports"
       }
     }
-  }
+  },
+  "privacyPolicyUrl": "https://screenrig.ai/privacy"
 }

@@ -7,7 +7,7 @@ chat replies or a command line, and never ask for one to be pasted into chat.
 
 1. `migrate vendors VENDOR` names what the system takes, the variables its key
    goes in, and the steps that make a read-only key. Ask the person to make the
-   key and save it as `NAME=VALUE` lines in a file; pass `--credentials FILE`.
+   key and save it as `NAME=VALUE` lines in a file; name it with `--credentials FILE`.
    For a system that is not listed, use `--from files` with a folder or `.zip`
    of the media and optional `playlists.csv` (playlist, file, duration, order) and
    `screens.csv` (name, group, playlist, timezone).
@@ -16,7 +16,7 @@ chat replies or a command line, and never ask for one to be pasted into chat.
    sign-in and sends nothing to screenRIG. Show the person the counts, every
    `not_imported` reason and the `lossy` changes. Where `next` asks for
    originals, have them download the files into one folder and rescan with
-   `--files DIR`. Pass `--timezone ZONE` when screens have no time zone.
+   `--files DIR`. Add `--timezone ZONE` when screens have no time zone.
 3. `migrate apply --dry-run` prints the plan from the project as it is now.
    `migrate apply` (Manage access) makes the media, playlists, one waiting
    screen per old screen and the campaigns. It is safe to rerun and never

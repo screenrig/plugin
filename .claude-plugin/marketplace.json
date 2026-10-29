@@ -17,7 +17,6 @@
       "homepage": "https://screenrig.ai",
       "repository": "https://github.com/screenrig/plugin",
       "license": "Apache-2.0",
-      "logo": "assets/logo.png",
       "tags": [
         "screenrig",
         "digital-signage",
