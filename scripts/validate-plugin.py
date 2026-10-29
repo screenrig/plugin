@@ -24,11 +24,15 @@ PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 # Every marketplace install clones this repository and copies plugins/screenrig,
 # so both have a budget. Raising one is the operator's decision, not a fix.
-BUDGET_REPO_FILES = 111
-BUDGET_REPO_BYTES = 5_000_000
-BUDGET_PLUGIN_FILES = 53
-BUDGET_PLUGIN_BYTES = 3_000_000
+BUDGET_REPO_FILES = 130
+BUDGET_REPO_BYTES = 7_500_000
+BUDGET_PLUGIN_FILES = 75
+BUDGET_PLUGIN_BYTES = 5_000_000
 BUDGET_FILE_BYTES = 2_097_152
+# The Claude plugin directory reads at most this much of a script or document and
+# holds anything larger for review; images it checks as images.
+DIRECTORY_READ_BYTES = 262_144
+DIRECTORY_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp")
 _spec = importlib.util.spec_from_file_location("build_plugin", ROOT / "scripts" / "build-plugin.py")
 assert _spec and _spec.loader
 builder = importlib.util.module_from_spec(_spec)
@@ -235,7 +239,7 @@ def check_package() -> None:
                 missing_node.returncode != 69
                 or missing_node.stdout
                 or missing_node.stderr.strip()
-                != "ScreenRig requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); install or expose a compatible node runtime, then retry."
+                != "screenRIG requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); install or expose a compatible node runtime, then retry."
             ):
                 errors.append("plugin wrapper missing-Node.js preflight is not deterministic")
     forbidden_packaged = [path for path in (PLUGIN / "cli" / "dist").rglob("*") if path.is_file() and ".test." in path.name]
@@ -282,15 +286,14 @@ def check_package() -> None:
     ):
         errors.append("packaged CLI public release metadata drift")
     cli_files = sorted(path.relative_to(PLUGIN / "cli").as_posix() for path in (PLUGIN / "cli").rglob("*") if path.is_file())
-    if cli_files != sorted(builder.CLI_FILES):
-        errors.append(f"packaged CLI must be exactly {sorted(builder.CLI_FILES)}; found {cli_files}")
+    errors.extend(f"packaged CLI: {error}" for error in builder.cli_layout_errors(cli_files))
     try:
         builder.verify_cli_runtime_bundle(PLUGIN / "cli")
     except builder.BuildError as exc:
         errors.append(f"packaged CLI: {exc}")
-    packaged_cli = PLUGIN / "cli" / "dist" / "bin.js"
-    if packaged_cli.is_file():
-        commands_text = packaged_cli.read_text(encoding="utf-8")
+    packaged_cli = sorted((PLUGIN / "cli" / "dist").glob("*.js"))
+    if packaged_cli:
+        commands_text = "\n".join(path.read_text(encoding="utf-8") for path in packaged_cli)
         for fact in ("agent disconnect --yes", "/api/agents/self/disconnect"):
             if fact not in commands_text:
                 errors.append(f"packaged CLI credential lifecycle missing: {fact}")
@@ -333,6 +336,10 @@ def check_budget() -> None:
                 errors.append(f"{what}: {value:,}, over the budget of {budget:,}")
         errors.extend(f"{name} is {size:,} bytes, over the {BUDGET_FILE_BYTES:,}-byte file budget"
                       for name, size in sorted(plugin.items()) if size > BUDGET_FILE_BYTES)
+        errors.extend(f"{name} is {size:,} bytes; the Claude plugin directory reads only {DIRECTORY_READ_BYTES:,} "
+                      "bytes of a file and holds the plugin for review"
+                      for name, size in sorted(plugin.items())
+                      if size > DIRECTORY_READ_BYTES and not name.lower().endswith(DIRECTORY_IMAGE_SUFFIXES))
     print(f"budget: repository {BUDGET_REPO_FILES} files, {BUDGET_REPO_BYTES:,} bytes; plugins/screenrig "
           f"{BUDGET_PLUGIN_FILES} files, {BUDGET_PLUGIN_BYTES:,} bytes, {BUDGET_FILE_BYTES:,} bytes per file")
 

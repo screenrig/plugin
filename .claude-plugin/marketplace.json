@@ -3,13 +3,13 @@
   "owner": {
     "name": "screenRIG"
   },
-  "description": "Public screenRIG agent marketplace with a bundled CLI.",
+  "description": "The official screenRIG marketplace: free, agent-driven digital signage.",
   "plugins": [
     {
       "name": "screenrig",
       "source": "./plugins/screenrig",
-      "description": "Operate screenRIG screens, media, playlists, applications, and advertising with the bundled CLI.",
-      "version": "26.10.1137",
+      "description": "Free, agent-driven digital signage. Your AI agent puts images, videos, menu boards and live apps on your TVs and kiosks, keeps every screen current from your docs, sheets and calendar, and checks what each one plays. screenRIG is free. Pay only if you want more.",
+      "version": "26.10.1143",
       "author": {
         "name": "screenRIG"
       },
@@ -18,11 +18,33 @@
       "repository": "https://github.com/screenrig/plugin",
       "license": "Apache-2.0",
       "tags": [
-        "screenrig",
         "digital-signage",
+        "signage",
+        "screens",
+        "tv",
+        "displays",
         "kiosk",
-        "agent-cli"
-      ]
+        "menu-board",
+        "playlists",
+        "android-tv",
+        "fire-tv",
+        "apple-tv",
+        "raspberry-pi",
+        "screenrig"
+      ],
+      "relevance": {
+        "topic": "screenRIG",
+        "signals": {
+          "cli": [
+            "screenrig"
+          ],
+          "hosts": [
+            "api.screenrig.ai",
+            "play.screenrig.ai",
+            "screenrig.ai"
+          ]
+        }
+      }
     }
   ]
 }

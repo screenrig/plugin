@@ -29,11 +29,7 @@ def is_cli_version(value: object) -> bool:
 
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
-ALLOWED_CLI_PRODUCTION_DEPENDENCIES = frozenset(
-    {"@napi-rs/canvas", "ajv", "ajv-formats", "commander"}
-)
-# The CLI fetches the renderer platform package for its machine on first render.
-RENDERER_PLATFORM_PREFIX = "@napi-rs/canvas-"
+ALLOWED_CLI_PRODUCTION_DEPENDENCIES = frozenset({"ajv", "ajv-formats", "commander"})
 TEXT_SUFFIXES = {"", ".d.ts", ".js", ".json", ".md", ".py", ".sh", ".toml", ".yaml", ".yml"}
 IGNORED_PARTS = {".git", "node_modules"}
 
@@ -111,7 +107,7 @@ def check_metadata(errors: list[str]) -> None:
     if runtime.get("schema") != "screenrig.cli-runtime-dependencies/v1" or not isinstance(runtime_packages, list) or not runtime_packages:
         errors.append(f"{runtime_path.relative_to(ROOT)} must contain the resolved CLI runtime dependency closure")
         return
-    # dist/bin.js bundles its dependencies; THIRD_PARTY_NOTICES names each one it carries.
+    # cli/dist bundles its dependencies; THIRD_PARTY_NOTICES names each one it carries.
     notices_path = BUNDLE / "cli" / "THIRD_PARTY_NOTICES"
     try:
         notices = notices_path.read_text(encoding="utf-8")
@@ -120,15 +116,13 @@ def check_metadata(errors: list[str]) -> None:
         return
     noticed = {f"{name}@{version}" for name, version in re.findall(r"^(\S+)@(\d\S*) \(", notices, re.M)}
     if (BUNDLE / "cli" / "node_modules").exists():
-        errors.append("bundled CLI must carry its dependencies inside dist/bin.js, not node_modules")
+        errors.append("bundled CLI must carry its dependencies inside cli/dist, not node_modules")
     bundled_names: set[str] = set()
     for entry in runtime_packages:
         if not isinstance(entry, dict) or not isinstance(entry.get("name"), str) or not isinstance(entry.get("version"), str):
             errors.append(f"{runtime_path.relative_to(ROOT)} contains an invalid package entry")
             continue
         name, version = entry["name"], entry["version"]
-        if name.startswith(RENDERER_PLATFORM_PREFIX):
-            continue
         if f"{name}@{version}" in noticed:
             bundled_names.add(name)
             noticed.discard(f"{name}@{version}")
@@ -218,10 +212,11 @@ def check_public_tree(errors: list[str]) -> None:
             if fragment in text:
                 errors.append(f"private reference {fragment!r} in {relative}")
 
-    # The CLI is one bundled file, so it has no relative module to resolve.
-    dist = sorted(path.relative_to(BUNDLE).as_posix() for path in (BUNDLE / "cli" / "dist").rglob("*") if path.is_file())
-    if dist != ["cli/dist/bin.js"]:
-        errors.append(f"bundled CLI must be the single file cli/dist/bin.js; found {dist}")
+    # The bundled CLI is cli/dist/bin.js and the flat dist/*.js chunks it loads,
+    # so every relative module it imports sits beside it.
+    dist = sorted(path.relative_to(BUNDLE / "cli" / "dist").as_posix() for path in (BUNDLE / "cli" / "dist").rglob("*") if path.is_file())
+    if "bin.js" not in dist or any("/" in name or not name.endswith(".js") for name in dist):
+        errors.append(f"bundled CLI must be cli/dist/bin.js and flat dist/*.js chunks; found {dist}")
 
 
 def check_history(errors: list[str]) -> None:

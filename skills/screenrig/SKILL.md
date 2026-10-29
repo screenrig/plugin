@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Operate screenRIG screens and advertising with the bundled CLI. Use to upload or generate media, compose slides, place built-in cards, publish applications and playlists, assign content, verify playback, place adslot breaks, and buy or manage ad campaigns or sell ad inventory.
+description: Run digital signage on TVs, kiosks and displays with screenRIG's bundled CLI. Use to put images, videos, generated stills, built-in cards, web pages and apps on screens, pair Players, publish and schedule playlists, verify playback with screenshots, place adslot breaks, and buy or manage ad campaigns or sell ad inventory.
 ---
 
 # Operate screenRIG
@@ -152,7 +152,6 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | A new file for media screens already play | `media replace MEDIA_ID FILE` (same ID, so playlists and schedules keep playing it) |
 | Poster, menu, announcement | `media generate` with all exact copy in the prompt; inspect with `media download` |
 | A live Grafana, Power BI or Tableau dashboard | `bi connection create grafana\|powerbi\|tableau` (or a public link), then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)) |
-| Editable title/body/table slides | local, unbilled `compose render` ([docs](https://screenrig.ai/docs/compose.md)) |
 | Non-interactive live display: clocks, weather, menus, queues, KPIs, tickers | built-in card: `cards list`, `cards show`, `card create`, `card data put` ([playlists](references/playlists.md#built-in-cards-and-feeds)) |
 | An outside system pushing data a card shows (a CMS, Zapier, a point of sale, a script) | card webhook: `kv webhook create --card crd_ID --map FILE`; the sender POSTs JSON to its url ([playlists](references/playlists.md#card-webhooks)) |
 | Touch or other input, a peripheral, an exact look no card has | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md)) |
@@ -227,16 +226,14 @@ content, and inspect every render at full size before publishing.
 1. `screenrig playlist init INPUTS... --screen-id SCREEN_ID --name NAME --output FILE`
    (local files, `med_` IDs, `rel_` releases, http(s) page URLs, LAN and `user:pass@` logins included; a non-empty `--output`
    needs `--overwrite`). Rerun an interrupted init unchanged. Check `data.media_ids`.
-2. `playlist preview FILE --output preview --contact-sheet`; open the contact
-   sheet and resolve `data.placeholders`.
-3. `screenrig screen publish SCREEN_ID FILE` creates, assigns and waits.
+2. `screenrig screen publish SCREEN_ID FILE` creates, assigns and waits.
    `data.stage` `playing` with `data.playback_verified: true` means the Player
    acknowledged it; `assigned` means it has not, and `data.playback.reason` says why.
    To edit, `playlist show ID --output FILE`, edit, `playlist update ID FILE`
    (this affects every assigned screen). To undo, `playlist revisions ID`, then
    `playlist promote ID --revision N --expect-rev CURRENT` copies one forward.
-4. Take `screen screenshot SCREEN_ID` and inspect it before saying content is
-   showing; a local preview is a design check. `screen play-page` shows one page.
+3. Take `screen screenshot SCREEN_ID` and inspect it before saying content is
+   showing. `screen play-page` shows one page.
    Watch a screen live or sample frames: [live view](references/live-view.md).
 
 Playlist JSON rules are in [playlists](references/playlists.md); `playlist
@@ -454,7 +451,7 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   generation is metered separately and capped per day, with the
   limit and reset in `error.detail`. If generation is refused, tell the user,
   offer [pricing](https://screenrig.ai/pricing), and make the image another way
-  (your own tool, or `compose render`), then `media upload`.
+  with your own tool, then `media upload`.
 - Never expose secrets: bearer tokens, Authorization headers, cookies, signed
   URLs and webhook secrets stay out of conversation, files and logs, and a
   sign-in address and code, invitation link or fleet-link URL goes only to the
