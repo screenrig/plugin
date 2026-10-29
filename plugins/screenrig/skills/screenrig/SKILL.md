@@ -212,6 +212,12 @@ landscape slot add `fit: "aspect"`. Before publishing run `media
 selector-preview FILE --primitive image --rect WxH` and read each `share_percent`
 (`references/playlists.md`).
 
+One playlist can play each screen's own media: a tag selector's `tag` may be
+`{screen.field.NAME}` or `{screen.id}`, filled per screen. `media availability
+MEDIA_ID --file RULE.json` (or `--clear`) limits when selectors may pick a file,
+such as a sponsor's dates or evening hours; it needs Manage access
+(`references/playlists.md`).
+
 Match the design to the screen's dimensions. Generate a finished still whole, not
 a background with composed text. Use real supplied facts, label invented demo
 content, and inspect every render at full size before publishing.

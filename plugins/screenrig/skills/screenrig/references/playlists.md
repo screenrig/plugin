@@ -110,6 +110,16 @@ written, so check one screen's screenshot after publishing. A screen without
 the field shows empty text; a screen without a location shows the card without
 one.
 
+A tag selector's `tag` (and a `tags` entry) may be `{screen.field.NAME}` or
+`{screen.id}` (the screen's ID without `scr_`, so a tag). The server fills it per
+screen, so one playlist plays each screen's own media: media tagged `Lobby` or
+`Garage`, `screen update ID --field zone=Lobby`, and
+`{"by": "tag", "tag": "{screen.field.zone}", "one_at_a_time": true}`. A screen
+without the field, or whose value is not a tag (1 to 32 letters or digits),
+plays no file from that slot (`screen_fact_missing`, `screen_fact_invalid`).
+A template cannot be previewed (`selector-preview` takes a concrete tag) or
+exported.
+
 ## Video walls
 
 A kiosk-installed Linux Player or a Windows Player drives 2 to 12 displays as
@@ -188,6 +198,19 @@ video of its folders only (a stinger transition's logo included);
   needs `--rect WxH` with it and lists the rest as `excluded`
   (`aspect_mismatch`); weighted previews give each item's `weight`,
   `share_percent` and the `cycle`, and signed-in `playlist preview` prints them.
+- `media availability MEDIA_ID --file RULE.json [--expect-rev N]` (or `--clear`)
+  sets when `all`, `tag` and `folder` selectors may pick a file; `by` `id`/`ids`,
+  cards, soundtracks and ad creatives ignore it. The rule is the schedule's clock
+  grammar in each screen's time zone: `from`/`until` (`YYYY-MM-DDTHH:MM`, `until`
+  exclusive), `windows` (`[{days, start, end}]`), `monthly` (`{day}` or `{nth,
+  weekday}`, optional `start`/`end`), `dates` (`[{date, start, end}]`), `except`
+  (dates), at least one member, no `data` or `interaction`. A sponsor's weekend:
+  `{"from": "2026-11-27T00:00", "until": "2026-11-30T23:59"}`, plus a
+  weekday-evening window if wanted. A file leaves and returns at each screen's
+  next loop, within about a minute of the edge, with no playlist or manifest
+  revision; an offline Player keeps its last selection. It needs Manage access
+  (Propose gets `insufficient_access`). `selector-preview --timezone ZONE` lists
+  files outside their rule as `outside_window`.
 - `iframe` and `application` use `content_fit: "fill"`; `application` pins a
   `release_id`. A `stream` needs `fallback_media_id` and a `duration` page. Its
   `sources` take an `https` HLS URL or a camera's `rtsp://`/`rtsps://` URL as
