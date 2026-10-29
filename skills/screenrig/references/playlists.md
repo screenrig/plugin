@@ -128,6 +128,18 @@ aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
   autoplaying, looping embed without YouTube's controls. Native Players play
   sound, the web Player plays muted; `mute=1` in the link mutes everywhere.
   A channel handle (`@name`) is rejected: ask for a video or channel-ID link.
+- For a Google Slides, Docs or Sheets file, or a PowerPoint, Word or Excel file
+  on OneDrive or SharePoint, put the share link, Publish to web link or Embed
+  code the user gave in an `iframe` `src`; `playlist init` also takes the
+  `<iframe …>` code as an input. The server stores the embed address. Slides loop
+  and advance on the link's `delayms` (10 s by default, held to the page's
+  `after_ms`, so give the page the time of the whole deck); Docs, Sheets, Word
+  and Excel reload every 5 minutes. Google needs Share → Anyone with the link, or
+  File → Share → Publish to web. Microsoft needs File → Share → Embed on a file
+  its admin lets share with Anyone links; `1drv.ms` and sharing links are
+  rejected. A file that asks viewers to sign in fails with `document_not_shared`
+  naming the setting to change. The screen needs Google or Microsoft on the
+  internet.
 - `visibility` times are civil (no zone); keep at least one page without it, and
   set the screen timezone before assigning a scheduled playlist. A
   `visibility.data` condition keys off card data. Its key `{screen.weather}`
