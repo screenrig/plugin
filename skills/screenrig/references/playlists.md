@@ -195,6 +195,20 @@ video of its folders only (a stinger transition's logo included);
   Players open RTSP directly, others show the fallback. UniFi Protect: the
   camera's channel RTSP URL from Protect. Apple TV rejects `iframe` and
   `application`.
+- An `iframe` takes optional `reload_s` (0, the default, never reloads; else 60
+  to 86400 seconds: the screen loads the page again that often while it shows)
+  and `fallback_src` (the same forms as `src`): when `src` does not load, the
+  screen shows `fallback_src`, and each reload tries `src` first again. Native
+  Players also fall back on an HTTP error; the Player web app falls back only
+  when `src` is unreachable or silent for 30 s.
+- An `iframe` takes an optional `navigation_allowlist`: 1 to 64 addresses the
+  page may navigate to, besides `src` and `fallback_src`. Each is
+  `[scheme://]host[:port][path]`: `*.example.com` is any subdomain (list
+  `example.com` too for the bare name), `*` any host, `:*` any port; a path
+  ending in `/` or `/*` covers everything under it, another path only itself;
+  no scheme means http or https. Links, scripts and redirects to anything else
+  are refused and the page stays; a `src` that redirects off the list counts as
+  not loading. Query and fragment never count. Omit it for no restriction.
 - For YouTube, put the link the user gave (video, Shorts, live, playlist or
   `youtube.com/channel/UC…/live`) in an `iframe` `src`: the server stores an
   autoplaying, looping embed without YouTube's controls. Every Player plays it
