@@ -112,13 +112,21 @@ one.
 
 ## Video walls
 
-A kiosk-installed Linux Player drives 2 or 3 displays as one wall. Set it with
-`screenrig screen wall set SCREEN_ID --outputs HDMI-A-1,HDMI-A-2 --arrangement
-row|column [--rotation 0|90|180|270]` (outputs from `screen show`, in physical
-order) and remove it with `screen wall clear SCREEN_ID`; `wall_unsupported`
-means the Player lacks wall support. A wall playlist carries `format`
-(`displays`, `arrangement`, `orientation`), every page canvas is the wall
-canvas, and primitives take `displays` (`[1,2,3]`, `[2]`) or a free `rect`.
+A kiosk-installed Linux Player or a Windows Player drives 2 to 12 displays as
+one wall. Set it with `screenrig screen wall set SCREEN_ID --outputs
+HDMI-A-1,HDMI-A-2 --arrangement row|column|grid [--columns N] [--rotation
+0|90|180|270]` (outputs from `screen show`, such as `HDMI-A-1` on Linux or
+`DISPLAY1` on Windows, listed left to right, then top to bottom) and remove it
+with `screen wall clear SCREEN_ID`; `wall_unsupported` means the Player lacks
+wall support. A grid takes `--columns`, an integer of at least 2 that divides
+the displays into at least 2 rows (12 displays in 4 columns make 3 rows); a row
+or column takes none. Prefer a grid when a row or column would pass 16384 px
+(more than 8 landscape displays in a row), the widest buffer most GPUs
+allocate. A wall playlist carries `format` (`displays`, `arrangement`,
+`orientation`, and `columns` for a grid), every page canvas is the wall canvas
+(a 1920x1080 or portrait 1080x1920 tile times columns and rows: 7680x3240 for
+4x3 landscape), and primitives take `displays` (`[2]`, `[1,2]`, or on a 4x3 grid
+`[1,2,5,6]`: numbers that fill a rectangle of the wall) or a free `rect`.
 Assigning it to a screen whose wall differs is refused
 (`playlist_format_mismatch`). Canvas sizes, card layouts and video sizing (wall
 aspect ratio within 4K, `content_fit: "fill"`, text off the seams):

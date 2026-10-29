@@ -157,7 +157,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | An outside system pushing data a card shows (a CMS, Zapier, a point of sale, a script) | card webhook: `kv webhook create --card crd_ID --map FILE`; the sender POSTs JSON to its url ([playlists](references/playlists.md#card-webhooks)) |
 | Touch or other input, a peripheral, an exact look no card has | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md)) |
 | Live video, a web page or a Google/Microsoft document, background music | `stream` or `iframe` primitive; playlist soundtrack ([playlists](references/playlists.md)) |
-| One Linux Player driving 2 or 3 displays as one wall | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
+| A Linux or Windows Player driving 2 to 12 displays as one wall | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
 | Data that lives elsewhere: a calendar, a sheet, a till | a card plus `source create` ([sources](references/sources.md)) |
 
 Prefer a card to an application: a card draws natively on every Player, changes
