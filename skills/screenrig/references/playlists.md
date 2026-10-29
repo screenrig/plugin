@@ -113,11 +113,15 @@ with neither `--media` nor `--file` only the dates change.
 
 `--from` and `--until` set the page's `visibility`: `YYYY-MM-DD` or
 `YYYY-MM-DDTHH:MM` in each screen's timezone, `--until` exclusive, and a
-date-only `--until` covers that whole day. `replace --always` removes the dates.
+date-only `--until` covers that whole day. `replace --always` removes the dates
+and keeps a switch-off or weekly windows the project set.
 
-Under Propose a page change is a review; the next page change of the same
-playlist joins that pending review, and approving applies them together. An
-uploader's page is an image or video of its folders only.
+Under Propose a page change is a review; your next page change of the same
+playlist joins your pending review, which also lets you replace or remove a page
+still waiting in it, and approving applies them together. Another proposer's
+pending page change makes yours wait (`resource_conflict`) until it is decided.
+An uploader's page is an image or video of its folders only (a stinger
+transition's logo included).
 
 ## Playlist rules that validation will enforce
 
