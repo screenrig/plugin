@@ -65,6 +65,28 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
   five minutes. Secrets go to the sender's administrator, never into
   conversation, files or logs.
 
+## Overlay triggers
+
+Home Assistant, a sensor hub or an alerting tool shows words on screens with one
+HTTP POST: a bar over whatever plays, or a full-screen takeover.
+
+```sh
+screenrig triggers create --name "Lobby" --kind overlay --show bar --tag Lobby   # url and secret, shown once
+screenrig triggers test trg_ID           # one-minute test; triggers clear trg_ID ends it
+screenrig triggers deliveries trg_ID     # why each post was shown, ignored or refused
+```
+
+- The sender posts JSON with `Authorization: Bearer SECRET`: `alert_id`, `label`,
+  `title`, `message`, `note`, `duration` (`90s`, `10m`, `until_cleared`; default
+  10m) and `clear` or a `state` of `off`, `closed`, `resolved`. One `alert_id` is
+  one alert; the newest shows; each post holds its alert from now.
+- `--map FILE` builds the post from a tool's body (as card webhooks) and runs every
+  post through it, so leave it off for a sender that posts the members itself.
+  `--style FILE` sets theme and colours, `--signing` adds `ScreenRig-Signature`,
+  `triggers update` changes any of it. Wrong url, wrong secret and any GET answer the same 404; only
+  `deliveries` says why. A clear is free. Secrets go only to the sender's administrator.
+- Home Assistant example and the full request: <https://screenrig.ai/docs/cli#overlay-triggers>.
+
 ## Per-screen values
 
 Each screen carries its own `fields` (up to 32 lower-case names, values up to
