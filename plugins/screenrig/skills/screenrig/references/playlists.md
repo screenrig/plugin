@@ -142,6 +142,38 @@ Assigning it to a screen whose wall differs is refused
 aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
 [video walls](https://screenrig.ai/docs/players.md#video-walls).
 
+## Templates
+
+A template is an ordinary playlist with two additions, built once from the
+brand guidelines so staff can fill in the parts that change.
+
+- `locked: true` on a primitive marks fixed brand content (logo, background,
+  layout, theme). Only the owner or a member who can approve adds, removes,
+  moves or edits it or clears its lock; anyone else is refused with
+  `primitive_locked` (under Propose it becomes a review). Copies keep the locks.
+- `fields` on the playlist: `[{"name","label","type":"text|media|url",
+  "required","max_length"}]`, `name` of 1 to 32 lower case letters, digits or
+  underscores. A page reads a field as `{field.NAME}` in a card's `params`
+  (text and url fields), as an image or video `selector.media_id` (a media
+  field) or as the whole `src` of an iframe (a url field). Every token names a
+  declared field of the right type, every field is read, and a locked primitive
+  reads none. `playlist validate FILE` checks all of it offline. A template is
+  never shown on a screen (`playlist_is_template`); assign the playlists made
+  from it. `playlist list --templates` lists them.
+
+Make a playlist from a template with `playlist create --from-template PL_ID
+--name NAME --set NAME=VALUE ...` (`--dry-run` checks the values and creates
+nothing). A media value is the ID of a ready image or video of the right kind, a
+url value an http or https address; the result is checked like any playlist and
+is an ordinary one to assign, schedule and revise. `playlist fields PL_ID` shows
+a template's fields or a copy's values, and `--set` / `--clear` change them.
+Changing values, or `--refresh` alone, builds the copy again from the template's
+current revision: that is how a brand change reaches existing copies, and
+nothing pushes to them. `playlist instances TEMPLATE_ID` lists the copies and
+marks those built from an older revision. Under Propose a values change is a
+review. `playlist create --starter urgent-notice` adds the Urgent notice
+template, a headline and a message for quick announcements.
+
 ## Change one page
 
 `playlist page add PLAYLIST_ID`, `page replace PLAYLIST_ID PAGE_ID` and `page
