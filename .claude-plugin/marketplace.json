@@ -9,7 +9,7 @@
       "name": "screenrig",
       "source": "./plugins/screenrig",
       "description": "Free, agent-driven digital signage. Your AI agent puts images, videos, menu boards and live apps on your TVs and kiosks, keeps every screen current from your docs, sheets and calendar, and checks what each one plays. screenRIG is free. Pay only if you want more.",
-      "version": "26.10.1178",
+      "version": "26.10.1180",
       "author": {
         "name": "screenRIG"
       },
