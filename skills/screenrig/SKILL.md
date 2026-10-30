@@ -101,7 +101,7 @@ schedules and campaigns whose whole audience is inside it. What plays (assign,
 schedules, takeovers, campaigns, folders, moves) is open only when the person
 you work for can approve.
 
-- Lists and reads show only your screens; others are hidden, and an unknown id
+- `agent status` shows your scope and your person's. Lists and reads show only your screens; others are hidden, and an unknown id
   answers like an outside one. `403 outside_screen_scope` names your scope in
   `errors[0].screen_scope`: never retry it or search for another route. Tell the
   user which screen or folder it reached, and that only the project owner widens
