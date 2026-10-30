@@ -21,3 +21,12 @@ Reports read aggregates (uptime rollups, alert history, screen state, direct cam
 ## Export a project
 
 - `project export DIR` writes `export.json` (every file with size and SHA-256), JSON for screens, folders, tags, schedules, playlists with every revision, campaigns, cards, sources, notifications, webhooks and applications, `media/files` with `media/manifest.json`, CSV under `data/` and `log/events.jsonl`. Secrets are never written. `--no-media` skips media and `--since DAY` starts the CSV data and the event log. Rerunning keeps complete media and continues partial downloads; `data.complete` false means a section failed, so run it again.
+
+## Audit log
+
+- `audit list` shows the project's configuration changes newest first: who (`actor`: person, agent, service client, staff, system), `source` (dashboard, api, cli, mcp, staff, device, webhook, system), `action` (`screen.update`, `playlist.create`), the `resource` and `changes`, each with a JSON Pointer `path` and its `before` and `after`. Filters: `--actor ID`, `--actor-kind`, `--source`, `--resource-type`, `--resource-id`, `--action CODE` (a trailing `*` is a prefix), `--field /label`, `--since`, `--until`, and `--after CURSOR` for the next page.
+- `audit show ID` prints one entry. A credential reads `(redacted)` on both sides; everything else is the stored value. Pages and media bytes are not copied: the entry links the revision.
+- `audit export --format csv|xlsx|pdf --output FILE` writes one row per changed field with the chain head in the file (the last 30 days unless `--since` says otherwise). Quote `path`, `bytes` and `sha256`.
+- `audit head` prints `SEQ:HASH`; keep it. `audit verify` recomputes the hash chain (exit 13 and the entries at fault when it fails); `--anchor SEQ:HASH` also proves the history up to a kept head is unchanged. An entry has no `seq` for a few seconds after the change.
+- Entries are kept 400 days and no command edits or deletes one. `project export DIR` writes `log/audit.jsonl` and `log/audit-head.json`.
+

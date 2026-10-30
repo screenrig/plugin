@@ -108,3 +108,30 @@ A notice names the source and links its page; it is never grouped, is not a
 screen alert (`alerts list` never shows it), and `--tag` never matches a source, so
 leave it off. `source show ID` says why (`status.error`, `status.stale`,
 `data_expires_at`); `source refresh ID` retries now.
+
+## reach_dropped and group_empty: a campaign silently stops reaching screens
+
+These two conditions are about a campaign (`campaign create`), not a screen. A
+tag edit, a folder move, an archived or deleted screen or a new audience can
+leave a campaign with fewer screens while nothing fails, and the playlist it
+switched in stops showing where it should.
+
+- `reach_dropped` opens when a recount finds the campaign reaching fewer screens
+  than when it was last published (created, or updated with a new audience,
+  playlist or paused state). It clears when it reaches as many again, or on its
+  next publish. `--reach-drop-screens N` and `--reach-drop-percent P` (both
+  needed to be met; they require `reach_dropped` in `--conditions`) ignore small
+  drops; `update ID --clear-reach-drop` makes any drop notify again.
+- `group_empty` opens when a tag or folder the audience names matches no screen,
+  one notice per group (`notifications deliveries ID` shows `audience_group`,
+  `tag:Lobby` or `folder:sfd_ID`). It clears when the group matches a screen
+  again; a publish that drops the group from the audience closes it without a
+  recovery message.
+- Neither is a screen alert, and `--tag` or `--audience` on the notification never
+  limits them. Severity, hours and hold apply as for any condition, default
+  `warning`. The notice names the campaign and the numbers and links its calendar.
+- Read it: `campaign show ID` has `reach` (`published`, `current`, `at`,
+  `empty_groups`), recounted within about 15 seconds of a change. A write that
+  causes the drop already says so: `levels.lost` on `screen tag`, `screen move`
+  and folder edits names the campaign with `reach_before` and `reach_after`. Tell
+  the user before going on, and offer to undo the tag or folder change.

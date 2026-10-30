@@ -191,6 +191,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | Touch or other input, a peripheral, an exact look no card has | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md)) |
 | Live video, a web page or a Google/Microsoft document, background music | `stream` or `iframe` primitive; playlist soundtrack ([playlists](references/playlists.md)) |
 | A Linux or Windows Player driving 2 to 12 displays as one wall | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
+| A footer ticker or header logo over the page, on the same screen | strip: a playlist with `--format-region`, shown by a level that `covers` that region ([playlists](references/playlists.md#strips)) |
 | The same layout with staff-filled text, a photo or a link (brand rules, quick notices) | template: `fields` and `locked` on a playlist, then `playlist create --from-template` ([playlists](references/playlists.md#templates)) |
 | Data that lives elsewhere: a calendar, a sheet, a till | a card plus `source create` ([sources](references/sources.md)) |
 
@@ -306,7 +307,9 @@ fleet command or `campaign create|update` reaches the folder and every folder
 inside it. A folder's default playlist plays on its screens with no playlist of
 their own (`effective_playlist.source` is `folder`). A move or re-parent
 re-resolves the screens within about 15 seconds, and the answer's `levels` lists
-the campaigns and folder defaults they gain or lose: tell the user. Deleting a
+the campaigns and folder defaults they gain or lose: tell the user. A tag edit
+(`screen tag`, a fleet tag action) and a folder delete answer with `levels` too,
+and a campaign's entry shows `reach_before` and `reach_after`. Deleting a
 folder moves its contents up and is refused while a campaign names it. Folders
 nest 10 deep, 1,000 to a project; writes need Manage access.
 
@@ -333,7 +336,9 @@ Lunch --playlist-id ID --tag north --window mon-fri@11:00-14:00` (`--folder ID`
 for a folder). Screens that join its audience later get it too. It needs each
 screen's default playlist and, with any date or time rule, its timezone
 (`screen set-timezone`). `campaign screens ID` shows every screen's
-standing and `campaign explain SCREEN_ID` says why one does not play it;
+standing, `campaign show ID` its `reach` (`published`, `current`, `empty_groups`;
+see [notifications](references/notifications.md#reach_dropped-and-group_empty-a-campaign-silently-stops-reaching-screens)),
+and `campaign explain SCREEN_ID` says why one does not play it;
 with `--at TIME` it says what will play then, and `--to TIME` lists the
 switches: check a plan before its date. The MCP tool `screenrig_schedule_calendar`
 takes a screen, folder, tag or campaign and returns what its screens play over up
@@ -355,10 +360,26 @@ stack play `interaction`, `data` and `displays`; `campaign explain` reports any
 other Player's row as `stack_only`. Flags on `campaign create|update`:
 `--monthly SPEC` (`15`, `1st-mon`, `last-sun`, optional `@HH:MM-HH:MM`),
 `--date YYYY-MM-DD[@HH:MM-HH:MM]`, `--except YYYY-MM-DD[,...]` (all repeatable),
-`--on-touch [IDLE_S]`, `--displays N[,N]`, `--start on-time|next-item`, and on
+`--on-touch [IDLE_S]`, `--covers WHERE`, `--displays N[,N]`, `--start on-time|next-item`, and on
 update `--clear-monthly`, `--clear-dates`, `--clear-except`, `--clear-on-touch`,
 `--clear-displays`. `screen schedule set --file` entries take `monthly`,
-`dates`, `except`, `data`, `interaction`, `displays` and `start`.
+`dates`, `except`, `data`, `interaction`, `covers`, `displays` and `start`. `--covers
+footer` (or `header`, `side`) plays a strip over the page; see
+[strips](references/playlists.md#strips).
+
+**Drafts, test, promote, history.** A level set up ahead of time stays a draft:
+`campaign create ... --paused`, or `"paused": true` on a `screen schedule set`
+entry; a draft reaches no screen. Before publishing, `campaign preview` (create
+flags, or `ID` plus update flags; `--publish` to preview unpausing) and `screen
+schedule preview SCREEN_ID --file FILE` list the screens gained and lost and the
+calendar before and after. `campaign publish ID --test-folder ID` (or
+`--test-screen ID`) puts the draft live on test screens only; `campaign
+revisions ID` lists its revisions and `campaign promote ID --revision N` gives it
+the audience of draft revision N. `campaign publish ID` publishes it as it is.
+`campaign restore ID --revision N` and `screen schedule restore SCREEN_ID
+--revision N` copy an earlier revision forward (`... revisions` lists them); a
+stale `--expect-rev` answers `revision_conflict` (exit 6). Tell the user which
+screens a publish, promote or restore changes before running it.
 
 ```
 screenrig campaign create --name Brunch --playlist-id pl_BRUNCH --tag cafe --monthly 1st-sun@10:00-14:00 --except 2026-12-06
@@ -443,7 +464,7 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | Group | Reach for it when | First command |
 | --- | --- | --- |
 | `triggers` | An emergency system (CAP 1.2), Home Assistant, a sensor or an alerting tool must show something on screens by itself | CAP: `triggers create --name NAME --tag TAG` (`--pull FILE` also reads CAP sources); any other sender: `triggers create --name NAME --kind overlay --show bar\|takeover --tag TAG` ([overlay triggers](references/playlists.md#overlay-triggers)); then `triggers test ID`. The URL and secret go only to the sender's administrator |
-| `notifications` | A person should hear when a screen goes offline or fails (email, chat, pager), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), `--slack URL`, `--teams URL`, `--pagerduty KEY`, `--telegram TOKEN --telegram-chat ID`; prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `running_hot`, `storage_full`, `content_stuck`, `not_playing`, `loop_stalled`, `glass_blank`, `glass_frozen`, `crashing`; `--tag TAG` (any), `--all-tags A,B` or `--audience FILE|-` (campaign rules), `--hold MINUTES`, `--min-severity info|warning|error` (`screen_offline` is error, the rest warning), `--severity not_playing=error`, `--active-hours "Mon-Fri 08:00-22:00" --timezone ZONE` (a notice due outside waits for the next window, or `--outside-hours drop`), `update ID --snooze 1h`. Channels, grouping and glass verdicts: [notifications](references/notifications.md). `webhooks` remains for raw event feeds |
+| `notifications` | A person should hear when a screen goes offline or fails (email, chat, pager), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), `--slack URL`, `--teams URL`, `--pagerduty KEY`, `--telegram TOKEN --telegram-chat ID`; prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `reach_dropped`, `group_empty` (a campaign reaches fewer screens, or a tag or folder of its audience matches none), `running_hot`, `storage_full`, `content_stuck`, `not_playing`, `loop_stalled`, `glass_blank`, `glass_frozen`, `crashing`; `--tag TAG` (any), `--all-tags A,B` or `--audience FILE|-` (campaign rules), `--hold MINUTES`, `--reach-drop-screens N --reach-drop-percent P`, `--min-severity info|warning|error` (`screen_offline` is error, the rest warning), `--severity not_playing=error`, `--active-hours "Mon-Fri 08:00-22:00" --timezone ZONE` (a notice due outside waits for the next window, or `--outside-hours drop`), `update ID --snooze 1h`. Channels, grouping and glass verdicts: [notifications](references/notifications.md). `webhooks` remains for raw event feeds |
 | `alerts` | The user asks what needs attention on the screens, or named screens will be down for maintenance | `alerts list` shows the open problems, one per screen and condition (`--state all` adds resolved; `crashing` is a notice, not an alert). `alerts ack ID` when someone is on it, or `alerts snooze ID --for 4h` to look again later; either skips a notice still in its hold. For maintenance the user names, `alerts mute --tag TAG --for 2h --note TEXT` (or `--screen-id ID`; under 30 days) keeps those screens out of notices and attention; `alerts unmute MUTE_ID` (ids from `alerts mutes`) ends it when the work is done. Changing alerts needs Manage access |
 | `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once); a card's webhook: [card webhooks](references/playlists.md#card-webhooks) |
 | `card`, `card data` | A built-in card shows live data (menu, ticker, KPIs) that changes without a republish | `card create --type TYPE --file PARAMS.json`, then `card data put crd_ID --file FILE` |
@@ -455,6 +476,7 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
 | `playback totals\|completeness`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
 | `reports` | The user wants health, uptime or alerts for a property by folder, tag or screen, a file to hand someone (CSV, XLSX, PDF), a sponsor's or advertiser's proof of play, a report emailed on a schedule, or a full copy of the project | `reports list`, then `reports show fleet_health` (every folder rolls up the folders inside it; `--group-by screen --folder-id ID --direct` for a folder's own screens). `--format pdf\|xlsx\|csv --output FILE` writes it, and the alerts, uptime, health, playback and ads report commands take the same flags. `reports show proof_of_play --advertiser NAME --format pdf` is the statement for an advertiser. `reports subscriptions create --kind KIND --cadence weekly --format pdf --recipients MEMBERS` emails project members only (user ids or member emails); `reports subscriptions send ID` mails it now and the subscription shows `last_status` and `last_error`. `project export DIR` writes JSON, original media with a hash manifest, CSV and the event log, never secrets; rerun it to continue. [reports](references/reports.md) |
+| `audit` | The user asks who changed something, what a screen, playlist or setting was before, what an agent or a colleague changed last week, or wants the record of changes for a compliance review | `audit list --resource-type screen --resource-id ID` (or `--actor-kind agent`, `--source mcp`, `--action 'playlist.*'`, `--since TIME`), `audit show ID` prints each changed field's before and after. Secrets read `(redacted)`; every other value is as stored. `audit export --format pdf\|xlsx\|csv --output FILE` writes the filtered log, and `audit head` then `audit verify --anchor SEQ:HASH` proves a kept copy was not rewritten. Kept 400 days; card data, K/V values and telemetry are not in it. [reports](references/reports.md) |
 | `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |
 
 ## Keep the project tidy

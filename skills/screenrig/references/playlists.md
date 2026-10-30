@@ -161,6 +161,41 @@ Assigning it to a screen whose wall differs is refused
 aspect ratio within 4K, `content_fit: "fill"`, text off the seams):
 [video walls](https://screenrig.ai/docs/players.md#video-walls).
 
+## Strips
+
+A strip is a playlist drawn over the page along one edge of a display: a footer
+ticker, a header logo or a side banner. The page keeps playing underneath; the
+strip hides what it covers. Make it in three steps:
+
+1. Build the pages with one canvas shaped as the edge, its long side along the
+   edge and at least twice the short side: 1920x240 for a landscape footer or
+   header, 240x1080 for a landscape side (`playlist init FILES --target-width
+   1920 --target-height 240` writes it). A strip holds `image` and `card`
+   primitives only, one canvas for every page, and no soundtrack.
+2. Create it as a region playlist: `screenrig playlist create ticker.json
+   --format-region footer --format-orientation landscape`. `--format-region` is
+   `header` (top), `footer` (bottom) or `side` (right edge, full height);
+   `--format-orientation` is the orientation of the display it is made for, as
+   the viewer sees it. `playlist update ID FILE` takes the same flags, and
+   `playlist show` reports the `format`.
+3. Show it with a level that covers its region: `screenrig campaign create
+   --name Ticker --playlist-id pl_TICKER --tag lobby --covers footer`, or a
+   `screen schedule set --file` entry with `"covers": "footer"`. A level that
+   covers `header`, `footer` or `side` takes a region playlist of that region;
+   `full` and `main` take an ordinary one. A region playlist is never a
+   default, a folder default or a takeover.
+
+A strip draws at its canvas aspect along the edge, only on displays of its
+orientation and only while it covers at most half the display (its height for a
+header or footer, its width for a side). The server refuses a level
+(`playlist_format_mismatch`) that fits none of the screens it targets; on a
+campaign for a mixed audience, `campaign explain SCREEN_ID` says
+`region_not_laid_out` for a screen it does not fit, and `campaign screens ID`
+lists it. A format change that moves a playlist into or out of a region is
+`resource_conflict` while a screen, folder or campaign uses it. Only Players
+that resolve their own stack draw strips; any other Player's row reads
+`stack_only`.
+
 ## Templates
 
 A template is an ordinary playlist with two additions, built once from the
