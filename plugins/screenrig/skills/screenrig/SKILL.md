@@ -91,6 +91,40 @@ never with `--json`. `screenrig status` reports service availability.
   ID`, `playlist page add|replace|remove`); anything else is
   `outside_upload_scope` ([one page](references/playlists.md#change-one-page)).
 
+## Limited to screens
+
+The project owner can limit an agent (or the person it works for) to screen
+folders and single screens; the reach is the narrower of the agent's scope and
+its person's. A folder in the scope holds every folder inside it. Inside it you
+do what your access level allows to those screens, their folders, commands,
+schedules and campaigns whose whole audience is inside it. What plays (assign,
+schedules, takeovers, campaigns, folders, moves) is open only when the person
+you work for can approve.
+
+- Lists and reads show only your screens; others are hidden, and an unknown id
+  answers like an outside one. `403 outside_screen_scope` names your scope in
+  `errors[0].screen_scope`: never retry it or search for another route. Tell the
+  user which screen or folder it reached, and that only the project owner widens
+  the scope (dashboard, Members or Agents). A write that reaches outside is
+  refused whole, so split it.
+- Select fleets by `--screen-id` or `--folder`, never `--tag` or all screens
+  (tags are not scope). A new screen needs its folder: `screen pair CODE --folder
+  ID` or `screen provision --folder ID`, inside your scope. Campaigns that reach
+  outside are listed with `editable: false`; do not change them.
+- Members, agents, invitations, fleet links, settings and project-wide reports
+  are outside any scope. Read playback, calendar and logs per screen.
+- A protected folder (and the folders inside it) needs a second approver for
+  anything that reaches its screens, at every access level. Assigning, schedules,
+  takeovers, campaigns and folder or move changes return `pending_review`: say it
+  waits, never that it plays. Tags, fields, location, timezone, replace, delete,
+  archive, display power, toast, ad inventory, trigger targets and imports are
+  `409 protected_target` and have no review: tell the owner, who clears the
+  protection through a review. `second_approver_required` means the proposer
+  cannot decide it; another approver must, and a project with one approver needs
+  a second member who can approve.
+- A reserved campaign (`reserved: true`) is changed only by an approver person:
+  an agent gets `403 reserved_item`; ask the user to make the change.
+
 ## Interactive views
 
 For "show my screens/playlists/media", use the plugin's hosted `screenrig-views`
