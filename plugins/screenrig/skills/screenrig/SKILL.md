@@ -281,8 +281,12 @@ once per screen: `screen update SCREEN_ID --field store_number=0142 --field
 region=north --location 46.8772,-96.7898 --location-name Fargo`. Card params
 then take `{screen.field.store_number}`, `{screen.name}` and `{screen.timezone}`,
 and a card's `location` may be `"{screen.location}"`
-([playlists](references/playlists.md#per-screen-values)). Set the fields before
-publishing: a missing one shows as empty text. `screen list --field
+([playlists](references/playlists.md#per-screen-values)). An iframe `src` or
+`fallback_src` and an application's `params` take URL tokens too
+(`{screen.id}`, `{screen.field.NAME}`, `{screen.location.lat}` and more): a
+screen lacking a value gets no such iframe or app, and the write returns a
+`screen_fact_missing` warning naming it. Set the fields before publishing: a
+missing one shows as empty text on a card. `screen list --field
 region=north` or `--near LAT,LON,KM` finds screens.
 
 **Campaigns, schedules and takeover.** A screen's schedule entries and
@@ -355,7 +359,11 @@ nothing. MCP: `screenrig_schedule_import_preview` and
 Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen reboot` (only where the Player declares it; fleets need `--yes`
-and the user's confirmation). Verify with `effective_playlist` in `screen show`.
+and the user's confirmation) and `screen reboot-schedule set ID|--tag TAG
+--window "Mon-Sun 04:00-04:30"` (the backend reboots at each window's start in
+the screen's timezone, which must be set; an offline screen is rebooted only
+until the window ends; `show` prints `next_reboot_at`; no offline alert for a
+reboot it sent). Verify with `effective_playlist` in `screen show`.
 `reboot`, `reload` and the three below reach an online screen at once and wait
 up to 24 hours (`--expires-in`) for an offline one: the answer's `state` is
 `queued`, `screen show` lists `commands`, and
@@ -401,7 +409,7 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | Group | Reach for it when | First command |
 | --- | --- | --- |
 | `triggers` | An emergency system (CAP 1.2), Home Assistant, a sensor or an alerting tool must show something on screens by itself | CAP: `triggers create --name NAME --tag TAG` (`--pull FILE` also reads CAP sources); any other sender: `triggers create --name NAME --kind overlay --show bar\|takeover --tag TAG` ([overlay triggers](references/playlists.md#overlay-triggers)); then `triggers test ID`. The URL and secret go only to the sender's administrator |
-| `notifications` | A person should hear when a screen goes offline or fails (email, chat, pager), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), `--slack URL`, `--teams URL`, `--pagerduty KEY`, `--telegram TOKEN --telegram-chat ID`; prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `running_hot`, `storage_full`, `content_stuck`, `not_playing`, `loop_stalled`, `glass_blank`, `glass_frozen`, `crashing`; `--tag TAG`, `--hold MINUTES`, `update ID --snooze 1h`. Channels, grouping and glass verdicts: [notifications](references/notifications.md). `webhooks` remains for raw event feeds |
+| `notifications` | A person should hear when a screen goes offline or fails (email, chat, pager), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), `--slack URL`, `--teams URL`, `--pagerduty KEY`, `--telegram TOKEN --telegram-chat ID`; prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `running_hot`, `storage_full`, `content_stuck`, `not_playing`, `loop_stalled`, `glass_blank`, `glass_frozen`, `crashing`; `--tag TAG` (any), `--all-tags A,B` or `--audience FILE|-` (campaign rules), `--hold MINUTES`, `--min-severity info|warning|error` (`screen_offline` is error, the rest warning), `--severity not_playing=error`, `--active-hours "Mon-Fri 08:00-22:00" --timezone ZONE` (a notice due outside waits for the next window, or `--outside-hours drop`), `update ID --snooze 1h`. Channels, grouping and glass verdicts: [notifications](references/notifications.md). `webhooks` remains for raw event feeds |
 | `alerts` | The user asks what needs attention on the screens, or named screens will be down for maintenance | `alerts list` shows the open problems, one per screen and condition (`--state all` adds resolved; `crashing` is a notice, not an alert). `alerts ack ID` when someone is on it, or `alerts snooze ID --for 4h` to look again later; either skips a notice still in its hold. For maintenance the user names, `alerts mute --tag TAG --for 2h --note TEXT` (or `--screen-id ID`; under 30 days) keeps those screens out of notices and attention; `alerts unmute MUTE_ID` (ids from `alerts mutes`) ends it when the work is done. Changing alerts needs Manage access |
 | `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once); a card's webhook: [card webhooks](references/playlists.md#card-webhooks) |
 | `card`, `card data` | A built-in card shows live data (menu, ticker, KPIs) that changes without a republish | `card create --type TYPE --file PARAMS.json`, then `card data put crd_ID --file FILE` |
