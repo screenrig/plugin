@@ -157,6 +157,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | Touch or other input, a peripheral, an exact look no card has | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md)) |
 | Live video, a web page or a Google/Microsoft document, background music | `stream` or `iframe` primitive; playlist soundtrack ([playlists](references/playlists.md)) |
 | A Linux or Windows Player driving 2 to 12 displays as one wall | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
+| A footer ticker or header logo over the page, on the same screen | strip: a playlist with `--format-region`, shown by a level that `covers` that region ([playlists](references/playlists.md#strips)) |
 | The same layout with staff-filled text, a photo or a link (brand rules, quick notices) | template: `fields` and `locked` on a playlist, then `playlist create --from-template` ([playlists](references/playlists.md#templates)) |
 | Data that lives elsewhere: a calendar, a sheet, a till | a card plus `source create` ([sources](references/sources.md)) |
 
@@ -325,10 +326,12 @@ stack play `interaction`, `data` and `displays`; `campaign explain` reports any
 other Player's row as `stack_only`. Flags on `campaign create|update`:
 `--monthly SPEC` (`15`, `1st-mon`, `last-sun`, optional `@HH:MM-HH:MM`),
 `--date YYYY-MM-DD[@HH:MM-HH:MM]`, `--except YYYY-MM-DD[,...]` (all repeatable),
-`--on-touch [IDLE_S]`, `--displays N[,N]`, `--start on-time|next-item`, and on
+`--on-touch [IDLE_S]`, `--covers WHERE`, `--displays N[,N]`, `--start on-time|next-item`, and on
 update `--clear-monthly`, `--clear-dates`, `--clear-except`, `--clear-on-touch`,
 `--clear-displays`. `screen schedule set --file` entries take `monthly`,
-`dates`, `except`, `data`, `interaction`, `displays` and `start`.
+`dates`, `except`, `data`, `interaction`, `covers`, `displays` and `start`. `--covers
+footer` (or `header`, `side`) plays a strip over the page; see
+[strips](references/playlists.md#strips).
 
 ```
 screenrig campaign create --name Brunch --playlist-id pl_BRUNCH --tag cafe --monthly 1st-sun@10:00-14:00 --except 2026-12-06
