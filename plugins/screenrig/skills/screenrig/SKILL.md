@@ -333,6 +333,20 @@ update `--clear-monthly`, `--clear-dates`, `--clear-except`, `--clear-on-touch`,
 footer` (or `header`, `side`) plays a strip over the page; see
 [strips](references/playlists.md#strips).
 
+**Drafts, test, promote, history.** A level set up ahead of time stays a draft:
+`campaign create ... --paused`, or `"paused": true` on a `screen schedule set`
+entry; a draft reaches no screen. Before publishing, `campaign preview` (create
+flags, or `ID` plus update flags; `--publish` to preview unpausing) and `screen
+schedule preview SCREEN_ID --file FILE` list the screens gained and lost and the
+calendar before and after. `campaign publish ID --test-folder ID` (or
+`--test-screen ID`) puts the draft live on test screens only; `campaign
+revisions ID` lists its revisions and `campaign promote ID --revision N` gives it
+the audience of draft revision N. `campaign publish ID` publishes it as it is.
+`campaign restore ID --revision N` and `screen schedule restore SCREEN_ID
+--revision N` copy an earlier revision forward (`... revisions` lists them); a
+stale `--expect-rev` answers `revision_conflict` (exit 6). Tell the user which
+screens a publish, promote or restore changes before running it.
+
 ```
 screenrig campaign create --name Brunch --playlist-id pl_BRUNCH --tag cafe --monthly 1st-sun@10:00-14:00 --except 2026-12-06
 screenrig campaign create --name Browse --playlist-id pl_MENU --screen-id scr_KIOSK --on-touch 90
