@@ -203,6 +203,9 @@ calls `screenrig.skip()` instead of `ready()`: the screen moves on and counts no
 play. Use screenRIG's `feeds` for weather, rates and other third-party data,
 never the providers.
 
+Write card data and `kv` values only when the value changes, never on a timer.
+A write that answers `rate_limited` waits `error.retry_after_seconds`, then retries.
+
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
 names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
