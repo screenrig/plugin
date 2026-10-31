@@ -1,6 +1,6 @@
 {
   "schema": "screenrig.cli-runtime-dependencies/v1",
-  "package_lock_sha256": "bc5ae607fecd8adf28f5f63e29b9c1299bb43f14f614ff24404d6796c37b2422",
+  "package_lock_sha256": "fcc63030222fc4cf9be907bafcbc4e45b109ba3270a37de4495f6a8595268806",
   "packages": [
     {
       "path": "node_modules/ajv",
@@ -22,6 +22,13 @@
       "version": "14.0.3",
       "resolved": "https://registry.npmjs.org/commander/-/commander-14.0.3.tgz",
       "integrity": "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="
+    },
+    {
+      "path": "node_modules/entities",
+      "name": "entities",
+      "version": "8.0.0",
+      "resolved": "https://registry.npmjs.org/entities/-/entities-8.0.0.tgz",
+      "integrity": "sha512-zwfzJecQ/Uej6tusMqwAqU/6KL2XaB2VZ2Jg54Je6ahNBGNH6Ek6g3jjNCF0fG9EWQKGZNddNjU5F1ZQn/sBnA=="
     },
     {
       "path": "node_modules/fast-deep-equal",

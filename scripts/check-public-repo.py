@@ -29,7 +29,7 @@ def is_cli_version(value: object) -> bool:
 
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
-ALLOWED_CLI_PRODUCTION_DEPENDENCIES = frozenset({"ajv", "ajv-formats", "commander"})
+ALLOWED_CLI_PRODUCTION_DEPENDENCIES = frozenset({"ajv", "ajv-formats", "commander", "entities"})
 TEXT_SUFFIXES = {"", ".d.ts", ".js", ".json", ".md", ".py", ".sh", ".toml", ".yaml", ".yml"}
 IGNORED_PARTS = {".git", "node_modules"}
 

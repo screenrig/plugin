@@ -852,7 +852,7 @@ class DependencyBoundaryTests(unittest.TestCase):
 
     def test_allowlist_is_the_reviewed_production_set(self) -> None:
         self.assertEqual(set(checker.ALLOWED_CLI_PRODUCTION_DEPENDENCIES),
-                         {"ajv", "ajv-formats", "commander"})
+                         {"ajv", "ajv-formats", "commander", "entities"})
 
     def check_with(self, mutation=None) -> list[str]:
         original_load = checker.load
