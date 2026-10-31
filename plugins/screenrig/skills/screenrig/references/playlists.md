@@ -55,6 +55,19 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
   maps an array (also `$group`, `$number` for `$3.50` or `3,50 €`, `$bool`,
   `$text`); `{{query.NAME}}` reads the URL's query. A missing value is empty in
   text and leaves a lone value out.
+- For one document per room, create with `--key-template 'room-{screen.field.room}'`.
+  The mapped output (or raw body without `--map`) is
+  `{"documents":[{"fields":{"room":"A101"},"document":{"body":"Room A101"}}]}`.
+  Place the owning `crd_` instance with `data: "room-{screen.field.room}"`;
+  each screen reads the key filled from its own field. JSON, CSV and Sheets
+  sources use the same envelope with `key_template` in their settings.
+  Preview source mappings with `source test`; all outputs use the owning card's
+  schema. Use separate instances, mappings and key prefixes for different cards
+  reading the same feed. Missing fields, duplicate keys or invalid documents
+  refuse the batch before writing. A storage failure can leave part written:
+  retry the identical webhook body with the same `Idempotency-Key`, or refresh
+  the source. Omitted keys keep their previous data and expiry; webhook data
+  remains until replaced. See https://screenrig.ai/docs/sources for mappings.
 - The sender sends `Authorization: Bearer SECRET` (or HTTP Basic with the
   webhook id as user), never the secret in the url. Each post is checked as the
   card's own data (`card_data_invalid` names the path), an identical document is

@@ -205,8 +205,10 @@ under that prefix plus the room's key. Give each room's screen the field:
 {"id":"door","primitive":"card","card":"room","layout":"full","content_fit":"fill","params":{"room":"{screen.field.room}"},"data":"momentus-room-{screen.field.room}"}
 ```
 
-A `crd_` instance placement omits `data`, `params` and `major`: those belong
-to the instance. The source's `--card crd_ID` still names its sync target;
+A `crd_` instance placement omits `params` and `major`: those belong
+to the instance. Its optional `data` selects a concrete key or a
+`{screen.field.NAME}` template; omitting it uses the instance document.
+The source's `--card crd_ID` still names its sync target;
 the keyed playlist placement above names the catalogue type. `area_key_prefix` does
 the same for a hallway display, a `room-board` of the rooms sharing an `area`
 (set on each room, or by `area_field`'s screens). `source rooms src_ID` is the
