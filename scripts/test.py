@@ -395,6 +395,10 @@ process.exitCode=code;
                 ({"status":"disconnected","credential_accepted":False,"local_cleanup_required":True,
                   "next":{"command":"screenrig agent disconnect --yes","reason":"Clean up rejected credential."}}, "reconnect"),
                 ({"status":"connecting","next":{"command":"screenrig agent status","reason":"Continue pending connection."}}, "resume"),
+                ({"status":"connecting","login_id":"login_AAAAAAAAAAAAAAAAAAAAAA",
+                  "next":{"command":"screenrig login --resume login_AAAAAAAAAAAAAAAAAAAAAA",
+                          "argv":["login","--resume","login_AAAAAAAAAAAAAAAAAAAAAA"],
+                          "reason":"After the person approves the sign-in, this stores its tokens."}}, "resume"),
                 ({"status":"unknown"}, "reconnect"),
             ):
                 environment["TEST_AGENT_JSON"] = json.dumps(state)
