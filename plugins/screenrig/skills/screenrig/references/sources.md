@@ -197,15 +197,24 @@ directory), a `room-board` card, or a `room` card for exactly one room.
 
 One source can also keep each screen to its own room. Set `room_key_prefix`
 (for example `momentus-room-`) and the source writes a `room` document per room
-under that prefix plus the room's key. Place a `room` card with the card's
-`data` set to `momentus-room-{screen.field.room}` and give each room's screen
-the field: `screen update SCR --field room=ballroom-a`. `area_key_prefix` does
+under that prefix plus the room's key. Give each room's screen the field:
+`screen update SCR --field room=ballroom-a`. Use the inline catalogue type
+`room` in this playlist primitive:
+
+```json
+{"id":"door","primitive":"card","card":"room","layout":"full","content_fit":"fill","params":{"room":"{screen.field.room}"},"data":"momentus-room-{screen.field.room}"}
+```
+
+A `crd_` instance placement omits `data`, `params` and `major`: those belong
+to the instance. The source's `--card crd_ID` still names its sync target;
+the keyed playlist placement above names the catalogue type. `area_key_prefix` does
 the same for a hallway display, a `room-board` of the rooms sharing an `area`
 (set on each room, or by `area_field`'s screens). `source rooms src_ID` is the
 check: rooms no screen shows, and screens with no room field or a value that
 names no room (it suggests the room it probably meant). Fix with `screen update
-SCR --field room=KEY`. A page whose `visibility.data` key is the same template
-falls back to the next page when the data has expired.
+SCR --field room=KEY`. Set the page's `visibility.data.key` to the same
+template and keep an ordinary page without visibility as the fallback. The
+conditional page falls back when its room's data has expired.
 
 It refreshes every minute (30s floor), so a room change shows within about a
 minute. `stale_after_seconds` defaults to 30 minutes. `source test` shows the
