@@ -20,7 +20,7 @@ var e=`Credits:
   payment_required / 402, including during this window.`,t=`Invitations:
   Email delivery is requested, not proof a message arrived.
   Email invitations expire after seven days; member links after 24 hours.
-  At most 50 invitations may be outstanding per project.
+  At most 50 invitations may be outstanding per organization.
   --link prints one member invitation URL once; deliver it privately to the
   intended person and never store or log it. The link names no recipient,
   so it takes no --email.
