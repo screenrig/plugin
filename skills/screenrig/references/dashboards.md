@@ -1,8 +1,9 @@
 # Live dashboards on screens
 
 A Grafana dashboard or panel, a Power BI report or a Tableau view plays as an
-`iframe` primitive ([Power BI](#power-bi) and [Tableau](#tableau) below). A
-Grafana view: the server draws it
+`iframe` primitive ([Power BI](#power-bi) and [Tableau](#tableau) below), and a
+page behind any other sign-in plays as an image ([signed-in
+pages](#signed-in-pages)). A Grafana view: the server draws it
 as a PNG through Grafana's image renderer on a cadence and shares each render
 among screens of the same size; a screen never talks to Grafana and keeps the
 last image if Grafana fails. A connection's token stays on the server, sealed,
@@ -110,6 +111,14 @@ need `--rotate 10s..1h`, and `--rotate` needs two or more pages. `--refresh` is
 60s to 24h (default 5m), or `0` for a report that updates itself (DirectQuery,
 automatic page refresh). Put `embed_url` in an `iframe` primitive as above.
 
+A Microsoft connection in mode own_app can supply the app instead:
+`bi connection create powerbi --connection-id pcn_ID` replaces `--tenant-id`,
+`--client-id` and `--secret-file`, and the same connection serves the project's
+room calendars and SharePoint sync
+([connections](sources.md#meeting-rooms-microsoft365-google_calendar)). Power BI
+refuses a screenrig_app connection: embedding needs the customer's own app,
+registered without permissions.
+
 A **Publish to web** link, `bi view create --public-url 'https://app.powerbi.com/view?r=KEY'`,
 needs no connection and plays as Power BI serves it, reloaded every `--refresh`,
 without page rotation. Publish to web makes the report public to anyone with the
@@ -183,3 +192,63 @@ or token; Tableau Public draws its own toolbar.
   path from `bi connection browse`, and check that the user can open the view.
 - Neither test judges the domain allowlist or the embed permission: if the screen
   shows `tableau_auth_failed`, check the allowlist and that the secret is enabled.
+
+## Signed-in pages
+
+A page behind any other sign-in (Salesforce, Looker Studio, Datadog, HubSpot)
+plays as an image. A web connection is a service account of the site and a web
+view is one page of it: a server-side browser signs in as that account, opens the
+page and draws it, and each image is shared among screens of the same size, as for
+Grafana. A screen never sees the credentials, and a view draws only while a
+screen's playlist names it. The kind needs the same plan feature as the other
+dashboards.
+
+What the user does: create a **read-only service account** for screenRIG on the
+site (never a person's own login) and save its password to a file; when it uses
+an authenticator app, save the base32 key the site shows during setup (or its
+`otpauth://` address) to a file too.
+
+```sh
+screenrig bi connection create web --login-mode auto --login-url https://app.example.com/login \
+  --username signage@example.com --password-file password.txt --totp-file totp.txt
+screenrig bi connection test bic_ID
+screenrig bi view create --connection-id bic_ID --url https://app.example.com/dashboards/sales \
+  --wait-for '#sales-total' --refresh 5m
+screenrig bi view test biv_ID --output check.png         # open the image before publishing
+```
+
+Put `embed_url` in an `iframe` primitive as above.
+
+- `--login-mode`: `auto` fills the form at `--login-url` with the username, the
+  password and, when a seed is stored, the code. `steps` runs `--steps FILE` for
+  any other login: a JSON array of steps `{action, selector, value, url, ms}`
+  with `action` `goto`, `fill`, `click`, `press`, `wait_for` or `wait_ms`, and
+  values that may read `{{username}}`, `{{password}}` and `{{otp}}` (each needs
+  its secret). `none` does no sign-in: the view shows pages with the cookies it
+  holds.
+- A site that approves sign-ins on a phone (push MFA), checks devices or shows a
+  CAPTCHA cannot be scripted. Sign in once in a browser the user controls, export
+  its cookies for the site to a JSON file (name, value, domain, path, expires,
+  httpOnly, secure, sameSite; at most 100 cookies and 48 KiB) and create the
+  connection with `--login-mode none --cookies-file FILE`, or ask the site's
+  administrator for a service account it exempts from those checks. The
+  connection keeps its cookie jar current from each image; when the site ends the
+  session (`bi_web_session_expired`), cookies alone need a new export.
+- `--wait-for CSS` names an element that exists only when signed in, so a sign-in
+  page times out instead of being drawn; `--wait-ms N` waits N milliseconds
+  first; `--clip CSS` crops the image to one element. A site that keeps its
+  session outside cookies signs in for every image: give its view a long
+  `--refresh`.
+- The password goes only to `--login-url` and the `goto` steps; adding another
+  address to them needs the password in the same command, so a member who cannot
+  read the password cannot point it elsewhere.
+- Protect the account: a refused sign-in waits 5 minutes, then 15, 60 and 120, and
+  the fifth in a row stops the connection until its credentials or sign-in
+  settings change (`bi connection update`). Fix the cause; never retry in a loop.
+- Errors, with the last good image kept on glass: `bi_web_login_failed` (fix the
+  username, password, seed, login URL or steps), `bi_web_otp_required`,
+  `bi_web_session_expired`, `bi_web_login_paused` (waiting out a refusal, stopped,
+  or another capture is signing in), `bi_web_timeout` (set `--wait-for` or
+  `--wait-ms`), `bi_web_navigation_failed`, `bi_web_blocked` (a bot check or
+  CAPTCHA: use a cookie jar) and `bi_upstream_unavailable`. `bi view show ID`
+  reads `status.last_error`.

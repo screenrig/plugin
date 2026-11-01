@@ -3,14 +3,68 @@
 A data source reads an address on a schedule and writes the result to one
 card's dynamic properties, so the card stays current without republishing and
 screens refetch it when it changes. One source writes one card. Use it when the
-data already lives somewhere you can name (a calendar, a Google Sheet, a CSV
-file, a JSON API, room calendars, a venue's booking system, a Square or Shopify till); use `card data put`
-for data you hold, and `kv webhook` for a system that pushes.
+data already lives somewhere you can name (a calendar, a Google Sheet, a CSV,
+JSON or XML address, a Slack channel, social posts, reviews, room calendars, a
+venue's booking system, a Square, Shopify or Toast till); use `card data put`
+for data you hold, and `kv webhook` for a system that pushes ([keep cards
+current](keep-cards-current.md) chooses between them).
 
 Commands go through the launcher (`SKILL.md`, "Install and call the CLI").
 The help for `source create` lists the kinds; settings, status codes and
 privacy rules per kind are at https://screenrig.ai/docs/sources. Changing
 sources needs Manage access; `source list|show` needs Read only.
+
+## Presets
+
+A preset is a tested source for one service: it builds the address, request and
+mapping from a few fields, so you give a card, the fields and a credential.
+`source presets` lists them; `source presets NAME` shows one's fields, the cards
+it fills and how the customer gets its credential. Every preset runs as a `json`
+source with its own refresh and stale period, so the workflow below applies
+unchanged.
+
+| Preset | Fills | Credential |
+| --- | --- | --- |
+| `slack-channel` | `workplace-posts`, `message-wall` | `token`: the bot token of an internal Slack app (`channels:history`, plus `groups:history` for a private channel) that is added to the channel |
+| `bonusly` | `kudos` | `token`: a Bonusly access token with `recognition:read` |
+| `facebook-page` | `social-wall` | `access_token`: a Page access token |
+| `instagram-business` | `social-wall` | `access_token`: the linked Page's access token |
+| `google-reviews` | `reviews` | `api_key`: a Google Cloud key with the Places API (New) |
+| `google-travel-times` | `travel-times` | `api_key`: a key with the Routes API |
+| `greenhouse-jobs`, `lever-jobs`, `ashby-jobs` | `now-hiring` | none: the job board is public |
+| `github-actions` | `build-board` | `token`: a fine-grained token with read-only Actions access to the repository |
+
+```sh
+screenrig source presets slack-channel
+screenrig source test --preset slack-channel --card crd_ID --set channel=C0123456789 --secret token=@slack.token
+screenrig source create --preset slack-channel --card crd_ID --name "Announcements" --set channel=C0123456789 --secret token=@slack.token
+```
+
+`--preset` takes the place of `--kind` and `--settings`. `--set FIELD=VALUE`
+names the preset's fields (a list field such as `destinations` takes JSON; if the
+preview says an all-digit ID is not text, give it as a JSON string, `--set
+'page_id="104512381823456"'`), and `source update ID --set FIELD=VALUE` changes
+one. A card the preset does not fill is `source_target_unsupported`, and its
+detail lists the cards it does; a missing credential is
+`source_secret_required`. Ask the user to save each credential to a file: never
+take it as an argument or print it.
+
+- `slack-channel`: Slack answers 200 with `ok: false` when the app is not in the
+  channel, the token is wrong or a scope is missing, so the source fails
+  `mapping_failed` at `rows_path` and the card keeps its messages. People's own
+  messages show; joins, bot and app posts are left out. Keep the app internal:
+  Slack limits an app distributed outside its Marketplace to one history request
+  a minute.
+- `facebook-page`, `instagram-business`: make the Page token from a long-lived
+  user token (or a system user) so it does not expire; Meta answers an expired
+  token with HTTP 400 (`http_status`).
+- `google-reviews` reads the place every 6 hours and `google-travel-times` every
+  15 minutes (one billed route element per destination per refresh), both on the
+  customer's own Google key: leave the interval alone. The reviews card shows the
+  Google mark and each reviewer's name, as Google requires, and its data leaves
+  the screen after 24 hours without a refresh.
+- The job boards show up to 8 roles and a QR code to the board; `github-actions`
+  shows one repository and branch, the latest run of each workflow.
 
 ## The workflow
 
@@ -45,7 +99,8 @@ lists; at most one option reads stdin. It is stored sealed and every read shows
 only the scheme and host. Never paste an address into a note, a card, a message
 or a playlist. A secret is entered for the address it was entered for: if
 `source update` points a source elsewhere, `source_secret_required` asks for it
-again.
+again. Tokens, passwords and API keys take the same forms (`token`, `password`,
+`client_secret`, `header.NAME`, `query.NAME` or a preset's own names).
 
 ## Reading status
 
@@ -78,6 +133,17 @@ exceptions and time zones are expanded on the server; events marked private or
 confidential show their times only. Free (transparent) events are left out of a
 `study-rooms` card. A `study-rooms` card takes one calendar per room.
 
+`include` and `exclude` (also on `microsoft365`, `google_calendar` and
+`momentus`) filter events by title: each is a list of 1 to 20 keywords of up to
+100 characters, matched as a substring without regard to case or accents (`café`
+matches `CAFE`). An event stays when it matches an `include` keyword (when
+`include` is set) and no `exclude` keyword: `--set 'include=["Board","Council"]'
+--set 'exclude=["Setup"]'`. Only the title is matched, never the location,
+organizer or description, and a private event is matched on its real title but
+still shows the private title (`exclude: ["private"]` removes nothing).
+`source test` counts the events removed in `data.stats.filtered`; when the
+keywords leave none of the window's events, a warning says to check them.
+
 
 ## Sheets, CSV and JSON (`sheets`, `csv`, `json`)
 
@@ -91,10 +157,12 @@ result is accepted, so `source test` is the loop: edit the mapping until
   published to the web, else the status is `not_shared`: ask its owner, never
   sign in for them. `url` is the link they copy; `sheet` names a tab.
 - `csv`: `{url, delimiter?, header_row, key_column?, auth, header_name?, mapping}`.
-  `json`: `{url, auth, header_name?, rows_path?, key_field?, mapping}`.
+  `json`: `{url, auth, header_name?, rows_path?, key_field?, mapping}`. Both also
+  take the request settings below.
 - `auth` is `none`, `bearer` or `header` (with `header_name`, such as
-  `X-API-Key`). The token is `--secret token=@FILE`, sent only to the address's
-  own origin: pointing the source at another site asks for it again.
+  `X-API-Key`), or one of the kinds below. The token is `--secret token=@FILE`,
+  sent only to the address's own origin: pointing the source at another site asks
+  for it again.
 
 Mapping roots. Tables: `rows` (objects by column key), `columns` (`[{key,
 name}]`) and, with `key_column`, `by_key`. JSON: `body` and, with `rows_path`
@@ -124,6 +192,115 @@ and row. `parse_failed` means the address returned a web page or a file that is
 not CSV text or JSON; `not_shared` names the sharing setting to change.
 Warnings count repeated keys and cut rows (10,000 rows, 200 columns) without
 quoting the data.
+
+### HTTP requests
+
+`csv` and `json` sources make the call an API expects, through `--settings` or
+`--set`:
+
+- `method` is `GET`, or `POST` with a `body`: a JSON object or array, or text sent
+  as written (`"body_format": "form"` URL-encodes fields). `graphql: {query,
+  variables}` is a POST too. A body is at most 16 KiB.
+- `headers` holds up to 8 more headers that are not credentials. Credentials are
+  `auth`: `bearer` or `header` (secret `token`), `basic` (`username`, secret
+  `password`), `oauth2` for client credentials (`token_url`, `client_id`,
+  `scope?`, `audience?`, secret `client_secret`) or `token_request`, a login whose
+  answer holds the token (`token_url`, `token_body` reading `{{secrets.NAME}}`,
+  `token_path`). A second credential header, or a key in the address, is a secret
+  named `header.NAME` or `query.NAME` (up to 8 each): `--secret
+  header.X-Api-Key=@FILE`. Secrets go only to the address's origin.
+- Date placeholders `{{now}}`, `{{today}}` and `{{unix}}`, with an offset
+  (`{{now-90m}}`, `{{today+7d}}`), fill the address, `body` and `headers` on every
+  run, in `time_zone` (IANA, else UTC).
+- `pagination` reads more pages: `link_header`, `next_url`, `cursor` or `page`, up
+  to `max_pages` (5, at most 20). A next address must stay on the source's origin.
+- `format` is `auto`, `json`, `csv` or `xml`. An XML answer becomes a tree, and an
+  RSS or Atom feed also gives `body.items` (`title`, `link`, `published`,
+  `summary`, `image`).
+
+`source test` shows `request`, the first call as it went out (method, address
+with query secrets masked, header names, the first 1 KiB of the body), beside the
+document. A POST with a JSON body and an `X-Api-Key` header secret, counting open
+orders on a `kpi` card:
+
+```sh
+screenrig source test --kind json --card crd_ID --settings @orders.json --secret header.X-Api-Key=@orders.key
+```
+
+```json
+{"url": "https://api.example.com/v2/orders/search",
+ "method": "POST",
+ "body": {"status": "open", "since": "{{today-7d}}"},
+ "time_zone": "America/Vancouver",
+ "mapping": {"tiles": [{"label": "Open orders", "value": {"$count": "{{body.orders}}"}}]}}
+```
+
+An API that wants OAuth 2 client credentials, with `--secret
+client_secret=@client.secret`:
+
+```json
+{"url": "https://api.example.com/v1/summary",
+ "auth": "oauth2",
+ "token_url": "https://login.example.com/oauth2/token",
+ "client_id": "signage",
+ "scope": "metrics.read",
+ "mapping": {"tiles": [{"label": "Active users", "value": {"$number": "{{body.active_users}}"}}]}}
+```
+
+The source asks the token address for a token whenever the last one expires and
+never stores it; `"token_auth": "basic"` sends the client id and secret as a
+Basic header instead of in the form.
+
+### Computed values
+
+A mapping also computes numbers and true or false on the server. A page
+condition tests equality only (`visibility.data {key, path, equals}`), so compute
+the comparison and the page follows a number with no Player change:
+
+- `$gt`, `$gte`, `$lt`, `$lte`, `$between`, `$eq`, `$ne`, `$contains` and `$in`
+  give true or false (`{"$lt": ["{{body.stock}}", 5]}`); `$and`, `$or` and `$not`
+  combine them.
+- `$sum`, `$avg`, `$min` and `$max` give one number from an array (`{"$sum":
+  "{{rows}}", "$of": "{{item.amount}}"}`) and `$count` the number of elements,
+  with `$where` to count those a condition holds for. Numbers read as `$number`
+  reads them (`"$decimal": ","` for `3,50`); empty cells are skipped and counted
+  in a warning.
+- A comparison that cannot be made is false with a warning, so missing data never
+  switches a page on.
+- The result must be a property the card has: `cards show TYPE` lists them, and
+  `card_data_invalid` names any other member.
+
+A `badge` that shows only while some product is below its own reorder level
+(`active: false` lowers the card), from a sheet with columns Stock and Reorder at:
+
+```json
+{"text": "LOW STOCK", "tone": "danger",
+ "active": {"$gt": [{"$count": "{{rows}}", "$where": {"$lt": ["{{item.stock}}", "{{item.reorder_at}}"]}}, 0]}}
+```
+
+A page that plays only then takes this `visibility`, with an ordinary page after
+it:
+
+```json
+{"enabled": true, "data": {"key": "crd_ID", "path": "/active", "equals": true}}
+```
+
+A `kpi` tile that totals a sheet column written with decimal commas:
+
+```json
+{"tiles": [{"label": "Sales", "value": {"$sum": "{{rows}}", "$of": "{{item.amount}}", "$decimal": ","}, "unit": "EUR"}]}
+```
+
+Two tips:
+
+- A CSV on OneDrive or SharePoint shared with Anyone with the link: use its share
+  link plus `?download=1` (`&download=1` when the link already has a query) as the
+  `csv` `url`, which returns the raw file. Without it the link answers a web page
+  (`parse_failed`), and the file must be CSV text in UTF-8, not a spreadsheet.
+- Read a value by its row's key, not its position: with `key_column` set to
+  Metric, `{{by_key.Revenue.value}}` stays on the Revenue row after someone sorts
+  the sheet or inserts a row above it, while `{{rows[0].value}}` follows whatever
+  row is first.
 
 
 ## Meeting rooms (`microsoft365`, `google_calendar`)
@@ -158,6 +335,25 @@ GROUP -AccessRight RestrictAccess`, checked with `Test-ApplicationAccessPolicy
 -AppId CLIENT_ID -Identity ROOM`) and, for meeting titles to show,
 `Set-CalendarProcessing -Identity ROOM -DeleteSubject $false
 -AddOrganizerToSubject $false`. Both secrets go in only as `@FILE` or `-`.
+
+A **connection** holds the access once: every room source, a Power BI
+connection ([dashboards](dashboards.md#power-bi)) and a SharePoint sync account
+([media sync](media-sync.md)) reuses it by `connection_id` instead of carrying a
+tenant, client id and secret of its own (`--set connection_id=pcn_ID`; inline
+settings keep working, and the two cannot be mixed). `connection create
+microsoft` or `connection create google` makes one, with `--mode` set to
+screenrig_app or own_app. The simple route is screenrig_app, screenRIG's own
+application, which the customer approves once, so no secret passes through you.
+The answer carries a `consent_url`; give it only to the customer's administrator
+(for Google, a person whose account sees every room calendar), then `connection
+show pcn_ID` reads `pending_consent` until they approve and `ready` after. The
+customer still limits the app to the room mailboxes with the Exchange commands
+above. A Google source on a screenrig_app connection reads what the approving
+account can see and takes no `subject`. Mode own_app keeps the customer's own
+Entra app or service account key. `connection test pcn_ID` signs in and, for
+Microsoft, lists the permissions the token carries; `connection connect pcn_ID`
+makes a new consent link; `connection delete` is refused while a source, BI
+connection or sync account uses it.
 
 Preview with `source test` and read `data.stats`: `rooms`, `events`, one
 `events_KEY` per room (compare with what the customer sees in their calendar)
@@ -226,7 +422,7 @@ means the API user, key or secret is wrong or may not read functions and spaces;
 a 400 means `function_filter` or `space_filter` is not a valid Momentus search.
 
 
-## Menus from a till (`square`, `shopify`)
+## Menus from a till (`square`, `shopify`, `toast`)
 
 Fills a `menu` card or a `price-matrix` card from the business's own catalogue.
 Create the card first (`card create --type menu --file PARAMS.json`; the first
@@ -244,8 +440,17 @@ warns while it still shows `$` over other prices.
   `read_products` only) or `--set client_id=ID --secret client_secret=@FILE` (a
   Dev Dashboard app). `--set 'collections=["hot-drinks","pastries"]'` makes those
   collections the sections, in order; `--set tag=menu` keeps tagged products.
+- `toast`: `--set restaurant=GUID --set client_id=ID --secret
+  client_secret=@FILE` (`--set environment=sandbox` only for credentials Toast
+  issues to integration partners). The restaurant creates read-only API access in
+  Toast Web (Integrations, Toast API access, Manage credentials) with the scopes
+  `menus:read` and `stock:read`, and Toast emails the location's GUID. A menu
+  shows while its own schedule allows, on the restaurant's clock; `--set
+  'menus=["Dinner"]'` names the menus to show, and a board that follows day-parts
+  takes a source per menu. Sold out follows Toast's stock status. The answer
+  carries no currency: set the card's `currency`.
 
-Both take `include_sections` and `exclude_sections` (section names, as lists),
+All three take `include_sections` and `exclude_sections` (section names, as lists),
 `hide_sold_out` (default false: sold-out rows show as sold out) and, for `menu`
 cards, `variations` (`rows`: a row for each size, or `first`). A `price-matrix`
 card shows sizes as up to 6 columns and refuses `variations`. A `menu` card holds
@@ -253,4 +458,5 @@ card shows sizes as up to 6 columns and refuses `variations`. A `menu` card hold
 entry, so read it. Sold out is the till's own mark or availability, not stock
 counts. A catalogue past 30 Square pages or 500 Shopify products fails with
 `too_large`; name collections or sections. A credential belongs to the
-environment or store it was entered for; `source_secret_required` asks again.
+environment, store or restaurant it was entered for; `source_secret_required`
+asks again.
