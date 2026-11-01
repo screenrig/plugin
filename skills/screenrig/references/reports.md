@@ -20,7 +20,7 @@ Reports read aggregates (uptime rollups, alert history, screen state, direct cam
 
 ## Export a project
 
-- `project export DIR` writes `export.json` (every file with size and SHA-256), JSON for screens, folders, tags, schedules, playlists with every revision, campaigns, cards, sources, notifications, webhooks and applications, `media/files` with `media/manifest.json`, CSV under `data/` and `log/events.jsonl`. Secrets are never written. `--no-media` skips media and `--since DAY` starts the CSV data and the event log. Rerunning keeps complete media and continues partial downloads; `data.complete` false means a section failed, so run it again.
+- `project export DIR` writes `export.json` (every file with size and SHA-256), JSON for screens, folders, tags, schedules, playlists with every revision, campaigns, cards, sources, notifications, webhooks and application metadata, `media/files` with `media/manifest.json`, CSV under `data/` and `log/events.jsonl`. Secrets are never written. `--no-media` skips media and `--since DAY` starts the CSV data and the event log. Rerunning keeps complete media and continues partial downloads; `data.complete` false means a section failed: inspect its warning for recovery steps. `export_application_content_omitted` means retain the original application archives alongside this export for release files, including older playlist pins. Rerunning refreshes metadata; `--no-media` also reports this omission.
 
 ## Audit log
 
