@@ -1,0 +1,40 @@
+import { createRequire as screenrigCreateRequire } from "node:module";
+const require = screenrigCreateRequire(import.meta.url);
+
+// dist/sse.js
+function parseSse(buffer) {
+  const events = [];
+  let item = {};
+  let lineStart = 0;
+  let frameStart = 0;
+  for (const ending of buffer.matchAll(/\r\n|\r|\n/g)) {
+    const line = buffer.slice(lineStart, ending.index);
+    lineStart = ending.index + ending[0].length;
+    if (line === "") {
+      if (Object.keys(item).length > 0)
+        events.push(item);
+      item = {};
+      frameStart = lineStart;
+      continue;
+    }
+    if (line.startsWith(":"))
+      continue;
+    const colon = line.indexOf(":");
+    const field = colon < 0 ? line : line.slice(0, colon);
+    let value = colon < 0 ? "" : line.slice(colon + 1);
+    if (value.startsWith(" "))
+      value = value.slice(1);
+    if (field === "id" && !value.includes("\0")) {
+      item.id = value;
+    } else if (field === "event") {
+      item.event = value;
+    } else if (field === "data") {
+      item.data = item.data === void 0 ? value : "".concat(item.data, "\n").concat(value);
+    }
+  }
+  return { events, rest: buffer.slice(frameStart) };
+}
+
+export {
+  parseSse
+};

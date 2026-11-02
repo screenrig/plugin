@@ -54,7 +54,7 @@ ready images or videos), an optional `goal_plays` and targeting (`screen_ids`,
   across the flight and plays first while behind; a campaign without a goal takes
   every slot it fits during its flight.
 - Read `ads direct availability FILE` before booking a goal and show the user the
-  estimate. A goal above it is refused with `goal_overbooked`; set
+  estimate. A goal above it is refused with `goal_overbooked`; add
   `"overbook": true` only on the user's explicit decision.
 - `category` keeps competitors apart: two ads of one category never play in the
   same break. Marketplace campaign drafts take the same `category`.

@@ -48,7 +48,7 @@ value `"{screen.location}"` so each screen reads its own place, as in
 | `drugalerts` (`--country us\|ca\|gb`, `--category drug\|food`) | `drug-alerts` | `country`, `category`: recalls |
 | `respiratory` (`--country us\|gb`, `--region`) | `respiratory-activity` | `country`, `region` (a US state, territory or DC, or England or a UKHSA region) |
 | `almanac` (`--language`, `--country`, `--lat` and `--lon`, `--date`) | `today` | `location` adds sun and moon, `country` holidays; `language`, `date` |
-| `outdoorsafety` (`--lat` and `--lon`) | `outdoor-safety` | `location`: an estimated heat index (WBGT) for open sun; set `show` to `heat` |
+| `outdoorsafety` (`--lat` and `--lon`) | `outdoor-safety` | `location`: an estimated heat index (WBGT) for open sun; give `show` the value `heat` |
 | `departures` (`--provider tfl\|entur\|digitransit`, `--stops IDS`) | `departures` | `provider`, `stops` (the provider's stop ids) |
 | `bikeshare` (`--lat` and `--lon`, `--system ID`) | `bike-share` | `location`, optional `system` (a GBFS system id); a place no listed system covers gets no data |
 

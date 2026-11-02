@@ -248,7 +248,7 @@ Put `embed_url` in an `iframe` primitive as above.
 - Errors, with the last good image kept on glass: `bi_web_login_failed` (fix the
   username, password, seed, login URL or steps), `bi_web_otp_required`,
   `bi_web_session_expired`, `bi_web_login_paused` (waiting out a refusal, stopped,
-  or another capture is signing in), `bi_web_timeout` (set `--wait-for` or
+  or another capture is signing in), `bi_web_timeout` (raise `--wait-for` or
   `--wait-ms`), `bi_web_navigation_failed`, `bi_web_blocked` (a bot check or
   CAPTCHA: use a cookie jar) and `bi_upstream_unavailable`. `bi view show ID`
   reads `status.last_error`.

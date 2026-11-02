@@ -8,49 +8,49 @@ import {
   flagName,
   invocationFlags
 } from "./chunk-DLIFEV74.js";
-import "./chunk-4Z755MLS.js";
+import "./chunk-TWSW7FVJ.js";
 import {
   FEED_REPEATABLE_FLAGS
-} from "./chunk-GOTTCDD7.js";
+} from "./chunk-FQEDLZ4D.js";
 import {
   Command,
   CommanderError,
   Option,
   nonnegativeInteger
-} from "./chunk-2GS36XQY.js";
-import "./chunk-IOMYA5MJ.js";
-import "./chunk-X6HQPTJW.js";
-import "./chunk-WJQH2RJH.js";
-import "./chunk-XWYFVJRX.js";
+} from "./chunk-WZ5YZWGE.js";
+import "./chunk-52RPSLX3.js";
+import "./chunk-LMVLFNSU.js";
+import "./chunk-G4R5Q7OS.js";
+import "./chunk-XAYSKU3G.js";
 import {
   commandExamples,
   commandNotes,
   commandRelationships
-} from "./chunk-BO4OYIKS.js";
+} from "./chunk-HZFJEZMS.js";
 import {
   applyCreditsLowToSuccess,
   handleVersion,
   observedCreditsRemaining
-} from "./chunk-BLRK52WK.js";
+} from "./chunk-NY3QU47I.js";
 import {
   clearResultContext,
   formatResultContext,
   processRuntime,
   resultContext
-} from "./chunk-CLNYG2EL.js";
+} from "./chunk-D5SW5B4X.js";
 import {
   LOG_SINK_DEGRADED_CODE,
   logSinkDegradedWarning
-} from "./chunk-Q663CR2G.js";
+} from "./chunk-WUPXCRZD.js";
 import {
   errorEnvelope,
   successEnvelope
-} from "./chunk-5LZK5ICC.js";
+} from "./chunk-KGGOHJPO.js";
 import {
   CLI_VERSION
-} from "./chunk-3GNVNCBB.js";
-import "./chunk-LM55KPM7.js";
-import "./chunk-XCQJWNID.js";
+} from "./chunk-7VE76AUU.js";
+import "./chunk-AUIOASIH.js";
+import "./chunk-SFYZH3GR.js";
 import {
   CliError,
   ExitCode,
@@ -59,13 +59,13 @@ import {
   renderProblem,
   usageError,
   withDefaultHint
-} from "./chunk-KI2KSDHX.js";
-import "./chunk-CIJQ2GE5.js";
+} from "./chunk-CO45JNNU.js";
+import "./chunk-3FYAGULW.js";
 
 // dist/cli-errors.js
 function commandError(error, command) {
   const path = commandPath(command).join(" ");
-  const has = (flag) => command.args.some((arg) => arg === `--${flag}` || arg.startsWith(`--${flag}=`));
+  const has = (flag) => command.args.some((arg) => arg === "--".concat(flag) || arg.startsWith("--".concat(flag, "=")));
   if (path.startsWith("comment ")) {
     if (command.commands.length)
       throw usageError("comment commands require screen <id> or playlist <id>.");
@@ -80,58 +80,58 @@ function commandError(error, command) {
   }
   switch (error.code) {
     case "commander.invalidArgument": {
-      const option = command.options.find((candidate) => candidate.argChoices && error.message.startsWith(`error: option '${candidate.flags}'`));
+      const option = command.options.find((candidate) => candidate.argChoices && error.message.startsWith("error: option '".concat(candidate.flags, "'")));
       if (option?.argChoices) {
         const choices = option.argChoices;
-        const allowed = choices.length > 2 ? `${choices.slice(0, -1).join(", ")}, or ${choices.at(-1)}` : choices.join(" or ");
-        throw usageError(`${option.long} must be ${allowed}.`);
+        const allowed = choices.length > 2 ? "".concat(choices.slice(0, -1).join(", "), ", or ").concat(choices.at(-1)) : choices.join(" or ");
+        throw usageError("".concat(option.long, " must be ").concat(allowed, "."));
       }
       throw usageError("Invalid argument. See command help for supported values.");
     }
     case "commander.missingArgument":
       if (path === "screen set-timezone")
         throw usageError("screen set-timezone requires <id> --timezone.");
-      throw usageError(`${path} requires ${command.registeredArguments.filter((arg) => arg.required).map((arg) => `<${arg.name()}>`).join(" ")}.`);
+      throw usageError("".concat(path, " requires ").concat(command.registeredArguments.filter((arg) => arg.required).map((arg) => "<".concat(arg.name(), ">")).join(" "), "."));
     case "commander.excessArguments": {
       const word = command.commands.length && !command.registeredArguments.length && /^[a-z][a-z0-9-]{0,39}$/.test(command.args[0] ?? "") ? command.args[0] : void 0;
       if (word)
-        throw usageError(`${path || "screenrig"} has no command ${word}. See command help for supported commands.`, { command: `screenrig${path ? ` ${path}` : ""} --help`, reason: "List supported commands, arguments, and options." });
-      throw usageError(`${path || "screenrig"} does not accept ${command.registeredArguments.length ? "extra" : "positional"} arguments.`);
+        throw usageError("".concat(path || "screenrig", " has no command ").concat(word, ". See command help for supported commands."), { command: "screenrig".concat(path ? " ".concat(path) : "", " --help"), reason: "List supported commands, arguments, and options." });
+      throw usageError("".concat(path || "screenrig", " does not accept ").concat(command.registeredArguments.length ? "extra" : "positional", " arguments."));
     }
     case "commander.conflictingOption": {
       const named = [...error.message.matchAll(/option '([^']+)'/g)].map((match) => command.options.find((option) => option.flags === match[1])?.long).filter((name) => Boolean(name));
       if (named.length === 2)
-        throw usageError(`${named[0]} cannot be used with ${named[1]}. See command help.`);
+        throw usageError("".concat(named[0], " cannot be used with ").concat(named[1], ". See command help."));
       throw usageError("Conflicting options. See command help.");
     }
     case "commander.missingMandatoryOptionValue": {
       if (path === "screen set-timezone")
         throw usageError("screen set-timezone requires <id> --timezone.");
       const required = command.options.filter((option) => option.mandatory && command.getOptionValue(option.attributeName()) === void 0);
-      const positional = command.registeredArguments.filter((arg, index) => arg.required && index >= command.args.length).map((arg) => `<${arg.name()}>`);
+      const positional = command.registeredArguments.filter((arg, index) => arg.required && index >= command.args.length).map((arg) => "<".concat(arg.name(), ">"));
       const fleetTarget = command.registeredArguments.some((arg) => arg.variadic && !arg.required && arg.name() === "id") && command.options.some((option) => option.long === "--tag") && !command.args.length && command.getOptionValue("tag") === void 0 && command.getOptionValue("folder") === void 0;
       if (fleetTarget)
-        throw usageError(`${path} requires <id>, --tag TAG or --folder ID, and ${required.map((option) => option.long).join(" ")}.`);
-      throw usageError(`${path} requires ${[...positional, ...required.map((option) => option.long)].join(" ")}.`);
+        throw usageError("".concat(path, " requires <id>, --tag TAG or --folder ID, and ").concat(required.map((option) => option.long).join(" "), "."));
+      throw usageError("".concat(path, " requires ").concat([...positional, ...required.map((option) => option.long)].join(" "), "."));
     }
     case "commander.optionMissingArgument": {
-      const option = command.options.find((candidate) => error.message.includes(`option '${candidate.flags}'`));
-      throw usageError(option ? `${option.long} requires a value.` : "An option requires a value. See command help for its arguments.");
+      const option = command.options.find((candidate) => error.message.includes("option '".concat(candidate.flags, "'")));
+      throw usageError(option ? "".concat(option.long, " requires a value.") : "An option requires a value. See command help for its arguments.");
     }
     case "commander.unknownOption": {
       const option = safeName(error.message, /unknown option '([^']*)'/, /^--?[A-Za-z][A-Za-z0-9-]{0,39}$/, "=");
       if (option)
-        throw usageError(`${path || "screenrig"} does not accept ${option}. See command help for supported options.`, { command: `screenrig${path ? ` ${path}` : ""} --help`, reason: "List supported commands, arguments, and options." });
+        throw usageError("".concat(path || "screenrig", " does not accept ").concat(option, ". See command help for supported options."), { command: "screenrig".concat(path ? " ".concat(path) : "", " --help"), reason: "List supported commands, arguments, and options." });
       break;
     }
     case "commander.unknownCommand": {
       const name = safeName(error.message, /unknown command '([^']*)'/, /^[a-z][a-z0-9-]{0,39}$/);
       if (name)
-        throw usageError(`${path || "screenrig"} has no command ${name}. See command help for supported commands.`, { command: `screenrig${path ? ` ${path}` : ""} --help`, reason: "List supported commands, arguments, and options." });
+        throw usageError("".concat(path || "screenrig", " has no command ").concat(name, ". See command help for supported commands."), { command: "screenrig".concat(path ? " ".concat(path) : "", " --help"), reason: "List supported commands, arguments, and options." });
       break;
     }
   }
-  throw usageError("Unknown command or unsupported option. See command help for supported arguments.", { command: `screenrig${path ? ` ${path}` : ""} --help`, reason: "List supported commands, arguments, and options." });
+  throw usageError("Unknown command or unsupported option. See command help for supported arguments.", { command: "screenrig".concat(path ? " ".concat(path) : "", " --help"), reason: "List supported commands, arguments, and options." });
 }
 function safeName(message, quoted, shape, cut) {
   const raw = quoted.exec(message)?.[1];
@@ -146,14 +146,14 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-CUMD3W5V.js"),
-  ads: () => import("./ads-ZMKNHGJA.js"),
-  media: () => import("./media-VDNVRWYG.js"),
-  playlists: () => import("./playlists-EP4YC27L.js"),
-  screens: () => import("./screens-R6EY2VRH.js"),
-  monitoring: () => import("./monitoring-H5GH6TIA.js"),
-  integrations: () => import("./integrations-DXWR2RJ2.js"),
-  migrate: () => import("./migrate-QK25DAW5.js")
+  account: () => import("./account-PJWPCVIC.js"),
+  ads: () => import("./ads-NDQ5V72T.js"),
+  media: () => import("./media-SFRVGBST.js"),
+  playlists: () => import("./playlists-5GY5KFQV.js"),
+  screens: () => import("./screens-VRV6FKCS.js"),
+  monitoring: () => import("./monitoring-KFMU2TCH.js"),
+  integrations: () => import("./integrations-YNBKBWTN.js"),
+  migrate: () => import("./migrate-GH6QNLEM.js")
 };
 var TOP_LEVEL_COMMANDS = {
   project: "account",
@@ -246,16 +246,16 @@ function protectOption(command, option, argv, seen) {
     option.argParser((value, previous) => {
       const csvOutput = name === "output" && (command.parent?.name() === "playback" || command.name() === "report" && command.parent?.name() === "direct");
       const dash = value === "-" && (/\bstdin\b/.test(option.description) || csvOutput);
-      if (!value.length && name !== "value-base64" || value.startsWith("-") && !dash && !/^-\d/.test(value) && !argv.includes(`--${name}=${value}`)) {
-        throw usageError(`--${name} requires a value. Use --${name}=VALUE for a value starting with a dash.`);
+      if (!value.length && name !== "value-base64" || value.startsWith("-") && !dash && !/^-\d/.test(value) && !argv.includes("--".concat(name, "=").concat(value))) {
+        throw usageError("--".concat(name, " requires a value. Use --").concat(name, "=VALUE for a value starting with a dash."));
       }
       return parser ? parser(value, previous) : value;
     });
   }
-  command.on(`option:${option.name()}`, () => {
+  command.on("option:".concat(option.name()), () => {
     const repeatable = name === "capability" && command.name() === "create" && command.parent?.name() === "service-client" || name === "tag" && ["fleet-links", "notifications"].includes(command.parent?.name() ?? "") && ["create", "update"].includes(command.name()) || ["any-tag", "all-tags", "severity", "active-hours"].includes(name) && command.parent?.name() === "notifications" && ["create", "update"].includes(command.name()) || name === "window" && command.parent?.name() === "reboot-schedule" && command.name() === "set" || name === "field" && command.parent?.name() === "fleet-links" && ["create", "update"].includes(command.name()) || ["set", "clear"].includes(name) && command.parent?.name() === "playlist" && ["create", "fields"].includes(command.name()) || ["var", "page"].includes(name) && command.parent?.name() === "view" && ["create", "update"].includes(command.name()) || name === "screen-id" && command.parent?.name() === "triggers" && ["create", "update"].includes(command.name()) || ["set", "secret", "unset-secret"].includes(name) && command.parent?.name() === "source" && ["create", "update", "test"].includes(command.name()) || ["screen-id", "tag"].includes(name) && command.parent?.name() === "alerts" && command.name() === "mute" || name === "filter" && command.parent?.name() === "subscriptions" && ["create", "update"].includes(command.name()) || command.parent?.name() === "screen" && (command.name() === "update" && (name === "field" || name === "unset-field") || command.name() === "list" && name === "field") || ["tag", "any-tag", "screen-id", "window", "monthly", "date", "except"].includes(name) && command.parent?.name() === "campaign" && ["create", "update", "preview"].includes(command.name()) || command.parent?.name() === "feeds" && command.name() === "get" && FEED_REPEATABLE_FLAGS.includes(name);
     if (seen.has(flagName(option)) && !repeatable)
-      throw usageError(`--${name} may be supplied only once.`);
+      throw usageError("--".concat(name, " may be supplied only once."));
     seen.add(flagName(option));
   });
 }
@@ -267,7 +267,7 @@ function createCommandTree(argv, execute, registrars) {
   }
   for (const spellings of [["--help", "-h"], ["--version", "-V"]]) {
     if (tokens.filter((arg) => spellings.includes(arg)).length > 1)
-      throw usageError(`${spellings[0]} may be supplied only once.`);
+      throw usageError("".concat(spellings[0], " may be supplied only once."));
   }
   const root = new Command("screenrig").description("Signage and kiosk infrastructure for agents").version(CLI_VERSION, "-V, --version", "Show CLI and protocol versions");
   let selected = root;
@@ -333,7 +333,7 @@ function commandInventory(command) {
   const paths = leafCommandPaths(command);
   if (!paths.length)
     return void 0;
-  return ["All commands:", ...paths.map((path) => `  ${path}`)].join("\n");
+  return ["All commands:", ...paths.map((path) => "  ".concat(path))].join("\n");
 }
 function describeHelp(command, all = false) {
   const helper = command.createHelp();
@@ -357,15 +357,14 @@ function describeHelp(command, all = false) {
   return {
     path,
     kind: command.commands.length ? "group" : "command",
-    usage: [command.helpInformation().trimEnd(), inventory, ...notes, ...examples.length ? [`Examples:
-${examples.map((example) => `  ${example}`).join("\n")}`] : []].filter((part) => part !== void 0).join("\n\n"),
+    usage: [command.helpInformation().trimEnd(), inventory, ...notes, ...examples.length ? ["Examples:\n".concat(examples.map((example) => "  ".concat(example)).join("\n"))] : []].filter((part) => part !== void 0).join("\n\n"),
     synopsis: [helper.commandUsage(command)],
     commands: helper.visibleCommands(command).map((child) => ({
       name: child.name(),
       path: commandPath(child),
       kind: child.commands.length ? "group" : "command",
       summary: child.description(),
-      help: `screenrig ${commandPath(child).join(" ")} --help`
+      help: "screenrig ".concat(commandPath(child).join(" "), " --help")
     })),
     arguments: command.registeredArguments.map((argument) => ({
       name: argument.name(),
@@ -394,7 +393,7 @@ function withUsageHelp(error, command) {
   const help = ["screenrig", ...path, "--help"].join(" ");
   return new CliError({
     ...error.problem,
-    hint: error.problem.hint ?? `Fix the argument or input named in detail and run the command again. ${help} lists the accepted arguments and values, with an example.`,
+    hint: error.problem.hint ?? "Fix the argument or input named in detail and run the command again. ".concat(help, " lists the accepted arguments and values, with an example."),
     next: error.problem.next ?? { command: help, argv: [...path, "--help"], reason: "Lists this command's arguments, accepted values, and a working example." }
   }, error.exitCode, error.warnings);
 }
@@ -411,7 +410,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-Z3W57TSU.js");
+    const { registerGuidance } = await import("./register-guidance-DBVU5QXP.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
@@ -437,9 +436,8 @@ function applyLogSinkToSuccess(result, dropped) {
     return result;
   }
   const warning = warnings[warnings.length - 1];
-  const line = warning ? `warning: ${warning.message}` : "";
-  const human = !result.human || !line || result.human.includes(line) ? result.human : `${result.human}
-${line}`;
+  const line = warning ? "warning: ".concat(warning.message) : "";
+  const human = !result.human || !line || result.human.includes(line) ? result.human : "".concat(result.human, "\n").concat(line);
   return { ...result, envelope: { ...result.envelope, warnings }, human };
 }
 function confirmedWrite(stream, text) {
@@ -473,9 +471,7 @@ async function run(runtime = processRuntime()) {
     if (result.output === "stream") {
       return result.exitCode;
     }
-    const text = json && (result.output !== "help" || explicitJson) ? `${JSON.stringify(result.envelope)}
-` : result.human ? `${result.human}
-` : "";
+    const text = json && (result.output !== "help" || explicitJson) ? "".concat(JSON.stringify(result.envelope), "\n") : result.human ? "".concat(result.human, "\n") : "";
     if (result.afterOutput) {
       try {
         await confirmedWrite(runtime.stdout, text);
@@ -501,17 +497,13 @@ async function run(runtime = processRuntime()) {
     const exitCode = err instanceof CliError ? err.exitCode : ExitCode.Unexpected;
     const warnings = appendLogSinkWarning(err instanceof CliError ? err.warnings : [], runtime.logger?.droppedLines() ?? 0);
     if (json) {
-      runtime.stdout.write(`${JSON.stringify({ ...errorEnvelope(problem, { warnings }), ...resultContext(runtime) ? { context: resultContext(runtime) } : {} })}
-`);
+      runtime.stdout.write("".concat(JSON.stringify({ ...errorEnvelope(problem, { warnings }), ...resultContext(runtime) ? { context: resultContext(runtime) } : {} }), "\n"));
     } else {
       if (formatResultContext(runtime))
-        runtime.stderr.write(`${formatResultContext(runtime)}
-`);
-      runtime.stderr.write(`${renderProblem(problem)}
-`);
+        runtime.stderr.write("".concat(formatResultContext(runtime), "\n"));
+      runtime.stderr.write("".concat(renderProblem(problem), "\n"));
       for (const warning of warnings) {
-        runtime.stderr.write(`warning: ${warning.message}
-`);
+        runtime.stderr.write("warning: ".concat(warning.message, "\n"));
       }
     }
     return exitCode;
@@ -539,8 +531,7 @@ function nodeRuntimeSupported(version) {
 
 // dist/bin.js
 if (!nodeRuntimeSupported(process.versions.node)) {
-  process.stderr.write(`ScreenRig requires ${NODE_RUNTIME_REQUIREMENT}; upgrade the active node runtime, then retry.
-`);
+  process.stderr.write("ScreenRig requires ".concat(NODE_RUNTIME_REQUIREMENT, "; upgrade the active node runtime, then retry.\n"));
   process.exitCode = 69;
 } else {
   process.exitCode = await run();

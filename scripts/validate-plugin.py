@@ -747,6 +747,61 @@ def check_scanner_patterns() -> None:
                               "or download-and-execute by the Claude plugin directory scan; reword")
 
 
+# The same scan reads every text file of the Claude folder, the bundled CLI
+# included, like shell (cli scripts/directory-scan.mjs keeps the CLI bundle
+# clean; this is the plugin's own gate): a ${...} or $NAME expansion naming a
+# credential, a bare set, env, printenv or export starting a command, pass
+# starting a command, whole-environment access, a well-known credential file, or
+# a piped download. One such spot beside a URL holds the plugin for review.
+FOLDER_CREDENTIAL_NAME = re.compile(r"(key|secret|token|bearer|passw|pwd|credential|authorization|cookie|apikey)", re.IGNORECASE)
+FOLDER_COMMAND_START = r"(?:^|[;&|(`{\n]|\$\(|\\n)"
+FOLDER_SCAN_RULES = {
+    "environment dump": re.compile(FOLDER_COMMAND_START + r"\s*[\"']?(?:set|env|printenv|export|declare|typeset|compgen)[\"']?\s*(?=$|[;&|)`}\n]|\\n|-p\b)", re.MULTILINE),
+    "pass password manager": re.compile(FOLDER_COMMAND_START + r"\s*[\"']?pass[\"']?\s+[^\s;&|)]", re.MULTILINE),
+    "whole environment": re.compile(r"process\.env\s*\[|\.\.\.\s*process\.env\b|=\s*process\.env\s*[;,\n)]|:\s*process\.env\s*[,}\n]"
+                                    r"|\(\s*process\.env\s*\)|\bin\s+process\.env\b|os\.environ\b(?!\s*\.get\(\s*[\"'])"),
+    "credential file": re.compile(r"\b(?:op read|op item get|gh auth token|security find-(?:generic|internet)-password|gcloud auth print"
+                                  r"|aws configure get|secret-tool lookup|id_rsa|id_ed25519|\.netrc|\.git-credentials|\.npmrc|\.pypirc)\b"),
+    "download and run": re.compile(r"(?:curl|wget)[^\n|]{0,200}\|\s*(?:sudo\s+)?(?:ba|z|da)?sh\b|\$\(\s*(?:curl|wget)|`\s*(?:curl|wget)|\b(?:iex|Invoke-Expression)\b"),
+}
+
+
+def folder_scan_findings(text: str) -> list[tuple[int, str, str]]:
+    findings = []
+    start = 0
+    while (start := text.find("${", start)) >= 0:
+        depth, end = 0, start + 1
+        while end < len(text):
+            depth += {"{": 1, "}": -1}.get(text[end], 0)
+            if depth == 0:
+                break
+            end += 1
+        inner = text[start + 2:end]
+        if any(FOLDER_CREDENTIAL_NAME.search(name) for name in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", inner)):
+            findings.append((start, "credential expansion", "${" + inner[:60] + "}"))
+        start += 2
+    for match in re.finditer(r"(?<![\w$])\$([A-Za-z_][A-Za-z0-9_]*)", text):
+        if FOLDER_CREDENTIAL_NAME.search(match.group(1)):
+            findings.append((match.start(), "credential expansion", match.group(0)))
+    for label, pattern in FOLDER_SCAN_RULES.items():
+        findings.extend((match.start(), label, match.group(0).strip()[:60]) for match in pattern.finditer(text))
+    return findings
+
+
+def check_claude_folder_scan() -> None:
+    for path in sorted(PLUGIN.rglob("*")):
+        if not path.is_file() or path.suffix.lower() in DIRECTORY_IMAGE_SUFFIXES:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        for offset, label, sample in folder_scan_findings(text):
+            line = text.count("\n", 0, offset) + 1
+            errors.append(f"{path.relative_to(ROOT)}:{line}: {label} ({sample!r}) reads as a credential read to the Claude "
+                          "plugin directory scan; reword the source (cli: scripts/directory-scan.mjs)")
+
+
 def check_taught_surface() -> None:
     documents = sorted((ROOT / "skills").rglob("*.md"))
     inventory = bundled_command_inventory()
@@ -787,6 +842,7 @@ def main() -> int:
     check_no_alternate_surfaces(require_cli_source(args.cli_source))
     check_taught_surface()
     check_scanner_patterns()
+    check_claude_folder_scan()
     if errors:
         print("ScreenRig plugin validation failed:", file=sys.stderr)
         for error in errors:
