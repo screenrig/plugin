@@ -4,6 +4,7 @@
 const fs = require("fs");
 const http = require("http");
 const https = require("https");
+const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 const { URL } = require("url");
@@ -259,6 +260,15 @@ function entryMarketplace(entry, id) {
   return typeof named === "string" ? named : "";
 }
 
+// Codex lists a git marketplace's snapshot as the plugin's path, but runs the
+// copy it caches per version under CODEX_HOME/plugins/cache/MARKETPLACE/NAME/VERSION.
+function codexCacheRoot(entry, id) {
+  const marketplace = entryMarketplace(entry, id);
+  if (!marketplace || typeof entry.version !== "string" || !entry.version) return "";
+  const home = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
+  return path.join(home, "plugins", "cache", marketplace, "screenrig", entry.version);
+}
+
 // A plugin list entry is this plugin when it is named screenrig, from any
 // marketplace, and installed at this root.
 function listedHere(entries, root, name) {
@@ -267,7 +277,9 @@ function listedHere(entries, root, name) {
     const id = entry.pluginId || entry.id || entry.name;
     if (typeof id !== "string" || (id.split("@")[0] !== "screenrig" && entry.name !== "screenrig")) continue;
     const location = entry.installPath || entry.path || (entry.source && entry.source.path);
-    if (typeof location === "string" && sameRoot(location, root) && (name !== "grok" || grokEnabled())) {
+    const here = (typeof location === "string" && sameRoot(location, root)) ||
+      (name === "codex" && sameRoot(codexCacheRoot(entry, id), root));
+    if (here && (name !== "grok" || grokEnabled())) {
       return { host: name, marketplace: entryMarketplace(entry, id), source: "plugin_list" };
     }
   }
