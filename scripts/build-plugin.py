@@ -46,7 +46,7 @@ CLI_FIXED_FILES = ("package.json", CLI_RUNTIME_LOCK, CLI_NOTICES)
 CLI_ENTRY = "dist/bin.js"
 # Plugin manifest metadata; the version comes from .claude-plugin/marketplace.json.
 METADATA: dict[str, Any] = {
-    "description": "Free, agent-driven digital signage. Your AI agent puts images, videos, menu boards and live apps on your TVs and kiosks, keeps every screen current from your docs, sheets and calendar, and checks what each one plays. screenRIG is free. Pay only if you want more.",
+    "description": "Free, agent-driven digital signage. Your AI agent puts images, videos, menu boards and live apps on your TVs and kiosks, keeps every screen current from your docs, sheets and calendar, and checks what each one plays.",
     "author": {
         "name": "screenRIG"
     },

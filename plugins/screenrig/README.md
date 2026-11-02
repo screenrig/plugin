@@ -2,7 +2,7 @@
 
 Free, agent-driven digital signage. Your AI agent does the work: it pulls in
 your docs, sheets and calendar, builds every screen and keeps it current, on
-the screens you already have. screenRIG is free. Pay only if you want more.
+the screens you already have.
 
 A menu board for tonight. A welcome for the lobby. A check-in kiosk that runs
 itself. This plugin gives your agent the official screenRIG skill and the
@@ -58,9 +58,8 @@ Agent: The office TV shows your sales as a ranked table. When a row changes in
        the sheet, the screen updates without republishing.
 ```
 
-- **Free.** screenRIG is free. Pay only if you want more. There is no
-  per-screen fee, downloads are free, and each screen replays what it
-  downloads from its own storage.
+- **Free.** There is no per-screen fee, downloads are free, and each screen
+  replays what it downloads from its own storage.
 - **Runs on cheap sticks and the TVs you already have.** Players for Android
   and Google TV, the Amazon Signage Stick and Fire TV Sticks, Apple TV, macOS,
   Windows, Linux, Raspberry Pi, Samsung Smart Signage, LG webOS Signage and
