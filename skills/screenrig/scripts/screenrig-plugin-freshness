@@ -19,13 +19,14 @@ function nonempty(value) {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : "";
 }
 
-function pluginRootFromEnv(env) {
+// Each plugin-root variable is read by its literal name.
+function pluginRootFromEnv() {
   return (
-    nonempty(env.SCREENRIG_PLUGIN_ROOT) ||
-    nonempty(env.GROK_PLUGIN_ROOT) ||
-    nonempty(env.CODEX_PLUGIN_ROOT) ||
-    nonempty(env.CLAUDE_PLUGIN_ROOT) ||
-    nonempty(env.PLUGIN_ROOT)
+    nonempty(process.env.SCREENRIG_PLUGIN_ROOT) ||
+    nonempty(process.env.GROK_PLUGIN_ROOT) ||
+    nonempty(process.env.CODEX_PLUGIN_ROOT) ||
+    nonempty(process.env.CLAUDE_PLUGIN_ROOT) ||
+    nonempty(process.env.PLUGIN_ROOT)
   );
 }
 
@@ -49,10 +50,9 @@ function readPluginVersion(pluginRoot) {
   return parsed ? versionField(parsed.version) : "";
 }
 
-function versionFromScreenrig(command, env) {
+function versionFromScreenrig(command) {
   const result = spawnSync(command, ["--json", "version"], {
     encoding: "utf8",
-    env,
     timeout: VERSION_TIMEOUT_MS,
     windowsHide: true,
   });
@@ -70,9 +70,9 @@ function versionFromScreenrig(command, env) {
   }
 }
 
-function readCliVersion(pluginRoot, env) {
+function readCliVersion(pluginRoot) {
   const sibling = path.join(__dirname, "screenrig");
-  const fromSibling = fs.existsSync(sibling) ? versionFromScreenrig(sibling, env) : "";
+  const fromSibling = fs.existsSync(sibling) ? versionFromScreenrig(sibling) : "";
   if (fromSibling) {
     return fromSibling;
   }
@@ -295,7 +295,15 @@ function pluginList(name, args) {
   }
 }
 
-const ROOT_VARIABLE_HOSTS = { GROK_PLUGIN_ROOT: "grok", CODEX_PLUGIN_ROOT: "codex", CLAUDE_PLUGIN_ROOT: "claude", PLUGIN_ROOT: "" };
+// The plugin root each host exports, read by literal variable name.
+function hostRoots() {
+  return [
+    { named: "grok", root: process.env.GROK_PLUGIN_ROOT },
+    { named: "codex", root: process.env.CODEX_PLUGIN_ROOT },
+    { named: "claude", root: process.env.CLAUDE_PLUGIN_ROOT },
+    { named: "", root: process.env.PLUGIN_ROOT },
+  ];
+}
 
 function registeredHost(root, host) {
   if (!host && process.env.PLUGIN_ROOT && sameRoot(process.env.PLUGIN_ROOT, root)) return { source: "host_root" };
@@ -316,8 +324,8 @@ function registeredHost(root, host) {
   }
   // Managed hosts can attach a package without exposing a plugin-management CLI.
   if (!available && !host) {
-    for (const [variable, named] of Object.entries(ROOT_VARIABLE_HOSTS)) {
-      if (process.env[variable] && sameRoot(process.env[variable], root)) return { ...(named ? { host: named } : {}), source: "host_root" };
+    for (const { named, root: hostRoot } of hostRoots()) {
+      if (hostRoot && sameRoot(hostRoot, root)) return { ...(named ? { host: named } : {}), source: "host_root" };
     }
   }
   return null;
@@ -385,11 +393,13 @@ async function bootstrap(argv, run) {
   }
   const launcher = path.join(root, "skills", "screenrig", "scripts", "screenrig");
   if (run) {
+    // The child inherits this process's environment; the install source is
+    // added to it by name.
     const source = installSource(registration);
+    if (source) process.env.SCREENRIG_INSTALL_SOURCE = source;
     const result = spawnSync(process.execPath, [path.join(root, "cli", "dist", "bin.js"), ...command,
       ...(config ? ["--config", config] : [])], {
       stdio: "inherit", windowsHide: true,
-      env: { ...process.env, ...(source ? { SCREENRIG_INSTALL_SOURCE: source } : {}) },
     });
     if (result.error) { usageError("The registered plugin's bundled CLI could not start; reinstall the official plugin and retry."); return; }
     if (result.signal) { process.kill(process.pid, result.signal); return; }
@@ -472,15 +482,14 @@ async function main() {
     return;
   }
 
-  const env = process.env;
   // The helper ships at <plugin-root>/skills/screenrig/scripts, so its own path
   // names the plugin it belongs to; an environment root is the fallback for a
   // copy run from elsewhere. A root counts only when it carries the bundled CLI
   // with its stamped version: a source checkout or a loose copy has none.
   const scriptRoot = path.resolve(__dirname, "..", "..", "..");
-  const pluginRoot = [scriptRoot, pluginRootFromEnv(env)].find((root) => root && readPluginVersion(root));
+  const pluginRoot = [scriptRoot, pluginRootFromEnv()].find((root) => root && readPluginVersion(root));
   if (!pluginRoot) {
-    const cliVersion = readCliVersion(pluginRootFromEnv(env) || scriptRoot, env);
+    const cliVersion = readCliVersion(pluginRootFromEnv() || scriptRoot);
     success(
       {
         action: "not_installed",
@@ -502,8 +511,8 @@ async function main() {
   }
 
   const installedPluginVersion = readPluginVersion(pluginRoot);
-  const installedCliVersion = readCliVersion(pluginRoot, env);
-  const publishedUrl = nonempty(env.SCREENRIG_PUBLISHED_MARKETPLACE_URL) || DEFAULT_MARKETPLACE_URL;
+  const installedCliVersion = readCliVersion(pluginRoot);
+  const publishedUrl = nonempty(process.env.SCREENRIG_PUBLISHED_MARKETPLACE_URL) || DEFAULT_MARKETPLACE_URL;
 
   let publishedVersion = "";
   try {

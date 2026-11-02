@@ -8,7 +8,7 @@
       "name": "screenrig",
       "source": {
         "source": "local",
-        "path": "./plugins/screenrig"
+        "path": "./plugins/screenrig-agents"
       },
       "policy": {
         "installation": "AVAILABLE",

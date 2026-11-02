@@ -18,7 +18,7 @@ screenrig screen live stop SCREEN_ID
 `data.viewer_url`: the dashboard page that shows the video. A start on a live
 session renews it. A session ends by itself five minutes after it started at
 the latest; nothing renews it past that, so start again when the person needs
-more. It ends sooner when its lease passes (`--duration`, 30s to 5m, default 5m)
+more. It ends sooner when its lease runs out (`--duration`, 30s to 5m, default 5m)
 or on `stop`; stop it when the person is done.
 
 ## What the answers mean

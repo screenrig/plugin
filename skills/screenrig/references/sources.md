@@ -104,7 +104,7 @@ last document; `source delete src_ID` does the same for good.
 ## Secrets
 
 A calendar address is a credential: anyone holding a private feed address reads
-the calendar. Pass it as `--secret calendar_url.KEY=@FILE` (the file holds the
+the calendar. Give it with `--secret calendar_url.KEY=@FILE` (the file holds the
 address) or `=-` to read stdin, so it stays out of shell history and process
 lists; at most one option reads stdin. It is stored sealed and every read shows
 only the scheme and host. Never paste an address into a note, a card, a message
@@ -354,7 +354,7 @@ tenant, client id and secret of its own (`--set connection_id=pcn_ID`; inline
 settings keep working, and the two cannot be mixed). `connection create
 microsoft` or `connection create google` makes one, with `--mode` set to
 screenrig_app or own_app. The simple route is screenrig_app, screenRIG's own
-application, which the customer approves once, so no secret passes through you.
+application, which the customer approves once, so you never handle a secret.
 The answer carries a `consent_url`; give it only to the customer's administrator
 (for Google, a person whose account sees every room calendar), then `connection
 show pcn_ID` reads `pending_consent` until they approve and `ready` after. The
@@ -501,7 +501,7 @@ screenrig card data put crd_ID --file data.json --ttl 3h
    stop it.
 3. Size `--ttl` to the schedule: longer than the gap between runs, so a late run
    does not blank the card, and short enough that stale data is not worth
-   showing (`3h` for an hourly job, `36h` for a daily one). When it passes with
+   showing (`3h` for an hourly job, `36h` for a daily one). When it elapses with
    no new write the card goes blank on every screen, offline ones included, and
    a page that depends on it through `visibility.data` falls back. Write on every
    run, changed or not: the write renews the expiry.
@@ -552,6 +552,6 @@ microsoft_graph` answers Graph's validation request, but Graph's notifications
 carry no header screenRIG verifies and name a post without its text, so a
 subscription cannot fill a posts card alone. Fill a `workplace-posts` card from
 something that has the text and can set a header (a Power Automate flow on "When
-a new channel message is added" that posts to the webhook with `Authorization:
-Bearer SECRET`), or read the channel with your own Graph access on a schedule and
+a new channel message is added" that posts to the webhook with the webhook's secret
+as a bearer credential), or read the channel with your own Graph access on a schedule and
 `card data put` the posts with `--ttl`.

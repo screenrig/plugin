@@ -9,27 +9,45 @@ distribution, never a substitute for the bundled launcher in an agent workflow.
 
 ## Size
 
-Every marketplace install clones the whole repository and copies
-`plugins/screenrig`, so every file and byte counts. Add no file, dependency,
-asset or binary without a clear need. Before each commit run
-`python3 scripts/validate-plugin.py --budget` (CI runs it too) and put the
-before and after counts in the commit message. The limits live in that script;
-raising them is the operator's decision.
+Every marketplace install clones the whole repository and copies one plugin
+folder, so every file and byte counts. Each folder and the repository have a
+budget. Add no file, dependency, asset or binary without a clear need. Before
+each commit run `python3 scripts/validate-plugin.py --budget` (CI runs it too)
+and put the before and after counts in the commit message. The limits live in
+that script; raising them is the operator's decision.
+
+## Plugin folders
+
+Two generated folders carry the same skills and bundled CLI:
+
+| Folder | Installed by | Reads |
+|---|---|---|
+| `plugins/screenrig` | Claude (`.claude-plugin/marketplace.json`) | `.claude-plugin/plugin.json` with the inline `mcpServers` |
+| `plugins/screenrig-agents` | Codex (`.agents/plugins/marketplace.json`), Grok (`.grok-plugin/marketplace.json`), OpenClaw | `.codex-plugin/plugin.json` and `.mcp.json`, portable `plugin.json` and `mcp.json`, `openclaw.plugin.json`, `assets/logo.png` |
+
+Codex falls back to the Claude index when `.agents/plugins/marketplace.json` is
+absent, and Grok falls back to it when `.grok-plugin/marketplace.json` is
+absent; both indexes exist so neither lands on the Claude folder. The Claude
+plugin directory scans `plugins/screenrig` and holds any image or font a
+command, hook or script can reach, so that folder holds no image or font file
+and no manifest but `.claude-plugin/plugin.json`, which names no icon
+(`validate-plugin.py` fails on either). Codex needs `./`-relative logo paths
+inside its folder, which is why the logo lives in the agents folder.
 
 ## Sources and generation
 
 - Canonical inputs: `skills/`, the root
   marketplace manifests and root public files. Plugin metadata, listing and
-  review cases live in `scripts/build-plugin.py`, which generates
-  `plugins/screenrig/` and the portable manifests. Never edit `plugins/screenrig/`
-  by hand: change inputs and regenerate. Documentation-only change:
+  review cases live in `scripts/build-plugin.py`, which generates both plugin
+  folders and their manifests. Never edit `plugins/` by hand: change inputs and
+  regenerate. Documentation-only change:
   `scripts/build-plugin.py --docs-only` (verify with `--docs-only --check`); it
   preserves the CLI, manifests and provenance.
 - Locally the builder packs sibling `../cli` when present; CI packs
   `https://github.com/screenrig/cli` `main`. `components.lock.json` is provenance
   of the tarball just packed (filename, SHA-256, commit), not a pin to fetch.
-- `release-version-files.json` inventories every version-bearing file; add new
-  ones there when you generate them. Versions are CalVer `YY.MM.SERIAL` (UTC);
+- `release-version-files.json` inventories every version-bearing file in both
+  folders; add new ones there when you generate them. Versions are CalVer `YY.MM.SERIAL` (UTC);
   `main` carries the released version and the workspace release stamps and tags
   it. CI neither versions nor tags; do not hand-edit versions.
 - The launcher preflights Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x) and nothing else, prefers the
@@ -41,11 +59,20 @@ raising them is the operator's decision.
   chunks it loads per command group, its `cli/assets/` files, `package.json`, the
   runtime lock and `THIRD_PARTY_NOTICES`: no source maps, `node_modules`, native
   modules or executables. The only image binary is the listing PNG from
-  `assets/logo.svg`.
+  `assets/logo.svg`, in `plugins/screenrig-agents` only.
 - The Claude plugin directory reads at most 256 KiB of any script or document
   and holds a larger one for review; `validate-plugin.py --budget` fails on one.
   Nothing in the plugin may download and run code (the CLI fetches no renderer
   or other binary).
+- The directory scan reads these as a credential taken from the environment or
+  as download-and-execute: a script that hands over, copies or iterates
+  `process.env` or reads `process.env[name]`, a bearer header example, a
+  credential variable such as `$X_TOKEN`, `curl ... | sh`, `printenv`, and the
+  word "pass" (the pass password manager). Scripts read each variable by
+  literal name (`process.env.CLAUDE_PLUGIN_ROOT`), spawn children without an
+  `env` option and set `process.env.SCREENRIG_INSTALL_SOURCE` before spawning;
+  skills and docs word these without the phrases ("give", "supply", "bearer
+  credential"). `validate-plugin.py` checks the patterns.
 - Do not commit, push, tag or publish unless asked.
 
 ## Skill content

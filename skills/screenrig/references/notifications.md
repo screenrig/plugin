@@ -113,7 +113,7 @@ leave it off. `source show ID` says why (`status.error`, `status.stale`,
 
 This condition is about a card, not a screen. A card whose data you write with an
 expiry (`card data put --ttl`, or `--expires-at`) goes blank on every screen when
-the expiry passes with no write to renew it. `card_data_stale` opens at that
+the expiry arrives with no write to renew it. `card_data_stale` opens at that
 moment, while a screen shows the card, and clears with the next write that lands:
 it is how a stopped schedule is noticed ([keep cards
 current](sources.md#keep-cards-current)).

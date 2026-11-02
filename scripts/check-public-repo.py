@@ -14,6 +14,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLE = ROOT / "plugins" / "screenrig"
+AGENTS_BUNDLE = ROOT / "plugins" / "screenrig-agents"
+# Claude installs BUNDLE; Codex, Grok and OpenClaw install AGENTS_BUNDLE.
+BUNDLES = (BUNDLE, AGENTS_BUNDLE)
 PLUGIN_PLACEHOLDER = "0.1.2"
 CLI_PLACEHOLDER = "0.1.0"
 PRODUCT_VERSION = re.compile(r"^\d{2}\.(?:0[1-9]|1[0-2])\.[1-9]\d*$")
@@ -58,8 +61,8 @@ def load(path: Path, errors: list[str]) -> dict[str, object]:
 
 
 def check_metadata(errors: list[str]) -> None:
-    for platform in ("codex", "claude"):
-        relative = BUNDLE.relative_to(ROOT) / f".{platform}-plugin/plugin.json"
+    for bundle, platform in ((AGENTS_BUNDLE, "codex"), (BUNDLE, "claude")):
+        relative = bundle.relative_to(ROOT) / f".{platform}-plugin/plugin.json"
         manifest = load(ROOT / relative, errors)
         expected = {
             "name": "screenrig",
@@ -72,7 +75,12 @@ def check_metadata(errors: list[str]) -> None:
         if not is_plugin_version(manifest.get("version")):
             errors.append(f"{relative} version must be 0.1.2 or YY.MM.N")
 
-    package_path = BUNDLE / "cli" / "package.json"
+    for bundle in BUNDLES:
+        check_cli_metadata(bundle, errors)
+
+
+def check_cli_metadata(bundle: Path, errors: list[str]) -> None:
+    package_path = bundle / "cli" / "package.json"
     package = load(package_path, errors)
     expected_package = {
         "name": "screenrig",
@@ -101,21 +109,21 @@ def check_metadata(errors: list[str]) -> None:
     for field in ("optionalDependencies", "peerDependencies"):
         if package.get(field):
             errors.append(f"bundled CLI must not require unavailable {field}")
-    runtime_path = BUNDLE / "cli" / "runtime-dependencies.lock.json"
+    runtime_path = bundle / "cli" / "runtime-dependencies.lock.json"
     runtime = load(runtime_path, errors)
     runtime_packages = runtime.get("packages")
     if runtime.get("schema") != "screenrig.cli-runtime-dependencies/v1" or not isinstance(runtime_packages, list) or not runtime_packages:
         errors.append(f"{runtime_path.relative_to(ROOT)} must contain the resolved CLI runtime dependency closure")
         return
     # cli/dist bundles its dependencies; THIRD_PARTY_NOTICES names each one it carries.
-    notices_path = BUNDLE / "cli" / "THIRD_PARTY_NOTICES"
+    notices_path = bundle / "cli" / "THIRD_PARTY_NOTICES"
     try:
         notices = notices_path.read_text(encoding="utf-8")
     except OSError:
         errors.append(f"missing {notices_path.relative_to(ROOT)}")
         return
     noticed = {f"{name}@{version}" for name, version in re.findall(r"^(\S+)@(\d\S*) \(", notices, re.M)}
-    if (BUNDLE / "cli" / "node_modules").exists():
+    if (bundle / "cli" / "node_modules").exists():
         errors.append("bundled CLI must carry its dependencies inside cli/dist, not node_modules")
     bundled_names: set[str] = set()
     for entry in runtime_packages:
@@ -175,13 +183,14 @@ def check_public_tree(errors: list[str]) -> None:
             errors.append("public CI must not use github.run_number for CalVer")
     if (ROOT / "plugins" / "screenrig").is_dir() and not (ROOT / "scripts" / "calver.py").is_file():
         errors.append("missing public root file: scripts/calver.py")
-    for required in (
-        "skills/screenrig/SKILL.md",
-        "skills/screenrig/scripts/screenrig",
-        "cli/dist/bin.js",
-    ):
-        if not (BUNDLE / required).is_file():
-            errors.append(f"missing public bundle file: {(BUNDLE / required).relative_to(ROOT)}")
+    for bundle in BUNDLES:
+        for required in (
+            "skills/screenrig/SKILL.md",
+            "skills/screenrig/scripts/screenrig",
+            "cli/dist/bin.js",
+        ):
+            if not (bundle / required).is_file():
+                errors.append(f"missing public bundle file: {(bundle / required).relative_to(ROOT)}")
 
     prohibited_names = {
         "SPLIT_" + "HANDOFF.md",
@@ -214,9 +223,10 @@ def check_public_tree(errors: list[str]) -> None:
 
     # The bundled CLI is cli/dist/bin.js and the flat dist/*.js chunks it loads,
     # so every relative module it imports sits beside it.
-    dist = sorted(path.relative_to(BUNDLE / "cli" / "dist").as_posix() for path in (BUNDLE / "cli" / "dist").rglob("*") if path.is_file())
-    if "bin.js" not in dist or any("/" in name or not name.endswith(".js") for name in dist):
-        errors.append(f"bundled CLI must be cli/dist/bin.js and flat dist/*.js chunks; found {dist}")
+    for bundle in BUNDLES:
+        dist = sorted(path.relative_to(bundle / "cli" / "dist").as_posix() for path in (bundle / "cli" / "dist").rglob("*") if path.is_file())
+        if "bin.js" not in dist or any("/" in name or not name.endswith(".js") for name in dist):
+            errors.append(f"bundled CLI in {bundle.relative_to(ROOT)} must be cli/dist/bin.js and flat dist/*.js chunks; found {dist}")
 
 
 def check_history(errors: list[str]) -> None:
@@ -264,10 +274,14 @@ def check_history(errors: list[str]) -> None:
 def run_smoke(errors: list[str]) -> None:
     package = load(BUNDLE / "cli" / "package.json", errors)
     cli_version = package.get("version")
-    commands = (
-        ["node", str((BUNDLE / "cli" / "dist" / "bin.js").relative_to(ROOT)), "--json", "version"],
-        [str((BUNDLE / "skills" / "screenrig" / "scripts" / "screenrig").relative_to(ROOT)), "--json", "version"],
-    )
+    commands = [
+        command
+        for bundle in BUNDLES
+        for command in (
+            ["node", str((bundle / "cli" / "dist" / "bin.js").relative_to(ROOT)), "--json", "version"],
+            [str((bundle / "skills" / "screenrig" / "scripts" / "screenrig").relative_to(ROOT)), "--json", "version"],
+        )
+    ]
     for command in commands:
         with tempfile.TemporaryDirectory(prefix="screenrig-public-config-") as temporary:
             result = subprocess.run(

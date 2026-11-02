@@ -28,7 +28,7 @@ enabled, and the link's secret under `fleet_link`:
   "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": "DOWNLOAD_URL",
   "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM": "CHECKSUM",
   "android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED": true,
-  "android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE": { "fleet_link": "FLEET_LINK_SECRET" }
+  "android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE": { "fleet_link": "FLEET_LINK_URL" }
 }
 ```
 

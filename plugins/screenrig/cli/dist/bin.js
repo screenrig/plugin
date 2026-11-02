@@ -1,40 +1,547 @@
 #!/usr/bin/env node
 import { createRequire as screenrigCreateRequire } from "node:module";
 const require = screenrigCreateRequire(import.meta.url);
-import{a as y,b as m,c as b,d as $,e as C}from"./chunk-5KOCHJJQ.js";import"./chunk-CU6K3SBH.js";import{C as _}from"./chunk-YFWHVZCX.js";import"./chunk-VPX3KYLA.js";import{a as j,b as w,d as x,e as P}from"./chunk-SNUTHSD3.js";import{b as B,d as J,f as R}from"./chunk-L7A6KX7Y.js";import{Ac as W,Cb as V,Db as z,hb as E,ib as O,ic as M,jb as k,jc as G,uc as H,ud as F,xb as T,yb as U}from"./chunk-PJASTSEN.js";import{A as D,B as l,d as h,i as L,l as f,m as I,s as N}from"./chunk-CYIOGFGF.js";function K(e,n){let r=m(n).join(" "),s=t=>n.args.some(o=>o===`--${t}`||o.startsWith(`--${t}=`));if(r.startsWith("comment ")){if(n.commands.length)throw l("comment commands require screen <id> or playlist <id>.");if(s("expect-rev"))throw l("comment commands do not take --expect-rev; last write wins and does not bump revision.");if(s("page")&&n.name()==="screen")throw l("comment screen commands do not take --page; use comment playlist <id> --page PAGE_ID.");if(s("value-base64"))throw l("comment se\
-t requires --json-value or --file.");if(e.code==="commander.conflictingOption")throw l("comment set requires exactly one of --json-value or --file.")}switch(e.code){case"commander.invalidArgument":{let t=n.options.find(o=>o.argChoices&&e.message.startsWith(`error: option '${o.flags}'`));if(t?.argChoices){let o=t.argChoices,a=o.length>2?`${o.slice(0,-1).join(", ")}, or ${o.at(-1)}`:o.join(" or ");throw l(`${t.long} must be ${a}.`)}throw l("Invalid argument. See command help for supported values.")}case"\
-commander.missingArgument":throw r==="screen set-timezone"?l("screen set-timezone requires <id> --timezone."):l(`${r} requires ${n.registeredArguments.filter(t=>t.required).map(t=>`<${t.name()}>`).join(" ")}.`);case"commander.excessArguments":{let t=n.commands.length&&!n.registeredArguments.length&&/^[a-z][a-z0-9-]{0,39}$/.test(n.args[0]??"")?n.args[0]:void 0;throw t?l(`${r||"screenrig"} has no command ${t}. See command help for supported commands.`,{command:`screenrig${r?` ${r}`:""} --help`,reason:"\
-List supported commands, arguments, and options."}):l(`${r||"screenrig"} does not accept ${n.registeredArguments.length?"extra":"positional"} arguments.`)}case"commander.conflictingOption":{let t=[...e.message.matchAll(/option '([^']+)'/g)].map(o=>n.options.find(a=>a.flags===o[1])?.long).filter(o=>!!o);throw t.length===2?l(`${t[0]} cannot be used with ${t[1]}. See command help.`):l("Conflicting options. See command help.")}case"commander.missingMandatoryOptionValue":{if(r==="screen set-timezone")
-throw l("screen set-timezone requires <id> --timezone.");let t=n.options.filter(c=>c.mandatory&&n.getOptionValue(c.attributeName())===void 0),o=n.registeredArguments.filter((c,u)=>c.required&&u>=n.args.length).map(c=>`<${c.name()}>`);throw n.registeredArguments.some(c=>c.variadic&&!c.required&&c.name()==="id")&&n.options.some(c=>c.long==="--tag")&&!n.args.length&&n.getOptionValue("tag")===void 0&&n.getOptionValue("folder")===void 0?l(`${r} requires <id>, --tag TAG or --folder ID, and ${t.map(c=>c.
-long).join(" ")}.`):l(`${r} requires ${[...o,...t.map(c=>c.long)].join(" ")}.`)}case"commander.optionMissingArgument":{let t=n.options.find(o=>e.message.includes(`option '${o.flags}'`));throw l(t?`${t.long} requires a value.`:"An option requires a value. See command help for its arguments.")}case"commander.unknownOption":{let t=Z(e.message,/unknown option '([^']*)'/,/^--?[A-Za-z][A-Za-z0-9-]{0,39}$/,"=");if(t)throw l(`${r||"screenrig"} does not accept ${t}. See command help for supported options\
-.`,{command:`screenrig${r?` ${r}`:""} --help`,reason:"List supported commands, arguments, and options."});break}case"commander.unknownCommand":{let t=Z(e.message,/unknown command '([^']*)'/,/^[a-z][a-z0-9-]{0,39}$/);if(t)throw l(`${r||"screenrig"} has no command ${t}. See command help for supported commands.`,{command:`screenrig${r?` ${r}`:""} --help`,reason:"List supported commands, arguments, and options."});break}}throw l("Unknown command or unsupported option. See command help for supported \
-arguments.",{command:`screenrig${r?` ${r}`:""} --help`,reason:"List supported commands, arguments, and options."})}function Z(e,n,r,s){let t=n.exec(e)?.[1],o=t!==void 0&&s?t.split(s)[0]:t;return o!==void 0&&r.test(o)?o:void 0}function q(e){e.addOption(new x("--json","Return JSON (default; also enables structured help)").conflicts("human")).addOption(new x("--human","Return human-readable output").conflicts("json")).option("--api-url <URL>","Override the API origin").option("--config <PATH>","Use this credential/configuration file").option("--project-id <ID>","Select a project for creates, local names and lists without changing the saved selection").option("--request-id <ID>","Send ID (req_ + 16-64 of A-Z a-z 0-9 _ -)\
- on the first request only").option("--idempotency-key <KEY>","Reuse a key when retrying the same write").option("--timeout <MS>","Set the command timeout in milliseconds",P("timeout"))}var S={account:()=>import("./account-OR4A2PMR.js"),ads:()=>import("./ads-YVWH5WPK.js"),media:()=>import("./media-TRLTI7B4.js"),playlists:()=>import("./playlists-74D23J7J.js"),screens:()=>import("./screens-JFWLZNYD.js"),monitoring:()=>import("./monitoring-Y64GOE2R.js"),integrations:()=>import("./integrations-R4LCD5UT.js"),migrate:()=>import("./migrate-M4RQMVN4.js")},Q={project:"account",organization:"account",invitations:"account",ads:"ads",billing:"account",login:"acc\
-ount",logout:"account",agent:"account","service-client":"account",dashboard:"account",app:"media",media:"media",playlist:"playlists",screen:"screens",campaign:"ads",reviews:"playlists",browser:"media","fleet-links":"screens",triggers:"monitoring",kv:"media",cards:"playlists",card:"playlists",feeds:"playlists",source:"media",connection:"integrations",comment:"playlists",operations:"monitoring",events:"monitoring",notes:"account",playback:"monitoring",webhooks:"integrations",notifications:"integra\
-tions",alerts:"monitoring",reports:"integrations",bi:"integrations",audit:"integrations",feedback:"account",support:"account",doctor:"account",version:"account",status:"account",recovery:"account",migrate:"migrate",schedule:"playlists"};function ce(){let e=new w;return q(e),new Set(e.options.filter(n=>n.required||n.optional).map(n=>n.long))}function le(e){let n=e.indexOf("--"),r=n<0?e:e.slice(0,n),s=ce();for(let t=0;t<r.length;t+=1){let o=r[t];if(s.has(o)){t+=1;continue}if(o.startsWith("-"))continue;
-let a=Q[o];return a?[a]:Object.keys(S)}return Object.keys(S)}async function Y(e){return Promise.all(le(e).map(async n=>(await S[n]()).register))}function X(e,n,r){q(e);for(let t of r)t(e,n);let s=Object.keys(Q);e.commands.sort((t,o)=>s.indexOf(t.name())-s.indexOf(o.name()))}function pe(e){let n=[...m(e),...e.args];return{command:n.slice(0,2),positionals:n,flags:C(e)}}function de(e,n,r,s){let t=n.long.slice(2);if(n.required||n.optional){let o=n.parseArg;n.argParser((a,c)=>{let u=t==="output"&&(e.parent?.name()==="playback"||e.name()==="report"&&e.parent?.name()==="direct"),i=a==="-"&&(/\bstdin\b/.test(n.description)||u);if(!a.length&&t!=="value-base64"||a.startsWith("-")&&!i&&!/^-\d/.test(a)&&!r.includes(`--${t}=${a}`))throw l(`--${t} requires a value. Use --${t}=VA\
-LUE for a value starting with a dash.`);return o?o(a,c):a})}e.on(`option:${n.name()}`,()=>{let o=t==="capability"&&e.name()==="create"&&e.parent?.name()==="service-client"||t==="tag"&&["fleet-links","notifications"].includes(e.parent?.name()??"")&&["create","update"].includes(e.name())||["any-tag","all-tags","severity","active-hours"].includes(t)&&e.parent?.name()==="notifications"&&["create","update"].includes(e.name())||t==="window"&&e.parent?.name()==="reboot-schedule"&&e.name()==="set"||t===
-"field"&&e.parent?.name()==="fleet-links"&&["create","update"].includes(e.name())||["set","clear"].includes(t)&&e.parent?.name()==="playlist"&&["create","fields"].includes(e.name())||["var","page"].includes(t)&&e.parent?.name()==="view"&&["create","update"].includes(e.name())||t==="screen-id"&&e.parent?.name()==="triggers"&&["create","update"].includes(e.name())||["set","secret","unset-secret"].includes(t)&&e.parent?.name()==="source"&&["create","update","test"].includes(e.name())||["screen-id",
-"tag"].includes(t)&&e.parent?.name()==="alerts"&&e.name()==="mute"||t==="filter"&&e.parent?.name()==="subscriptions"&&["create","update"].includes(e.name())||e.parent?.name()==="screen"&&(e.name()==="update"&&(t==="field"||t==="unset-field")||e.name()==="list"&&t==="field")||["tag","any-tag","screen-id","window","monthly","date","except"].includes(t)&&e.parent?.name()==="campaign"&&["create","update","preview"].includes(e.name())||e.parent?.name()==="feeds"&&e.name()==="get"&&_.includes(t);if(s.
-has(y(n))&&!o)throw l(`--${t} may be supplied only once.`);s.add(y(n))})}function ee(e,n,r){let s=e.indexOf("--"),t=s<0?e:e.slice(0,s);if(t.includes("--json")&&t.includes("--human"))throw l("--json and --human are mutually exclusive.");for(let p of[["--help","-h"],["--version","-V"]])if(t.filter(d=>p.includes(d)).length>1)throw l(`${p[0]} may be supplied only once.`);let o=new w("screenrig").description("Signage and kiosk infrastructure for agents").version(H,"-V, --version","Show CLI and protoc\
-ol versions"),a=o,c=!1,u=!1,i=!1,v=new Set;X(o,p=>(...d)=>(a=d[d.length-1],n?.(p,pe(a))),r),o.command("help [command...]").description("Discover commands; --all lists every command").option("--all","Include all descendant command paths").action((p,d)=>{i=d.all===!0;let A=b(o,p);if(!A)throw l("Unknown help topic.");A.help()});let g=p=>{p.allowExcessArguments(!1).addHelpCommand(!1).showSuggestionAfterError(!1).configureOutput({writeOut(){},writeErr(){},outputError(){}}).configureHelp({helpWidth:100,
-showGlobalOptions:!0}).exitOverride(d=>{throw a=p,d.code==="commander.helpDisplayed"||d.code==="commander.help"?c=!0:d.code==="commander.version"?u=!0:K(d,p),d});for(let d of p.options)d.long!=="--version"&&de(p,d,t,v);p.commands.length&&p.action(()=>p.help()),p.commands.forEach(g)};return g(o),{root:o,selected:()=>a,helpRequested:()=>c,versionRequested:()=>u,inventoryRequested:()=>i}}function te(e){let n=[],r=t=>t.createHelp().visibleCommands(t),s=t=>{if(r(t).length){r(t).forEach(s);return}let o=m(t);o.length&&n.push(o.join(" "))};return r(e).forEach(s),n}function ue(e){let n=te(e);if(n.length)return["All commands:",...n.map(r=>`  ${r}`)].join(`
-`)}function ne(e,n=!1){let r=e.createHelp(),s=m(e),t=B(e),o=n?ue(e):void 0,a=R(e),c=[...r.visibleOptions(e),...r.visibleGlobalOptions(e)],u=i=>({name:i.long,type:i.negate||i.isBoolean()?"boolean":"value",description:i.description,required:i.mandatory,valueRequired:i.required,variadic:i.variadic,...i.argChoices?{choices:i.argChoices}:{},...i.defaultValue!==void 0?{default:i.defaultValue}:{},conflicts:(i.conflictsWith??[]).flatMap(v=>c.filter(g=>g.attributeName()===v).map(g=>g.long))});return{path:s,
-kind:e.commands.length?"group":"command",usage:[e.helpInformation().trimEnd(),o,...t,...a.length?[`Examples:
-${a.map(i=>`  ${i}`).join(`
-`)}`]:[]].filter(i=>i!==void 0).join(`
+import {
+  commandFromArgv,
+  commandPath,
+  findCommand,
+  flagName,
+  invocationFlags
+} from "./chunk-DLIFEV74.js";
+import "./chunk-4Z755MLS.js";
+import {
+  FEED_REPEATABLE_FLAGS
+} from "./chunk-GOTTCDD7.js";
+import {
+  Command,
+  CommanderError,
+  Option,
+  nonnegativeInteger
+} from "./chunk-2GS36XQY.js";
+import "./chunk-IOMYA5MJ.js";
+import "./chunk-X6HQPTJW.js";
+import "./chunk-WJQH2RJH.js";
+import "./chunk-XWYFVJRX.js";
+import {
+  commandExamples,
+  commandNotes,
+  commandRelationships
+} from "./chunk-BO4OYIKS.js";
+import {
+  applyCreditsLowToSuccess,
+  handleVersion,
+  observedCreditsRemaining
+} from "./chunk-BLRK52WK.js";
+import {
+  clearResultContext,
+  formatResultContext,
+  processRuntime,
+  resultContext
+} from "./chunk-CLNYG2EL.js";
+import {
+  LOG_SINK_DEGRADED_CODE,
+  logSinkDegradedWarning
+} from "./chunk-Q663CR2G.js";
+import {
+  errorEnvelope,
+  successEnvelope
+} from "./chunk-5LZK5ICC.js";
+import {
+  CLI_VERSION
+} from "./chunk-3GNVNCBB.js";
+import "./chunk-LM55KPM7.js";
+import "./chunk-XCQJWNID.js";
+import {
+  CliError,
+  ExitCode,
+  makeProblem,
+  redactText,
+  renderProblem,
+  usageError,
+  withDefaultHint
+} from "./chunk-KI2KSDHX.js";
+import "./chunk-CIJQ2GE5.js";
 
-`),synopsis:[r.commandUsage(e)],commands:r.visibleCommands(e).map(i=>({name:i.name(),path:m(i),kind:i.commands.length?"group":"command",summary:i.description(),help:`screenrig ${m(i).join(" ")} --help`})),arguments:e.registeredArguments.map(i=>({name:i.name(),description:i.description,required:i.required,variadic:i.variadic,...i.argChoices?{choices:i.argChoices}:{},...i.defaultValue!==void 0?{default:i.defaultValue}:{}})),relationships:J(e),examples:R(e),...n?{allCommands:te(e)}:{},options:r.visibleOptions(
-e).map(u),globalOptions:r.visibleGlobalOptions(e).map(u),notes:t}}function me(e,n){if(!(e instanceof f)||e.problem.code!=="usage_error"||e.problem.hint&&e.problem.next)return e;let r=m(n),s=["screenrig",...r,"--help"].join(" ");return new f({...e.problem,hint:e.problem.hint??`Fix the argument or input named in detail and run the command again. ${s} lists the accepted arguments and values, with an example.`,next:e.problem.next??{command:s,argv:[...r,"--help"],reason:"Lists this command's arguments, accepted values, and a working example."}},e.exitCode,e.warnings)}
-async function oe(e,n){let r,s=ee(e,async(t,o)=>{r=await t(o,n)},await Y(e));try{await s.root.parseAsync(e,{from:"user"})}catch(t){if(!(t instanceof j)||!(s.helpRequested()||s.versionRequested()))throw me(t,s.selected()!==s.root?s.selected():$(s.root,e))}if(s.helpRequested()){let{registerGuidance:t}=await import("./register-guidance-KDY4N4AI.js");t(s.root);let o=ne(s.selected(),s.inventoryRequested());return{envelope:M(o),exitCode:h.Success,human:o.usage,output:"help"}}if(s.versionRequested())return F(
-{command:["version"],positionals:["version"],flags:{}},n);if(!r)throw new Error("Command completed without a result.");return r}function re(e,n){let r=z(n);return!r||e.some(s=>s.code===V)?e:[...e,r]}function fe(e,n){let r=re(e.envelope.warnings,n);if(r===e.envelope.warnings)return e;let s=r[r.length-1],t=s?`warning: ${s.message}`:"",o=!e.human||!t||e.human.includes(t)?e.human:`${e.human}
-${t}`;return{...e,envelope:{...e.envelope,warnings:r},human:o}}function ge(e,n){return new Promise((r,s)=>{let t=o=>s(o);e.once("error",t);try{e.write(n,o=>{e.removeListener("error",t),o?s(o):r()})}catch(o){e.removeListener("error",t),s(o)}})}async function se(e=W()){O(e);let n=e.argv.indexOf("--"),r=n<0?e.argv:e.argv.slice(0,n),s=r.includes("--json"),t=s||!r.includes("--human");try{let o=U(await oe(e.argv,e),T(e));e.logger?.endRun();let a=fe(o,e.logger?.droppedLines()??0);if(a.output==="stream")
-return a.exitCode;let c=t&&(a.output!=="help"||s)?`${JSON.stringify(a.envelope)}
-`:a.human?`${a.human}
-`:"";if(a.afterOutput){try{await ge(e.stdout,c)}catch{try{e.stderr.write(`error: the answer could not be written to stdout. The saved write key is kept; rerun the identical command within 24 hours to receive the same answer again.
-`)}catch{}return h.Unexpected}try{await a.afterOutput()}catch{}return a.exitCode}return c&&e.stdout.write(c),a.exitCode}catch(o){e.logger?.endRun(o);let a=D(o instanceof f?o.problem:I("unexpected_error","Unexpected error",500,L(o instanceof Error?o.message:"unknown error"))),c=o instanceof f?o.exitCode:h.Unexpected,u=re(o instanceof f?o.warnings:[],e.logger?.droppedLines()??0);if(t)e.stdout.write(`${JSON.stringify({...G(a,{warnings:u}),...E(e)?{context:E(e)}:{}})}
-`);else{k(e)&&e.stderr.write(`${k(e)}
-`),e.stderr.write(`${N(a)}
-`);for(let i of u)e.stderr.write(`warning: ${i.message}
-`)}return c}finally{O(e);let o=e.logger;if(o)try{await o.close()}catch{}}}var ie="Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x)";function ae(e){if(!/^\d+\.\d+\.\d+$/.test(e))return!1;let[n=0,r=0,s=0]=e.split(".").map(Number),t={22:[23,4],24:[22,1],26:[12,1]}[n];return n>26||!!t&&(r>t[0]||r===t[0]&&s>=t[1])}ae(process.versions.node)?process.exitCode=await se():(process.stderr.write(`ScreenRig requires ${ie}; upgrade the active node runtime, then retry.
-`),process.exitCode=69);
+// dist/cli-errors.js
+function commandError(error, command) {
+  const path = commandPath(command).join(" ");
+  const has = (flag) => command.args.some((arg) => arg === `--${flag}` || arg.startsWith(`--${flag}=`));
+  if (path.startsWith("comment ")) {
+    if (command.commands.length)
+      throw usageError("comment commands require screen <id> or playlist <id>.");
+    if (has("expect-rev"))
+      throw usageError("comment commands do not take --expect-rev; last write wins and does not bump revision.");
+    if (has("page") && command.name() === "screen")
+      throw usageError("comment screen commands do not take --page; use comment playlist <id> --page PAGE_ID.");
+    if (has("value-base64"))
+      throw usageError("comment set requires --json-value or --file.");
+    if (error.code === "commander.conflictingOption")
+      throw usageError("comment set requires exactly one of --json-value or --file.");
+  }
+  switch (error.code) {
+    case "commander.invalidArgument": {
+      const option = command.options.find((candidate) => candidate.argChoices && error.message.startsWith(`error: option '${candidate.flags}'`));
+      if (option?.argChoices) {
+        const choices = option.argChoices;
+        const allowed = choices.length > 2 ? `${choices.slice(0, -1).join(", ")}, or ${choices.at(-1)}` : choices.join(" or ");
+        throw usageError(`${option.long} must be ${allowed}.`);
+      }
+      throw usageError("Invalid argument. See command help for supported values.");
+    }
+    case "commander.missingArgument":
+      if (path === "screen set-timezone")
+        throw usageError("screen set-timezone requires <id> --timezone.");
+      throw usageError(`${path} requires ${command.registeredArguments.filter((arg) => arg.required).map((arg) => `<${arg.name()}>`).join(" ")}.`);
+    case "commander.excessArguments": {
+      const word = command.commands.length && !command.registeredArguments.length && /^[a-z][a-z0-9-]{0,39}$/.test(command.args[0] ?? "") ? command.args[0] : void 0;
+      if (word)
+        throw usageError(`${path || "screenrig"} has no command ${word}. See command help for supported commands.`, { command: `screenrig${path ? ` ${path}` : ""} --help`, reason: "List supported commands, arguments, and options." });
+      throw usageError(`${path || "screenrig"} does not accept ${command.registeredArguments.length ? "extra" : "positional"} arguments.`);
+    }
+    case "commander.conflictingOption": {
+      const named = [...error.message.matchAll(/option '([^']+)'/g)].map((match) => command.options.find((option) => option.flags === match[1])?.long).filter((name) => Boolean(name));
+      if (named.length === 2)
+        throw usageError(`${named[0]} cannot be used with ${named[1]}. See command help.`);
+      throw usageError("Conflicting options. See command help.");
+    }
+    case "commander.missingMandatoryOptionValue": {
+      if (path === "screen set-timezone")
+        throw usageError("screen set-timezone requires <id> --timezone.");
+      const required = command.options.filter((option) => option.mandatory && command.getOptionValue(option.attributeName()) === void 0);
+      const positional = command.registeredArguments.filter((arg, index) => arg.required && index >= command.args.length).map((arg) => `<${arg.name()}>`);
+      const fleetTarget = command.registeredArguments.some((arg) => arg.variadic && !arg.required && arg.name() === "id") && command.options.some((option) => option.long === "--tag") && !command.args.length && command.getOptionValue("tag") === void 0 && command.getOptionValue("folder") === void 0;
+      if (fleetTarget)
+        throw usageError(`${path} requires <id>, --tag TAG or --folder ID, and ${required.map((option) => option.long).join(" ")}.`);
+      throw usageError(`${path} requires ${[...positional, ...required.map((option) => option.long)].join(" ")}.`);
+    }
+    case "commander.optionMissingArgument": {
+      const option = command.options.find((candidate) => error.message.includes(`option '${candidate.flags}'`));
+      throw usageError(option ? `${option.long} requires a value.` : "An option requires a value. See command help for its arguments.");
+    }
+    case "commander.unknownOption": {
+      const option = safeName(error.message, /unknown option '([^']*)'/, /^--?[A-Za-z][A-Za-z0-9-]{0,39}$/, "=");
+      if (option)
+        throw usageError(`${path || "screenrig"} does not accept ${option}. See command help for supported options.`, { command: `screenrig${path ? ` ${path}` : ""} --help`, reason: "List supported commands, arguments, and options." });
+      break;
+    }
+    case "commander.unknownCommand": {
+      const name = safeName(error.message, /unknown command '([^']*)'/, /^[a-z][a-z0-9-]{0,39}$/);
+      if (name)
+        throw usageError(`${path || "screenrig"} has no command ${name}. See command help for supported commands.`, { command: `screenrig${path ? ` ${path}` : ""} --help`, reason: "List supported commands, arguments, and options." });
+      break;
+    }
+  }
+  throw usageError("Unknown command or unsupported option. See command help for supported arguments.", { command: `screenrig${path ? ` ${path}` : ""} --help`, reason: "List supported commands, arguments, and options." });
+}
+function safeName(message, quoted, shape, cut) {
+  const raw = quoted.exec(message)?.[1];
+  const name = raw !== void 0 && cut ? raw.split(cut)[0] : raw;
+  return name !== void 0 && shape.test(name) ? name : void 0;
+}
+
+// dist/cli-commands/globals.js
+function registerGlobalOptions(root) {
+  root.addOption(new Option("--json", "Return JSON (default; also enables structured help)").conflicts("human")).addOption(new Option("--human", "Return human-readable output").conflicts("json")).option("--api-url <URL>", "Override the API origin").option("--config <PATH>", "Use this credential/configuration file").option("--project-id <ID>", "Select a project for creates, local names and lists without changing the saved selection").option("--request-id <ID>", "Send ID (req_ + 16-64 of A-Z a-z 0-9 _ -) on the first request only").option("--idempotency-key <KEY>", "Reuse a key when retrying the same write").option("--timeout <MS>", "Set the command timeout in milliseconds", nonnegativeInteger("timeout"));
+}
+
+// dist/cli-commands/index.js
+var COMMAND_BUNDLES = {
+  account: () => import("./account-CUMD3W5V.js"),
+  ads: () => import("./ads-ZMKNHGJA.js"),
+  media: () => import("./media-VDNVRWYG.js"),
+  playlists: () => import("./playlists-EP4YC27L.js"),
+  screens: () => import("./screens-R6EY2VRH.js"),
+  monitoring: () => import("./monitoring-H5GH6TIA.js"),
+  integrations: () => import("./integrations-DXWR2RJ2.js"),
+  migrate: () => import("./migrate-QK25DAW5.js")
+};
+var TOP_LEVEL_COMMANDS = {
+  project: "account",
+  organization: "account",
+  invitations: "account",
+  ads: "ads",
+  billing: "account",
+  login: "account",
+  logout: "account",
+  agent: "account",
+  "service-client": "account",
+  dashboard: "account",
+  app: "media",
+  media: "media",
+  playlist: "playlists",
+  screen: "screens",
+  campaign: "ads",
+  reviews: "playlists",
+  browser: "media",
+  "fleet-links": "screens",
+  triggers: "monitoring",
+  kv: "media",
+  cards: "playlists",
+  card: "playlists",
+  feeds: "playlists",
+  source: "media",
+  connection: "integrations",
+  comment: "playlists",
+  operations: "monitoring",
+  events: "monitoring",
+  notes: "account",
+  playback: "monitoring",
+  webhooks: "integrations",
+  notifications: "integrations",
+  alerts: "monitoring",
+  reports: "integrations",
+  bi: "integrations",
+  audit: "integrations",
+  feedback: "account",
+  support: "account",
+  doctor: "account",
+  version: "account",
+  status: "account",
+  recovery: "account",
+  migrate: "migrate",
+  schedule: "playlists"
+};
+function valueOptions() {
+  const probe = new Command();
+  registerGlobalOptions(probe);
+  return new Set(probe.options.filter((option) => option.required || option.optional).map((option) => option.long));
+}
+function commandBundlesFor(argv) {
+  const end = argv.indexOf("--");
+  const tokens = end < 0 ? argv : argv.slice(0, end);
+  const takesValue = valueOptions();
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (takesValue.has(token)) {
+      index += 1;
+      continue;
+    }
+    if (token.startsWith("-"))
+      continue;
+    const bundle = TOP_LEVEL_COMMANDS[token];
+    return bundle ? [bundle] : Object.keys(COMMAND_BUNDLES);
+  }
+  return Object.keys(COMMAND_BUNDLES);
+}
+async function loadCommandRegistrars(argv) {
+  return Promise.all(commandBundlesFor(argv).map(async (bundle) => (await COMMAND_BUNDLES[bundle]()).register));
+}
+function registerCommands(root, bind, registrars) {
+  registerGlobalOptions(root);
+  for (const register of registrars)
+    register(root, bind);
+  const order = Object.keys(TOP_LEVEL_COMMANDS);
+  root.commands.sort((left, right) => order.indexOf(left.name()) - order.indexOf(right.name()));
+}
+
+// dist/command-tree.js
+function commandInput(command) {
+  const positionals = [...commandPath(command), ...command.args];
+  return { command: positionals.slice(0, 2), positionals, flags: invocationFlags(command) };
+}
+function protectOption(command, option, argv, seen) {
+  const name = option.long.slice(2);
+  if (option.required || option.optional) {
+    const parser = option.parseArg;
+    option.argParser((value, previous) => {
+      const csvOutput = name === "output" && (command.parent?.name() === "playback" || command.name() === "report" && command.parent?.name() === "direct");
+      const dash = value === "-" && (/\bstdin\b/.test(option.description) || csvOutput);
+      if (!value.length && name !== "value-base64" || value.startsWith("-") && !dash && !/^-\d/.test(value) && !argv.includes(`--${name}=${value}`)) {
+        throw usageError(`--${name} requires a value. Use --${name}=VALUE for a value starting with a dash.`);
+      }
+      return parser ? parser(value, previous) : value;
+    });
+  }
+  command.on(`option:${option.name()}`, () => {
+    const repeatable = name === "capability" && command.name() === "create" && command.parent?.name() === "service-client" || name === "tag" && ["fleet-links", "notifications"].includes(command.parent?.name() ?? "") && ["create", "update"].includes(command.name()) || ["any-tag", "all-tags", "severity", "active-hours"].includes(name) && command.parent?.name() === "notifications" && ["create", "update"].includes(command.name()) || name === "window" && command.parent?.name() === "reboot-schedule" && command.name() === "set" || name === "field" && command.parent?.name() === "fleet-links" && ["create", "update"].includes(command.name()) || ["set", "clear"].includes(name) && command.parent?.name() === "playlist" && ["create", "fields"].includes(command.name()) || ["var", "page"].includes(name) && command.parent?.name() === "view" && ["create", "update"].includes(command.name()) || name === "screen-id" && command.parent?.name() === "triggers" && ["create", "update"].includes(command.name()) || ["set", "secret", "unset-secret"].includes(name) && command.parent?.name() === "source" && ["create", "update", "test"].includes(command.name()) || ["screen-id", "tag"].includes(name) && command.parent?.name() === "alerts" && command.name() === "mute" || name === "filter" && command.parent?.name() === "subscriptions" && ["create", "update"].includes(command.name()) || command.parent?.name() === "screen" && (command.name() === "update" && (name === "field" || name === "unset-field") || command.name() === "list" && name === "field") || ["tag", "any-tag", "screen-id", "window", "monthly", "date", "except"].includes(name) && command.parent?.name() === "campaign" && ["create", "update", "preview"].includes(command.name()) || command.parent?.name() === "feeds" && command.name() === "get" && FEED_REPEATABLE_FLAGS.includes(name);
+    if (seen.has(flagName(option)) && !repeatable)
+      throw usageError(`--${name} may be supplied only once.`);
+    seen.add(flagName(option));
+  });
+}
+function createCommandTree(argv, execute, registrars) {
+  const end = argv.indexOf("--");
+  const tokens = end < 0 ? argv : argv.slice(0, end);
+  if (tokens.includes("--json") && tokens.includes("--human")) {
+    throw usageError("--json and --human are mutually exclusive.");
+  }
+  for (const spellings of [["--help", "-h"], ["--version", "-V"]]) {
+    if (tokens.filter((arg) => spellings.includes(arg)).length > 1)
+      throw usageError(`${spellings[0]} may be supplied only once.`);
+  }
+  const root = new Command("screenrig").description("Signage and kiosk infrastructure for agents").version(CLI_VERSION, "-V, --version", "Show CLI and protocol versions");
+  let selected = root;
+  let helpRequested = false;
+  let versionRequested = false;
+  let inventoryRequested = false;
+  const seen = /* @__PURE__ */ new Set();
+  registerCommands(root, (handler) => (...values) => {
+    selected = values[values.length - 1];
+    return execute?.(handler, commandInput(selected));
+  }, registrars);
+  root.command("help [command...]").description("Discover commands; --all lists every command").option("--all", "Include all descendant command paths").action((path, options) => {
+    inventoryRequested = options.all === true;
+    const target = findCommand(root, path);
+    if (!target)
+      throw usageError("Unknown help topic.");
+    target.help();
+  });
+  const configure = (command) => {
+    command.allowExcessArguments(false).addHelpCommand(false).showSuggestionAfterError(false).configureOutput({ writeOut() {
+    }, writeErr() {
+    }, outputError() {
+    } }).configureHelp({ helpWidth: 100, showGlobalOptions: true }).exitOverride((error) => {
+      selected = command;
+      if (error.code === "commander.helpDisplayed" || error.code === "commander.help")
+        helpRequested = true;
+      else if (error.code === "commander.version")
+        versionRequested = true;
+      else
+        commandError(error, command);
+      throw error;
+    });
+    for (const option of command.options) {
+      if (option.long !== "--version")
+        protectOption(command, option, tokens, seen);
+    }
+    if (command.commands.length)
+      command.action(() => command.help());
+    command.commands.forEach(configure);
+  };
+  configure(root);
+  return { root, selected: () => selected, helpRequested: () => helpRequested, versionRequested: () => versionRequested, inventoryRequested: () => inventoryRequested };
+}
+
+// dist/help.js
+function leafCommandPaths(command) {
+  const paths = [];
+  const children = (node) => node.createHelp().visibleCommands(node);
+  const visit = (node) => {
+    if (children(node).length) {
+      children(node).forEach(visit);
+      return;
+    }
+    const path = commandPath(node);
+    if (!path.length)
+      return;
+    paths.push(path.join(" "));
+  };
+  children(command).forEach(visit);
+  return paths;
+}
+function commandInventory(command) {
+  const paths = leafCommandPaths(command);
+  if (!paths.length)
+    return void 0;
+  return ["All commands:", ...paths.map((path) => `  ${path}`)].join("\n");
+}
+function describeHelp(command, all = false) {
+  const helper = command.createHelp();
+  const path = commandPath(command);
+  const notes = commandNotes(command);
+  const inventory = all ? commandInventory(command) : void 0;
+  const examples = commandExamples(command);
+  const visibleOptions = [...helper.visibleOptions(command), ...helper.visibleGlobalOptions(command)];
+  const describeOption = (option) => ({
+    name: option.long,
+    type: option.negate || option.isBoolean() ? "boolean" : "value",
+    description: option.description,
+    required: option.mandatory,
+    valueRequired: option.required,
+    variadic: option.variadic,
+    ...option.argChoices ? { choices: option.argChoices } : {},
+    ...option.defaultValue !== void 0 ? { default: option.defaultValue } : {},
+    // Commander exposes these native conflict names at runtime but omits them from its typings.
+    conflicts: (option.conflictsWith ?? []).flatMap((name) => visibleOptions.filter((candidate) => candidate.attributeName() === name).map((candidate) => candidate.long))
+  });
+  return {
+    path,
+    kind: command.commands.length ? "group" : "command",
+    usage: [command.helpInformation().trimEnd(), inventory, ...notes, ...examples.length ? [`Examples:
+${examples.map((example) => `  ${example}`).join("\n")}`] : []].filter((part) => part !== void 0).join("\n\n"),
+    synopsis: [helper.commandUsage(command)],
+    commands: helper.visibleCommands(command).map((child) => ({
+      name: child.name(),
+      path: commandPath(child),
+      kind: child.commands.length ? "group" : "command",
+      summary: child.description(),
+      help: `screenrig ${commandPath(child).join(" ")} --help`
+    })),
+    arguments: command.registeredArguments.map((argument) => ({
+      name: argument.name(),
+      description: argument.description,
+      required: argument.required,
+      variadic: argument.variadic,
+      ...argument.argChoices ? { choices: argument.argChoices } : {},
+      ...argument.defaultValue !== void 0 ? { default: argument.defaultValue } : {}
+    })),
+    relationships: commandRelationships(command),
+    examples: commandExamples(command),
+    ...all ? { allCommands: leafCommandPaths(command) } : {},
+    options: helper.visibleOptions(command).map(describeOption),
+    globalOptions: helper.visibleGlobalOptions(command).map(describeOption),
+    notes
+  };
+}
+
+// dist/program.js
+function withUsageHelp(error, command) {
+  if (!(error instanceof CliError) || error.problem.code !== "usage_error")
+    return error;
+  if (error.problem.hint && error.problem.next)
+    return error;
+  const path = commandPath(command);
+  const help = ["screenrig", ...path, "--help"].join(" ");
+  return new CliError({
+    ...error.problem,
+    hint: error.problem.hint ?? `Fix the argument or input named in detail and run the command again. ${help} lists the accepted arguments and values, with an example.`,
+    next: error.problem.next ?? { command: help, argv: [...path, "--help"], reason: "Lists this command's arguments, accepted values, and a working example." }
+  }, error.exitCode, error.warnings);
+}
+async function executeCommand(argv, runtime) {
+  let result;
+  const tree = createCommandTree(argv, async (handler, args) => {
+    result = await handler(args, runtime);
+  }, await loadCommandRegistrars(argv));
+  try {
+    await tree.root.parseAsync(argv, { from: "user" });
+  } catch (error) {
+    if (!(error instanceof CommanderError) || !(tree.helpRequested() || tree.versionRequested())) {
+      throw withUsageHelp(error, tree.selected() !== tree.root ? tree.selected() : commandFromArgv(tree.root, argv));
+    }
+  }
+  if (tree.helpRequested()) {
+    const { registerGuidance } = await import("./register-guidance-Z3W57TSU.js");
+    registerGuidance(tree.root);
+    const help = describeHelp(tree.selected(), tree.inventoryRequested());
+    return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
+  }
+  if (tree.versionRequested())
+    return handleVersion({ command: ["version"], positionals: ["version"], flags: {} }, runtime);
+  if (!result)
+    throw new Error("Command completed without a result.");
+  return result;
+}
+
+// dist/main.js
+function appendLogSinkWarning(warnings, dropped) {
+  const warning = logSinkDegradedWarning(dropped);
+  if (!warning || warnings.some((item) => item.code === LOG_SINK_DEGRADED_CODE)) {
+    return warnings;
+  }
+  return [...warnings, warning];
+}
+function applyLogSinkToSuccess(result, dropped) {
+  const warnings = appendLogSinkWarning(result.envelope.warnings, dropped);
+  if (warnings === result.envelope.warnings) {
+    return result;
+  }
+  const warning = warnings[warnings.length - 1];
+  const line = warning ? `warning: ${warning.message}` : "";
+  const human = !result.human || !line || result.human.includes(line) ? result.human : `${result.human}
+${line}`;
+  return { ...result, envelope: { ...result.envelope, warnings }, human };
+}
+function confirmedWrite(stream, text) {
+  return new Promise((resolve, reject) => {
+    const onError = (error) => reject(error);
+    stream.once("error", onError);
+    try {
+      stream.write(text, (error) => {
+        stream.removeListener("error", onError);
+        if (error)
+          reject(error);
+        else
+          resolve();
+      });
+    } catch (error) {
+      stream.removeListener("error", onError);
+      reject(error);
+    }
+  });
+}
+async function run(runtime = processRuntime()) {
+  clearResultContext(runtime);
+  const end = runtime.argv.indexOf("--");
+  const options = end < 0 ? runtime.argv : runtime.argv.slice(0, end);
+  const explicitJson = options.includes("--json");
+  const json = explicitJson || !options.includes("--human");
+  try {
+    const dispatched = applyCreditsLowToSuccess(await executeCommand(runtime.argv, runtime), observedCreditsRemaining(runtime));
+    runtime.logger?.endRun();
+    const result = applyLogSinkToSuccess(dispatched, runtime.logger?.droppedLines() ?? 0);
+    if (result.output === "stream") {
+      return result.exitCode;
+    }
+    const text = json && (result.output !== "help" || explicitJson) ? `${JSON.stringify(result.envelope)}
+` : result.human ? `${result.human}
+` : "";
+    if (result.afterOutput) {
+      try {
+        await confirmedWrite(runtime.stdout, text);
+      } catch {
+        try {
+          runtime.stderr.write("error: the answer could not be written to stdout. The saved write key is kept; rerun the identical command within 24 hours to receive the same answer again.\n");
+        } catch {
+        }
+        return ExitCode.Unexpected;
+      }
+      try {
+        await result.afterOutput();
+      } catch {
+      }
+      return result.exitCode;
+    }
+    if (text)
+      runtime.stdout.write(text);
+    return result.exitCode;
+  } catch (err) {
+    runtime.logger?.endRun(err);
+    const problem = withDefaultHint(err instanceof CliError ? err.problem : makeProblem("unexpected_error", "Unexpected error", 500, redactText(err instanceof Error ? err.message : "unknown error")));
+    const exitCode = err instanceof CliError ? err.exitCode : ExitCode.Unexpected;
+    const warnings = appendLogSinkWarning(err instanceof CliError ? err.warnings : [], runtime.logger?.droppedLines() ?? 0);
+    if (json) {
+      runtime.stdout.write(`${JSON.stringify({ ...errorEnvelope(problem, { warnings }), ...resultContext(runtime) ? { context: resultContext(runtime) } : {} })}
+`);
+    } else {
+      if (formatResultContext(runtime))
+        runtime.stderr.write(`${formatResultContext(runtime)}
+`);
+      runtime.stderr.write(`${renderProblem(problem)}
+`);
+      for (const warning of warnings) {
+        runtime.stderr.write(`warning: ${warning.message}
+`);
+      }
+    }
+    return exitCode;
+  } finally {
+    clearResultContext(runtime);
+    const logger = runtime.logger;
+    if (logger) {
+      try {
+        await logger.close();
+      } catch {
+      }
+    }
+  }
+}
+
+// dist/node-runtime.js
+var NODE_RUNTIME_REQUIREMENT = "Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x)";
+function nodeRuntimeSupported(version) {
+  if (!/^\d+\.\d+\.\d+$/.test(version))
+    return false;
+  const [major = 0, minor = 0, patch = 0] = version.split(".").map(Number);
+  const minimum = { 22: [23, 4], 24: [22, 1], 26: [12, 1] }[major];
+  return major > 26 || !!minimum && (minor > minimum[0] || minor === minimum[0] && patch >= minimum[1]);
+}
+
+// dist/bin.js
+if (!nodeRuntimeSupported(process.versions.node)) {
+  process.stderr.write(`ScreenRig requires ${NODE_RUNTIME_REQUIREMENT}; upgrade the active node runtime, then retry.
+`);
+  process.exitCode = 69;
+} else {
+  process.exitCode = await run();
+}

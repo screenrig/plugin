@@ -94,7 +94,7 @@ screenrig media sync create sharepoint --account-id msa_ID \
   (`connection create microsoft`, either mode) that the project's room calendars
   can share too ([connections](sources.md#meeting-rooms-microsoft365-google_calendar)).
   With screenrig_app the customer's administrator approves screenRIG's own
-  application once, so no secret passes through you. For files it holds
+  application once, so you never handle a secret. For files it holds
   `Sites.Selected` only: grant each site to the enterprise application the
   consent adds to the tenant, as above (`connection test` warns when that is all
   the token carries). A sharing link or an OneDrive for work address needs an

@@ -20,19 +20,29 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / "plugins" / "screenrig"
+AGENTS_PLUGIN = ROOT / "plugins" / "screenrig-agents"
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
-# Every marketplace install clones this repository and copies plugins/screenrig,
-# so both have a budget. Raising one is the operator's decision, not a fix.
-BUDGET_REPO_FILES = 130
-BUDGET_REPO_BYTES = 7_500_000
-BUDGET_PLUGIN_FILES = 75
+# Every marketplace install clones this repository and copies one plugin folder
+# (plugins/screenrig for Claude, plugins/screenrig-agents for Codex, Grok and
+# OpenClaw), so the repository and each folder have a budget. Raising one is the
+# operator's decision, not a fix. The repository budget holds both folders.
+BUDGET_REPO_FILES = 280
+BUDGET_REPO_BYTES = 10_000_000
+BUDGET_PLUGIN_FILES = 120
 BUDGET_PLUGIN_BYTES = 5_000_000
 BUDGET_FILE_BYTES = 2_097_152
 # The Claude plugin directory reads at most this much of a script or document and
 # holds anything larger for review; images it checks as images.
 DIRECTORY_READ_BYTES = 262_144
 DIRECTORY_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp")
+# The Claude folder is scanned by the plugin directory, which holds any image a
+# command, hook or script can reach, and any font: it carries neither, and no
+# manifest names one.
+CLAUDE_FORBIDDEN_SUFFIXES = DIRECTORY_IMAGE_SUFFIXES + (".ico", ".svg", ".bmp", ".tif", ".tiff", ".avif",
+                                                         ".woff", ".woff2", ".ttf", ".otf", ".eot")
+# Manifests only the agents folder carries; the Claude folder has .claude-plugin/plugin.json alone.
+AGENTS_MANIFESTS = ("plugin.json", "mcp.json", ".mcp.json", "openclaw.plugin.json", ".codex-plugin/plugin.json")
 _spec = importlib.util.spec_from_file_location("build_plugin", ROOT / "scripts" / "build-plugin.py")
 assert _spec and _spec.loader
 builder = importlib.util.module_from_spec(_spec)
@@ -115,6 +125,10 @@ def load(path: Path) -> dict[str, Any]:
 
 
 def check_marketplaces() -> None:
+    # Codex reads .agents/plugins/marketplace.json (and falls back to the Claude
+    # index); Grok reads .grok-plugin/marketplace.json (and falls back to the
+    # Claude index). Both point at the agents folder. Claude reads its own index
+    # and installs the Claude folder.
     codex = load(ROOT / ".agents" / "plugins" / "marketplace.json")
     entries = codex.get("plugins") or []
     if len(entries) != 1 or not isinstance(entries[0], dict):
@@ -123,12 +137,24 @@ def check_marketplaces() -> None:
         entry = entries[0]
         source = entry.get("source") or {}
         policy = entry.get("policy") or {}
-        if entry.get("name") != "screenrig" or source.get("path") != "./plugins/screenrig":
+        if entry.get("name") != "screenrig" or source.get("path") != "./plugins/screenrig-agents":
             errors.append(".agents/plugins/marketplace.json: invalid ScreenRig source")
         if policy != {"installation": "AVAILABLE", "authentication": "ON_USE"}:
             errors.append(".agents/plugins/marketplace.json: expected AVAILABLE/ON_USE policy")
         if "version" in entry:
             errors.append(".agents/plugins/marketplace.json: Codex entry must be version-free")
+
+    grok = load(ROOT / ".grok-plugin" / "marketplace.json")
+    grok_entries = grok.get("plugins") or []
+    if len(grok_entries) != 1 or not isinstance(grok_entries[0], dict):
+        errors.append(".grok-plugin/marketplace.json: expected one plugin")
+    else:
+        entry = grok_entries[0]
+        source = entry.get("source") or {}
+        if entry.get("name") != "screenrig" or source != {"type": "local", "path": "./plugins/screenrig-agents"}:
+            errors.append(".grok-plugin/marketplace.json: invalid ScreenRig source")
+        if "version" in entry:
+            errors.append(".grok-plugin/marketplace.json: Grok entry must be version-free")
 
     claude = load(ROOT / ".claude-plugin" / "marketplace.json")
     claude_entries = claude.get("plugins") or []
@@ -143,12 +169,32 @@ def check_marketplaces() -> None:
         errors.append(".claude-plugin/marketplace.json: version must be 0.1.2 or YY.MM.N")
     if entry.get("repository") != PLUGIN_REPOSITORY or entry.get("license") != "Apache-2.0":
         errors.append(".claude-plugin/marketplace.json: public repository/license metadata drift")
-    for platform in ("codex", "claude"):
-        manifest = load(PLUGIN / f".{platform}-plugin" / "plugin.json")
+    for folder, relative in ((PLUGIN, ".claude-plugin/plugin.json"), (AGENTS_PLUGIN, ".codex-plugin/plugin.json")):
+        label = f"{folder.relative_to(ROOT)}/{relative}"
+        manifest = load(folder / relative)
         if manifest.get("name") != "screenrig" or manifest.get("version") != version:
-            errors.append(f"plugins/screenrig/.{platform}-plugin/plugin.json: name/version drift")
+            errors.append(f"{label}: name/version drift")
         if manifest.get("repository") != PLUGIN_REPOSITORY or manifest.get("license") != "Apache-2.0":
-            errors.append(f"plugins/screenrig/.{platform}-plugin/plugin.json: public repository/license drift")
+            errors.append(f"{label}: public repository/license drift")
+
+
+def check_claude_folder_boundary() -> None:
+    """plugins/screenrig holds no image or font and no manifest but .claude-plugin/plugin.json."""
+    for path in sorted(PLUGIN.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(PLUGIN).as_posix()
+        if path.suffix.lower() in CLAUDE_FORBIDDEN_SUFFIXES:
+            errors.append(f"{path.relative_to(ROOT)}: the Claude folder holds no image or font file")
+        if relative in AGENTS_MANIFESTS:
+            errors.append(f"{path.relative_to(ROOT)}: manifests of other hosts belong in plugins/screenrig-agents")
+    manifest_text = (PLUGIN / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8") \
+        if (PLUGIN / ".claude-plugin" / "plugin.json").is_file() else ""
+    if "icon" in load(PLUGIN / ".claude-plugin" / "plugin.json"):
+        errors.append("plugins/screenrig/.claude-plugin/plugin.json: must not name an icon")
+    for reference in re.findall(r'"([^"]+)"', manifest_text):
+        if not reference.startswith(("http://", "https://")) and reference.lower().endswith(CLAUDE_FORBIDDEN_SUFFIXES):
+            errors.append(f"plugins/screenrig/.claude-plugin/plugin.json: names an image or font: {reference}")
 
 
 def check_package() -> None:
@@ -157,11 +203,10 @@ def check_package() -> None:
         PLUGIN / "skills" / "screenrig" / "scripts" / "screenrig",
         PLUGIN / "cli" / "dist" / "bin.js",
         PLUGIN / "cli" / "package.json",
-        PLUGIN / "openclaw.plugin.json",
+        PLUGIN / ".claude-plugin" / "plugin.json",
         PLUGIN / "LICENSE",
         PLUGIN / "README.md",
         PLUGIN / "SECURITY.md",
-        PLUGIN / "assets" / "logo.png",
     ]
     for path in required:
         if not path.is_file():
@@ -302,6 +347,56 @@ def check_package() -> None:
                 errors.append(f"packaged CLI still teaches dropped auth alias: {stale}")
 
 
+def check_agents_package() -> None:
+    """plugins/screenrig-agents: the folder Codex, Grok and OpenClaw install."""
+    required = [
+        AGENTS_PLUGIN / "skills" / "screenrig" / "SKILL.md",
+        AGENTS_PLUGIN / "skills" / "screenrig" / "scripts" / "screenrig",
+        AGENTS_PLUGIN / "skills" / "screenrig" / "scripts" / "screenrig-plugin-freshness",
+        AGENTS_PLUGIN / "cli" / "dist" / "bin.js",
+        AGENTS_PLUGIN / "cli" / "package.json",
+        AGENTS_PLUGIN / "LICENSE",
+        AGENTS_PLUGIN / "README.md",
+        AGENTS_PLUGIN / "SECURITY.md",
+        AGENTS_PLUGIN / "assets" / "logo.png",
+        *(AGENTS_PLUGIN / manifest for manifest in AGENTS_MANIFESTS),
+    ]
+    for path in required:
+        if not path.is_file():
+            errors.append(f"missing {path.relative_to(ROOT)}")
+    for executable in required[1:4]:
+        if executable.is_file() and not stat.S_IMODE(executable.stat().st_mode) & 0o111:
+            errors.append(f"{executable.relative_to(ROOT)}: must be executable")
+    if (AGENTS_PLUGIN / ".claude-plugin").exists():
+        errors.append("plugins/screenrig-agents/.claude-plugin: Claude reads plugins/screenrig")
+    for canonical_skill in (ROOT / "skills").iterdir():
+        if canonical_skill.is_dir() and not (AGENTS_PLUGIN / "skills" / canonical_skill.name / "SKILL.md").is_file():
+            errors.append(f"missing packaged skill in plugins/screenrig-agents: {canonical_skill.name}")
+    package = load(AGENTS_PLUGIN / "cli" / "package.json")
+    if package.get("version") != load(PLUGIN / "cli" / "package.json").get("version"):
+        errors.append("plugins/screenrig-agents/cli/package.json: version differs from plugins/screenrig")
+    agents_files = sorted(path.relative_to(AGENTS_PLUGIN / "cli").as_posix()
+                          for path in (AGENTS_PLUGIN / "cli").rglob("*") if path.is_file())
+    errors.extend(f"packaged agents CLI: {error}" for error in builder.cli_layout_errors(agents_files))
+    wrapper = AGENTS_PLUGIN / "skills" / "screenrig" / "scripts" / "screenrig"
+    if wrapper.is_file():
+        with tempfile.TemporaryDirectory(prefix="screenrig-plugin-config-") as temporary:
+            result = subprocess.run(
+                [str(wrapper), "--json", "version"],
+                cwd=ROOT,
+                env={"PATH": os.environ.get("PATH", ""), "XDG_CONFIG_HOME": str(Path(temporary) / "config")},
+                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+            )
+        try:
+            envelope = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            envelope = {}
+        data = envelope.get("data") or {}
+        if (result.returncode != 0 or envelope.get("ok") is not True or not isinstance(data, dict)
+                or data.get("version") != package.get("version") or result.stderr):
+            errors.append("plugins/screenrig-agents skill wrapper did not execute the bundled CLI with clean JSON output")
+
+
 def tree_sizes(ref: str | None) -> dict[str, int] | None:
     """Sizes of what a commit of the working tree would hold (tracked and new, not ignored), or of ``ref``."""
     if ref is None:
@@ -317,30 +412,36 @@ def tree_sizes(ref: str | None) -> dict[str, int] | None:
 
 
 def check_budget() -> None:
+    folders = ("plugins/screenrig/", "plugins/screenrig-agents/")
     for label, ref in (("working tree", None), ("origin/main", "origin/main")):
         sizes = tree_sizes(ref)
         if sizes is None:
             continue
-        plugin = {name: size for name, size in sizes.items() if name.startswith("plugins/screenrig/")}
-        print(f"{label}: repository {len(sizes)} files, {sum(sizes.values()):,} bytes; "
-              f"plugins/screenrig {len(plugin)} files, {sum(plugin.values()):,} bytes")
+        per_folder = {folder: {name: size for name, size in sizes.items() if name.startswith(folder)} for folder in folders}
+        print(f"{label}: repository {len(sizes)} files, {sum(sizes.values()):,} bytes; " + "; ".join(
+            f"{folder.rstrip('/')} {len(found)} files, {sum(found.values()):,} bytes" for folder, found in per_folder.items()))
         if ref is not None:
             continue
         for what, value, budget in (
             ("repository files", len(sizes), BUDGET_REPO_FILES),
             ("repository bytes", sum(sizes.values()), BUDGET_REPO_BYTES),
-            ("plugins/screenrig files", len(plugin), BUDGET_PLUGIN_FILES),
-            ("plugins/screenrig bytes", sum(plugin.values()), BUDGET_PLUGIN_BYTES),
         ):
             if value > budget:
                 errors.append(f"{what}: {value:,}, over the budget of {budget:,}")
-        errors.extend(f"{name} is {size:,} bytes, over the {BUDGET_FILE_BYTES:,}-byte file budget"
-                      for name, size in sorted(plugin.items()) if size > BUDGET_FILE_BYTES)
-        errors.extend(f"{name} is {size:,} bytes; the Claude plugin directory reads only {DIRECTORY_READ_BYTES:,} "
-                      "bytes of a file and holds the plugin for review"
-                      for name, size in sorted(plugin.items())
-                      if size > DIRECTORY_READ_BYTES and not name.lower().endswith(DIRECTORY_IMAGE_SUFFIXES))
-    print(f"budget: repository {BUDGET_REPO_FILES} files, {BUDGET_REPO_BYTES:,} bytes; plugins/screenrig "
+        for folder, found in per_folder.items():
+            for what, value, budget in (
+                (f"{folder.rstrip('/')} files", len(found), BUDGET_PLUGIN_FILES),
+                (f"{folder.rstrip('/')} bytes", sum(found.values()), BUDGET_PLUGIN_BYTES),
+            ):
+                if value > budget:
+                    errors.append(f"{what}: {value:,}, over the budget of {budget:,}")
+            errors.extend(f"{name} is {size:,} bytes, over the {BUDGET_FILE_BYTES:,}-byte file budget"
+                          for name, size in sorted(found.items()) if size > BUDGET_FILE_BYTES)
+            errors.extend(f"{name} is {size:,} bytes; the Claude plugin directory reads only {DIRECTORY_READ_BYTES:,} "
+                          "bytes of a file and holds the plugin for review"
+                          for name, size in sorted(found.items())
+                          if size > DIRECTORY_READ_BYTES and not name.lower().endswith(DIRECTORY_IMAGE_SUFFIXES))
+    print(f"budget: repository {BUDGET_REPO_FILES} files, {BUDGET_REPO_BYTES:,} bytes; each plugin folder "
           f"{BUDGET_PLUGIN_FILES} files, {BUDGET_PLUGIN_BYTES:,} bytes, {BUDGET_FILE_BYTES:,} bytes per file")
 
 
@@ -350,20 +451,23 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
     with tempfile.TemporaryDirectory(prefix="screenrig-manifests-") as temporary:
         expected = Path(temporary)
         builder.emit_manifests(expected, builder.METADATA, builder.version())
-        for platform in ("claude", "codex"):
-            relative = f".{platform}-plugin/plugin.json"
-            actual = load(PLUGIN / relative).get("mcpServers")
-            wanted = load(expected / relative)["mcpServers"]
+        for folder, name, relative in ((PLUGIN, "claude", ".claude-plugin/plugin.json"),
+                                       (AGENTS_PLUGIN, "codex", ".codex-plugin/plugin.json")):
+            expected_folder = expected / folder.name
+            actual = load(folder / relative).get("mcpServers")
+            wanted = load(expected_folder / relative)["mcpServers"]
             if actual != wanted:
-                errors.append(f"{relative}: expected public remote MCP with host-managed OAuth only")
+                errors.append(f"{folder.name}/{relative}: expected public remote MCP with host-managed OAuth only")
         for relative in (".mcp.json", "mcp.json", "plugin.json", "openclaw.plugin.json"):
-            if load(PLUGIN / relative) != load(expected / relative):
-                errors.append(f"{relative}: expected generated metadata and public remote MCP with host-managed OAuth only")
-    for path in PLUGIN.rglob("*"):
-        if path in (PLUGIN / ".mcp.json", PLUGIN / "mcp.json"):
-            continue
-        if path.is_file() and path.name in {".mcp.json", "mcp.json", "screenrig-mcp-auth.mjs"}:
-            errors.append(f"{path.relative_to(ROOT)}: unexpected MCP declaration or retired credential helper")
+            if load(AGENTS_PLUGIN / relative) != load(expected / AGENTS_PLUGIN.name / relative):
+                errors.append(f"{AGENTS_PLUGIN.name}/{relative}: expected generated metadata and public remote MCP with host-managed OAuth only")
+    # Only the agents folder carries MCP declaration files, and only at its root.
+    for folder in (PLUGIN, AGENTS_PLUGIN):
+        for path in folder.rglob("*"):
+            if folder == AGENTS_PLUGIN and path in (AGENTS_PLUGIN / ".mcp.json", AGENTS_PLUGIN / "mcp.json"):
+                continue
+            if path.is_file() and path.name in {".mcp.json", "mcp.json", "screenrig-mcp-auth.mjs"}:
+                errors.append(f"{path.relative_to(ROOT)}: unexpected MCP declaration or retired credential helper")
 
     audit_paths = list((ROOT / "skills").rglob("*.md"))
     if cli_source is not None:
@@ -614,6 +718,35 @@ def published_mcp_tools() -> set[str] | None:
     return set(tools)
 
 
+# The Claude plugin directory scan reads these as a credential taken from the
+# environment or as download-and-execute: the whole environment passed, copied or
+# iterated, a dynamic environment read, a bearer header example, a credential
+# variable, a piped download, printenv, and "pass" (the pass password manager).
+SCANNER_PATTERNS = {
+    "whole or dynamic environment read": re.compile(r"process\.env\[|\.\.\.process\.env|env:\s*process\.env|=\s*process\.env\s*[;,)]|\(process\.env[,)]"),
+    "bearer header example": re.compile(r"Authorization:\s*Bearer", re.IGNORECASE),
+    "credential environment variable": re.compile(
+        r"\$\{?[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|API_KEY|PASSWORD)\b|\bexport\s+[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|KEY)\b"
+        r"|SCREENRIG_CLIENT_(?:ID|SECRET|KEY_FILE)\b"),
+    "download and execute": re.compile(r"\bcurl\b|\bwget\b|\|\s*(?:ba|z)?sh\b|\$\(\s*curl"),
+    "environment dump": re.compile(r"\bprintenv\b"),
+    "pass password manager": re.compile(r"\b[Pp]ass(?:es)?\b"),
+}
+
+
+def check_scanner_patterns() -> None:
+    paths = [path for path in sorted((ROOT / "skills").rglob("*")) if path.is_file()]
+    paths.extend(path for path in (ROOT / "README.md", ROOT / "SECURITY.md") if path.is_file())
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for label, pattern in SCANNER_PATTERNS.items():
+            match = pattern.search(text)
+            if match:
+                line = text.count("\n", 0, match.start()) + 1
+                errors.append(f"{path.relative_to(ROOT)}:{line}: {label} ({match.group(0)!r}) is read as a credential "
+                              "or download-and-execute by the Claude plugin directory scan; reword")
+
+
 def check_taught_surface() -> None:
     documents = sorted((ROOT / "skills").rglob("*.md"))
     inventory = bundled_command_inventory()
@@ -648,9 +781,12 @@ def main() -> int:
         errors.append("generated plugin build check failed")
     check_marketplaces()
     check_package()
+    check_claude_folder_boundary()
+    check_agents_package()
     check_budget()
     check_no_alternate_surfaces(require_cli_source(args.cli_source))
     check_taught_surface()
+    check_scanner_patterns()
     if errors:
         print("ScreenRig plugin validation failed:", file=sys.stderr)
         for error in errors:

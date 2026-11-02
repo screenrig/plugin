@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Build the committed ScreenRig Codex and Claude plugin from canonical sources.
+"""Build the committed ScreenRig plugin folders from canonical sources.
+
+``plugins/screenrig`` is the Claude folder (the Claude plugin directory scans it,
+and ``.claude-plugin/marketplace.json`` installs it): no image, no font and no
+manifest but ``.claude-plugin/plugin.json``. ``plugins/screenrig-agents`` is the
+folder Codex, Grok and OpenClaw install: the portable, Codex and OpenClaw
+manifests, the MCP declarations and the listing logo.
 
 Pack sibling ``../cli`` or a ``--cli-artifact`` from current ``screenrig/cli``
 ``main``. ``components.lock.json`` is provenance of the tarball just packed
@@ -31,6 +37,10 @@ SIBLING_CLI = ROOT.parent / "cli"
 SKILLS = ROOT / "skills"
 PLUGINS = ROOT / "plugins"
 PLUGIN_NAME = "screenrig"
+# Folder names under plugins/. Claude's holds no image or font file.
+CLAUDE_FOLDER = "screenrig"
+AGENTS_FOLDER = "screenrig-agents"
+PLUGIN_FOLDERS = (CLAUDE_FOLDER, AGENTS_FOLDER)
 CLI_REPOSITORY = "screenrig/cli"
 CLI_ARTIFACT_NAME = "screenrig-cli.tgz"
 # Provenance of the tarball just packed. Never a fetch pin.
@@ -164,13 +174,18 @@ SUBMISSION: dict[str, Any] = {
         "release_notes": "Initial public submission: CLI-based signage management and eligible advertising workflows, plus authenticated interactive screen, media, and playlist views in supported hosts."
     }
 }
-# Root files every install carries next to the skills.
+# Root files every install carries next to the skills. The listing logo is
+# an image, so only the agents folder carries it.
 PUBLIC_FILES = (
     "LICENSE",
     "README.md",
     "SECURITY.md",
-    "assets/logo.png",
 )
+AGENTS_ONLY_FILES = ("assets/logo.png",)
+
+
+def public_files(folder: str) -> tuple[str, ...]:
+    return PUBLIC_FILES + (AGENTS_ONLY_FILES if folder == AGENTS_FOLDER else ())
 
 
 class BuildError(RuntimeError):
@@ -451,7 +466,8 @@ def stamp_bundled_cli_version(cli_root: Path, release_version: str) -> None:
     path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
 
 
-def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version: str) -> None:
+def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version: str) -> None:
+    """Write every manifest under ``plugins_root``: Claude's into its folder, the rest into the agents folder."""
     base = {
         "name": PLUGIN_NAME,
         "version": release_version,
@@ -469,32 +485,38 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
     remote = {"type": "http", "url": "https://api.screenrig.ai/mcp"}
     claude = dict(base)
     claude["mcpServers"] = {"screenrig-views": {**remote, "oauth": {"scopes": " ".join(scopes)}}}
-    # Claude plugin directory listing: icon and the links shown beside it.
-    claude["icon"] = metadata["interface"]["logo"]
+    # Claude plugin directory listing: the links shown beside it and https
+    # screenshots. No icon: the Claude folder holds no image file, and the
+    # directory keeps the icon it stored at the first submission.
     claude["privacyPolicyUrl"] = metadata["interface"]["privacyPolicyURL"]
     claude["termsOfServiceUrl"] = metadata["interface"]["termsOfServiceURL"]
     claude["supportUrl"] = metadata["interface"]["supportURL"]
     claude["documentationUrl"] = "https://screenrig.ai/docs"
     claude["screenshots"] = LISTING_SCREENSHOTS
+    claude_root = plugins_root / CLAUDE_FOLDER
+    (claude_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+    (claude_root / ".claude-plugin" / "plugin.json").write_text(json.dumps(claude, indent=2) + "\n", encoding="utf-8")
+
+    agents_root = plugins_root / AGENTS_FOLDER
     codex = dict(base)
     codex["mcpServers"] = "./.mcp.json"
-    (plugin_root / ".codex-plugin").mkdir(parents=True, exist_ok=True)
-    (plugin_root / ".codex-plugin/mcp.json").unlink(missing_ok=True)
-    (plugin_root / ".mcp.json").write_text(json.dumps({
+    (agents_root / ".codex-plugin").mkdir(parents=True, exist_ok=True)
+    (agents_root / ".codex-plugin/mcp.json").unlink(missing_ok=True)
+    (agents_root / ".mcp.json").write_text(json.dumps({
         "mcpServers": {"screenrig-views": {**remote, "scopes": scopes}}
     }, indent=2) + "\n", encoding="utf-8")
     codex["skills"] = "./skills/"
     codex["interface"] = metadata["interface"]
     portable = {"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", **base,
                 "extensions": {"com.openai": {"interface": metadata["interface"], **SUBMISSION}}}
-    (plugin_root / "plugin.json").write_text(json.dumps(portable, indent=2) + "\n", encoding="utf-8")
+    (agents_root / "plugin.json").write_text(json.dumps(portable, indent=2) + "\n", encoding="utf-8")
     portable_mcp = {
         "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
         "mcpServers": {"screenrig-views": {
             "type": "streamable-http", "url": remote["url"],
         }},
     }
-    (plugin_root / "mcp.json").write_text(json.dumps(portable_mcp, indent=2) + "\n", encoding="utf-8")
+    (agents_root / "mcp.json").write_text(json.dumps(portable_mcp, indent=2) + "\n", encoding="utf-8")
     openclaw = {
         "id": PLUGIN_NAME,
         "name": "screenRIG",
@@ -507,12 +529,9 @@ def emit_manifests(plugin_root: Path, metadata: dict[str, Any], release_version:
             "auth": "oauth", "oauth": {"scope": " ".join(scopes)},
         }},
     }
-    (plugin_root / "openclaw.plugin.json").write_text(
+    (agents_root / "openclaw.plugin.json").write_text(
         json.dumps(openclaw, indent=2) + "\n", encoding="utf-8")
-    for platform, manifest in (("claude", claude), ("codex", codex)):
-        destination = plugin_root / f".{platform}-plugin" / "plugin.json"
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    (agents_root / ".codex-plugin" / "plugin.json").write_text(json.dumps(codex, indent=2) + "\n", encoding="utf-8")
 
 
 def verify_generated_launcher(plugin_root: Path) -> None:
@@ -553,10 +572,10 @@ def verify_generated_launcher(plugin_root: Path) -> None:
         raise BuildError("generated plugin launcher did not run the bundled CLI with clean offline output")
 
 
-def copy_docs(plugin_root: Path) -> None:
+def copy_docs(plugin_root: Path, folder: str = CLAUDE_FOLDER) -> None:
     """Refresh canonical public files and skills without changing CLI provenance."""
     plugin_root.mkdir(parents=True, exist_ok=True)
-    for relative in PUBLIC_FILES:
+    for relative in public_files(folder):
         source = ROOT / relative
         if not source.is_file():
             raise BuildError(f"public plugin root file is missing: {relative}")
@@ -577,31 +596,34 @@ def build(
     cli_commit: str | None = None,
     check: bool = False,
 ) -> Path:
+    """Build every plugin folder under ``output``; both carry the same skills and CLI."""
     release_version = version()
-    plugin_root = output / PLUGIN_NAME
-    copy_docs(plugin_root)
+    for folder in PLUGIN_FOLDERS:
+        copy_docs(output / folder, folder)
 
-    cli_root = plugin_root / "cli"
     with cli_input(cli_artifact, write_lock=write_lock, cli_commit=cli_commit, check=check) as (
         source_root,
         artifact,
         commit,
         should_write,
     ):
-        for relative in cli_files(source_root):
-            source = source_root / relative
-            destination = cli_root / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, destination)
-        stamp_bundled_cli_version(cli_root, release_version)
+        for folder in PLUGIN_FOLDERS:
+            cli_root = output / folder / "cli"
+            for relative in cli_files(source_root):
+                source = source_root / relative
+                destination = cli_root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+            stamp_bundled_cli_version(cli_root, release_version)
+            (cli_root / CLI_ENTRY).chmod(0o755)
         if should_write:
             if not commit:
                 raise BuildError("--write-lock requires --cli-commit or a sibling ../cli checkout")
             write_component_lock(commit, artifact)
-    (cli_root / CLI_ENTRY).chmod(0o755)
-    emit_manifests(plugin_root, METADATA, release_version)
-    verify_generated_launcher(plugin_root)
-    return plugin_root
+    emit_manifests(output, METADATA, release_version)
+    for folder in PLUGIN_FOLDERS:
+        verify_generated_launcher(output / folder)
+    return output
 
 
 def file_mode(path: Path) -> int:
@@ -622,9 +644,9 @@ def compare(expected: Path, actual: Path) -> list[str]:
     return changes
 
 
-def compare_docs(expected: Path, actual: Path) -> list[str]:
+def compare_docs(expected: Path, actual: Path, folder: str = CLAUDE_FOLDER) -> list[str]:
     changes = compare(expected / "skills", actual / "skills")
-    for relative in PUBLIC_FILES:
+    for relative in public_files(folder):
         source, target = expected / relative, actual / relative
         if not target.is_file():
             changes.append(f"missing {relative}")
@@ -664,14 +686,16 @@ def main() -> int:
         return 2
     try:
         if args.docs_only:
-            target = PLUGINS / PLUGIN_NAME
-            if not (target / "cli" / "package.json").is_file():
-                raise BuildError("--docs-only requires an existing generated CLI bundle")
+            for folder in PLUGIN_FOLDERS:
+                if not (PLUGINS / folder / "cli" / "package.json").is_file():
+                    raise BuildError(f"--docs-only requires an existing generated CLI bundle in plugins/{folder}")
             if args.check:
                 with tempfile.TemporaryDirectory(prefix="screenrig-plugin-docs-") as temp:
-                    expected = Path(temp) / PLUGIN_NAME
-                    copy_docs(expected)
-                    changes = compare_docs(expected, target)
+                    changes = []
+                    for folder in PLUGIN_FOLDERS:
+                        expected = Path(temp) / folder
+                        copy_docs(expected, folder)
+                        changes.extend(f"{folder}: {change}" for change in compare_docs(expected, PLUGINS / folder, folder))
                     if changes:
                         print("generated ScreenRig plugin docs are stale:", file=sys.stderr)
                         for change in changes:
@@ -679,7 +703,8 @@ def main() -> int:
                         return 1
                 print("generated ScreenRig plugin docs are current; CLI bundle not checked")
                 return 0
-            copy_docs(target)
+            for folder in PLUGIN_FOLDERS:
+                copy_docs(PLUGINS / folder, folder)
             print("updated ScreenRig plugin docs; CLI bundle and provenance unchanged")
             return 0
         if args.check:
@@ -692,7 +717,11 @@ def main() -> int:
                     cli_commit=args.cli_commit,
                     check=True,
                 )
-                changes = compare(expected / PLUGIN_NAME, PLUGINS / PLUGIN_NAME)
+                changes = []
+                for folder in PLUGIN_FOLDERS:
+                    changes.extend(f"{folder}: {change}" for change in compare(expected / folder, PLUGINS / folder))
+                extra = sorted(path.name for path in PLUGINS.iterdir() if path.name not in PLUGIN_FOLDERS) if PLUGINS.is_dir() else []
+                changes.extend(f"extra plugins/{name}" for name in extra)
                 if changes:
                     print("generated ScreenRig plugin is stale:", file=sys.stderr)
                     for change in changes:
@@ -700,9 +729,10 @@ def main() -> int:
                     return 1
                 print("generated ScreenRig plugin is current")
                 return 0
-        target = PLUGINS / PLUGIN_NAME
-        if target.exists():
-            shutil.rmtree(target)
+        for folder in PLUGIN_FOLDERS:
+            target = PLUGINS / folder
+            if target.exists():
+                shutil.rmtree(target)
         build(
             PLUGINS,
             args.cli_artifact,

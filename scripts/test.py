@@ -627,9 +627,11 @@ class CalVerTests(unittest.TestCase):
     def test_inventory_covers_every_version_bearing_manifest(self):
         files = json.loads((ROOT / "release-version-files.json").read_text())
         self.assertEqual(len(files), len(set(files)))
-        candidates = [ROOT / ".claude-plugin" / "marketplace.json", ROOT / ".agents" / "plugins" / "marketplace.json"]
-        candidates += list((ROOT / "plugins" / "screenrig").rglob("*plugin.json"))
-        candidates += [ROOT / "plugins" / "screenrig" / "cli" / "package.json"]
+        candidates = [ROOT / ".claude-plugin" / "marketplace.json", ROOT / ".agents" / "plugins" / "marketplace.json",
+                      ROOT / ".grok-plugin" / "marketplace.json"]
+        for folder in ("screenrig", "screenrig-agents"):
+            candidates += list((ROOT / "plugins" / folder).rglob("*plugin.json"))
+            candidates += [ROOT / "plugins" / folder / "cli" / "package.json"]
         for path in candidates:
             versioned = bool(re.search(r'"version"\s*:', path.read_text()))
             self.assertEqual(str(path.relative_to(ROOT)) in files, versioned, str(path))
@@ -641,12 +643,14 @@ class CalVerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="screenrig-plugin-calver-") as temporary:
             tmp = Path(temporary)
             plugin_root = tmp / "screenrig"
+            agents_root = tmp / "screenrig-agents"
             marketplace = tmp / "marketplace.json"
             write_json(plugin_root / "cli" / "package.json", {"name": "screenrig", "version": "26.09.6"})
-            write_json(plugin_root / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
-            write_json(plugin_root / "openclaw.plugin.json", {"id": "screenrig", "version": "26.09.6"})
-            for platform in ("claude", "codex"):
-                write_json(plugin_root / f".{platform}-plugin" / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
+            write_json(plugin_root / ".claude-plugin" / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
+            write_json(agents_root / "cli" / "package.json", {"name": "screenrig", "version": "26.09.6"})
+            write_json(agents_root / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
+            write_json(agents_root / "openclaw.plugin.json", {"id": "screenrig", "version": "26.09.6"})
+            write_json(agents_root / ".codex-plugin" / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
             write_json(marketplace, {"name": "screenrig", "plugins": [{"name": "screenrig", "version": "26.09.6"}]})
             result = subprocess.run(
                 [sys.executable, str(ROOT / "scripts" / "calver.py"), "stamp", "--version", "26.09.7",
@@ -656,9 +660,9 @@ class CalVerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr.strip())
             self.assertEqual(json.loads(marketplace.read_text())["plugins"][0]["version"], "26.09.7")
             for path in (plugin_root / "cli" / "package.json", plugin_root / ".claude-plugin" / "plugin.json",
-                         plugin_root / ".codex-plugin" / "plugin.json", plugin_root / "plugin.json",
-                         plugin_root / "openclaw.plugin.json"):
-                self.assertEqual(json.loads(path.read_text())["version"], "26.09.7", path.name)
+                         agents_root / "cli" / "package.json", agents_root / ".codex-plugin" / "plugin.json",
+                         agents_root / "plugin.json", agents_root / "openclaw.plugin.json"):
+                self.assertEqual(json.loads(path.read_text())["version"], "26.09.7", str(path))
 
 
 # Skill commands must exist in the bundled CLI.
@@ -818,11 +822,15 @@ class DocsOnlyTests(unittest.TestCase):
             root = Path(temporary)
             plugins = root / "plugins"
             target = plugins / "screenrig"
+            agents = plugins / "screenrig-agents"
             protected = {
                 target / "cli/package.json": b'{"version":"26.09.1"}\n',
                 target / "cli/dist/bin.js": b"// preserved executable\n",
-                target / ".codex-plugin/plugin.json": b'{"version":"26.09.1"}\n',
                 target / ".claude-plugin/plugin.json": b'{"version":"26.09.1"}\n',
+                agents / "cli/package.json": b'{"version":"26.09.1"}\n',
+                agents / "cli/dist/bin.js": b"// preserved executable\n",
+                agents / ".codex-plugin/plugin.json": b'{"version":"26.09.1"}\n',
+                agents / "plugin.json": b'{"version":"26.09.1"}\n',
                 root / "components.lock.json": b'{"provenance":"preserved"}\n',
             }
             for path, content in protected.items():
@@ -837,6 +845,8 @@ class DocsOnlyTests(unittest.TestCase):
                 self.assertEqual(run("--docs-only", "--check"), 1)
                 self.assertEqual(run("--docs-only"), 0)
                 self.assertFalse(stale.exists())
+                self.assertTrue((agents / "assets/logo.png").is_file())
+                self.assertFalse((target / "assets/logo.png").exists())
                 self.assertEqual(run("--docs-only", "--check"), 0)
                 for path, content in protected.items():
                     self.assertEqual(path.read_bytes(), content, f"changed protected file: {path}")
@@ -900,12 +910,13 @@ class DependencyBoundaryTests(unittest.TestCase):
 class MCPConnectionTests(unittest.TestCase):
     def test_portable_submission_and_overlay_stay_aligned(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            builder.copy_docs(root)
+            plugins = Path(tmp)
+            root = plugins / builder.AGENTS_FOLDER
+            builder.copy_docs(root, builder.AGENTS_FOLDER)
             legacy_codex_mcp = root / ".codex-plugin/mcp.json"
             legacy_codex_mcp.parent.mkdir(parents=True)
             legacy_codex_mcp.write_text("{}\n")
-            builder.emit_manifests(root, builder.METADATA, "26.10.0-dev")
+            builder.emit_manifests(plugins, builder.METADATA, "26.10.0-dev")
             portable = json.loads((root / "plugin.json").read_text())
             overlay = json.loads((root / ".codex-plugin/plugin.json").read_text())
             public = portable["extensions"]["com.openai"]
@@ -953,10 +964,10 @@ class MCPConnectionTests(unittest.TestCase):
 
     def test_skill_dependency_matches_registered_server(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            builder.emit_manifests(root, builder.METADATA, builder.version())
+            root = Path(tmp) / builder.AGENTS_FOLDER
+            builder.emit_manifests(Path(tmp), builder.METADATA, builder.version())
             servers = json.loads((root / ".mcp.json").read_text())["mcpServers"]
-            for skill_root in (ROOT, ROOT / "plugins/screenrig"):
+            for skill_root in (ROOT, ROOT / "plugins/screenrig", ROOT / "plugins/screenrig-agents"):
                 metadata = (skill_root / "skills/screenrig/agents/openai.yaml").read_text()
                 dependency = metadata.split("dependencies:", 1)[1]
                 name = re.search(r'value: "([^"]+)"', dependency).group(1)
@@ -967,9 +978,10 @@ class MCPConnectionTests(unittest.TestCase):
 
     def test_remote_oauth_declarations_and_retired_helper(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            builder.emit_manifests(root, builder.METADATA, "26.10.0-dev")
+            plugins = Path(tmp)
+            builder.emit_manifests(plugins, builder.METADATA, "26.10.0-dev")
             for host in ("codex", "claude"):
+                root = plugins / (builder.AGENTS_FOLDER if host == "codex" else builder.CLAUDE_FOLDER)
                 manifest = json.loads((root / f".{host}-plugin/plugin.json").read_text())
                 if host == "codex":
                     self.assertEqual(manifest["mcpServers"], "./.mcp.json")
@@ -981,19 +993,20 @@ class MCPConnectionTests(unittest.TestCase):
                 self.assertEqual(scopes, ["access:manage", "screens", "content", "playlists", "reports"])
                 self.assertNotIn("identity", scopes)
                 self.assertEqual(set(server), {"type", "url", "scopes" if host == "codex" else "oauth"})
-                for skill_root in (ROOT, ROOT / "plugins/screenrig"):
+                for skill_root in (ROOT, ROOT / "plugins/screenrig", ROOT / "plugins/screenrig-agents"):
                     installation = (skill_root / "skills/screenrig/references/installation.md").read_text()
                     login_scopes = re.search(r'--scopes ([^\s`]+)', installation).group(1).split(',')
                     self.assertEqual(login_scopes, scopes,
                                      "Manual OAuth login must retain screenshot capture permission")
-        for root in (ROOT, ROOT / "plugins/screenrig"):
+        for root in (ROOT, ROOT / "plugins/screenrig", ROOT / "plugins/screenrig-agents"):
             self.assertFalse((root / "skills/screenrig/scripts/screenrig-mcp-auth.mjs").exists())
 
     def test_validator_rejects_credential_and_endpoint_overrides(self):
         validator = load_script("connection_validator", "validate-plugin.py")
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            builder.emit_manifests(root, builder.METADATA, builder.version())
+            plugins = Path(tmp)
+            builder.emit_manifests(plugins, builder.METADATA, builder.version())
+            root = plugins / builder.AGENTS_FOLDER
             manifest_path = root / "mcp.json"
             original = json.loads(manifest_path.read_text())
             for field, value in (("headers", {"Authorization": "synthetic"}),
@@ -1004,9 +1017,89 @@ class MCPConnectionTests(unittest.TestCase):
                 manifest["mcpServers"]["screenrig-views"][field] = value
                 write_json(manifest_path, manifest)
                 validator.errors.clear()
-                with patch.object(validator, "PLUGIN", root):
+                with patch.object(validator, "AGENTS_PLUGIN", root), \
+                        patch.object(validator, "PLUGIN", plugins / builder.CLAUDE_FOLDER):
                     validator.check_no_alternate_surfaces(None)
                 self.assertTrue(any("host-managed OAuth" in error for error in validator.errors))
+
+
+class PluginFolderTests(unittest.TestCase):
+    """Claude installs plugins/screenrig, which holds no image or font; the other hosts install plugins/screenrig-agents."""
+
+    CLAUDE = ROOT / "plugins" / "screenrig"
+    AGENTS = ROOT / "plugins" / "screenrig-agents"
+
+    def test_claude_folder_holds_no_image_font_or_foreign_manifest(self) -> None:
+        files = sorted(path.relative_to(self.CLAUDE).as_posix() for path in self.CLAUDE.rglob("*") if path.is_file())
+        forbidden = tuple(validator.CLAUDE_FORBIDDEN_SUFFIXES)
+        self.assertEqual([name for name in files if name.lower().endswith(forbidden)], [])
+        self.assertEqual([name for name in files if name in validator.AGENTS_MANIFESTS], [])
+        self.assertIn(".claude-plugin/plugin.json", files)
+        manifest = json.loads((self.CLAUDE / ".claude-plugin/plugin.json").read_text())
+        self.assertNotIn("icon", manifest)
+        self.assertEqual(manifest["privacyPolicyUrl"], "https://screenrig.ai/privacy")
+        self.assertTrue(all(url.startswith("https://") for url in manifest["screenshots"]))
+        self.assertIn("screenrig-views", manifest["mcpServers"])
+
+    def test_agents_folder_carries_the_other_hosts_manifests_and_logo(self) -> None:
+        for relative in (*validator.AGENTS_MANIFESTS, "assets/logo.png", "skills/screenrig/SKILL.md", "cli/dist/bin.js"):
+            self.assertTrue((self.AGENTS / relative).is_file(), relative)
+        self.assertFalse((self.AGENTS / ".claude-plugin").exists())
+        codex = json.loads((self.AGENTS / ".codex-plugin/plugin.json").read_text())
+        for field in ("logo", "composerIcon"):
+            self.assertTrue(codex["interface"][field].startswith("./"))
+            self.assertTrue((self.AGENTS / codex["interface"][field]).is_file())
+
+    def test_each_marketplace_installs_the_right_folder(self) -> None:
+        claude = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text())["plugins"][0]
+        codex = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())["plugins"][0]
+        grok = json.loads((ROOT / ".grok-plugin/marketplace.json").read_text())["plugins"][0]
+        self.assertEqual((claude["name"], claude["source"]), ("screenrig", "./plugins/screenrig"))
+        self.assertEqual((codex["name"], codex["source"]["path"]), ("screenrig", "./plugins/screenrig-agents"))
+        self.assertEqual((grok["name"], grok["source"]),
+                         ("screenrig", {"type": "local", "path": "./plugins/screenrig-agents"}))
+
+    def test_both_folders_ship_identical_skills_and_cli(self) -> None:
+        self.assertEqual(builder.compare(self.CLAUDE / "skills", self.AGENTS / "skills"), [])
+        self.assertEqual(builder.compare(self.CLAUDE / "cli", self.AGENTS / "cli"), [])
+
+    def test_validator_rejects_an_image_in_the_claude_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            claude = Path(tmp) / "screenrig"
+            write_json(claude / ".claude-plugin/plugin.json", {"name": "screenrig", "icon": "./assets/logo.png"})
+            (claude / "assets").mkdir()
+            (claude / "assets/logo.png").write_bytes(b"\x89PNG")
+            write_json(claude / "plugin.json", {"name": "screenrig"})
+            validator.errors.clear()
+            with patch.object(validator, "PLUGIN", claude), patch.object(validator, "ROOT", Path(tmp)):
+                validator.check_claude_folder_boundary()
+            messages = " ".join(validator.errors)
+            validator.errors.clear()
+            self.assertIn("holds no image or font file", messages)
+            self.assertIn("must not name an icon", messages)
+            self.assertIn("names an image or font", messages)
+            self.assertIn("belong in plugins/screenrig-agents", messages)
+
+    def test_skills_and_docs_avoid_scanner_credential_patterns(self) -> None:
+        # The Claude plugin directory scan reads these as credentials from the
+        # environment or as download-and-execute.
+        validator.errors.clear()
+        validator.check_scanner_patterns()
+        found = list(validator.errors)
+        validator.errors.clear()
+        self.assertEqual(found, [])
+        for label, sample in (
+            ("whole or dynamic environment read", "const value = process.env[name];"),
+            ("whole or dynamic environment read", "spawn(a, { env: process.env });"),
+            ("whole or dynamic environment read", "const env = { ...process.env };"),
+            ("bearer header example", "Authorization: Bearer abc"),
+            ("credential environment variable", "export API_TOKEN=abc"),
+            ("download and execute", "curl https://example.com/install | sh"),
+            ("environment dump", "printenv"),
+            ("pass password manager", "pass --version"),
+        ):
+            with self.subTest(label=label, sample=sample):
+                self.assertTrue(validator.SCANNER_PATTERNS[label].search(sample))
 
 
 class ViewBridgeTests(unittest.TestCase):
@@ -1056,4 +1149,4 @@ class ViewBridgeTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main(defaultTest=["LauncherTests", "FreshnessTests", "CalVerTests", "SkillCommandTests",
                                "TaughtSurfaceTests", "DocsOnlyTests", "DependencyBoundaryTests", "MCPConnectionTests",
-                               "ViewBridgeTests"])
+                               "PluginFolderTests", "ViewBridgeTests"])

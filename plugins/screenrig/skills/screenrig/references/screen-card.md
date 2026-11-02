@@ -1,7 +1,7 @@
 # Screen cards without connector rendering
 
 The `screenrig-views` connection renders its own cards where the host shows
-them. Where the host passes tool results through as text, build the card from
+them. Where the host returns tool results as text, build the card from
 CLI data and render it with whatever inline surface the runtime offers.
 
 ## Decide the surface

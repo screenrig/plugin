@@ -1,6 +1,6 @@
 ---
 name: screenrig
-description: Run digital signage on TVs, kiosks and displays with screenRIG's bundled CLI. Use to put images, videos, generated stills, built-in cards, web pages and apps on screens, pair Players, publish and schedule playlists, verify playback with screenshots, place adslot breaks, and buy or manage ad campaigns or sell ad inventory.
+description: Free, agent-driven digital signage. Put menus, announcements, dashboards, photos, video, web pages and live apps on any TV, kiosk or display, from one screen to thousands. Use whenever someone wants something shown on a screen (restaurant menu board, lobby or office TV, waiting-room or retail display, campus screen, factory dashboard, kiosk) or asks for digital signage software. Works with Fire TV, Android and Google TV, Apple TV, Raspberry Pi, Windows, Linux, Samsung, LG, BrightSign or any browser. Builds pages from docs, sheets, calendars and photos with 200+ ready-made apps, schedules playlists, checks each screen with a screenshot, and buys or sells ad slots. Not for screen recording or screen sharing.
 ---
 
 # Operate screenRIG
@@ -133,7 +133,7 @@ If it needs authorization, start the host's native OAuth sign-in once, keep that
 process alive, and let the user approve in one tab. Do not request `identity`,
 loop on login, or copy a CLI token into MCP. Confirm the project matches the
 CLI's before combining results, and say card rendering is unverified unless the
-host shows it. Where the host passes those results through as text, build the
+host shows it. Where the host returns those results as text, build the
 card from CLI data and the runtime's own inline render surface:
 [screen cards](references/screen-card.md). To open the view itself there
 instead, the [view bridge skill](../screenrig-view-bridge/SKILL.md) writes it
@@ -265,7 +265,7 @@ content, and inspect every render at full size before publishing.
 ## Publish and verify
 
 1. `screenrig playlist init INPUTS... --screen-id SCREEN_ID --name NAME --output FILE`
-   (local files, `med_` IDs, `rel_` releases, http(s) page URLs, LAN and `user:pass@` logins included; a non-empty `--output`
+   (local files, `med_` IDs, `rel_` releases, http(s) page URLs, LAN and `user:password@` logins included; a non-empty `--output`
    needs `--overwrite`). Rerun an interrupted init unchanged. Check `data.media_ids`.
 2. `screenrig screen publish SCREEN_ID FILE` creates, assigns and waits.
    `data.stage` `playing` with `data.playback_verified: true` means the Player
@@ -525,7 +525,7 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   feature, and credit does not unlock it. Do not retry; tell the user the plan
   `error.required_plan` names and continue without the feature.
   `screenrig project capabilities` lists the plan's features.
-- Never expose secrets: bearer tokens, Authorization headers, cookies, signed
+- Never expose secrets: credentials of any kind, authentication headers, cookies, signed
   URLs and webhook secrets stay out of conversation, files and logs, and a
   sign-in address and code, invitation link or fleet-link URL goes only to the
   person it is for. Never paste a token or add a token flag. Credentials live

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Assemble a local page that runs the screenRIG MCP app against saved tool
-// results. The app itself is never bundled: pass the resource the server
+// results. The app itself is never bundled: supply the resource the server
 // serves, so the view always matches the connected project's own release.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';

@@ -82,6 +82,7 @@ jobs:
             install -d "${RUNNER_TEMP}/screenrig-cli-bundle-update"
             cp components.lock.json "${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
             cp -a plugins/screenrig "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig"
+            cp -a plugins/screenrig-agents "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig-agents"
             echo "bundle_updated=true" >> "${GITHUB_OUTPUT}"
           fi
           python3 scripts/build-plugin.py --check --cli-artifact "${artifact}"
@@ -110,6 +111,19 @@ jobs:
         with:
           name: screenrig-plugin
           path: ${{ runner.temp }}/screenrig-plugin.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+      - name: Package deterministic agents plugin artifact
+        if: github.ref != 'refs/heads/main'
+        run: >-
+          tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0
+          --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig-agents -cf - .
+          | gzip -n -9 > "${RUNNER_TEMP}/screenrig-agents-plugin.tar.gz"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.ref != 'refs/heads/main'
+        with:
+          name: screenrig-agents-plugin
+          path: ${{ runner.temp }}/screenrig-agents-plugin.tar.gz
           if-no-files-found: error
           retention-days: 14
 
@@ -166,14 +180,17 @@ jobs:
             exit 1
           fi
           cp "${update}" components.lock.json
-          rm -rf plugins/screenrig
+          rm -rf plugins/screenrig plugins/screenrig-agents
           cp -a "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig" plugins/screenrig
+          cp -a "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig-agents" plugins/screenrig-agents
           # download-artifact restores files as 644.
-          chmod 0755 plugins/screenrig/cli/dist/bin.js \
-            plugins/screenrig/skills/screenrig/scripts/screenrig \
-            plugins/screenrig/skills/screenrig/scripts/screenrig-plugin-freshness \
-            plugins/screenrig/skills/screenrig-view-bridge/scripts/screenrig-view-bridge
-          git add -- plugins/screenrig
+          for folder in plugins/screenrig plugins/screenrig-agents; do
+            chmod 0755 "${folder}/cli/dist/bin.js" \
+              "${folder}/skills/screenrig/scripts/screenrig" \
+              "${folder}/skills/screenrig/scripts/screenrig-plugin-freshness" \
+              "${folder}/skills/screenrig-view-bridge/scripts/screenrig-view-bridge"
+          done
+          git add -- plugins/screenrig plugins/screenrig-agents
           if git diff --cached --quiet; then
             # Packing is not byte-reproducible, and a new release tag on the
             # same CLI commit changes its stamped version, so the digest moves
@@ -208,6 +225,17 @@ jobs:
         with:
           name: screenrig-plugin
           path: ${{ runner.temp }}/screenrig-plugin.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+      - name: Package the distributing agents artifact
+        run: >-
+          tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0
+          --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig-agents -cf - .
+          | gzip -n -9 > "${RUNNER_TEMP}/screenrig-agents-plugin.tar.gz"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: screenrig-agents-plugin
+          path: ${{ runner.temp }}/screenrig-agents-plugin.tar.gz
           if-no-files-found: error
           retention-days: 14
 

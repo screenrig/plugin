@@ -1,8 +1,9 @@
 [
   ".claude-plugin/marketplace.json",
-  "plugins/screenrig/plugin.json",
-  "plugins/screenrig/openclaw.plugin.json",
   "plugins/screenrig/.claude-plugin/plugin.json",
-  "plugins/screenrig/.codex-plugin/plugin.json",
-  "plugins/screenrig/cli/package.json"
+  "plugins/screenrig/cli/package.json",
+  "plugins/screenrig-agents/plugin.json",
+  "plugins/screenrig-agents/openclaw.plugin.json",
+  "plugins/screenrig-agents/.codex-plugin/plugin.json",
+  "plugins/screenrig-agents/cli/package.json"
 ]

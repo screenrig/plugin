@@ -55,16 +55,23 @@ def release_version_files() -> list[str]:
 
 
 def stamp_plugin_root(plugin_root: Path, version: str) -> None:
-    prefix = "plugins/screenrig/"
+    """Stamp ``version`` into every listed plugin file.
+
+    ``plugin_root`` is the ``plugins/screenrig`` folder; its sibling
+    ``screenrig-agents`` holds the manifests of the other hosts.
+    """
+    folders = {"plugins/screenrig/": plugin_root, "plugins/screenrig-agents/": plugin_root.parent / "screenrig-agents"}
     for file in release_version_files():
-        if not file.startswith(prefix):
-            continue
-        path = plugin_root / file.removeprefix(prefix)
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict) or not isinstance(data.get("version"), str):
-            raise SystemExit(f"{path}: expected a version-bearing JSON object")
-        data["version"] = version
-        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        for prefix, folder in folders.items():
+            if not file.startswith(prefix):
+                continue
+            path = folder / file.removeprefix(prefix)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict) or not isinstance(data.get("version"), str):
+                raise SystemExit(f"{path}: expected a version-bearing JSON object")
+            data["version"] = version
+            path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            break
 
 
 def cli_stamp_for_commit(repository: str, commit: str) -> str | None:

@@ -85,8 +85,8 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
   retry the identical webhook body with the same `Idempotency-Key`, or refresh
   the source. Omitted keys keep their previous data and expiry; webhook data
   remains until replaced. See https://screenrig.ai/docs/sources for mappings.
-- The sender sends `Authorization: Bearer SECRET` (or HTTP Basic with the
-  webhook id as user), never the secret in the url. Each post is checked as the
+- The sender authenticates with the webhook's secret as a bearer credential (or
+  HTTP Basic with the webhook id as user), never the secret in the url. Each post is checked as the
   card's own data (`card_data_invalid` names the path), an identical document is
   not rewritten, and an accepted post is one billed API request.
 - A wrong url, a wrong secret, a disabled webhook and any GET answer the same 404;
@@ -94,7 +94,7 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
   t=UNIX,v1=HEX`, the HMAC-SHA256 of `t.BODY` under `data.signing_secret`, within
   five minutes. Secrets go to the sender's administrator, never into
   conversation, files or logs.
-- A vendor that signs its own posts needs no `Authorization` header. Create or
+- A vendor that signs its own posts needs no bearer credential. Create or
   update the webhook with `--verify VENDOR --verify-secret-file FILE`, VENDOR one
   of `github`, `stripe`, `shopify`, `slack`, `linear`, `vercel`, `asana` or
   `generic_hmac` (any HMAC sender; `--help` lists the signature header, encoding
@@ -114,8 +114,8 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
   refused `secret_pending` until Asana's handshake lands). Events from Graph,
   monday.com and Trello carry no header screenRIG verifies, so each must arrive
   with the webhook's own secret: an Event Grid subscription adds it as a static
-  `Authorization: Bearer SECRET` delivery header, and for the others a flow tool
-  that triggers on the vendor and can set the header (Zapier, Make, Power
+  bearer-credential delivery header, and for the others a flow tool
+  that triggers on the vendor and can set that header (Zapier, Make, Power
   Automate) posts to the webhook instead.
 
 GitHub signs each push with the secret the user sets on its webhook page
@@ -144,7 +144,8 @@ screenrig triggers test trg_ID           # one-minute test; triggers clear trg_I
 screenrig triggers deliveries trg_ID     # why each post was shown, ignored or refused
 ```
 
-- The sender posts JSON with `Authorization: Bearer SECRET`: `alert_id`, `label`,
+- The sender posts JSON, authenticated with the webhook's secret as a bearer
+  credential: `alert_id`, `label`,
   `title`, `message`, `note`, `duration` (`90s`, `10m`, `until_cleared`; default
   10m) and `clear` or a `state` of `off`, `closed`, `resolved`. One `alert_id` is
   one alert; the newest shows; each post holds its alert from now.
@@ -220,7 +221,7 @@ HDMI-A-1,HDMI-A-2 --arrangement row|column|grid [--columns N] [--rotation
 with `screen wall clear SCREEN_ID`; `wall_unsupported` means the Player lacks
 wall support. A grid takes `--columns`, an integer of at least 2 that divides
 the displays into at least 2 rows (12 displays in 4 columns make 3 rows); a row
-or column takes none. Prefer a grid when a row or column would pass 16384 px
+or column takes none. Prefer a grid when a row or column would exceed 16384 px
 (more than 8 landscape displays in a row), the widest buffer most GPUs
 allocate. A wall playlist carries `format` (`displays`, `arrangement`,
 `orientation`, and `columns` for a grid), every page canvas is the wall canvas
