@@ -33,6 +33,8 @@ unchanged.
 | `google-travel-times` | `travel-times` | `api_key`: a key with the Routes API |
 | `greenhouse-jobs`, `lever-jobs`, `ashby-jobs` | `now-hiring` | none: the job board is public |
 | `github-actions` | `build-board` | `token`: a fine-grained token with read-only Actions access to the repository |
+| `api-football-scores`, `api-football-standings` | `scores`, `standings` | `api_key`: an API-Sports key (football) |
+| `api-sports-scores`, `api-sports-standings` | `scores`, `standings` | `api_key`: the same API-Sports key, with `sport` basketball, hockey, baseball or american-football |
 
 ```sh
 screenrig source presets slack-channel
@@ -57,7 +59,9 @@ take it as an argument or print it.
   a minute.
 - `facebook-page`, `instagram-business`: make the Page token from a long-lived
   user token (or a system user) so it does not expire; Meta answers an expired
-  token with HTTP 400 (`http_status`).
+  token with HTTP 400 (`http_status`). The wall shows each post's words (an
+  Instagram post's caption): the card takes pictures only as media, so a post
+  without words is left out.
 - `google-reviews` reads the place every 6 hours and `google-travel-times` every
   15 minutes (one billed route element per destination per refresh), both on the
   customer's own Google key: leave the interval alone. The reviews card shows the
@@ -65,6 +69,13 @@ take it as an argument or print it.
   the screen after 24 hours without a refresh.
 - The job boards show up to 8 roles and a QR code to the board; `github-actions`
   shows one repository and branch, the latest run of each workflow.
+- API-Sports presets take a league ID and season (`source presets NAME` shows
+  examples) and a required `timezone`. Scores refresh every 20 minutes and
+  standings every 6 hours, 76 of the free plan's 100 requests a day for one
+  sport; every source on one key shares the allowance, so leave the intervals
+  alone on a free key. A spent quota or a season the plan lacks fails the run,
+  and the card keeps its data. The data is the customer's to show on their own
+  screens under API-Sports' terms.
 
 ## The workflow
 
