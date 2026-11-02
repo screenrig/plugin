@@ -29,9 +29,11 @@ Codex would fall back to the Claude index without `.agents/plugins/marketplace.j
 so that index exists. Grok has no index of its own: it reads the Claude index,
 which keeps installs registered under `plugins/screenrig` updating. The Claude
 plugin directory scans `plugins/screenrig` and holds any image or font a
-command, hook or script can reach, so that folder holds no image or font file
-and no manifest but `.claude-plugin/plugin.json`, which names no icon
-(`validate-plugin.py` fails on either). Codex needs `./`-relative logo paths
+command, hook, script or manifest names, so that folder holds no image or font
+but the listing icon `.claude-plugin/icon.png` (the logo, at the path the
+directory looks for, named by nothing), and no manifest but
+`.claude-plugin/plugin.json`, which names no icon (`validate-plugin.py` fails on
+either). Codex needs `./`-relative logo paths
 inside its folder, which is why the logo lives in the agents folder.
 
 ## Sources and generation

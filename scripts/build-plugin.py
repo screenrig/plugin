@@ -182,6 +182,8 @@ PUBLIC_FILES = (
     "SECURITY.md",
 )
 AGENTS_ONLY_FILES = ("assets/logo.png",)
+# The Claude directory's listing icon: the logo, unreferenced, where the directory looks.
+CLAUDE_ICON = ".claude-plugin/icon.png"
 
 
 def public_files(folder: str) -> tuple[str, ...]:
@@ -484,9 +486,11 @@ def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version
     remote = {"type": "http", "url": "https://api.screenrig.ai/mcp"}
     claude = dict(base)
     claude["mcpServers"] = {"screenrig-views": {**remote, "oauth": {"scopes": " ".join(scopes)}}}
-    # Claude plugin directory listing: the links shown beside it and https
-    # screenshots. No icon: the Claude folder holds no image file, and the
-    # directory keeps the icon it stored at the first submission.
+    # Claude plugin directory listing: its name, the links shown beside it and
+    # https screenshots. The icon is .claude-plugin/icon.png, the path the
+    # directory looks for; nothing names it, because the directory holds a
+    # plugin for review when a manifest, command or script names an image.
+    claude["displayName"] = metadata["interface"]["displayName"]
     claude["privacyPolicyUrl"] = metadata["interface"]["privacyPolicyURL"]
     claude["termsOfServiceUrl"] = metadata["interface"]["termsOfServiceURL"]
     claude["supportUrl"] = metadata["interface"]["supportURL"]
@@ -495,6 +499,7 @@ def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version
     claude_root = plugins_root / CLAUDE_FOLDER
     (claude_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
     (claude_root / ".claude-plugin" / "plugin.json").write_text(json.dumps(claude, indent=2) + "\n", encoding="utf-8")
+    shutil.copyfile(ROOT / "assets" / "logo.png", claude_root / CLAUDE_ICON)
 
     agents_root = plugins_root / AGENTS_FOLDER
     codex = dict(base)

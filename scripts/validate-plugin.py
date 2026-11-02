@@ -111,12 +111,13 @@ def check_marketplaces() -> None:
 
 
 def check_claude_folder_boundary() -> None:
-    """plugins/screenrig holds no image or font and no manifest but .claude-plugin/plugin.json."""
+    """plugins/screenrig holds no image or font but the unreferenced listing icon
+    (.claude-plugin/icon.png), and no manifest but .claude-plugin/plugin.json."""
     for path in sorted(PLUGIN.rglob("*")):
         if not path.is_file():
             continue
         relative = path.relative_to(PLUGIN).as_posix()
-        if path.suffix.lower() in CLAUDE_FORBIDDEN_SUFFIXES:
+        if path.suffix.lower() in CLAUDE_FORBIDDEN_SUFFIXES and relative != ".claude-plugin/icon.png":
             errors.append(f"{path.relative_to(ROOT)}: the Claude folder holds no image or font file")
         if relative in AGENTS_MANIFESTS:
             errors.append(f"{path.relative_to(ROOT)}: manifests of other hosts belong in plugins/screenrig-agents")
