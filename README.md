@@ -105,6 +105,34 @@ server URL. The CLI handles enrollment, media preparation, pairing and
 changes. Interactive cards appear in hosts that support interactive views;
 other hosts return text results.
 
+## What the plugin runs, sends and stores
+
+- **Runs:** the bundled screenRIG CLI on Node.js, through the skill's helper
+  script; ffmpeg and ffprobe on your machine to prepare video and images; a
+  local Chromium or Chrome, offline, for card previews. It downloads and
+  installs no code.
+- **Sends to screenRIG** (api.screenrig.ai, the service behind the connector):
+  the commands you ask for, the media you upload (straight to screenRIG's
+  storage through signed upload links), playlists, screen details, and the
+  contact email and organization name you give when you enroll.
+- **Sends elsewhere, only when you ask:**
+  - `screenrig migrate` reads your account at the signage system you name
+    (Screenly, Yodeck, Xibo, OptiSigns, ScreenCloud or an Anthias device) with
+    the key in your `--credentials` file. The key goes only to that system.
+  - The helper checks for plugin updates by reading this repository's public
+    marketplace file on GitHub (raw.githubusercontent.com).
+  - `screenrig status` reads screenRIG's public status monitor
+    (monitor.screenrig.ai), and the CLI reads public files on screenrig.ai.
+  - Integrations you set up (Slack, Microsoft Teams, Dropbox, Google Drive,
+    Power BI, Tableau, webhooks) are connected by the screenRIG service, not
+    from your machine.
+- **Stores on your machine:** the sign-in and settings in a user-only config
+  file (`~/.config/screenrig/config.json`), and the exports and downloads you
+  request.
+- **Personal data:** your account name and email, your organization members'
+  emails, and the screen locations you enter. screenRIG keeps them while the
+  account or project exists, as the privacy policy describes.
+
 ## Privacy, terms and support
 
 [Privacy policy](https://screenrig.ai/privacy) ·
