@@ -67,6 +67,17 @@ screenrig media sync show msy_ID                  # what the last run did
   --secret-file new.txt`. `media sync delete ID` stops the sync and keeps the
   media; `media sync account delete ID` is refused while a sync uses it.
 
+A Microsoft connection can stand in for the three values: `media sync account add
+microsoft365 --connection-id pcn_ID` reads through a connection (`connection
+create microsoft`, either mode) that the project's room calendars can share too
+([connections](sources.md#meeting-rooms-microsoft365-google_calendar)). With
+screenrig_app the customer's administrator approves screenRIG's own application
+once, so no secret passes through you. For files it holds `Sites.Selected` only:
+grant each site to the enterprise application the consent adds to the tenant, as
+above (`connection test` warns when that is all the token carries). A sharing link
+or an OneDrive for work address needs an own_app connection whose app holds
+Files.Read.All.
+
 Creating accounts and syncs needs Manage access. Accounts and syncs belong to
 one project. The secret is sealed on the server and shown only as its last four
 characters; give it only through `--secret-file`.

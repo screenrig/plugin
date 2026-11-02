@@ -116,7 +116,7 @@ expiry (`card data put --ttl`, or `--expires-at`) goes blank on every screen whe
 the expiry passes with no write to renew it. `card_data_stale` opens at that
 moment, while a screen shows the card, and clears with the next write that lands:
 it is how a stopped schedule is noticed ([keep cards
-current](keep-cards-current.md)).
+current](sources.md#keep-cards-current)).
 
 - `notifications create --email owner --conditions card_data_stale` announces it
   after `--hold` minutes. The notice names the card (its id and type), says when

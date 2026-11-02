@@ -109,6 +109,26 @@ screen alert (`alerts list` never shows it), and `--tag` never matches a source,
 leave it off. `source show ID` says why (`status.error`, `status.stale`,
 `data_expires_at`); `source refresh ID` retries now.
 
+## card_data_stale: a scheduled write stops
+
+This condition is about a card, not a screen. A card whose data you write with an
+expiry (`card data put --ttl`, or `--expires-at`) goes blank on every screen when
+the expiry passes with no write to renew it. `card_data_stale` opens at that
+moment, while a screen shows the card, and clears with the next write that lands:
+it is how a stopped schedule is noticed ([keep cards
+current](sources.md#keep-cards-current)).
+
+- `notifications create --email owner --conditions card_data_stale` announces it
+  after `--hold` minutes. The notice names the card (its id and type), says when
+  its data expired and to check the agent or job that writes it; `card data get
+  crd_ID` shows what was written last.
+- It is never a screen alert and never grouped, and `--tag` never matches a card.
+  Severity is `warning` by default; `--min-severity`, `--active-hours`, `--hold`
+  and snooze apply as for any condition.
+- It stays quiet for a data source's cards (`source_stale` covers those), for data
+  written with no expiry (a card webhook's data stays until replaced), for a card
+  no screen shows, and when the card's data is deleted.
+
 ## reach_dropped and group_empty: a campaign silently stops reaching screens
 
 These two conditions are about a campaign (`campaign create`), not a screen. A

@@ -194,7 +194,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | A footer ticker or header logo over the page, on the same screen | strip: a playlist with `--format-region`, shown by a level that `covers` that region ([playlists](references/playlists.md#strips)) |
 | The same layout with staff-filled text, a photo or a link (brand rules, quick notices) | template: `fields` and `locked` on a playlist, then `playlist create --from-template` ([playlists](references/playlists.md#templates)) |
 | Data that lives elsewhere: a calendar, a sheet, a till, Slack, social posts, reviews | a card plus `source create`, from a preset when one exists (`source presets`; [sources](references/sources.md#presets)) |
-| Data that must stay current, and which way to feed it | a source, your own scheduled `card data put --ttl`, or a webhook ([keep cards current](references/keep-cards-current.md)) |
+| Data that must stay current, and which way to feed it | a source, your own scheduled `card data put --ttl`, or a webhook ([keep cards current](references/sources.md#keep-cards-current)) |
 
 Prefer a card to an application: a card draws natively on every Player, changes
 with `card data put` without republishing, and suits a rotating loop. App code
@@ -206,7 +206,7 @@ never the providers ([feed families and their cards](references/playlists.md#bui
 
 Write card data and `kv` values when the value changes, never on a fast timer; a
 job that keeps a card current writes on the data's own schedule with `--ttl`
-([keep cards current](references/keep-cards-current.md)).
+([keep cards current](references/sources.md#keep-cards-current)).
 A write that answers `rate_limited` waits `error.retry_after_seconds`, then retries.
 
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`

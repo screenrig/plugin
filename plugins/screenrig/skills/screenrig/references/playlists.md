@@ -30,10 +30,27 @@ screenrig card preview crd_ID --output card.png
 - Preview locally with installed Chromium (`SCREENRIG_BROWSER` selects it);
   `--now ISO --timezone ZONE` freezes clocks. Resolve every item in
   `data.placeholders` and check a Player screenshot after publishing.
-- Weather, air quality, alerts, rates, crypto, earthquakes and headlines come
-  from `screenrig feeds get NAME ...`, cached by screenRIG; never call providers.
-  A `state: pending` answer carries `retry_after_seconds`: report it and return.
-  Show a feed's `attribution` wherever its data shows.
+- Weather, air quality, alerts, rates, crypto, earthquakes, headlines and the
+  families below come from `screenrig feeds get NAME ...`, cached by screenRIG;
+  never call providers. A `state: pending` answer carries
+  `retry_after_seconds`: report it and return. Show a feed's `attribution`
+  wherever its data shows.
+
+Feed families and the card that reads each. A card takes the params shown
+(`cards show TYPE` lists them); where one takes a location, give it the whole
+value `"{screen.location}"` so each screen reads its own place, as in
+`{"location": "{screen.location}"}`:
+
+| `feeds get` | Card | Placement |
+| --- | --- | --- |
+| `tides` (`--station ID`, or `--lat` and `--lon`) | `tides` | `station` (a NOAA station id) or `location`: the nearest station within 100 km, United States and territories |
+| `launches` | `launch-tracker` | none: the next launches worldwide |
+| `drugalerts` (`--country us\|ca\|gb`, `--category drug\|food`) | `drug-alerts` | `country`, `category`: recalls |
+| `respiratory` (`--country us\|gb`, `--region`) | `respiratory-activity` | `country`, `region` (a US state, territory or DC, or England or a UKHSA region) |
+| `almanac` (`--language`, `--country`, `--lat` and `--lon`, `--date`) | `today` | `location` adds sun and moon, `country` holidays; `language`, `date` |
+| `outdoorsafety` (`--lat` and `--lon`) | `outdoor-safety` | `location`: an estimated heat index (WBGT) for open sun; set `show` to `heat` |
+| `departures` (`--provider tfl\|entur\|digitransit`, `--stops IDS`) | `departures` | `provider`, `stops` (the provider's stop ids) |
+| `bikeshare` (`--lat` and `--lon`, `--system ID`) | `bike-share` | `location`, optional `system` (a GBFS system id); a place no listed system covers gets no data |
 
 ## Card webhooks
 
@@ -77,6 +94,44 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
   t=UNIX,v1=HEX`, the HMAC-SHA256 of `t.BODY` under `data.signing_secret`, within
   five minutes. Secrets go to the sender's administrator, never into
   conversation, files or logs.
+- A vendor that signs its own posts needs no `Authorization` header. Create or
+  update the webhook with `--verify VENDOR --verify-secret-file FILE`, VENDOR one
+  of `github`, `stripe`, `shopify`, `slack`, `linear`, `vercel`, `asana` or
+  `generic_hmac` (any HMAC sender; `--help` lists the signature header, encoding
+  and timestamp options it needs). A post with the vendor's valid signature is
+  accepted without the webhook's own secret, which keeps working beside it. The
+  vendor's secret is the one its webhook page shows or takes (Stripe's starts
+  `whsec_`): ask the user to save it to a file. It is stored sealed and shown only
+  as a hint; `--verify VENDOR` without a file keeps it for the same vendor,
+  `--clear-verify` removes it, and `--verify` excludes `--signing`. A refused post
+  is the same 404, and `deliveries` says `signature_missing`, `signature_invalid`
+  or `timestamp_stale` (the secret was right, the clock was not).
+- Handshakes: `--handshake microsoft_graph|monday|trello|azure_event_grid` answers
+  the check that vendor makes when a subscription is created; it writes nothing
+  and is free. `--verify slack` and `--verify asana` answer their own: Slack's
+  signed `url_verification`, and Asana's `X-Hook-Secret` (create the webhook with
+  `--verify asana` and no file, then point Asana's webhook at its url: events are
+  refused `secret_pending` until Asana's handshake lands). Events from Graph,
+  monday.com and Trello carry no header screenRIG verifies, so each must arrive
+  with the webhook's own secret: an Event Grid subscription adds it as a static
+  `Authorization: Bearer SECRET` delivery header, and for the others a flow tool
+  that triggers on the vendor and can set the header (Zapier, Make, Power
+  Automate) posts to the webhook instead.
+
+GitHub signs each push with the secret the user sets on its webhook page
+(Settings, Webhooks, Add webhook: Payload URL is the printed url, Content type
+`application/json`). Save that secret to `gh.secret`; a `text` card shows the
+push:
+
+```sh
+screenrig kv webhook create --card crd_ID --description "Pushes" --verify github --verify-secret-file gh.secret --map map.json
+```
+
+```json
+{"title": "{{body.repository.full_name}}", "body": "{{body.head_commit.message}}"}
+```
+
+GitHub's `ping` after creation is signed and accepted.
 
 ## Overlay triggers
 
@@ -98,7 +153,9 @@ screenrig triggers deliveries trg_ID     # why each post was shown, ignored or r
   `--style FILE` sets theme and colours, `--signing` adds `ScreenRig-Signature`,
   `triggers update` changes any of it. A wrong url, a wrong secret and any GET
   answer the same 404; only `deliveries` says why. A clear is free. Secrets go
-  only to the sender's administrator.
+  only to the sender's administrator. `triggers create|update` take the same
+  `--verify`, `--verify-secret-file`, `--handshake` and `--clear-verify` as card
+  webhooks (above); a post that is only a vendor handshake changes no alert.
 - Home Assistant example and the full request: <https://screenrig.ai/docs/cli#overlay-triggers>.
 
 ## Per-screen values
@@ -115,8 +172,9 @@ A card's params read them with tokens that screenRIG fills for each screen:
 - Any text param: `{screen.name}`, `{screen.timezone}`, `{screen.field.NAME}`,
   for example `"title": "Store {screen.field.store_number}"`.
 - A card's `location` param: the whole value `"{screen.location}"`, so weather,
-  air quality, alerts, earthquake, moon and prayer-time cards follow each
-  screen. A CAP alert card takes it only without `sources`.
+  air quality, alerts, earthquake, moon, prayer-time, tides, outdoor-safety,
+  bike-share and today cards follow each screen. A CAP alert card takes it only
+  without `sources`.
 
 `card create` and playlists accept the tokens. `card preview` shows them as
 written, so check one screen's screenshot after publishing. A screen without
