@@ -22,12 +22,12 @@ Two generated folders carry the same skills and bundled CLI:
 
 | Folder | Installed by | Reads |
 |---|---|---|
-| `plugins/screenrig` | Claude (`.claude-plugin/marketplace.json`) | `.claude-plugin/plugin.json` with the inline `mcpServers` |
-| `plugins/screenrig-agents` | Codex (`.agents/plugins/marketplace.json`), Grok (`.grok-plugin/marketplace.json`), OpenClaw | `.codex-plugin/plugin.json` and `.mcp.json`, portable `plugin.json` and `mcp.json`, `openclaw.plugin.json`, `assets/logo.png` |
+| `plugins/screenrig` | Claude and Grok (`.claude-plugin/marketplace.json`) | `.claude-plugin/plugin.json` with the inline `mcpServers` |
+| `plugins/screenrig-agents` | Codex (`.agents/plugins/marketplace.json`), OpenClaw | `.codex-plugin/plugin.json` and `.mcp.json`, portable `plugin.json` and `mcp.json`, `openclaw.plugin.json`, `assets/logo.png` |
 
-Codex falls back to the Claude index when `.agents/plugins/marketplace.json` is
-absent, and Grok falls back to it when `.grok-plugin/marketplace.json` is
-absent; both indexes exist so neither lands on the Claude folder. The Claude
+Codex would fall back to the Claude index without `.agents/plugins/marketplace.json`,
+so that index exists. Grok has no index of its own: it reads the Claude index,
+which keeps installs registered under `plugins/screenrig` updating. The Claude
 plugin directory scans `plugins/screenrig` and holds any image or font a
 command, hook or script can reach, so that folder holds no image or font file
 and no manifest but `.claude-plugin/plugin.json`, which names no icon

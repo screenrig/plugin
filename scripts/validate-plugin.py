@@ -66,10 +66,10 @@ def load(path: Path) -> dict[str, Any]:
 
 
 def check_marketplaces() -> None:
-    # Codex reads .agents/plugins/marketplace.json (and falls back to the Claude
-    # index); Grok reads .grok-plugin/marketplace.json (and falls back to the
-    # Claude index). Both point at the agents folder. Claude reads its own index
-    # and installs the Claude folder.
+    # Codex reads .agents/plugins/marketplace.json, which points at the agents
+    # folder. Claude and Grok read .claude-plugin/marketplace.json and install the
+    # Claude folder: Grok loads its skills and inline mcpServers, and a Grok index
+    # of its own would strand installs registered under plugins/screenrig.
     codex = load(ROOT / ".agents" / "plugins" / "marketplace.json")
     entries = codex.get("plugins") or []
     if len(entries) != 1 or not isinstance(entries[0], dict):
@@ -85,17 +85,8 @@ def check_marketplaces() -> None:
         if "version" in entry:
             errors.append(".agents/plugins/marketplace.json: Codex entry must be version-free")
 
-    grok = load(ROOT / ".grok-plugin" / "marketplace.json")
-    grok_entries = grok.get("plugins") or []
-    if len(grok_entries) != 1 or not isinstance(grok_entries[0], dict):
-        errors.append(".grok-plugin/marketplace.json: expected one plugin")
-    else:
-        entry = grok_entries[0]
-        source = entry.get("source") or {}
-        if entry.get("name") != "screenrig" or source != {"type": "local", "path": "./plugins/screenrig-agents"}:
-            errors.append(".grok-plugin/marketplace.json: invalid ScreenRig source")
-        if "version" in entry:
-            errors.append(".grok-plugin/marketplace.json: Grok entry must be version-free")
+    if (ROOT / ".grok-plugin").exists():
+        errors.append(".grok-plugin/ must not exist: Grok installs the Claude folder through .claude-plugin/marketplace.json")
 
     claude = load(ROOT / ".claude-plugin" / "marketplace.json")
     claude_entries = claude.get("plugins") or []

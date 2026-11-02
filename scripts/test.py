@@ -246,6 +246,40 @@ class FreshnessTests(unittest.TestCase):
             self.assertEqual(result.returncode, 78)
             self.assertEqual(json.loads(result.stdout)["data"]["action"], "install")
 
+    def test_codex_runs_its_cached_copy_of_a_git_marketplace(self) -> None:
+        """Codex lists the marketplace snapshot's path and runs the per-version
+        copy under CODEX_HOME/plugins/cache; that copy is registered."""
+        node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
+        with tempfile.TemporaryDirectory(prefix="screenrig-codex-cache-") as temporary:
+            tmp = Path(temporary)
+            codex_home = tmp / "codex home"
+            root = codex_home / "plugins/cache/screenrig/screenrig/26.10.1"
+            helper = install_copy(HELPER, root / "skills/screenrig/scripts/screenrig-plugin-freshness")
+            write_json(root / "cli/package.json", {"name": "screenrig", "version": "26.10.1"})
+            cli = root / "cli/dist/bin.js"
+            cli.parent.mkdir(parents=True)
+            cli.write_text('process.stdout.write(JSON.stringify({ok:true,data:{version:"test"}})+"\\n");\n')
+            snapshot = tmp / "snapshot/plugins/screenrig-agents"
+            snapshot.mkdir(parents=True)
+            host = tmp / "bin/codex"
+            host.parent.mkdir()
+            host.write_text(
+                "#!" + node + '\n'
+                'process.stdout.write(JSON.stringify({installed:[{pluginId:"screenrig@screenrig",marketplaceName:"screenrig",'
+                'version:process.env.TEST_VERSION,installed:true,enabled:true,source:{path:process.env.TEST_SNAPSHOT}}]}));\n'
+            )
+            host.chmod(0o755)
+            env = without(FRESHNESS_VARS, PATH=f"{host.parent}{os.pathsep}{os.environ['PATH']}",
+                          CODEX_HOME=str(codex_home), TEST_SNAPSHOT=str(snapshot), TEST_VERSION="26.10.1")
+            command = [node, str(helper), "--host", "codex", "--run", "version"]
+            result = subprocess.run(command, env=env, text=True, capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(json.loads(result.stdout)["ok"])
+            # Another version's cache is not this install.
+            result = subprocess.run(command, env={**env, "TEST_VERSION": "26.10.2"}, text=True,
+                                    capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 78)
+
     def test_directory_install_source_and_updates(self) -> None:
         """A copy from a host's plugin directory is registered, never told to
         refresh from GitHub, and passes its install source to the CLI."""
@@ -618,8 +652,7 @@ class CalVerTests(unittest.TestCase):
     def test_inventory_covers_every_version_bearing_manifest(self):
         files = json.loads((ROOT / "release-version-files.json").read_text())
         self.assertEqual(len(files), len(set(files)))
-        candidates = [ROOT / ".claude-plugin" / "marketplace.json", ROOT / ".agents" / "plugins" / "marketplace.json",
-                      ROOT / ".grok-plugin" / "marketplace.json"]
+        candidates = [ROOT / ".claude-plugin" / "marketplace.json", ROOT / ".agents" / "plugins" / "marketplace.json"]
         for folder in ("screenrig", "screenrig-agents"):
             candidates += list((ROOT / "plugins" / folder).rglob("*plugin.json"))
             candidates += [ROOT / "plugins" / folder / "cli" / "package.json"]
@@ -971,11 +1004,10 @@ class PluginFolderTests(unittest.TestCase):
     def test_each_marketplace_installs_the_right_folder(self) -> None:
         claude = json.loads((ROOT / ".claude-plugin/marketplace.json").read_text())["plugins"][0]
         codex = json.loads((ROOT / ".agents/plugins/marketplace.json").read_text())["plugins"][0]
-        grok = json.loads((ROOT / ".grok-plugin/marketplace.json").read_text())["plugins"][0]
         self.assertEqual((claude["name"], claude["source"]), ("screenrig", "./plugins/screenrig"))
         self.assertEqual((codex["name"], codex["source"]["path"]), ("screenrig", "./plugins/screenrig-agents"))
-        self.assertEqual((grok["name"], grok["source"]),
-                         ("screenrig", {"type": "local", "path": "./plugins/screenrig-agents"}))
+        # Grok reads the Claude index: installs registered under plugins/screenrig keep updating.
+        self.assertFalse((ROOT / ".grok-plugin").exists())
 
     def test_both_folders_ship_identical_skills_and_cli(self) -> None:
         self.assertEqual(builder.compare(self.CLAUDE / "skills", self.AGENTS / "skills"), [])
