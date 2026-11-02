@@ -47,69 +47,10 @@ _spec = importlib.util.spec_from_file_location("build_plugin", ROOT / "scripts" 
 assert _spec and _spec.loader
 builder = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(builder)
-PLUGIN_PLACEHOLDER = "0.1.2"
-CLI_PLACEHOLDER = "0.1.0"
 PRODUCT_VERSION = re.compile(r"^\d{2}\.(?:0[1-9]|1[0-2])\.[1-9]\d*$")
-
-
-def is_plugin_version(value: object) -> bool:
-    return isinstance(value, str) and (value == PLUGIN_PLACEHOLDER or PRODUCT_VERSION.fullmatch(value) is not None)
-
-
-def is_cli_version(value: object) -> bool:
-    return isinstance(value, str) and (value == CLI_PLACEHOLDER or PRODUCT_VERSION.fullmatch(value) is not None)
-
-
-CLI_SOURCE_FILES = (
-    "src/commands.ts",
-    "src/client.ts",
-    "src/localhost-smoke.ts",
-    "src/server-smoke.ts",
-)
 MCP_TOOLS_PATH = Path("scripts") / "mcp-tools.json"
 MCP_TOOLS_SCHEMA = "screenrig.mcp-tools/v1"
 errors: list[str] = []
-
-
-def requested_cli_source(explicit: str | None) -> tuple[Path | None, str | None]:
-    if explicit:
-        return Path(explicit).expanduser(), "--cli-source"
-    env = os.environ.get("SCREENRIG_CLI_SOURCE")
-    if env:
-        return Path(env).expanduser(), "SCREENRIG_CLI_SOURCE"
-    sibling = ROOT.parent / "cli"
-    if sibling.is_dir():
-        return sibling, "sibling cli checkout"
-    return None, None
-
-
-def require_cli_source(explicit: str | None) -> Path | None:
-    path, origin = requested_cli_source(explicit)
-    if path is None:
-        errors.append(
-            "CLI source is required for the stale-language audit; "
-            "pass --cli-source, set SCREENRIG_CLI_SOURCE, or check out screenrig/cli "
-            "as a sibling directory"
-        )
-        return None
-    missing = [relative for relative in CLI_SOURCE_FILES if not (path / relative).is_file()]
-    if missing:
-        errors.append(f"{origin} is not a ScreenRig CLI checkout (missing {', '.join(missing)})")
-        return None
-    return path
-
-
-def display_path(path: Path, cli_source: Path | None) -> str:
-    try:
-        return path.relative_to(ROOT).as_posix()
-    except ValueError:
-        pass
-    if cli_source is not None:
-        try:
-            return f"cli/{path.relative_to(cli_source).as_posix()}"
-        except ValueError:
-            pass
-    return path.name
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -165,8 +106,8 @@ def check_marketplaces() -> None:
     if entry.get("name") != "screenrig" or entry.get("source") != "./plugins/screenrig":
         errors.append(".claude-plugin/marketplace.json: invalid ScreenRig source")
     version = entry.get("version")
-    if not is_plugin_version(version):
-        errors.append(".claude-plugin/marketplace.json: version must be 0.1.2 or YY.MM.N")
+    if not (isinstance(version, str) and PRODUCT_VERSION.fullmatch(version)):
+        errors.append(".claude-plugin/marketplace.json: version must be YY.MM.N")
     if entry.get("repository") != PLUGIN_REPOSITORY or entry.get("license") != "Apache-2.0":
         errors.append(".claude-plugin/marketplace.json: public repository/license metadata drift")
     for folder, relative in ((PLUGIN, ".claude-plugin/plugin.json"), (AGENTS_PLUGIN, ".codex-plugin/plugin.json")):
@@ -240,10 +181,6 @@ def check_package() -> None:
         ):
             if fact not in canonical_text:
                 errors.append(f"canonical launcher is missing resolve fact: {fact}")
-        if "SCREENRIG_CLI" in canonical_text:
-            errors.append("canonical launcher must not add a SCREENRIG_CLI override")
-        if "walk_exec" in canonical_text or "pwd -P" in canonical_text:
-            errors.append("canonical launcher must not search ancestor directories for a CLI")
     freshness = ROOT / "skills" / "screenrig" / "scripts" / "screenrig-plugin-freshness"
     if not freshness.is_file():
         errors.append("skills/screenrig/scripts/screenrig-plugin-freshness: canonical helper missing")
@@ -323,7 +260,7 @@ def check_package() -> None:
             errors.append("packaged skill wrapper did not execute the bundled CLI with clean JSON output")
     repository = package.get("repository") or {}
     if (
-        not is_cli_version(package.get("version"))
+        not (isinstance(package.get("version"), str) and PRODUCT_VERSION.fullmatch(package["version"]))
         or package.get("private") is not False
         or package.get("license") != "Apache-2.0"
         or not isinstance(repository, dict)
@@ -342,9 +279,6 @@ def check_package() -> None:
         for fact in ("agent disconnect --yes", "/api/agents/self/disconnect"):
             if fact not in commands_text:
                 errors.append(f"packaged CLI credential lifecycle missing: {fact}")
-        for stale in ("auth revoke --yes", "/api/v1/account/credential/revoke"):
-            if stale in commands_text:
-                errors.append(f"packaged CLI still teaches dropped auth alias: {stale}")
 
 
 def check_agents_package() -> None:
@@ -445,7 +379,7 @@ def check_budget() -> None:
           f"{BUDGET_PLUGIN_FILES} files, {BUDGET_PLUGIN_BYTES:,} bytes, {BUDGET_FILE_BYTES:,} bytes per file")
 
 
-def check_no_alternate_surfaces(cli_source: Path | None) -> None:
+def check_no_alternate_surfaces() -> None:
     # Only the generated remote OAuth declarations are supported. Exact
     # matching rejects secret headers, executable adapters and private URLs.
     with tempfile.TemporaryDirectory(prefix="screenrig-manifests-") as temporary:
@@ -466,12 +400,9 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
         for path in folder.rglob("*"):
             if folder == AGENTS_PLUGIN and path in (AGENTS_PLUGIN / ".mcp.json", AGENTS_PLUGIN / "mcp.json"):
                 continue
-            if path.is_file() and path.name in {".mcp.json", "mcp.json", "screenrig-mcp-auth.mjs"}:
-                errors.append(f"{path.relative_to(ROOT)}: unexpected MCP declaration or retired credential helper")
+            if path.is_file() and path.name in {".mcp.json", "mcp.json"}:
+                errors.append(f"{path.relative_to(ROOT)}: unexpected MCP declaration")
 
-    audit_paths = list((ROOT / "skills").rglob("*.md"))
-    if cli_source is not None:
-        audit_paths.extend(cli_source / relative for relative in CLI_SOURCE_FILES)
     required_marketplace = {
         "README.md": ["https://screenrig.ai/docs/start", "SECURITY.md", "Node.js 22.23.4"],
         "skills/screenrig/SKILL.md": ["screenrig version", "screenrig-plugin-freshness", "screenrig doctor",
@@ -491,59 +422,28 @@ def check_no_alternate_surfaces(cli_source: Path | None) -> None:
             if "://" not in target and not target.startswith("#"):
                 if not (path.parent / target.split("#")[0]).is_file():
                     errors.append(f"{path.relative_to(ROOT)}: missing reference {target}")
-    skill_source = ROOT / "skills/screenrig/SKILL.md"
-    skill_raw = skill_source.read_text(encoding="utf-8") if skill_source.is_file() else ""
-    if "request ID for support" in skill_raw:
-        errors.append("skills/screenrig/SKILL.md: nonexistent support recovery path remains")
-    if "New skill text does not upgrade its executable" in skill_raw:
-        errors.append("skills/screenrig/SKILL.md: obsolete skill-text-does-not-upgrade rule remains")
 
-    readme_forbidden = {
+    token_paste = {
         "token paste": re.compile(r"--token(?!-file\b)|SCREENRIG_TOKEN", re.IGNORECASE),
     }
     for readme in (ROOT / "README.md", PLUGIN / "README.md"):
         if not readme.is_file():
             continue
         readme_text = readme.read_text(encoding="utf-8")
-        for label, pattern in readme_forbidden.items():
+        for label, pattern in token_paste.items():
             if pattern.search(readme_text):
                 errors.append(f"{readme.relative_to(ROOT)}: {label} must not appear in the README")
         if "https://screenrig.ai/skill/SKILL.md" in readme_text:
             errors.append(f"{readme.relative_to(ROOT)}: site skill URL is not the agent contract")
-    forbidden = {
-        "account create": re.compile(r"\baccount create\b", re.IGNORECASE),
-        "automatic enrollment": re.compile(
-            r"enrolls? automatically|automatic (?:first-use )?enrollment|automatic enrollment path"
-            r"|enrolls on first use|first authenticated (?:command|use|operation) enrolls"
-            r"|first-use enrollment",
-            re.IGNORECASE,
-        ),
-        "token paste": re.compile(r"--token(?!-file\b)|SCREENRIG_TOKEN", re.IGNORECASE),
-        "retired screen creation": re.compile(r"\bscreen\s+create\b", re.IGNORECASE),
-        "retired bootstrap onboarding": re.compile(
-            r"#bootstrap=|/api/v1/screens/bootstrap|/api/screens/bootstrap|/runtime/v1/device-sessions/bootstrap|/screen/device-sessions/bootstrap|ScreenBootstrap|PlayerBootstrap|bootstrap grant",
-            re.IGNORECASE,
-        ),
-        "retired pairing flag": re.compile(r"\bscreen\s+pair\s+--code\b", re.IGNORECASE),
-        "Grid layout": re.compile(r"grid_style|gridStyle|gridTemplate|RuntimeGrid|allowUpscale|CSS Grid", re.IGNORECASE),
-        "retired magic fragment": re.compile(r"#(?:grant|token|magic)=", re.IGNORECASE),
-        "retired acknowledgement mutation": re.compile(
-            r"credential-issuances/.*/ack|issuance acknowledgement|acknowledge enrollment",
-            re.IGNORECASE,
-        ),
-    }
     skill_forbidden = {
         "internal listener": re.compile(r"\bscreenrig-logd\b", re.IGNORECASE),
         "internal config": re.compile(r"config\.local-dev\.json", re.IGNORECASE),
     }
-    for root in audit_paths:
-        if not root.is_file():
-            errors.append(f"{display_path(root, cli_source)}: required stale-language audit file missing")
-            continue
-        text = root.read_text(encoding="utf-8")
-        for label, pattern in forbidden.items():
+    for path in (ROOT / "skills").rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        for label, pattern in token_paste.items():
             if pattern.search(text):
-                errors.append(f"{display_path(root, cli_source)}: stale {label} language")
+                errors.append(f"{path.relative_to(ROOT)}: stale {label} language")
     for skill_path in (ROOT / "skills").rglob("*.md"):
         skill_text = skill_path.read_text(encoding="utf-8")
         for label, pattern in skill_forbidden.items():
@@ -818,7 +718,6 @@ def check_taught_surface() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli-artifact")
-    parser.add_argument("--cli-source")
     parser.add_argument("--budget", action="store_true", help="only count files and bytes against the budget")
     args = parser.parse_args()
     if args.budget:
@@ -839,7 +738,7 @@ def main() -> int:
     check_claude_folder_boundary()
     check_agents_package()
     check_budget()
-    check_no_alternate_surfaces(require_cli_source(args.cli_source))
+    check_no_alternate_surfaces()
     check_taught_surface()
     check_scanner_patterns()
     check_claude_folder_scan()

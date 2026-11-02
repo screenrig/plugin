@@ -17,17 +17,7 @@ BUNDLE = ROOT / "plugins" / "screenrig"
 AGENTS_BUNDLE = ROOT / "plugins" / "screenrig-agents"
 # Claude installs BUNDLE; Codex, Grok and OpenClaw install AGENTS_BUNDLE.
 BUNDLES = (BUNDLE, AGENTS_BUNDLE)
-PLUGIN_PLACEHOLDER = "0.1.2"
-CLI_PLACEHOLDER = "0.1.0"
 PRODUCT_VERSION = re.compile(r"^\d{2}\.(?:0[1-9]|1[0-2])\.[1-9]\d*$")
-
-
-def is_plugin_version(value: object) -> bool:
-    return isinstance(value, str) and (value == PLUGIN_PLACEHOLDER or PRODUCT_VERSION.fullmatch(value) is not None)
-
-
-def is_cli_version(value: object) -> bool:
-    return isinstance(value, str) and (value == CLI_PLACEHOLDER or PRODUCT_VERSION.fullmatch(value) is not None)
 
 
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
@@ -72,8 +62,9 @@ def check_metadata(errors: list[str]) -> None:
         for field, value in expected.items():
             if manifest.get(field) != value:
                 errors.append(f"{relative} {field!r} must be {value!r}")
-        if not is_plugin_version(manifest.get("version")):
-            errors.append(f"{relative} version must be 0.1.2 or YY.MM.N")
+        version = manifest.get("version")
+        if not (isinstance(version, str) and PRODUCT_VERSION.fullmatch(version)):
+            errors.append(f"{relative} version must be YY.MM.N")
 
     for bundle in BUNDLES:
         check_cli_metadata(bundle, errors)
@@ -90,8 +81,9 @@ def check_cli_metadata(bundle: Path, errors: list[str]) -> None:
     for field, value in expected_package.items():
         if package.get(field) != value:
             errors.append(f"{package_path.relative_to(ROOT)} {field!r} must be {value!r}")
-    if not is_cli_version(package.get("version")):
-        errors.append(f"{package_path.relative_to(ROOT)} version must be 0.1.0 or YY.MM.N")
+    version = package.get("version")
+    if not (isinstance(version, str) and PRODUCT_VERSION.fullmatch(version)):
+        errors.append(f"{package_path.relative_to(ROOT)} version must be YY.MM.N")
     repository = package.get("repository")
     if not isinstance(repository, dict) or repository.get("url") != CLI_REPOSITORY:
         errors.append(f"{package_path.relative_to(ROOT)} repository.url must be {CLI_REPOSITORY}")
@@ -162,10 +154,8 @@ def check_public_tree(errors: list[str]) -> None:
             "--cli-artifact",
             "--write-lock",
             "--cli-commit",
-            "--cli-source",
             "python3 scripts/validate-plugin.py",
             "python3 scripts/test.py",
-            "name: screenrig-plugin",
             "gitleaks\" git",
             "contents: write",
             "actions: write",

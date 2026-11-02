@@ -251,7 +251,6 @@ def write_component_lock(commit: str, artifact: Path) -> None:
         raise BuildError("CLI commit is invalid")
     payload = {
         "schema": LOCK_SCHEMA,
-        "state": "resolved",
         "cli": {
             "repository": CLI_REPOSITORY,
             "commit": commit,
@@ -372,7 +371,7 @@ def verify_cli_artifact(artifact: Path) -> None:
     """Require recorded provenance to match the tarball just packed, not a fetch pin."""
     lock = load_json(LOCK_PATH)
     cli = lock.get("cli")
-    if lock.get("schema") != LOCK_SCHEMA or lock.get("state") != "resolved" or not isinstance(cli, dict):
+    if lock.get("schema") != LOCK_SCHEMA or not isinstance(cli, dict):
         raise BuildError("CLI tarball provenance is unresolved or invalid")
     repository = cli.get("repository")
     commit = cli.get("commit")
@@ -501,7 +500,6 @@ def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version
     codex = dict(base)
     codex["mcpServers"] = "./.mcp.json"
     (agents_root / ".codex-plugin").mkdir(parents=True, exist_ok=True)
-    (agents_root / ".codex-plugin/mcp.json").unlink(missing_ok=True)
     (agents_root / ".mcp.json").write_text(json.dumps({
         "mcpServers": {"screenrig-views": {**remote, "scopes": scopes}}
     }, indent=2) + "\n", encoding="utf-8")

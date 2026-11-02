@@ -9,7 +9,7 @@ venue's booking system, a Square, Shopify or Toast till); use `card data put`
 for data you hold, and `kv webhook` for a system that pushes ([keep cards
 current](#keep-cards-current) chooses between them).
 
-Commands go through the launcher (`SKILL.md`, "Install and call the CLI").
+Commands go through the helper (`SKILL.md`, "Install and call the CLI").
 The help for `source create` lists the kinds; settings, status codes and
 privacy rules per kind are at https://screenrig.ai/docs/sources. Changing
 sources needs Manage access; `source list|show` needs Read only.

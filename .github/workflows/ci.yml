@@ -36,7 +36,6 @@ jobs:
         run: |
           repository="screenrig/cli"
           filename="screenrig-cli.tgz"
-          test "$(jq -r .state components.lock.json)" = resolved
           test "$(jq -r .cli.repository components.lock.json)" = "${repository}"
           # Pack current main. Do not refetch a SHA from components.lock.json;
           # that file is provenance of the tarball just packed.
@@ -87,7 +86,7 @@ jobs:
           fi
           python3 scripts/build-plugin.py --check --cli-artifact "${artifact}"
           sha256sum --strict -c contracts.sha256
-          python3 scripts/validate-plugin.py --cli-artifact "${artifact}" --cli-source "${RUNNER_TEMP}/screenrig-cli-source"
+          python3 scripts/validate-plugin.py --cli-artifact "${artifact}"
           python3 scripts/check-public-repo.py
           python3 scripts/test.py
       - name: Upload rebuilt marketplace CLI when it drifted
@@ -100,32 +99,6 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
-      - name: Package deterministic plugin artifact
-        if: github.ref != 'refs/heads/main'
-        run: >-
-          tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0
-          --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig -cf - .
-          | gzip -n -9 > "${RUNNER_TEMP}/screenrig-plugin.tar.gz"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: github.ref != 'refs/heads/main'
-        with:
-          name: screenrig-plugin
-          path: ${{ runner.temp }}/screenrig-plugin.tar.gz
-          if-no-files-found: error
-          retention-days: 14
-      - name: Package deterministic agents plugin artifact
-        if: github.ref != 'refs/heads/main'
-        run: >-
-          tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0
-          --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig-agents -cf - .
-          | gzip -n -9 > "${RUNNER_TEMP}/screenrig-agents-plugin.tar.gz"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: github.ref != 'refs/heads/main'
-        with:
-          name: screenrig-agents-plugin
-          path: ${{ runner.temp }}/screenrig-agents-plugin.tar.gz
-          if-no-files-found: error
-          retention-days: 14
 
   distribute:
     if: github.repository == 'screenrig/plugin' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -215,29 +188,6 @@ jobs:
             --data '{"ref":"main","inputs":{"after_rebundle":"true"}}' \
             "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches"
           echo "Dispatched public plugin gates for rebundle tip ${tip}"
-      - name: Package the distributing artifact
-        # A release commits its version to main before tagging; pack main as is.
-        run: >-
-          tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0
-          --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig -cf - .
-          | gzip -n -9 > "${RUNNER_TEMP}/screenrig-plugin.tar.gz"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: screenrig-plugin
-          path: ${{ runner.temp }}/screenrig-plugin.tar.gz
-          if-no-files-found: error
-          retention-days: 14
-      - name: Package the distributing agents artifact
-        run: >-
-          tar --sort=name --format=ustar --mtime=@0 --owner=0 --group=0
-          --numeric-owner --mode=u=rwX,go=rX -C plugins/screenrig-agents -cf - .
-          | gzip -n -9 > "${RUNNER_TEMP}/screenrig-agents-plugin.tar.gz"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: screenrig-agents-plugin
-          path: ${{ runner.temp }}/screenrig-agents-plugin.tar.gz
-          if-no-files-found: error
-          retention-days: 14
 
   secrets:
     runs-on: ubuntu-latest

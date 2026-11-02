@@ -36,9 +36,8 @@ updated skill text.
 `continue_installed` (GitHub unreadable: continue with the installed package) or
 `not_installed`. A copy installed from a host's plugin directory updates from
 that directory: bootstrap names it in `data.freshness.updates_from` and never asks
-it to refresh from GitHub. To refresh, probe the host's update command with
-`--help`, use it if it exists, otherwise repeat the install commands above, then
-rerun bootstrap:
+it to refresh from GitHub. To refresh, run the host's update command, then rerun
+bootstrap:
 
 ```bash
 claude plugin update screenrig@screenrig --scope user   # add -y without a TTY

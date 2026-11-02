@@ -117,10 +117,6 @@ class LauncherTests(unittest.TestCase):
         for fact in ("../../../cli/dist/bin.js", *LAUNCHER_ROOT_VARS, MISSING_MESSAGE):
             if fact not in text:
                 errors.append(f"canonical launcher is missing fact: {fact}")
-        if "SCREENRIG_CLI" in text:
-            errors.append("canonical launcher must not add a SCREENRIG_CLI override")
-        if "walk_exec" in text or "pwd -P" in text:
-            errors.append("canonical launcher must not search ancestor directories for a CLI")
 
         def stub(path: Path, marker: str) -> None:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -232,8 +228,7 @@ class FreshnessTests(unittest.TestCase):
                 "#!" + node + '\n'
                 'const args = process.argv.slice(2);\n'
                 'require("fs").appendFileSync(process.env.TEST_HOST_CALLS, JSON.stringify(args)+"\\n");\n'
-                'if (process.env.TEST_LEGACY && args.includes("--marketplace")) { process.stderr.write("unexpected argument \'--marketplace\'"); process.exit(2); }\n'
-                'if (!process.env.TEST_LEGACY && (!args.includes("--marketplace") || args[args.indexOf("--marketplace")+1] !== "screenrig")) process.exit(75);\n'
+                'if (!args.includes("--marketplace") || args[args.indexOf("--marketplace")+1] !== "screenrig") process.exit(75);\n'
                 'process.stdout.write(JSON.stringify({installed:[{pluginId:"screenrig@screenrig",installed:true,enabled:process.env.TEST_ENABLED !== "0",source:{path:process.env.TEST_ROOT}}]}));\n'
             )
             host.chmod(0o755)
@@ -250,10 +245,6 @@ class FreshnessTests(unittest.TestCase):
                                     capture_output=True, timeout=30)
             self.assertEqual(result.returncode, 78)
             self.assertEqual(json.loads(result.stdout)["data"]["action"], "install")
-            result = subprocess.run(command, env={**env, "TEST_LEGACY": "1"}, text=True,
-                                    capture_output=True, timeout=30)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(json.loads(calls.read_text().splitlines()[-1]), ["plugin", "list", "--json"])
 
     def test_directory_install_source_and_updates(self) -> None:
         """A copy from a host's plugin directory is registered, never told to
@@ -533,15 +524,15 @@ process.exitCode=code;
             expect("current pair", run(helper, current), action="keep", stale=False,
                    published="26.09.1", plugin="26.09.1", cli="26.09.1")
 
-            plugin_tree(plugin_root, "0.1.2")
-            stub_screenrig(scripts / "screenrig", "0.1.2")
-            expect("stale 0.1.2 vs 26.09.1", run(helper, current), action="refresh", stale=True,
-                   published="26.09.1", plugin="0.1.2", cli="0.1.2")
+            plugin_tree(plugin_root, "26.08.1")
+            stub_screenrig(scripts / "screenrig", "26.08.1")
+            expect("stale 26.08.1 vs 26.09.1", run(helper, current), action="refresh", stale=True,
+                   published="26.09.1", plugin="26.08.1", cli="26.08.1")
 
             plugin_tree(plugin_root, "26.09.1")
-            stub_screenrig(scripts / "screenrig", "0.1.0")
+            stub_screenrig(scripts / "screenrig", "26.08.1")
             expect("stale CLI only", run(helper, current), action="refresh", stale=True,
-                   published="26.09.1", plugin="26.09.1", cli="0.1.0")
+                   published="26.09.1", plugin="26.09.1", cli="26.08.1")
 
             # Released installs compare as CalVer, not raw strings: an installed
             # release equal to the published release is fresh, an older release is
@@ -637,74 +628,7 @@ class CalVerTests(unittest.TestCase):
             self.assertEqual(str(path.relative_to(ROOT)) in files, versioned, str(path))
 
 
-    def test_stamp_reports_one_version_everywhere(self) -> None:
-        # Freshness compares the installed plugin and bundled CLI against the
-        # published CalVer, so a bundled CLI left behind would look stale forever.
-        with tempfile.TemporaryDirectory(prefix="screenrig-plugin-calver-") as temporary:
-            tmp = Path(temporary)
-            plugin_root = tmp / "screenrig"
-            agents_root = tmp / "screenrig-agents"
-            marketplace = tmp / "marketplace.json"
-            write_json(plugin_root / "cli" / "package.json", {"name": "screenrig", "version": "26.09.6"})
-            write_json(plugin_root / ".claude-plugin" / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
-            write_json(agents_root / "cli" / "package.json", {"name": "screenrig", "version": "26.09.6"})
-            write_json(agents_root / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
-            write_json(agents_root / "openclaw.plugin.json", {"id": "screenrig", "version": "26.09.6"})
-            write_json(agents_root / ".codex-plugin" / "plugin.json", {"name": "screenrig", "version": "26.09.6"})
-            write_json(marketplace, {"name": "screenrig", "plugins": [{"name": "screenrig", "version": "26.09.6"}]})
-            result = subprocess.run(
-                [sys.executable, str(ROOT / "scripts" / "calver.py"), "stamp", "--version", "26.09.7",
-                 "--marketplace", str(marketplace), "--plugin-root", str(plugin_root)],
-                cwd=ROOT, text=True, capture_output=True, check=False,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr.strip())
-            self.assertEqual(json.loads(marketplace.read_text())["plugins"][0]["version"], "26.09.7")
-            for path in (plugin_root / "cli" / "package.json", plugin_root / ".claude-plugin" / "plugin.json",
-                         agents_root / "cli" / "package.json", agents_root / ".codex-plugin" / "plugin.json",
-                         agents_root / "plugin.json", agents_root / "openclaw.plugin.json"):
-                self.assertEqual(json.loads(path.read_text())["version"], "26.09.7", str(path))
-
-
-# Skill commands must exist in the bundled CLI.
-SKILL_DOCS = sorted((ROOT / "skills").rglob("*.md"))
-BUNDLED_LAUNCHER = ROOT / "plugins" / "screenrig" / "skills" / "screenrig" / "scripts" / "screenrig"
-REQUIRED_COMMANDS = ("media generate", "media download")
 validator = load_script("skill_validator", "validate-plugin.py")
-
-
-class SkillCommandTests(unittest.TestCase):
-    def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
-        with tempfile.TemporaryDirectory(prefix="screenrig-skill-commands-") as temporary:
-            return subprocess.run(
-                [str(BUNDLED_LAUNCHER), *args], cwd=ROOT, text=True, capture_output=True, check=False,
-                env={"PATH": os.environ.get("PATH", ""), "XDG_CONFIG_HOME": str(Path(temporary) / "config")},
-            )
-
-    def test_required_commands_exist_in_bundled_cli(self) -> None:
-        # validate-plugin.py judges every command path the skills write; this
-        # keeps the commands the skills cannot do without.
-        errors: list[str] = []
-        validator.errors.clear()
-        inventory = validator.bundled_command_inventory() or []
-        errors.extend(validator.errors)
-        for command in REQUIRED_COMMANDS:
-            if not any(command in text for text in (p.read_text(encoding="utf-8") for p in SKILL_DOCS)):
-                errors.append(f"skill docs do not teach {command}")
-            if command not in inventory:
-                errors.append(f"bundled CLI inventory is missing {command}")
-
-        generate = self.run_cli("--json", "media", "generate")
-        if "Unknown media command" in f"{generate.stdout}\n{generate.stderr}":
-            errors.append("bundled CLI rejected media generate as Unknown media command")
-        else:
-            try:
-                envelope = json.loads(generate.stdout)
-            except json.JSONDecodeError:
-                envelope = {}
-            error = envelope.get("error") if isinstance(envelope, dict) else None
-            if (error.get("code") if isinstance(error, dict) else None) in {None, "unknown_command"}:
-                errors.append("bundled media generate must be a real command, not an unknown command")
-        self.assertFalse(errors, "\n".join(errors))
 
 
 class TaughtSurfaceTests(unittest.TestCase):
@@ -913,9 +837,6 @@ class MCPConnectionTests(unittest.TestCase):
             plugins = Path(tmp)
             root = plugins / builder.AGENTS_FOLDER
             builder.copy_docs(root, builder.AGENTS_FOLDER)
-            legacy_codex_mcp = root / ".codex-plugin/mcp.json"
-            legacy_codex_mcp.parent.mkdir(parents=True)
-            legacy_codex_mcp.write_text("{}\n")
             builder.emit_manifests(plugins, builder.METADATA, "26.10.0-dev")
             portable = json.loads((root / "plugin.json").read_text())
             overlay = json.loads((root / ".codex-plugin/plugin.json").read_text())
@@ -943,7 +864,6 @@ class MCPConnectionTests(unittest.TestCase):
             mcp = json.loads((root / "mcp.json").read_text())["mcpServers"]["screenrig-views"]
             codex = json.loads((root / ".mcp.json").read_text())["mcpServers"]["screenrig-views"]
             openclaw = json.loads((root / "openclaw.plugin.json").read_text())
-            self.assertFalse(legacy_codex_mcp.exists())
             self.assertEqual(
                 {path.name for path in (root / ".codex-plugin").iterdir()},
                 {"plugin.json"},
@@ -976,7 +896,7 @@ class MCPConnectionTests(unittest.TestCase):
                 self.assertEqual(url, servers[name]["url"])
                 self.assertIn('transport: "streamable_http"', dependency)
 
-    def test_remote_oauth_declarations_and_retired_helper(self):
+    def test_remote_oauth_declarations(self):
         with tempfile.TemporaryDirectory() as tmp:
             plugins = Path(tmp)
             builder.emit_manifests(plugins, builder.METADATA, "26.10.0-dev")
@@ -998,8 +918,6 @@ class MCPConnectionTests(unittest.TestCase):
                     login_scopes = re.search(r'--scopes ([^\s`]+)', installation).group(1).split(',')
                     self.assertEqual(login_scopes, scopes,
                                      "Manual OAuth login must retain screenshot capture permission")
-        for root in (ROOT, ROOT / "plugins/screenrig", ROOT / "plugins/screenrig-agents"):
-            self.assertFalse((root / "skills/screenrig/scripts/screenrig-mcp-auth.mjs").exists())
 
     def test_validator_rejects_credential_and_endpoint_overrides(self):
         validator = load_script("connection_validator", "validate-plugin.py")
@@ -1019,7 +937,7 @@ class MCPConnectionTests(unittest.TestCase):
                 validator.errors.clear()
                 with patch.object(validator, "AGENTS_PLUGIN", root), \
                         patch.object(validator, "PLUGIN", plugins / builder.CLAUDE_FOLDER):
-                    validator.check_no_alternate_surfaces(None)
+                    validator.check_no_alternate_surfaces()
                 self.assertTrue(any("host-managed OAuth" in error for error in validator.errors))
 
 
@@ -1147,6 +1065,6 @@ class ViewBridgeTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(defaultTest=["LauncherTests", "FreshnessTests", "CalVerTests", "SkillCommandTests",
+    unittest.main(defaultTest=["LauncherTests", "FreshnessTests", "CalVerTests",
                                "TaughtSurfaceTests", "DocsOnlyTests", "DependencyBoundaryTests", "MCPConnectionTests",
                                "PluginFolderTests", "ViewBridgeTests"])

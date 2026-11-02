@@ -263,11 +263,10 @@ function entryMarketplace(entry, id) {
 // marketplace, and installed at this root.
 function listedHere(entries, root, name) {
   for (const entry of entries) {
-    if (!entry || entry.enabled === false || entry.installed === false || entry.trusted === false) continue;
+    if (!entry || entry.enabled === false || entry.installed === false) continue;
     const id = entry.pluginId || entry.id || entry.name;
     if (typeof id !== "string" || (id.split("@")[0] !== "screenrig" && entry.name !== "screenrig")) continue;
-    const location = entry.installPath || entry.install_path || entry.path || entry.local_path || entry.localPath ||
-      (entry.source && entry.source.path);
+    const location = entry.installPath || entry.path || (entry.source && entry.source.path);
     if (typeof location === "string" && sameRoot(location, root) && (name !== "grok" || grokEnabled())) {
       return { host: name, marketplace: entryMarketplace(entry, id), source: "plugin_list" };
     }
@@ -277,17 +276,12 @@ function listedHere(entries, root, name) {
 
 function pluginList(name, args) {
   const options = { encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024, windowsHide: true };
-  let result = spawnSync(name, args, options);
-  // Older Codex versions may lack the marketplace filter.
-  if (name === "codex" && result.status !== 0 &&
-      /(?:unexpected|unrecognized|unknown).*--marketplace/i.test(result.stderr || "")) {
-    result = spawnSync(name, ["plugin", "list", "--json"], options);
-  }
+  const result = spawnSync(name, args, options);
   if (result.error && result.error.code === "ENOENT") return { available: false, entries: [] };
   if (result.error || result.status !== 0) return { available: true, entries: [] };
   try {
     const parsed = JSON.parse(result.stdout);
-    const entries = Array.isArray(parsed) ? parsed : parsed.installed || parsed.plugins || [];
+    const entries = Array.isArray(parsed) ? parsed : parsed.installed;
     return { available: true, entries: Array.isArray(entries) ? entries : [] };
   } catch {
     // Report an actionable registration failure without echoing host output.

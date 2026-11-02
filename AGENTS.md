@@ -88,7 +88,7 @@ inside its folder, which is why the logo lives in the agents folder.
   `SR`, a token flag or a pasted bearer.
 - Operational commands return JSON envelopes by default; `--human` is for manual
   text and never combines with `--json`. Keep explicit `--json` only for the
-  freshness helper and scripts that must work with older bundles.
+  freshness helper.
 - The plugin declares the public backend MCP endpoint with host-managed OAuth,
   generated per platform in `build-plugin.py`. Bundle no MCP server code,
   credential helper, token, private origin or account setting.

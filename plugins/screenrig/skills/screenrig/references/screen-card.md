@@ -13,7 +13,7 @@ describe a card you did not render.
 
 ## Collect the data
 
-Commands go through the launcher (`SKILL.md`, "Install and call the CLI").
+Commands go through the helper (`SKILL.md`, "Install and call the CLI").
 
 ```sh
 screenrig screen list --json
