@@ -517,11 +517,10 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   permission, admission or payment refusals.
 - The server decides admission. Report and respect `payment_required` (HTTP
   402); never invent a payment command. On Standard an upload past the free 1 GB
-  is refused this way. screenRIG is free; pay only if you want more. Image
-  generation is metered separately and capped per day, with the
-  limit and reset in `error.detail`. If generation is refused, tell the user,
-  offer [pricing](https://screenrig.ai/pricing), and make the image another way
-  with your own tool, then `media upload`.
+  is refused this way. Image generation is metered separately and capped per
+  day, with the limit and reset in `error.detail`. If generation is refused,
+  tell the user, offer [pricing](https://screenrig.ai/pricing), and make the
+  image another way with your own tool, then `media upload`.
 - `feature_not_in_plan` (HTTP 402) means the project's plan does not include the
   feature, and credit does not unlock it. Do not retry; tell the user the plan
   `error.required_plan` names and continue without the feature.
