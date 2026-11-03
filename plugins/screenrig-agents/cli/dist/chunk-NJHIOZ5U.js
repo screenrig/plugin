@@ -251,6 +251,7 @@ var GUIDANCE_EXAMPLES = {
   "screen pair": ['234567 --name "Lobby screen"', "ABC 234", "ABC 234 --folder sfd_NORTH"],
   "screen provision": ['--open --name "Lobby screen"', '--print-url --name "Lobby screen" --folder sfd_NORTH'],
   "screen update": [
+    "scr_SCREEN --clear-playlist --expect-rev 3",
     'scr_SCREEN --name "Lobby screen"',
     "scr_SCREEN --field store_number=0142 --field region=north",
     "scr_SCREEN --unset-field region",

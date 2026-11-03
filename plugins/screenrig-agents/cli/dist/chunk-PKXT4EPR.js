@@ -972,11 +972,12 @@ var handleScreenUpdate = commandHandler(async (args, runtime, resolved) => {
   const ifMatch = flagString(args.flags, "expect-rev");
   const name = flagString(args.flags, "name");
   const playlistId = flagString(args.flags, "playlist-id");
+  const clearPlaylist = flagBool(args.flags, "clear-playlist");
   const timezone = flagString(args.flags, "timezone");
   const facts = screenFactsPatch(args.flags);
   const changesFacts = facts.fields !== void 0 || facts.location !== void 0;
-  if (!id || !name && !playlistId && !timezone && !changesFacts) {
-    throw usageError("screen update requires <id>, and --name, --playlist-id, --timezone, --field, --unset-field, --clear-fields, --location, or --clear-location.");
+  if (!id || !name && !playlistId && !clearPlaylist && !timezone && !changesFacts) {
+    throw usageError("screen update requires <id>, and --name, --playlist-id, --clear-playlist, --timezone, --field, --unset-field, --clear-fields, --location, or --clear-location.");
   }
   let playlist;
   if (playlistId && !timezone) {
@@ -990,11 +991,11 @@ var handleScreenUpdate = commandHandler(async (args, runtime, resolved) => {
   }
   const body = {
     ...name ? { name } : {},
-    ...playlistId ? { playlist_id: playlistId } : {},
+    ...clearPlaylist ? { playlist_id: null } : playlistId ? { playlist_id: playlistId } : {},
     ...timezone ? { timezone } : {},
     ...facts
   };
-  const response = await client.call({ method: "PATCH", path: "/api/screens/".concat(id), idempotent: true, headers: ifMatch ? { "if-match": quotedRevision(ifMatch) } : void 0, body });
+  const response = await client.call({ method: "PATCH", path: "/api/screens/".concat(id), idempotent: true, headers: { ...reviewNoteFrom(args), ...ifMatch ? { "if-match": quotedRevision(ifMatch) } : {} }, body });
   const pending = pendingReviewOf(response);
   if (pending)
     return pendingReviewResult(response, pending, client.requestId);
@@ -2822,7 +2823,7 @@ function registerScreenCommands(root, bind) {
   screen.command("publish").description("Publish a prepared playlist after rendering and inspecting its local preview").argument("<id>", "Screen identifier").argument("<file>", "Prepared playlist file, or - for stdin").option("--expect-rev <REVISION>", "Expected screen revision", revision).option("--no-wait", "Return after assignment without waiting for the Player to show the playlist").option("--poll-ms <MS>", "Set the screen polling interval while waiting", positiveInteger("poll-ms")).option("--no-progress", "Suppress stderr progress").option("--note <TEXT>", NOTE_HELP, reviewNoteOption).action(bind(handleScreenPublish));
   screen.command("pair").description("Claim a Player pairing code").argument("<code...>", "Player pairing code as shown; spaces and dashes are ignored").option("--name <NAME>", "Set the screen name").option("--folder <ID>", "Put the screen in this screen folder (sfd_...); omitted leaves it at the project root. An agent limited to screen folders must name a folder of its scope", screenFolderIdOption("--folder")).action(bind(handleScreenPair));
   screen.command("provision").description("Create a screen and browser handoff").addOption(new Option("--open", "Open the browser Player handoff").conflicts(["printUrl"])).option("--print-url", "Return the browser handoff URL").option("--name <NAME>", "Set the screen name").option("--folder <ID>", "Put the screen in this screen folder (sfd_...); omitted leaves it at the project root. An agent limited to screen folders must name a folder of its scope", screenFolderIdOption("--folder")).action(bind(handleScreenProvision));
-  screen.command("update").description("Update a screen").argument("<id>", "Screen identifier").option("--name <NAME>", "Set the screen name").option("--playlist-id <ID>", "Select the playlist to assign").option("--timezone <ZONE>", "Set an IANA timezone").addOption(new Option("--field <NAME=VALUE>", "Set a field: NAME is 1 to 32 lower case letters, digits or underscores, VALUE 1 to 200 characters (repeatable; at most 32 fields)").argParser(screenFieldSetOption).conflicts(["clearFields"])).addOption(new Option("--unset-field <NAME>", "Remove a field (repeatable)").argParser(screenUnsetFieldOption).conflicts(["clearFields"])).addOption(new Option("--clear-fields", "Remove every field").conflicts(["field", "unsetField"])).addOption(new Option("--location <LAT,LON>", "Set where the screen is, in decimal degrees; replaces the whole location").argParser(screenLocationOption).conflicts(["clearLocation"])).option("--location-name <NAME>", "Name the location, at most 40 characters: the place name a card shows (with --location)", screenLocationNameOption).option("--address <TEXT>", "Give the location an address, at most 200 characters (with --location)", screenAddressOption).addOption(new Option("--clear-location", "Remove the location").conflicts(["location"])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenUpdate));
+  screen.command("update").description("Update a screen").argument("<id>", "Screen identifier").option("--name <NAME>", "Set the screen name").addOption(new Option("--playlist-id <ID>", "Select the playlist to assign").conflicts("clearPlaylist")).addOption(new Option("--clear-playlist", "Clear this screen's default assignment; keep pairing and other content levels, showing idle when none applies").conflicts("playlistId")).option("--timezone <ZONE>", "Set an IANA timezone").addOption(new Option("--field <NAME=VALUE>", "Set a field: NAME is 1 to 32 lower case letters, digits or underscores, VALUE 1 to 200 characters (repeatable; at most 32 fields)").argParser(screenFieldSetOption).conflicts(["clearFields"])).addOption(new Option("--unset-field <NAME>", "Remove a field (repeatable)").argParser(screenUnsetFieldOption).conflicts(["clearFields"])).addOption(new Option("--clear-fields", "Remove every field").conflicts(["field", "unsetField"])).addOption(new Option("--location <LAT,LON>", "Set where the screen is, in decimal degrees; replaces the whole location").argParser(screenLocationOption).conflicts(["clearLocation"])).option("--location-name <NAME>", "Name the location, at most 40 characters: the place name a card shows (with --location)", screenLocationNameOption).option("--address <TEXT>", "Give the location an address, at most 200 characters (with --location)", screenAddressOption).addOption(new Option("--clear-location", "Remove the location").conflicts(["location"])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenUpdate));
   screen.command("list").description("List screens").addOption(new Option("--state <STATE>", "List archived screens; omitted lists active screens").choices(["archived"])).option("--tag <TAG>", "List only screens carrying this exact tag", screenTagOption).option("--folder <ID|root>", "List only the screens directly in this screen folder (sfd_...), not those of the folders inside it; root lists the screens outside every folder", screenListFolderOption).addOption(new Option("--field <NAME=VALUE>", "List only screens whose field NAME holds exactly VALUE (repeatable; every one must match)").argParser(screenFieldFilterOption)).addOption(new Option("--near <LAT,LON,KM>", "List only screens located within KM kilometres of the point; screens with no location are left out").argParser(screenNearOption)).action(bind(handleScreenList));
   screen.command("show").description("Inspect a screen").argument("<id>", "Screen identifier").action(bind(handleScreenShow));
   screen.command("uptime").description("Read a screen's daily availability over UTC days").argument("<id>", "Screen identifier").option("--day-from <YYYY-MM-DD>", "First UTC day, inclusive (default 29 days before --day-to)").option("--day-to <YYYY-MM-DD>", "Last UTC day, inclusive (default today); at most 366 days after --day-from").addOption(reportFormatOption()).addOption(reportOutputOption("screen-uptime.FORMAT")).action(bind(handleScreenUptime));
@@ -2928,7 +2929,7 @@ function registerScreenCommands(root, bind) {
   const update = screen.commands.find((command) => command.name() === "update");
   requireOptionGroup(update, "requires", ["--location-name", "--location"]);
   requireOptionGroup(update, "requires", ["--address", "--location"]);
-  requireOptionGroup(update, "atLeastOne", ["--name", "--playlist-id", "--timezone", "--field", "--unset-field", "--clear-fields", "--location", "--clear-location"]);
+  requireOptionGroup(update, "atLeastOne", ["--name", "--playlist-id", "--clear-playlist", "--timezone", "--field", "--unset-field", "--clear-fields", "--location", "--clear-location"]);
 }
 
 // dist/cli-commands/fleet-links.js
