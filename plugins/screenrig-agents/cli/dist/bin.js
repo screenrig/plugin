@@ -10,13 +10,13 @@ import {
 } from "./chunk-DLIFEV74.js";
 import {
   FEED_REPEATABLE_FLAGS
-} from "./chunk-N7OKOCR3.js";
+} from "./chunk-HE3SHBEC.js";
 import {
   Command,
   CommanderError,
   Option,
   nonnegativeInteger
-} from "./chunk-NBRI5UBF.js";
+} from "./chunk-2EAVZFIF.js";
 import "./chunk-52RPSLX3.js";
 import "./chunk-LMVLFNSU.js";
 import "./chunk-G4R5Q7OS.js";
@@ -25,30 +25,30 @@ import {
   commandExamples,
   commandNotes,
   commandRelationships
-} from "./chunk-5RYWNHDD.js";
+} from "./chunk-PWMFRUTA.js";
 import {
   applyCreditsLowToSuccess,
   handleVersion,
   observedCreditsRemaining
-} from "./chunk-T7G2ABSS.js";
+} from "./chunk-VK2RJKZX.js";
 import {
   clearResultContext,
   formatResultContext,
   processRuntime,
   resultContext
-} from "./chunk-F7RM3JF3.js";
+} from "./chunk-M3NEXUHJ.js";
 import {
   LOG_SINK_DEGRADED_CODE,
   logSinkDegradedWarning
-} from "./chunk-JRJVKQRB.js";
+} from "./chunk-MUJZV2YM.js";
 import {
   errorEnvelope,
   successEnvelope
-} from "./chunk-ZSDB2GXQ.js";
+} from "./chunk-NWPDH6L4.js";
 import {
   CLI_VERSION
 } from "./chunk-V3QE7ELU.js";
-import "./chunk-RDGLPSLE.js";
+import "./chunk-7XLCMGU7.js";
 import "./chunk-SFYZH3GR.js";
 import {
   CliError,
@@ -58,7 +58,7 @@ import {
   renderProblem,
   usageError,
   withDefaultHint
-} from "./chunk-FZL3NTLT.js";
+} from "./chunk-5E3Z6J6F.js";
 import "./chunk-3FYAGULW.js";
 
 // dist/cli-errors.js
@@ -145,14 +145,14 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-VUAJIWAR.js"),
-  ads: () => import("./ads-VG2FVWXJ.js"),
-  media: () => import("./media-R2JF5PKI.js"),
-  playlists: () => import("./playlists-G5MAPRVI.js"),
-  screens: () => import("./screens-7HHOPSET.js"),
-  monitoring: () => import("./monitoring-7VYTMJTJ.js"),
-  integrations: () => import("./integrations-RHOQIHPH.js"),
-  migrate: () => import("./migrate-KXKIMJNI.js")
+  account: () => import("./account-TMYDMFTK.js"),
+  ads: () => import("./ads-BKF6PAAW.js"),
+  media: () => import("./media-FNEAI5OF.js"),
+  playlists: () => import("./playlists-SOXJO27X.js"),
+  screens: () => import("./screens-TC3A5SLQ.js"),
+  monitoring: () => import("./monitoring-NXUD2YPK.js"),
+  integrations: () => import("./integrations-TSTNGYQE.js"),
+  migrate: () => import("./migrate-63AGTG5H.js")
 };
 var TOP_LEVEL_COMMANDS = {
   project: "account",
@@ -409,7 +409,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-ALGQNUWE.js");
+    const { registerGuidance } = await import("./register-guidance-MV4CM7GZ.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
