@@ -58,8 +58,9 @@ Agent: The office TV shows your sales as a ranked table. When a row changes in
        the sheet, the screen updates without republishing.
 ```
 
-- **Free.** There is no per-screen fee, downloads are free, and each screen
-  replays what it downloads from its own storage.
+- **Free, with unlimited screens.** Paid plans add business tools, more people,
+  people to talk to, governance and contract terms. Downloads are free, and each
+  screen replays what it downloads from its own storage.
 - **Runs on cheap sticks and the TVs you already have.** Players for Android
   and Google TV, the Amazon Signage Stick and Fire TV Sticks, Apple TV, macOS,
   Windows, Linux, Raspberry Pi, Samsung Smart Signage, LG webOS Signage and

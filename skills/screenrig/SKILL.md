@@ -523,8 +523,10 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   image another way with your own tool, then `media upload`.
 - `feature_not_in_plan` (HTTP 402) means the project's plan does not include the
   feature, and credit does not unlock it. Do not retry; tell the user the plan
-  `error.required_plan` names and continue without the feature.
-  `screenrig project capabilities` lists the plan's features.
+  `error.required_plan` names (`plus`, `premium` or `enterprise`) and continue
+  without the feature. `screenrig project capabilities` lists the plan's
+  features. No plan limits how many screens a project has, so never suggest a
+  plan to add screens.
 - Never expose secrets: credentials of any kind, authentication headers, cookies, signed
   URLs and webhook secrets stay out of conversation, files and logs, and a
   sign-in address and code, invitation link or fleet-link URL goes only to the
