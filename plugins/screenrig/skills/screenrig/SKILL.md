@@ -231,6 +231,18 @@ moves its contents up one level. A `folder` selector plays a folder's own files,
 so moving files or deleting the folder changes what those playlists show; under
 Propose access a move waits for a person's review.
 
+**Library.** An organization can name one Library project; its media, media
+folders and playlists are read-only in every other project of the organization.
+`media list --library`, `media folder list --library` and `playlist list
+--library` list them (rows carry `library: true`; `project_id` is the Library).
+Use their IDs in page media, card data and soundtracks, schedule or assign a
+Library playlist on a screen, and create from a Library template with
+`playlist create --from-template`. Select a Library folder with a `folder`
+selector; `all` and `tag` selectors never include Library media. Change Library
+items only inside the Library project, which a person sets in the dashboard
+(`organization list` shows `library_project_id`) and which has no screens
+(`library_no_screens`).
+
 When a playlist, schedule or selector already plays the media, change its file
 with `media replace MEDIA_ID FILE` instead of uploading again: the ID stays, so
 every screen plays the new file with nothing to republish (`media upload` is for

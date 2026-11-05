@@ -292,7 +292,9 @@ Make a playlist from a template with `playlist create --from-template PL_ID
 nothing). A media value is the ID of a ready image or video of the right kind, a
 url value an http or https address; the result is checked like any playlist and
 is an ordinary one to assign, schedule and revise. `playlist fields PL_ID` shows
-a template's fields or a copy's values, and `--set` / `--clear` change them.
+a template's fields or a copy's values, and `--set` / `--clear` change them. The
+organization Library's templates (`playlist list --library --templates`) work as
+`--from-template` sources; the copy lands in your project.
 Changing values, or `--refresh` alone, builds the copy again from the template's
 current revision: that is how a brand change reaches existing copies, and
 nothing pushes to them. `playlist instances TEMPLATE_ID` lists the copies and
@@ -338,7 +340,7 @@ video of its folders only (a stinger transition's logo included);
   Text and shapes are not primitives: generate them into an image with
   `media generate`, or show live text with a built-in card.
 - `image` and `video` need a `selector` (`by` `id`, `ids`, `all`, `tag`,
-  `folder` with a `folder_id` from `media folder list`); `media_id` lives inside it. Others take none. Dynamic selectors
+  `folder` with a `folder_id` from `media folder list`); `media_id` lives inside it. Others take none. `id` and `ids` may name the organization Library's media, and `folder` a Library folder (`media folder list --library`); `all` and `tag` never reach the Library. Dynamic selectors
   resolve at each loop; on duration, application and `audio_end` pages they
   need `one_at_a_time: true`. `media_end` is valid only on a page with exactly
   one image or video; an image there needs `dwell_ms`, a video must not loop.
