@@ -240,8 +240,8 @@ Library playlist on a screen, and create from a Library template with
 `playlist create --from-template`. Select a Library folder with a `folder`
 selector; `all` and `tag` selectors never include Library media. Change Library
 items only inside the Library project, which a person sets in the dashboard
-(`organization list` shows `library_project_id`) and which has no screens
-(`library_no_screens`).
+(`organization list` shows `library_project_id`). A project with screens can't
+be the Library, and screens can't be added to it (`library_no_screens`).
 
 When a playlist, schedule or selector already plays the media, change its file
 with `media replace MEDIA_ID FILE` instead of uploading again: the ID stays, so
