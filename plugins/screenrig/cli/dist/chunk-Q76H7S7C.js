@@ -551,6 +551,7 @@ __export(screen_display_exports, {
   displayProblem: () => displayProblem,
   displayScheduleWrite: () => displayScheduleWrite,
   displayUntil: () => displayUntil,
+  displayWarnings: () => displayWarnings,
   playPageProblem: () => playPageProblem,
   rebootProblem: () => rebootProblem,
   rebootScheduleLines: () => rebootScheduleLines,
@@ -645,12 +646,39 @@ function untilOption(value) {
     displayUntil(value, void 0, /* @__PURE__ */ new Date());
   return value;
 }
+function displayWarnings(screenId, display) {
+  if (!display?.override)
+    return [];
+  const warnings = [];
+  const status = display.override_status;
+  if (status === "mismatch") {
+    warnings.push({
+      code: "display_power_mismatch",
+      message: "Screen ".concat(screenId, ": The ").concat(display.requested, " override is saved, but the latest report still says power ").concat(display.reported?.power, " at ").concat(display.reported?.reported_at, ". Recheck screen show ").concat(screenId, " before capturing; saving an override does not confirm a wake or explain a capture failure.")
+    });
+  } else if (status === "pending" || status === "stale" || status === "unknown") {
+    const reason = status === "pending" ? "waiting for a display report newer than the override" : status === "stale" ? "the latest display report is stale" : "the latest display observation cannot establish power";
+    warnings.push({
+      code: "display_power_unconfirmed",
+      message: "Screen ".concat(screenId, ": The ").concat(display.requested, " override is saved; ").concat(reason, ". Recheck screen show ").concat(screenId, " before capturing.")
+    });
+  }
+  if (display.control === "scrim") {
+    warnings.push({
+      code: "display_scrim_only",
+      message: "Screen ".concat(screenId, ": This Player controls only a black overlay. Display on removes that overlay and sends no hardware wake command. Wake a sleeping display with its device controls.")
+    });
+  }
+  return warnings;
+}
 function displayLines(display, timezone) {
   if (!display || typeof display !== "object" || display.requested !== "on" && display.requested !== "off")
     return [];
   const source = display.source === "override" ? "manual override" : display.source === "schedule" ? "display schedule" : "default";
   const until = typeof display.until === "string" ? " until ".concat(instantInZone(display.until, timezone)) : display.source === "override" ? " until replaced" : "";
   const lines = ["Display: ".concat(display.requested, " (").concat(source).concat(until, ")")];
+  if (display.override_status)
+    lines.push("Display override observation: ".concat(display.override_status, " (report comparison, not command acknowledgement)"));
   const schedule = display.schedule;
   if (schedule && Array.isArray(schedule.windows)) {
     lines.push("Display schedule: ".concat(schedule.enabled ? "enabled" : "disabled (display stays on)", ", ").concat(schedule.windows.length, " window").concat(schedule.windows.length === 1 ? "" : "s").concat(timezone ? " in ".concat(timezone) : ""));
@@ -1824,6 +1852,7 @@ export {
   displayPower,
   displayUntil,
   untilOption,
+  displayWarnings,
   displayLines,
   rebootWindowOption,
   rebootWindowList,

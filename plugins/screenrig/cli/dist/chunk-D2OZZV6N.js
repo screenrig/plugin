@@ -44,6 +44,7 @@ import {
   displayProblem,
   displayScheduleWrite,
   displayUntil,
+  displayWarnings,
   expiresInOption,
   expiresInSeconds,
   flatFrameNote,
@@ -96,7 +97,7 @@ import {
   suspendProblem,
   suspensionLines,
   untilOption
-} from "./chunk-772FYUN3.js";
+} from "./chunk-Q76H7S7C.js";
 import {
   WALL_ARRANGEMENTS,
   WALL_ROTATIONS,
@@ -904,7 +905,7 @@ var handleScreenShow = commandHandler(async (args, runtime, resolved) => {
   const screen = response.body;
   const requestId = client.requestId;
   const notes = await resourceNotes(runtime, client, "screen", id);
-  const warnings = screenStorageWarnings(id, screen, runtime.now());
+  const warnings = [...screenStorageWarnings(id, screen, runtime.now()), ...displayWarnings(id, screen?.display)];
   return {
     envelope: jsonBody(response, requestId, void 0, [...notes.warnings, ...warnings]),
     exitCode: ExitCode.Success,
@@ -1351,11 +1352,12 @@ async function screenFleetAction(client, runtime, title, selector, action, recov
       await runtime.sleep(wait * 1e3);
   }
   const outcome = fleetOutcome(result);
+  const displayNotes = result.results.flatMap((item) => item.status === "ok" ? displayWarnings(item.screen_id, item.display) : []);
   const levels = sumLevels(pageLevels);
   if (levels)
     result.levels = levels;
   return {
-    envelope: jsonBody({ ...response, body: result }, client.requestId, void 0, [...outcome.warnings, ...answerWarnings]),
+    envelope: jsonBody({ ...response, body: result }, client.requestId, void 0, [...outcome.warnings, ...answerWarnings, ...displayNotes]),
     exitCode: outcome.exitCode,
     human: [
       fleetHumanLines(title, result, (item) => {
@@ -1372,7 +1374,8 @@ async function screenFleetAction(client, runtime, title, selector, action, recov
         return void 0;
       }),
       ...levelsLines(levels),
-      ...outcome.warnings.map((warning) => "warning: ".concat(warning.message))
+      ...outcome.warnings.map((warning) => "warning: ".concat(warning.message)),
+      ...displayNotes.map((warning) => "warning: ".concat(warning.message))
     ].join("\n"),
     keepRecoveryUntilOutput: true
   };
@@ -2575,10 +2578,11 @@ var handleScreenDisplay = commandHandler(async (args, runtime, resolved) => {
     throw displayProblem(screenControlProblem(error, id), id);
   }
   const screen = response.body;
+  const warnings = displayWarnings(id, screen?.display);
   return {
-    envelope: jsonBody(response, client.requestId),
+    envelope: jsonBody(response, client.requestId, void 0, warnings),
     exitCode: ExitCode.Success,
-    human: displayHuman("Display ".concat(power, " on ").concat(id, " ").concat(until ? "until ".concat(instantInZone(until, screen?.timezone)) : "until the display schedule's next boundary, or until replaced"), screen)
+    human: [displayHuman("Display override saved on ".concat(id, ": requested ").concat(power, " ").concat(until ? "until ".concat(instantInZone(until, screen?.timezone)) : "until the display schedule's next boundary, or until replaced"), screen), ...warnings.map((warning) => "warning: ".concat(warning.message))].join("\n")
   };
 }, true);
 var handleScreenDisplayScheduleShow = commandHandler(async (args, runtime, resolved) => {
@@ -2912,7 +2916,7 @@ function registerScreenCommands(root, bind) {
   commandGroup.command("cancel").description("Cancel a command still queued for an offline screen").argument("<id>", "Screen identifier").argument("<command_id>", "Command id: an entry of commands in screen show, or the reboot_id, reload_id or command_id of the request's answer").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenCommandCancel));
   const displayGroup = screen.command("display").description("Turn a screen's display on or off now, or clear that override");
   const display = displayGroup.command("set", { isDefault: true }).description("Turn a screen's display, or a fleet's displays, on or off now (default: screen display ID --power on|off)").argument("[id...]", "Screen identifier; several ids target those screens in one fleet request; a trailing on|off sets the power").option("--tag <TAG>", "Target every active screen carrying this tag", screenTagOption).addOption(folderSelector()).addOption(new Option("--power <POWER>", "on or off").choices(["on", "off"])).addOption(new Option("--until <TIME>", "End at this RFC 3339 instant (strictly future, at most 7 days ahead)").argParser(untilOption).conflicts(["for"])).addOption(new Option("--for <DURATION>", "End after this duration, such as 30m, 2h, or 3d (at most 6d23h59m)").argParser(durationOption).conflicts(["until"])).option("--expect-rev <REVISION>", "Optionally require this screen revision (one screen id only)", revision).action(bind(handleScreenDisplay));
-  addCommandNotes(display, "Display power:\n  A manual override of the display schedule. Without --until or --for it ends\n  at the display schedule's next boundary; a later display-schedule change or\n  timezone change moves that end to the new next boundary. With no schedule\n  boundary in the next eight days (no enabled schedule) it holds until\n  screen display clear or a replacement. The Player applies it at once and\n  reports what it achieved (screen show: Display reported). At most 10\n  display changes per screen per minute; refusals and replays spend none.");
+  addCommandNotes(display, "Display power:\n  A manual override of the display schedule. Without --until or --for it ends\n  at the display schedule's next boundary; a later display-schedule change or\n  timezone change moves that end to the new next boundary. With no schedule\n  boundary in the next eight days (no enabled schedule) it holds until\n  screen display clear or a replacement. Success saves the override without\n  waiting for a power report. display.override_status compares a newer report:\n  matches, mismatch, pending, stale or unknown; matches describes the report,\n  not command execution. Inspect warnings and screen show before capturing.\n  display_power_mismatch names a fresh differing report; display_power_unconfirmed\n  means a newer usable report is needed. display_scrim_only means the Player\n  controls a black overlay; display on removes it without a hardware wake.\n  At most 10 display changes per screen per minute; refusals and replays spend none.");
   addCommandExamples(display, "screenrig screen display scr_LOBBY --power off --for 2h", "screenrig screen display --tag Lobby --power on", "screenrig screen display scr_A scr_B --power off --for 8h");
   const displayClear = displayGroup.command("clear").description("End the manual display override on a screen or a fleet; the schedule (else on) applies again").argument("[id...]", "Screen identifier; several ids target those screens in one fleet request").option("--tag <TAG>", "Target every active screen carrying this tag", screenTagOption).addOption(folderSelector()).option("--expect-rev <REVISION>", "Optionally require this screen revision (one screen id only)", revision).action(bind(handleScreenDisplayClear));
   addCommandExamples(displayClear, "screenrig screen display clear scr_LOBBY", "screenrig screen display clear --tag Lobby");
