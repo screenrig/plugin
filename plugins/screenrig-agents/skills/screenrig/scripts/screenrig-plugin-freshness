@@ -311,8 +311,25 @@ function hostRoots() {
   ];
 }
 
+// Hermes installs a package at HERMES_HOME/plugins/NAME and records it in the
+// installer-owned plugins/.install-metadata.json; its plugin list has no paths.
+// A catalog install is pinned to a reviewed commit and updates only through
+// Hermes, so it is never compared with GitHub's latest.
+function hermesInstall(root) {
+  const plugins = path.dirname(root);
+  if (path.basename(root) !== "screenrig" || path.basename(plugins) !== "plugins") return null;
+  const metadata = readJsonFile(path.join(plugins, ".install-metadata.json"));
+  const record = metadata && metadata.screenrig;
+  if (!record || typeof record !== "object") return null;
+  return { host: "hermes", marketplace: record.catalog ? "catalog" : "git", source: "install_record" };
+}
+
 function registeredHost(root, host) {
   if (!host && process.env.PLUGIN_ROOT && sameRoot(process.env.PLUGIN_ROOT, root)) return { source: "host_root" };
+  if (host === "hermes" || !host) {
+    const hermes = hermesInstall(root);
+    if (hermes || host) return hermes;
+  }
   const hosts = host ? [host] : ["claude", "codex", "grok"];
   let available = false;
   for (const name of hosts) {
@@ -381,9 +398,9 @@ async function bootstrap(argv, run) {
       const value = argv[++index];
       if (!value || value.startsWith("--")) { usageError(`${arg} needs a value.`); return; }
       if (arg === "--host") host = value; else config = value;
-    } else { usageError("Use --bootstrap --json [--host claude|codex|grok] [--config FILE], or --run COMMAND..."); return; }
+    } else { usageError("Use --bootstrap --json [--host claude|codex|grok|hermes] [--config FILE], or --run COMMAND..."); return; }
   }
-  if (host && !["claude", "codex", "grok"].includes(host)) { usageError("--host must be claude, codex or grok."); return; }
+  if (host && !["claude", "codex", "grok", "hermes"].includes(host)) { usageError("--host must be claude, codex, grok or hermes."); return; }
   if ((run && !command.length) || (!run && !argv.includes("--json"))) { usageError("Bootstrap needs --json; --run needs a CLI command."); return; }
   const root = path.resolve(__dirname, "..", "..", "..");
   const registration = readPluginVersion(root) && registeredHost(root, host);

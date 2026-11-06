@@ -335,6 +335,57 @@ process.stdout.write(JSON.stringify({ok:true,data,warnings:[]})+"\\n");
                 expected = "claude/claude-plugins-official" if action == "ready" else "claude/screenrig"
                 self.assertIn(expected, sources)
 
+    def test_hermes_install_record_registers_and_never_refreshes(self) -> None:
+        """Hermes records its installs in plugins/.install-metadata.json; that
+        copy is registered with or without --host, updates only through Hermes
+        and passes hermes/catalog to the CLI."""
+        node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
+        with tempfile.TemporaryDirectory(prefix="screenrig-hermes-") as temporary:
+            tmp = Path(temporary)
+            plugins = tmp / "hermes home/plugins"
+            root = plugins / "screenrig"
+            script = install_copy(HELPER, root / "skills/screenrig/scripts/screenrig-plugin-freshness")
+            write_json(root / "cli/package.json", {"name": "screenrig", "version": "26.10.1"})
+            cli = root / "cli/dist/bin.js"
+            cli.parent.mkdir(parents=True)
+            cli.write_text('''const fs = require("fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.TEST_CALLS, JSON.stringify({args, source: process.env.SCREENRIG_INSTALL_SOURCE ?? null})+"\\n");
+let data;
+if (args.includes("version")) data = {version:"26.10.1",distribution:{kind:"plugin_bundle"}};
+else if (args.includes("doctor")) data = {status:"pass", checks:[{name:"token",status:"pass"}]};
+else if (args.includes("agent")) data = {status:"active"};
+else if (args.includes("project")) data = {features:{screens:true}};
+process.stdout.write(JSON.stringify({ok:true,data,warnings:[]})+"\\n");
+''', encoding="utf-8")
+            marketplace, calls = tmp / "marketplace.json", tmp / "calls.jsonl"
+            write_json(marketplace, {"plugins": [{"version": "26.11.5"}]})
+            # No claude, codex or grok on PATH: only the install record can register this copy.
+            environment = without(FRESHNESS_VARS, PATH=str(Path(node).parent), TEST_CALLS=str(calls),
+                                  SCREENRIG_PUBLISHED_MARKETPLACE_URL=marketplace.as_uri())
+
+            def run(*args):
+                return subprocess.run([node, str(script), *args], env=environment, text=True,
+                                      capture_output=True, timeout=30)
+
+            result = run("--host", "hermes", "--run", "version")
+            self.assertEqual(result.returncode, 78, result.stdout + result.stderr)
+            self.assertEqual(json.loads(result.stdout)["data"]["action"], "install")
+            write_json(plugins / ".install-metadata.json", {"screenrig": {
+                "pinned": False, "revision": "0" * 40, "source": "https://github.com/screenrig/plugin.git#plugins/screenrig-agents",
+                "catalog": {"name": "screenrig", "repo": "https://github.com/screenrig/plugin", "tier": "community"}}})
+            for host in (["--host", "hermes"], []):
+                calls.unlink(missing_ok=True)
+                result = run(*host, "--bootstrap", "--json")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                data = json.loads(result.stdout)["data"]
+                self.assertEqual(data["registration"], {"host": "hermes", "marketplace": "catalog", "source": "install_record"})
+                self.assertEqual(data["action"], "ready")
+                self.assertEqual(data["freshness"]["updates_from"], "catalog")
+                result = run(*host, "--run", "version")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("hermes/catalog", {json.loads(line)["source"] for line in calls.read_text().splitlines()})
+
     def test_bootstrap_registration_reuse_and_exact_command(self) -> None:
         node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
         with tempfile.TemporaryDirectory(prefix="screenrig-bootstrap-") as temporary:

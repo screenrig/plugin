@@ -19,11 +19,11 @@ https://screenrig.ai/llms-full.txt.
 ## Install and call the CLI
 
 Use Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x). Before any CLI call, find this runtime's enabled `screenrig`
-plugin (`claude|codex|grok plugin list --json`) and install or enable it per
+plugin (`claude|codex|grok plugin list --json`, `hermes plugins list --json`) and install or enable it per
 [installation](references/installation.md) if missing. Then bootstrap:
 
 ```text
-node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --bootstrap --json --host <claude|codex|grok>
+node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --bootstrap --json --host <claude|codex|grok|hermes>
 ```
 
 Managed hosts without a plugin CLI supply `PLUGIN_ROOT` and omit `--host`.
@@ -37,7 +37,7 @@ instruction; report any retry time and return), `enroll` (first run), `ready`.
 Run every CLI call through the helper. In this skill `screenrig COMMAND...` means:
 
 ```text
-node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --host <claude|codex|grok> --run COMMAND...
+node <root>/skills/screenrig/scripts/screenrig-plugin-freshness --host <claude|codex|grok|hermes> --run COMMAND...
 ```
 
 Put `--config FILE` before `--run`. No PATH launcher, alias or source checkout.

@@ -16,6 +16,9 @@ codex plugin add screenrig@screenrig --json
 grok plugin marketplace add https://github.com/screenrig/plugin.git
 grok plugin install screenrig --trust
 grok plugin enable screenrig
+
+# Hermes
+hermes plugins install screenrig/plugin#plugins/screenrig-agents --enable
 ```
 
 This user instruction authorizes exactly that marketplace and plugin:
@@ -43,6 +46,7 @@ bootstrap:
 claude plugin update screenrig@screenrig --scope user   # add -y without a TTY
 grok plugin update screenrig
 codex plugin marketplace upgrade --json && codex plugin add screenrig@screenrig --json
+hermes plugins update screenrig
 ```
 
 ## MCP sign-in
@@ -53,6 +57,7 @@ its sign-in action before telling the user to start it.
 - Codex: `codex mcp list --json`, then `codex mcp login NAME --oauth-client-registration cimd --scopes access:manage,screens,content,playlists,reports`.
 - Claude Code: `claude mcp login NAME` in a persistent terminal (the plugin
   server is usually `plugin:screenrig:screenrig-views`); `/mcp` is the fallback.
+- Hermes: `hermes mcp login screenrig-views`.
 
 Keep one authorization attempt alive until it completes; the host stores and
 refreshes its own session.
