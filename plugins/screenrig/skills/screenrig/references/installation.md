@@ -57,7 +57,9 @@ its sign-in action before telling the user to start it.
 - Codex: `codex mcp list --json`, then `codex mcp login NAME --oauth-client-registration cimd --scopes access:manage,screens,content,playlists,reports`.
 - Claude Code: `claude mcp login NAME` in a persistent terminal (the plugin
   server is usually `plugin:screenrig:screenrig-views`); `/mcp` is the fallback.
-- Hermes: `hermes mcp login screenrig-views`.
+- Hermes: `hermes mcp add screenrig-views --url https://api.screenrig.ai/mcp --auth oauth`,
+  then `hermes mcp login screenrig-views` in a persistent terminal. The CLI
+  workflow does not need it.
 
 Keep one authorization attempt alive until it completes; the host stores and
 refreshes its own session.
