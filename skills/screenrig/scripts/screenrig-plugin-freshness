@@ -124,7 +124,9 @@ function allowedMarketplaceUrl(url) {
   if (url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost")) {
     return true;
   }
-  return url.protocol === "https:" && url.hostname === "raw.githubusercontent.com";
+  // Only this repository's own published files; a redirect is checked again.
+  return url.protocol === "https:" && url.hostname === "raw.githubusercontent.com" &&
+    url.pathname.startsWith("/screenrig/plugin/");
 }
 
 function fetchUrl(urlString, redirects) {

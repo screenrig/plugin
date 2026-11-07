@@ -643,6 +643,10 @@ process.exitCode=code;
                               SCREENRIG_PUBLISHED_MARKETPLACE_URL="http://127.0.0.1:1/.claude-plugin/marketplace.json")
             expect("published unavailable", run(helper, unavailable), action="continue_installed", stale=False,
                    published=None, plugin="26.09.7", cli="26.09.7", warning="published_version_unavailable")
+            other_repo = env(SCREENRIG_PLUGIN_ROOT=str(plugin_root),
+                             SCREENRIG_PUBLISHED_MARKETPLACE_URL="https://raw.githubusercontent.com/other/plugin/main/.claude-plugin/marketplace.json")
+            expect("another repository is never read", run(helper, other_repo), action="continue_installed",
+                   stale=False, published=None, plugin="26.09.7", cli="26.09.7", warning="published_version_unavailable")
 
             # With no plugin root in the environment the helper reads its own
             # install location, and with no bundled CLI anywhere it says so

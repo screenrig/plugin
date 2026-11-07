@@ -28,6 +28,14 @@ In ChatGPT Codex:
 codex plugin marketplace add https://github.com/screenrig/plugin.git --ref main --json && codex plugin add screenrig@screenrig --json
 ```
 
+With the [skills](https://skills.sh/screenrig/plugin) CLI:
+
+```console
+npx skills add screenrig/plugin --skill screenrig -g
+```
+
+On first use the skill installs the plugin and its bundled CLI.
+
 Any other agent:
 
 ```text
