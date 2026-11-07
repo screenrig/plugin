@@ -39,6 +39,8 @@
     "screenrig_comment_delete",
     "screenrig_comment_get",
     "screenrig_comment_set",
+    "screenrig_docs_get",
+    "screenrig_docs_search",
     "screenrig_event_list",
     "screenrig_feedback_bug_list",
     "screenrig_feedback_bug_submit",
