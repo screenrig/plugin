@@ -6,7 +6,7 @@ import {
 import {
   GUIDANCE_NOTES_1,
   GUIDANCE_NOTES_2
-} from "./chunk-ZI4Z77PE.js";
+} from "./chunk-RQ6KKMR6.js";
 import {
   addCommandExamples,
   addCommandNotes,

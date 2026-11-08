@@ -1593,7 +1593,7 @@ function consentLines(account, apiUrl, ownApp = false) {
     "Connect link, for the person who owns the ".concat(provider, " account. Send it to that person only, or open it yourself if that is you: it is the credential of one consent, and works once").concat(account.authorize_expires_at ? " until ".concat(account.authorize_expires_at) : "", "."),
     "authorize_url: ".concat(account.authorize_url),
     "",
-    "They open it signed in to ".concat(provider).concat(account.kind === "dropbox" ? " and allow screenRIG read-only access to the files in that Dropbox (files.metadata.read, files.content.read, account_info.read)" : "", ". The CLI never opens a browser."),
+    "They open it signed in to ".concat(provider).concat(account.kind === "dropbox" ? " and allow screenRIG read-only access to the files in that Dropbox (files.metadata.read, files.content.read, account_info.read, sharing.read)" : "", ". The CLI never opens a browser."),
     ...ownApp || account.config?.app_key ? ["This account goes through your own Dropbox app, which must list ".concat(dropboxRedirectUri(apiUrl), " as a redirect URI (Dropbox App Console, the app's Settings, OAuth 2) and have those permissions enabled.")] : [],
     "When they finish, screenrig media sync account show ".concat(account.id, " reads state ready. screenrig media sync account connect ").concat(account.id, " makes a new link, which replaces this one."),
     ...account.kind === "dropbox" ? ["Then: screenrig media sync create dropbox --account-id ".concat(account.id, " --url FOLDER")] : []
@@ -1610,7 +1610,7 @@ function consentWarnings(account, apiUrl, ownApp = false) {
     },
     ...ownApp || account.config?.app_key ? [{
       code: "media_sync_redirect_uri",
-      message: "The account goes through your own Dropbox app, which must list ".concat(dropboxRedirectUri(apiUrl), " as a redirect URI and have files.metadata.read, files.content.read and account_info.read enabled.")
+      message: "The account goes through your own Dropbox app, which must list ".concat(dropboxRedirectUri(apiUrl), " as a redirect URI and have files.metadata.read, files.content.read, account_info.read and sharing.read enabled.")
     }] : []
   ];
 }
