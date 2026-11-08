@@ -6,7 +6,7 @@ import {
 import {
   GUIDANCE_NOTES_1,
   GUIDANCE_NOTES_2
-} from "./chunk-RQ6KKMR6.js";
+} from "./chunk-ZIAJSY4D.js";
 import {
   addCommandExamples,
   addCommandNotes,
@@ -76,6 +76,11 @@ var GUIDANCE_EXAMPLES = {
   "card delete": ["crd_CARD"],
   "card data get": ["crd_CARD"],
   "card data put": ["crd_CARD --file data.json --expect-rev 3"],
+  "background categories": [""],
+  "background sets": ["", "--category arts-culture-entertainment", "--search comic --orientation portrait"],
+  "background show": ["concert-poster-comic-book", "bg_blockbuster-laser-rush__landscape__bottom-banner-73d2f112"],
+  "background apply": ["bg_blockbuster-laser-rush__landscape__bottom-banner-73d2f112 --playlist-id pl_PLAYLIST --page-id welcome", "bg_blockbuster-laser-rush__landscape__bottom-banner-73d2f112 --playlist-id pl_PLAYLIST --page-id welcome --color '#09111BFF' --expect-rev 7 --note \"Winter look\""],
+  "background clear": ["--playlist-id pl_PLAYLIST --page-id welcome", "--playlist-id pl_PLAYLIST --page-id welcome --color '#000000FF'"],
   "project token": ["--projects prj_PROJECT,prj_OTHER"],
   "feeds get": [
     "weather --lat 49.25 --lon -123",

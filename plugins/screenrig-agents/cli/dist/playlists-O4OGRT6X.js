@@ -26,23 +26,33 @@ import {
   requireCapability
 } from "./chunk-VPHUSKMY.js";
 import {
+  BACKGROUNDS_PATH,
+  BACKGROUND_ORIENTATIONS,
+  DEFAULT_BACKGROUND_COLOR,
   PLAYLIST_SERVER_CHECKS,
   assertPlaylistValid,
   assertWirePages,
+  backgroundColor,
+  backgroundId,
+  backgroundOrSetId,
+  backgroundUrl,
   editablePlaylist,
   hasScreenToken,
   iframeSnippetSource,
+  imageBackgroundOf,
   isAdSlotPage,
   playlistLint,
   playlistNeedsTimezone,
   preparePlaylist,
   screenTemplateRefusal,
   screenTokenStandIn,
+  setBackgroundColor,
   shortApplicationPageWarning,
   targetDimensions,
   validatePlaylistWrite,
-  wallSize
-} from "./chunk-YJ7RQRQQ.js";
+  wallSize,
+  withCanvasBackground
+} from "./chunk-ICGRU2XM.js";
 import {
   apexHost
 } from "./chunk-BWPKDRCP.js";
@@ -84,7 +94,9 @@ import {
   addCommandNotes,
   requireOptionGroup
 } from "./chunk-IBLNZ4EM.js";
-import "./chunk-CKOG7ZL3.js";
+import {
+  table
+} from "./chunk-CKOG7ZL3.js";
 import {
   assertOutputAvailable,
   readAuthoringJson,
@@ -1995,6 +2007,18 @@ function pageResult(response, requestId, title) {
   return pending ? pendingReviewResult(response, pending, requestId) : playlistWriteResult(response, requestId, title);
 }
 var pagesPath = (id) => "/api/playlists/".concat(encodeURIComponent(id), "/pages");
+async function storedPageOf(client, id, pageId, token) {
+  const { playlist: live, revision: revision2 } = await playlistOf(client, id);
+  const playlist = await playlistAsProposed(client, id, live, token);
+  const stored = (Array.isArray(playlist.pages) ? playlist.pages : []).find((candidate) => isObject(candidate) && candidate.id === pageId);
+  if (!stored)
+    throw usageError("Playlist ".concat(id, " has no page ").concat(pageId, "; playlist show ").concat(id, " lists its pages."));
+  return { stored, playlist, revision: String(revision2) };
+}
+async function putPage(client, args, id, pageId, page, revision2, title) {
+  const response = await pageWrite(client, args, { method: "PUT", path: "".concat(pagesPath(id), "/").concat(encodeURIComponent(pageId)), body: page, ...revision2 && flagString(args.flags, "expect-rev") === void 0 ? { revision: revision2 } : {} });
+  return pageResult(response, client.requestId, title);
+}
 var handlePlaylistPageAdd = commandHandler(async (args, runtime, resolved) => {
   const id = playlistId(args, "add");
   const file = flagString(args.flags, "file"), media = flagString(args.flags, "media");
@@ -2061,17 +2085,12 @@ var handlePlaylistPageReplace = commandHandler(async (args, runtime, resolved) =
         page.visibility = visibility;
     }
   } else {
-    const { playlist: live, revision: current } = await playlistOf(client, id);
-    const playlist = await playlistAsProposed(client, id, live, resolved.token);
-    const stored = (Array.isArray(playlist.pages) ? playlist.pages : []).find((candidate) => isObject(candidate) && candidate.id === pageId);
-    if (!stored)
-      throw usageError("Playlist ".concat(id, " has no page ").concat(pageId, "; playlist show ").concat(id, " lists its pages."));
+    const { stored, playlist, revision: current } = await storedPageOf(client, id, pageId, resolved.token);
     const kind = media !== void 0 ? await mediaOf(client, media) : void 0;
     page = replaceMedia({ stored, ...media !== void 0 ? { mediaId: media, kind } : {}, ...fit(args) ? { fit: fit(args) } : {}, ...seconds(args) !== void 0 ? { seconds: seconds(args) } : {}, playlist, ...when.from ? { from: when.from } : {}, ...when.until ? { until: when.until } : {}, always: when.always });
-    revision2 = String(current);
+    revision2 = current;
   }
-  const response = await pageWrite(client, args, { method: "PUT", path: "".concat(pagesPath(id), "/").concat(encodeURIComponent(pageId)), body: page, ...revision2 && flagString(args.flags, "expect-rev") === void 0 ? { revision: revision2 } : {} });
-  return pageResult(response, client.requestId, "Page ".concat(pageId, " of ").concat(id, " replaced."));
+  return putPage(client, args, id, pageId, page, revision2, "Page ".concat(pageId, " of ").concat(id, " replaced."));
 }, true);
 var handlePlaylistPageRemove = commandHandler(async (args, runtime, resolved) => {
   const id = playlistId(args, "remove");
@@ -2718,6 +2737,156 @@ function registerCardsCommands(root, bind) {
   requireOptionGroup(get, "requires", ["--geocode", "--lat", "--lon"]);
 }
 
+// dist/handlers/background.js
+var APPLY_NEXT = "Next: screenrig background apply BACKGROUND_ID --playlist-id pl_PLAYLIST --page-id PAGE_ID";
+var LAYOUT_HINT = "layout is where the decoration sits; keep content in the calm area outside it (on left-half, text goes on the right). tone is the image's lightness: light content reads on dark.";
+async function catalogGet(client, path7, next) {
+  try {
+    return await client.call({ method: "GET", path: path7 });
+  } catch (error) {
+    if (error instanceof CliError && error.problem.code === "not_found" && !error.problem.next) {
+      throw new CliError({ ...error.problem, next }, error.exitCode, error.warnings);
+    }
+    throw error;
+  }
+}
+var colors = (group) => Array.isArray(group.colors) && group.colors.length ? group.colors.join(", ") : "(none)";
+function categoryLines(items) {
+  if (!items.length)
+    return ["No background categories"];
+  return table(["ID", "NAME", "SETS"], items.map((item) => [item.id, item.name, String(item.set_count)]));
+}
+function setLines(items) {
+  if (!items.length)
+    return ["No matching background sets"];
+  return table(["ID", "NAME", "CATEGORY", "LANDSCAPE", "PORTRAIT", "COLORS"], items.map((item) => [item.id, item.name, item.category, String(item.landscape_count), String(item.portrait_count), colors(item)]));
+}
+function setDetailLines(group, apiUrl) {
+  const images = Array.isArray(group.backgrounds) ? group.backgrounds : [];
+  return [
+    "Background set ".concat(group.id),
+    "name: ".concat(group.name),
+    "category: ".concat(group.category, " (").concat(group.category_name, ")"),
+    "style: ".concat(group.style),
+    "colors: ".concat(colors(group)),
+    "images: ".concat(group.landscape_count, " landscape, ").concat(group.portrait_count, " portrait"),
+    "thumbnail: ".concat(backgroundUrl(group.thumbnail_path, apiUrl)),
+    "",
+    ...images.length ? table(["ID", "ORIENTATION", "LAYOUT", "TONE", "IMAGE"], images.map((image) => [image.id, image.orientation, image.layout, image.tone, backgroundUrl(image.image_path, apiUrl)])) : ["No images"],
+    "",
+    LAYOUT_HINT,
+    APPLY_NEXT
+  ];
+}
+function backgroundLines(shown, apiUrl) {
+  const { background: image, set: group } = shown;
+  return [
+    "Background ".concat(image.id),
+    "set: ".concat(group.id, " (").concat(group.name, "); category: ").concat(group.category, " (").concat(group.category_name, ")"),
+    "orientation: ".concat(image.orientation, " (").concat(image.width, "x").concat(image.height, ")"),
+    "layout: ".concat(image.layout, " (").concat(image.label, ")"),
+    "tone: ".concat(image.tone),
+    "colors: ".concat(colors(group)),
+    "image: ".concat(backgroundUrl(image.image_path, apiUrl)),
+    "",
+    LAYOUT_HINT,
+    "Next: screenrig background apply ".concat(image.id, " --playlist-id pl_PLAYLIST --page-id PAGE_ID")
+  ];
+}
+var handleBackgroundCategories = commandHandler(async (args, runtime, resolved) => {
+  const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+  const response = await client.call({ method: "GET", path: "".concat(BACKGROUNDS_PATH, "/categories") });
+  const items = response.body?.categories;
+  const list = Array.isArray(items) ? items : [];
+  return {
+    envelope: jsonBody(response, client.requestId),
+    exitCode: ExitCode.Success,
+    human: ["Background categories (".concat(list.length, ")"), ...categoryLines(list), "", "Next: screenrig background sets --category ID lists a category's sets."].join("\n")
+  };
+});
+var handleBackgroundSets = commandHandler(async (args, runtime, resolved) => {
+  const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+  const response = await client.call({ method: "GET", path: "".concat(BACKGROUNDS_PATH, "/sets"), query: {
+    category: flagString(args.flags, "category"),
+    q: flagString(args.flags, "search"),
+    orientation: flagString(args.flags, "orientation")
+  } });
+  const items = response.body?.sets;
+  const list = Array.isArray(items) ? items : [];
+  return {
+    envelope: jsonBody(response, client.requestId),
+    exitCode: ExitCode.Success,
+    human: ["Background sets (".concat(list.length, ")"), ...setLines(list), "", "Next: screenrig background show SET_ID lists a set's images."].join("\n")
+  };
+});
+var handleBackgroundShow = commandHandler(async (args, runtime, resolved) => {
+  const id = backgroundOrSetId(args.positionals[2] ?? "");
+  const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+  if (id.startsWith("bg_")) {
+    const response2 = await catalogGet(client, "".concat(BACKGROUNDS_PATH, "/").concat(encodeURIComponent(id)), { command: "screenrig background sets", reason: "List the sets, then background show SET_ID lists a set's image ids." });
+    return { envelope: jsonBody(response2, client.requestId), exitCode: ExitCode.Success, human: backgroundLines(response2.body, resolved.apiUrl).join("\n") };
+  }
+  const response = await catalogGet(client, "".concat(BACKGROUNDS_PATH, "/sets/").concat(encodeURIComponent(id)), { command: "screenrig background sets", reason: "List the sets and their ids." });
+  return { envelope: jsonBody(response, client.requestId), exitCode: ExitCode.Success, human: setDetailLines(response.body, resolved.apiUrl).join("\n") };
+});
+function pageTarget(args) {
+  const playlistId2 = flagString(args.flags, "playlist-id"), pageId = flagString(args.flags, "page-id");
+  if (!playlistId2 || !pageId)
+    throw usageError("Both --playlist-id and --page-id are required.");
+  return { playlistId: playlistId2, pageId };
+}
+var handleBackgroundApply = commandHandler(async (args, runtime, resolved) => {
+  const id = backgroundId(args.positionals[2] ?? "");
+  const { playlistId: playlistId2, pageId } = pageTarget(args);
+  const explicit = flagString(args.flags, "color");
+  const color = explicit === void 0 ? void 0 : backgroundColor(explicit);
+  const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+  const found = await catalogGet(client, "".concat(BACKGROUNDS_PATH, "/").concat(encodeURIComponent(id)), { command: "screenrig background sets", reason: "List the sets, then background show SET_ID lists a set's image ids." });
+  const { stored, revision: revision2 } = await storedPageOf(client, playlistId2, pageId, resolved.token);
+  const kept = imageBackgroundOf(stored)?.color;
+  const background = { type: "image", background_id: id, color: color ?? kept ?? setBackgroundColor(found.body?.set) };
+  const page = withCanvasBackground(authoringPage(stored), background);
+  return putPage(client, args, playlistId2, pageId, page, revision2, "Background ".concat(id, " set on page ").concat(pageId, " of ").concat(playlistId2, " (color ").concat(background.color, ")."));
+}, true);
+var handleBackgroundClear = commandHandler(async (args, runtime, resolved) => {
+  const { playlistId: playlistId2, pageId } = pageTarget(args);
+  const explicit = flagString(args.flags, "color");
+  const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+  const { stored, revision: revision2 } = await storedPageOf(client, playlistId2, pageId, resolved.token);
+  const current = imageBackgroundOf(stored);
+  if (explicit === void 0 && !current) {
+    throw usageError("Page ".concat(pageId, " of ").concat(playlistId2, " has no image background to clear; give --color to set a solid colour."));
+  }
+  const color = explicit !== void 0 ? backgroundColor(explicit) : current?.color ?? DEFAULT_BACKGROUND_COLOR;
+  const page = withCanvasBackground(authoringPage(stored), color);
+  return putPage(client, args, playlistId2, pageId, page, revision2, "Page ".concat(pageId, " of ").concat(playlistId2, " has the solid background ").concat(color, "."));
+}, true);
+
+// dist/cli-commands/background.js
+function playlistIdOption(value) {
+  if (!isResourceID(value, "playlist")) {
+    throw usageError("--playlist-id must be a playlist id (pl_...).", { command: "screenrig playlist list", reason: "List this project's playlists and their ids." });
+  }
+  return value;
+}
+function pageIdOption(value) {
+  if (!PAGE_ID_PATTERN.test(value))
+    throw usageError("--page-id takes a page id: a letter, then letters, digits, - or _ (at most 64).");
+  return value;
+}
+var COLOR_HELP = "Colour under the image, #RRGGBBAA";
+function pageWriteOptions(command) {
+  return command.option("--expect-rev <REVISION>", "Require this playlist revision (If-Match); without it the write is held to the revision just read", revision).option("--note <TEXT>", NOTE_HELP, reviewNoteOption);
+}
+function registerBackgroundCommands(root, bind) {
+  const background = root.command("background").description("Browse the page background catalog and set a page's background image");
+  background.command("categories").description("List the background categories and how many sets each holds").action(bind(handleBackgroundCategories));
+  background.command("sets").description("List background sets, by category, search words or orientation").option("--category <ID>", "Only the sets of this category (background categories lists the ids)").option("--search <TEXT>", "Only sets whose name, style or category match every word").addOption(new Option("--orientation <ORIENTATION>", "Only sets with at least one image in this orientation").choices(BACKGROUND_ORIENTATIONS)).action(bind(handleBackgroundSets));
+  background.command("show").description("Show a set with each of its images, or one background image").argument("<id>", "A set id from background sets, or a background id (bg_...)", backgroundOrSetId).action(bind(handleBackgroundShow));
+  pageWriteOptions(background.command("apply").description("Set a page's canvas background to a catalog image").argument("<background-id>", "The background image (bg_...) from background show", backgroundId).requiredOption("--playlist-id <ID>", "The playlist (pl_...) that holds the page", playlistIdOption).requiredOption("--page-id <ID>", "The page to change", pageIdOption).option("--color <RRGGBBAA>", "".concat(COLOR_HELP, " (default: the page's current image colour, else the set's first colour, else #000000FF)"), backgroundColor)).action(bind(handleBackgroundApply));
+  pageWriteOptions(background.command("clear").description("Replace a page's background image with a solid colour").requiredOption("--playlist-id <ID>", "The playlist (pl_...) that holds the page", playlistIdOption).requiredOption("--page-id <ID>", "The page to change", pageIdOption).option("--color <RRGGBBAA>", "The solid colour, #RRGGBBAA (default: the image's colour)", backgroundColor)).action(bind(handleBackgroundClear));
+}
+
 // dist/comments-write.js
 var COMMENTS_MAX_BYTES = 1024;
 function isPlainObject(value) {
@@ -3023,7 +3192,7 @@ function rowProblemLine(row, problem, warning = false) {
 function plural(count, noun) {
   return "".concat(count, " ").concat(noun).concat(count === 1 ? "" : "s");
 }
-function table(header2, rows) {
+function table2(header2, rows) {
   const widths = header2.map((cell, index) => Math.max(cell.length, ...rows.map((row) => [...row[index] ?? ""].length)));
   const render = (row) => row.map((cell, index) => cell.padEnd(widths[index])).join("  ").trimEnd();
   return [render(header2), ...rows.map(render)];
@@ -3134,7 +3303,7 @@ function previewLines(preview, next) {
     lines.push("", ...capped(problems, 200, "problems"));
   if (preview.levels.length) {
     const names = screenNames(preview);
-    lines.push("", ...capped(table(["ACTION", "WHERE", "CONTENT", "WHEN", "PRIORITY"], preview.levels.map((level) => [
+    lines.push("", ...capped(table2(["ACTION", "WHERE", "CONTENT", "WHEN", "PRIORITY"], preview.levels.map((level) => [
       level.action,
       level.home === "screen" ? "screen ".concat(clip(names.get(level.key) ?? level.screen_id ?? "", 40)) : "shared (".concat(plural(level.screens, "screen"), ")"),
       clip(level.content.name, 40),
@@ -3323,6 +3492,7 @@ function register(root, bind) {
   registerPlaylistCommands(root, bind);
   registerReviewsCommands(root, bind);
   registerCardsCommands(root, bind);
+  registerBackgroundCommands(root, bind);
   registerCommentCommands(root, bind);
   registerScheduleImportCommands(root, bind);
 }

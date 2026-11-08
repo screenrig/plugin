@@ -1409,6 +1409,72 @@ function validatePlaylistWriteSemantics(value) {
   return issues;
 }
 
+// dist/backgrounds.js
+var BACKGROUNDS_PATH = "/api/backgrounds";
+var BACKGROUND_ID_PATTERN = /^bg_[a-z0-9][a-z0-9._-]*-[0-9a-f]{8}$/;
+var BACKGROUND_ID_MAX = 160;
+var BACKGROUND_COLOR_PATTERN = /^#[0-9A-F]{8}$/;
+var DEFAULT_BACKGROUND_COLOR = "#000000FF";
+var BACKGROUND_ORIENTATIONS = ["landscape", "portrait"];
+var IMAGE_BACKGROUND_PRIMITIVES_MAX = 23;
+function isBackgroundId(value) {
+  return typeof value === "string" && value.length <= BACKGROUND_ID_MAX && BACKGROUND_ID_PATTERN.test(value);
+}
+function backgroundId(value) {
+  if (!isBackgroundId(value)) {
+    throw usageError("A background id starts with bg_ and names one image, such as bg_blockbuster-laser-rush__landscape__bottom-banner-73d2f112.", {
+      command: "screenrig background sets",
+      reason: "List the sets, then background show SET_ID lists a set's image ids."
+    });
+  }
+  return value;
+}
+function backgroundOrSetId(value) {
+  if (value.startsWith("bg_"))
+    return backgroundId(value);
+  if (!value || value.length > BACKGROUND_ID_MAX) {
+    throw usageError("Give a set id or a background id (bg_...).", { command: "screenrig background sets", reason: "List the sets and their ids." });
+  }
+  return value;
+}
+function backgroundColor(value) {
+  const color = value.toUpperCase();
+  if (!BACKGROUND_COLOR_PATTERN.test(color)) {
+    throw usageError("--color takes #RRGGBBAA, such as #09111BFF (quote it in a shell).");
+  }
+  return color;
+}
+function setBackgroundColor(group) {
+  const first = Array.isArray(group?.colors) ? group.colors[0] : void 0;
+  return typeof first === "string" && /^#[0-9A-Fa-f]{6}$/.test(first) ? "".concat(first.toUpperCase(), "FF") : DEFAULT_BACKGROUND_COLOR;
+}
+var isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+function imageBackgroundOf(page) {
+  const canvas = isObject(page) && isObject(page.canvas) ? page.canvas : void 0;
+  const background = canvas && isObject(canvas.background) ? canvas.background : void 0;
+  if (!background || background.type !== "image" || typeof background.background_id !== "string")
+    return void 0;
+  const color = typeof background.color === "string" && BACKGROUND_COLOR_PATTERN.test(background.color) ? background.color : void 0;
+  return { background_id: background.background_id, ...color ? { color } : {} };
+}
+function withCanvasBackground(page, background) {
+  if (!isObject(page.canvas)) {
+    throw usageError("Page ".concat(String(page.id), " has no canvas, so it has no background to set."));
+  }
+  return { ...page, canvas: { ...page.canvas, background } };
+}
+function backgroundUrl(path, apiUrl) {
+  if (!path)
+    return "";
+  if (!path.startsWith("/"))
+    return path;
+  try {
+    return new URL(path, apiUrl).toString();
+  } catch {
+    return path;
+  }
+}
+
 // dist/iframe-snippet.js
 function iframeSnippetSource(input) {
   const opening = /^\s*<iframe(?=[\t\n\f\r />])/i.exec(input);
@@ -1516,10 +1582,17 @@ function optionalBoolean(owner, key, name) {
 function validateBackground(value, name) {
   if (typeof value === "string") {
     if (!COLOR_PATTERN.test(value))
-      throw usageError("".concat(name, " must be an uppercase #RRGGBBAA color or linear gradient."));
+      throw usageError("".concat(name, " must be an uppercase #RRGGBBAA color, a linear gradient or a catalog image."));
     return;
   }
   const background = record(value, name);
+  if (background.type === "image") {
+    exact(background, ["type", "background_id", "color"], name);
+    string(background, "background_id", name, BACKGROUND_ID_MAX, BACKGROUND_ID_PATTERN);
+    if (background.color !== void 0)
+      string(background, "color", name, 9, COLOR_PATTERN);
+    return;
+  }
   exact(background, ["type", "stops"], name);
   if (background.type !== "linear" || !Array.isArray(background.stops) || background.stops.length < 2 || background.stops.length > 8) {
     throw usageError("".concat(name, " must be a linear gradient with 2 to 8 stops."));
@@ -1921,6 +1994,9 @@ function validatePlaylistWrite(value, mediaPrimitives) {
       throw usageError("".concat(pageName, ".advance audio_end requires an audio_cue on the same page."));
     if (!Array.isArray(page.primitives) || page.primitives.length < 1 || page.primitives.length > 24) {
       throw usageError("".concat(pageName, ".primitives must contain 1 to 24 primitives."));
+    }
+    if (page.primitives.length > IMAGE_BACKGROUND_PRIMITIVES_MAX && imageBackgroundOf(page)) {
+      throw usageError("".concat(pageName, ".primitives must contain at most ").concat(IMAGE_BACKGROUND_PRIMITIVES_MAX, " primitives on a page with an image background."));
     }
     const primitiveIds = /* @__PURE__ */ new Set();
     const mediaPrimitivesOnPage = [];
@@ -2441,24 +2517,24 @@ function targetDimensions(screen, width, height) {
 }
 
 // dist/playlist-template-check.js
-var isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var isObject2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var TOKEN = /\{field\.([a-z0-9_]{1,32})\}/g;
 var WHOLE_TOKEN = /^\{field\.([a-z0-9_]{1,32})\}$/;
 function declaresFields(document) {
-  return isObject(document) && Array.isArray(document.fields) && document.fields.length > 0;
+  return isObject2(document) && Array.isArray(document.fields) && document.fields.length > 0;
 }
 function withFieldStandIns(document) {
   if (!declaresFields(document))
     return document;
   const copy = structuredClone(document);
   for (const page of Array.isArray(copy.pages) ? copy.pages : []) {
-    if (!isObject(page))
+    if (!isObject2(page))
       continue;
     for (const primitive of Array.isArray(page.primitives) ? page.primitives : []) {
-      if (!isObject(primitive))
+      if (!isObject2(primitive))
         continue;
       const selector = primitive.selector;
-      if ((primitive.primitive === "image" || primitive.primitive === "video") && isObject(selector) && selector.by === "id" && typeof selector.media_id === "string" && WHOLE_TOKEN.test(selector.media_id))
+      if ((primitive.primitive === "image" || primitive.primitive === "video") && isObject2(selector) && selector.by === "id" && typeof selector.media_id === "string" && WHOLE_TOKEN.test(selector.media_id))
         selector.media_id = "med_template_field";
       if (primitive.primitive === "iframe" && typeof primitive.src === "string" && WHOLE_TOKEN.test(primitive.src))
         primitive.src = "https://example.com/field";
@@ -2472,7 +2548,7 @@ function stringsUnder(value, path, visit) {
     visit(value, path);
   else if (Array.isArray(value))
     value.forEach((item, index) => stringsUnder(item, "".concat(path, "/").concat(index), visit));
-  else if (isObject(value))
+  else if (isObject2(value))
     for (const [key, item] of Object.entries(value))
       stringsUnder(item, "".concat(path, "/").concat(key), visit);
 }
@@ -2482,14 +2558,14 @@ function templateIssues(document) {
   const doc = document;
   const fields = /* @__PURE__ */ new Map();
   for (const field of doc.fields)
-    if (isObject(field) && typeof field.name === "string")
+    if (isObject2(field) && typeof field.name === "string")
       fields.set(field.name, field);
   const issues = [];
   const uses = [];
   const stray = (path) => issues.push({ path, message: SITES });
   const pages = Array.isArray(doc.pages) ? doc.pages : [];
   pages.forEach((page, pageIndex) => {
-    if (!isObject(page))
+    if (!isObject2(page))
       return;
     const pagePath = "/pages/".concat(pageIndex);
     for (const [key, value] of Object.entries(page)) {
@@ -2500,7 +2576,7 @@ function templateIssues(document) {
         });
     }
     (Array.isArray(page.primitives) ? page.primitives : []).forEach((primitive, index) => {
-      if (!isObject(primitive))
+      if (!isObject2(primitive))
         return;
       const path = "".concat(pagePath, "/primitives/").concat(index);
       const kind = primitive.primitive;
@@ -2512,7 +2588,7 @@ function templateIssues(document) {
             for (const match of text.matchAll(TOKEN))
               uses.push({ name: match[1], site: "card", path: at });
           });
-        } else if (key === "selector" && (kind === "image" || kind === "video") && isObject(value)) {
+        } else if (key === "selector" && (kind === "image" || kind === "video") && isObject2(value)) {
           for (const [member, item] of Object.entries(value)) {
             const whole = typeof item === "string" ? WHOLE_TOKEN.exec(item) : null;
             if (whole && member === "media_id" && value.by === "id")
@@ -2560,7 +2636,7 @@ function templateIssues(document) {
     used.set(use.name, use.site);
   }
   doc.fields.forEach((field, index) => {
-    if (isObject(field) && typeof field.name === "string" && !used.has(field.name))
+    if (isObject2(field) && typeof field.name === "string" && !used.has(field.name))
       issues.push({ path: "/fields/".concat(index), message: "{field.".concat(field.name, "} is declared but no page uses it") });
   });
   return issues;
@@ -2665,6 +2741,16 @@ function playlistLint(value) {
 
 export {
   playlistNeedsTimezone,
+  BACKGROUNDS_PATH,
+  DEFAULT_BACKGROUND_COLOR,
+  BACKGROUND_ORIENTATIONS,
+  backgroundId,
+  backgroundOrSetId,
+  backgroundColor,
+  setBackgroundColor,
+  imageBackgroundOf,
+  withCanvasBackground,
+  backgroundUrl,
   iframeSnippetSource,
   hasScreenToken2 as hasScreenToken,
   screenTokenStandIn2 as screenTokenStandIn,

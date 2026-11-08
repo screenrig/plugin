@@ -148,11 +148,11 @@ var COMMAND_BUNDLES = {
   account: () => import("./account-U4LDVL53.js"),
   ads: () => import("./ads-IWO2AZVH.js"),
   media: () => import("./media-JD5LW4D2.js"),
-  playlists: () => import("./playlists-MJGT3O4A.js"),
-  screens: () => import("./screens-YH2SCDFF.js"),
+  playlists: () => import("./playlists-O4OGRT6X.js"),
+  screens: () => import("./screens-W4LL3PKD.js"),
   monitoring: () => import("./monitoring-YISW6YWB.js"),
   integrations: () => import("./integrations-R5LQWU7V.js"),
-  migrate: () => import("./migrate-PVUTWBS4.js"),
+  migrate: () => import("./migrate-Y74QKVXQ.js"),
   docs: () => import("./docs-NDPWE3XN.js")
 };
 var TOP_LEVEL_COMMANDS = {
@@ -179,6 +179,7 @@ var TOP_LEVEL_COMMANDS = {
   cards: "playlists",
   card: "playlists",
   feeds: "playlists",
+  background: "playlists",
   source: "media",
   connection: "integrations",
   comment: "playlists",
@@ -411,7 +412,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-NLFVBDY5.js");
+    const { registerGuidance } = await import("./register-guidance-DC566FUT.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };

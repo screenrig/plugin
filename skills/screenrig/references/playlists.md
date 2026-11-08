@@ -332,7 +332,9 @@ video of its folders only (a stinger transition's logo included);
 ## Playlist rules that validation will enforce
 
 - A playlist is `name`, optional `audio`, and `pages`. A page has `id`, `canvas`
-  (`width`, `height`, `viewport_fit`, `background`), `transition`, `advance`,
+  (`width`, `height`, `viewport_fit`, `background`: `#RRGGBBAA`, a linear
+  gradient or `{type: "image", background_id, color}` from `background sets`),
+  `transition`, `advance`,
   optional `visibility` and `audio_cue`, and flat `primitives` (`id`,
   `primitive`, its own fields, `rect`, `layer`, `content_fit`, optional `enter`
   and `motion`).

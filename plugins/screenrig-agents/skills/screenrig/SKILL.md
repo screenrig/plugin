@@ -191,6 +191,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | A new file for media screens already play | `media replace MEDIA_ID FILE` (same ID, so playlists and schedules keep playing it) |
 | Poster, menu, announcement | `media generate` with all exact copy in the prompt; inspect with `media download` |
 | A live Grafana, Power BI or Tableau dashboard, or a page behind any other sign-in | `bi connection create grafana\|powerbi\|tableau` (or a public link), then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)). A page behind another sign-in: `bi connection create web` ([signed-in pages](references/dashboards.md#signed-in-pages)) |
+| A designed backdrop behind cards, video or other primitives | page background: `background sets --search TEXT --orientation landscape\|portrait`, `background show SET_ID`, then `background apply BG_ID --playlist-id ID --page-id ID`; put content where its `layout` leaves calm space (on `left-half`, the right half) and light content on `tone: dark` |
 | Non-interactive live display: clocks, weather, menus, queues, KPIs, tickers | built-in card: `cards list`, `cards show`, `card create`, `card data put` ([playlists](references/playlists.md#built-in-cards-and-feeds)) |
 | An outside system pushing data a card shows (a CMS, Zapier, a point of sale, a script) | card webhook: `kv webhook create --card crd_ID --map FILE`; the sender POSTs JSON to its url, and a vendor that signs its posts (GitHub, Stripe, Shopify, Slack) verifies with `--verify` ([playlists](references/playlists.md#card-webhooks)) |
 | Touch or other input, a peripheral, an exact look no card has, a wall panel that dims, sleeps and wakes, or a device on the screen's network | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md): `screenrig.device` drives the display, presence and volume keys; apps may call `http://` addresses on Android) |
@@ -276,7 +277,7 @@ such as a sponsor's dates or evening hours; it needs Manage access
 (`references/playlists.md`).
 
 Match the design to the screen's dimensions. Generate a finished still whole, not
-a background with composed text. Use real supplied facts, label invented demo
+a background with composed text; behind live primitives, use a page background. Use real supplied facts, label invented demo
 content, and inspect every render at full size before publishing.
 
 ## Publish and verify
