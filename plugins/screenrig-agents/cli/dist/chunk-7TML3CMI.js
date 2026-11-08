@@ -2149,7 +2149,7 @@ var xibo = {
     "https://docs.xibosignage.com/developer/integrate/authentication",
     "https://docs.xibosignage.com/developer/integrate/openapi",
     "https://docs.xibosignage.com/scheduling/scheduling_repeats",
-    "https://raw.githubusercontent.com/xibosignage/xibo-cms/develop/web/swagger.json",
+    "https://github.com/xibosignage/xibo-cms/blob/develop/web/swagger.json",
     "https://github.com/xibosignage/xibo-cms/blob/develop/lib/Entity/Schedule.php"
   ],
   example: "screenrig migrate scan --from xibo --url https://cms.example.com --timezone America/Toronto --credentials ./xibo-key.txt",

@@ -694,6 +694,24 @@ def check_claude_folder_scan() -> None:
                           "plugin directory scan; reword the source (cli: scripts/directory-scan.mjs)")
 
 
+# Hermes's plugin-catalog CI treats a bundled script that names a GitHub
+# download host and also writes or renames files as a self-updater and refuses
+# the pin (catalog rule 3).
+HERMES_GITHUB_FETCH = re.compile(r"releases/latest|releases/download|raw\.githubusercontent\.com|codeload\.github\.com")
+HERMES_FILE_WRITE = re.compile(r"writeTextFile|renamePath|writeFile\(|writeFileSync|renameSync|copyFileSync|cpSync|createWriteStream")
+HERMES_SCRIPT_SUFFIXES = {".js", ".mjs", ".cjs", ".ts", ".jsx", ".tsx", ".mts", ".cts"}
+
+
+def check_hermes_self_updater() -> None:
+    for path in sorted(AGENTS_PLUGIN.rglob("*")):
+        if not path.is_file() or path.suffix not in HERMES_SCRIPT_SUFFIXES:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if HERMES_GITHUB_FETCH.search(text) and HERMES_FILE_WRITE.search(text):
+            errors.append(f"{path.relative_to(ROOT)}: names a GitHub download host and writes files, which Hermes's "
+                          "catalog CI rejects as a self-updater; move the URL out of this chunk or cite github.com")
+
+
 def check_taught_surface() -> None:
     documents = sorted((ROOT / "skills").rglob("*.md"))
     inventory = bundled_command_inventory()
@@ -734,6 +752,7 @@ def main() -> int:
     check_taught_surface()
     check_scanner_patterns()
     check_claude_folder_scan()
+    check_hermes_self_updater()
     if errors:
         print("ScreenRig plugin validation failed:", file=sys.stderr)
         for error in errors:

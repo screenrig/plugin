@@ -152,7 +152,7 @@ var COMMAND_BUNDLES = {
   screens: () => import("./screens-EY3RTWC7.js"),
   monitoring: () => import("./monitoring-DBSYLYOB.js"),
   integrations: () => import("./integrations-O7Z5FAZW.js"),
-  migrate: () => import("./migrate-BUALHA4Q.js"),
+  migrate: () => import("./migrate-PVUTWBS4.js"),
   docs: () => import("./docs-NDPWE3XN.js")
 };
 var TOP_LEVEL_COMMANDS = {
