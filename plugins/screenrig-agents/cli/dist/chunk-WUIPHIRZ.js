@@ -6,7 +6,7 @@ import {
 import {
   GUIDANCE_NOTES_1,
   GUIDANCE_NOTES_2
-} from "./chunk-72M7M663.js";
+} from "./chunk-ZI4Z77PE.js";
 import {
   addCommandExamples,
   addCommandNotes,
@@ -265,6 +265,9 @@ var GUIDANCE_EXAMPLES = {
   "screen set-timezone": ["scr_SCREEN --timezone America/Los_Angeles"],
   "screen wall set": ["scr_SCREEN --outputs HDMI-A-1,HDMI-A-2 --arrangement row", "scr_SCREEN --outputs DP-1,DP-2,DP-3 --arrangement row --rotation 90 --expect-rev 4", "scr_SCREEN --outputs DP-1,DP-2,DP-3,DP-4,DP-5,DP-6 --arrangement grid --columns 3"],
   "screen wall clear": ["scr_SCREEN", "scr_SCREEN --expect-rev 5"],
+  "screen display-idle": ["scr_SCREEN --after 300 --wake touch", "scr_SCREEN --after 600 --wake touch,presence --expect-rev 4", "scr_SCREEN --off"],
+  "screen brightness": ["scr_SCREEN --mode auto", "scr_SCREEN --mode fixed --expect-rev 4"],
+  "screen kiosk-lock": ["scr_SCREEN --on", "scr_SCREEN --off --expect-rev 4"],
   "screen move": ["scr_AAA scr_BBB --folder sfd_NORTH", "sfd_CAFES --folder sfd_NORTH", "scr_AAA sfd_CAFES --root", 'scr_AAA --folder sfd_NORTH --note "Lobby refit"'],
   "screen folder list": [""],
   "screen folder show": ["sfd_NORTH"],

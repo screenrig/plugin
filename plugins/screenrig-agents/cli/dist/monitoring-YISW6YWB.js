@@ -14,10 +14,10 @@ import {
 import {
   NOTIFICATION_SNOOZE_MAX_MS,
   snoozeDurationMs
-} from "./chunk-NLGWPOA3.js";
+} from "./chunk-NWFLDXPM.js";
 import {
   healthChangesText
-} from "./chunk-ZYFFYQJM.js";
+} from "./chunk-E2AIBB3R.js";
 import {
   Option,
   eventTypeOption,
@@ -1778,8 +1778,8 @@ function registerAlertsCommands(root, bind) {
     "Alerts:",
     "  An alert is one screen and one condition while it lasts: it opens when the",
     "  condition begins (screen_offline, display_disconnected, running_hot,",
-    "  storage_full, content_stuck, not_playing, loop_stalled, glass_blank or",
-    "  glass_frozen) and resolves when it clears. A screen has at most one open",
+    "  on_battery, storage_full, content_stuck, not_playing, loop_stalled,",
+    "  glass_blank or glass_frozen) and resolves when it clears. A screen has at most one open",
     "  alert per condition; crashing is a notice, never an alert. Resolved alerts",
     "  stay for the plan's event retention. attention is true for an open alert",
     "  that is not acknowledged, snoozed or muted, the count the dashboard shows.",

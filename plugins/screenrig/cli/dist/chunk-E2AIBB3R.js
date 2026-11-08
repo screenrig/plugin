@@ -25,6 +25,8 @@ function healthIssues(health) {
     issues.push("display disconnected");
   if (number(health.temperature_c) && health.temperature_c >= HEALTH_HOT_C)
     issues.push("hot ".concat(Math.round(health.temperature_c), "\xB0C"));
+  if (health.battery?.source === "none")
+    issues.push(number(health.battery.level_percent) ? "on battery ".concat(Math.round(health.battery.level_percent), "%") : "on battery");
   if (number(health.crashes_24h) && health.crashes_24h >= HEALTH_CRASHING_24H)
     issues.push("crashing ".concat(health.crashes_24h, "/24h"));
   return issues;
@@ -69,6 +71,15 @@ function healthLines(health) {
   const network = health.network;
   if (network) {
     add("network", [network.kind, number(network.wifi_rssi_dbm) ? "".concat(network.wifi_rssi_dbm, " dBm") : void 0].filter(Boolean).join(", "));
+  }
+  const battery = health.battery;
+  if (battery) {
+    add("battery", [
+      number(battery.level_percent) ? "".concat(Math.round(battery.level_percent), "%") : void 0,
+      battery.source === "none" ? "on battery" : battery.source ? "powered by ".concat(battery.source) : void 0,
+      battery.charging === true ? "charging" : battery.charging === false ? "not charging" : void 0,
+      number(battery.temperature_c) ? "".concat(battery.temperature_c.toFixed(1), " \xB0C") : void 0
+    ].filter(Boolean).join(", "));
   }
   const crashes = [
     number(health.crashes_24h) ? "".concat(health.crashes_24h, " crashes") : void 0,

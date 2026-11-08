@@ -31,7 +31,7 @@ var NOTIFICATION_CHAT_CHANNELS = [
   { channel: "telegram", flag: "telegram" }
 ];
 var DESTINATION_STDIN_MAX_BYTES = 4096;
-var NOTIFICATION_CONDITIONS = ["screen_offline", "display_disconnected", "running_hot", "storage_full", "content_stuck", "not_playing", "loop_stalled", "glass_blank", "glass_frozen", "crashing", "source_failed", "source_stale", "reach_dropped", "group_empty", "card_data_stale"];
+var NOTIFICATION_CONDITIONS = ["screen_offline", "display_disconnected", "running_hot", "on_battery", "storage_full", "content_stuck", "not_playing", "loop_stalled", "glass_blank", "glass_frozen", "crashing", "source_failed", "source_stale", "reach_dropped", "group_empty", "card_data_stale"];
 var NOTIFICATION_RECIPIENTS_MAX = 20;
 var RECIPIENT_MAX_LENGTH = 200;
 var NOTIFICATION_HOLD_MAX = 1440;

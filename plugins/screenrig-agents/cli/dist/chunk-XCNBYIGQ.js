@@ -542,6 +542,80 @@ async function publishScreen(options) {
   }
 }
 
+// dist/screen-device-settings.js
+var screen_device_settings_exports = {};
+__export(screen_device_settings_exports, {
+  DISPLAY_BRIGHTNESS_MODES: () => DISPLAY_BRIGHTNESS_MODES,
+  DISPLAY_IDLE_AFTER_MAX_S: () => DISPLAY_IDLE_AFTER_MAX_S,
+  DISPLAY_IDLE_AFTER_MIN_S: () => DISPLAY_IDLE_AFTER_MIN_S,
+  DISPLAY_IDLE_WAKE: () => DISPLAY_IDLE_WAKE,
+  brightnessPatch: () => brightnessPatch,
+  displayIdleAfterOption: () => displayIdleAfterOption,
+  displayIdlePatch: () => displayIdlePatch,
+  displayIdleText: () => displayIdleText,
+  displayIdleWakeOption: () => displayIdleWakeOption,
+  displaySettingsLines: () => displaySettingsLines,
+  kioskLines: () => kioskLines,
+  kioskLockPatch: () => kioskLockPatch
+});
+var DISPLAY_IDLE_AFTER_MIN_S = 30;
+var DISPLAY_IDLE_AFTER_MAX_S = 86400;
+var DISPLAY_IDLE_WAKE = ["touch", "presence"];
+var DISPLAY_BRIGHTNESS_MODES = ["auto", "fixed"];
+function displayIdleAfterOption(value) {
+  const seconds = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(seconds) || seconds < DISPLAY_IDLE_AFTER_MIN_S || seconds > DISPLAY_IDLE_AFTER_MAX_S) {
+    throw usageError("--after takes a whole number of seconds from ".concat(DISPLAY_IDLE_AFTER_MIN_S, " to ").concat(DISPLAY_IDLE_AFTER_MAX_S, " (one day)."));
+  }
+  return value;
+}
+function displayIdleWakeOption(value) {
+  const names = value.split(",").map((item) => item.trim());
+  const known = names.every((name) => DISPLAY_IDLE_WAKE.includes(name));
+  if (!known || new Set(names).size !== names.length) {
+    throw usageError("--wake takes touch, presence or touch,presence: what lights the glass again, each at most once.");
+  }
+  return DISPLAY_IDLE_WAKE.filter((name) => names.includes(name)).join(",");
+}
+function displayIdlePatch(after, wake, off) {
+  if (off) {
+    if (after !== void 0 || wake !== void 0)
+      throw usageError("screen display-idle takes --after with --wake, or --off, not both.");
+    return { display: { idle: null } };
+  }
+  if (after === void 0 || wake === void 0)
+    throw usageError("screen display-idle requires --after and --wake together, or --off.");
+  const idle = { after_s: Number(displayIdleAfterOption(after)), wake: displayIdleWakeOption(wake).split(",") };
+  return { display: { idle } };
+}
+function brightnessPatch(mode) {
+  if (mode === void 0 || !DISPLAY_BRIGHTNESS_MODES.includes(mode)) {
+    throw usageError("screen brightness requires --mode auto or fixed.");
+  }
+  return { display: { brightness: { mode } } };
+}
+function kioskLockPatch(on, off) {
+  if (on === off)
+    throw usageError("screen kiosk-lock requires --on or --off.");
+  return { kiosk: { lock: on } };
+}
+function displayIdleText(idle) {
+  return "dark after ".concat(idle.after_s, " s, wakes on ").concat(idle.wake.join(" or "));
+}
+function displaySettingsLines(display) {
+  const lines = [];
+  const idle = display.idle;
+  if (idle && Number.isSafeInteger(idle.after_s) && Array.isArray(idle.wake) && idle.wake.length > 0)
+    lines.push("Display idle: ".concat(displayIdleText(idle)));
+  const mode = display.brightness?.mode;
+  if (mode === "auto" || mode === "fixed")
+    lines.push("Display brightness: ".concat(mode));
+  return lines;
+}
+function kioskLines(kiosk) {
+  return kiosk && typeof kiosk.lock === "boolean" ? ["Kiosk lock: ".concat(kiosk.lock ? "on" : "off")] : [];
+}
+
 // dist/screen-display.js
 var screen_display_exports = {};
 __export(screen_display_exports, {
@@ -686,6 +760,7 @@ function displayLines(display, timezone) {
       lines.push("  ".concat(window.days.join(","), " ").concat(window.start !== void 0 ? "".concat(window.start, "-").concat(window.end) : "all day"));
     }
   }
+  lines.push(...displaySettingsLines(display));
   const reported = display.reported;
   if (reported && typeof reported.reported_at === "string") {
     const parts = [
@@ -1847,6 +1922,15 @@ export {
   screen_manifest_upgrade_exports,
   publishScreen,
   screen_publish_exports,
+  DISPLAY_BRIGHTNESS_MODES,
+  displayIdleAfterOption,
+  displayIdleWakeOption,
+  displayIdlePatch,
+  brightnessPatch,
+  kioskLockPatch,
+  displayIdleText,
+  kioskLines,
+  screen_device_settings_exports,
   displayScheduleWrite,
   rebootScheduleWrite,
   displayPower,

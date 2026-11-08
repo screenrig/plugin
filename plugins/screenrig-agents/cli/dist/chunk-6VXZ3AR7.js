@@ -28,17 +28,23 @@ import {
 import {
   healthLines,
   screenHealthIssues
-} from "./chunk-ZYFFYQJM.js";
+} from "./chunk-E2AIBB3R.js";
 import {
+  DISPLAY_BRIGHTNESS_MODES,
   LIVE_FRAME_INTERVAL_DEFAULT_MS,
   LIVE_WAIT_DEFAULT_MS,
   MAINTENANCE,
   anyManifestUpgrade,
+  brightnessPatch,
   captureLiveFrames,
   clearProvisionRetryState,
   commandCancelProblem,
   commandLines,
   commandResultText,
+  displayIdleAfterOption,
+  displayIdlePatch,
+  displayIdleText,
+  displayIdleWakeOption,
   displayLines,
   displayPower,
   displayProblem,
@@ -58,6 +64,8 @@ import {
   identifyDurationOption,
   identifyProblem,
   isStorageFailureCode,
+  kioskLines,
+  kioskLockPatch,
   liveDurationOption,
   liveDurationSeconds,
   liveEndedError,
@@ -97,7 +105,7 @@ import {
   suspendProblem,
   suspensionLines,
   untilOption
-} from "./chunk-2IVPW7XQ.js";
+} from "./chunk-XCNBYIGQ.js";
 import {
   WALL_ARRANGEMENTS,
   WALL_ROTATIONS,
@@ -931,6 +939,7 @@ var handleScreenShow = commandHandler(async (args, runtime, resolved) => {
       ...storageLines(screen, runtime.now()),
       ...manifestUpgradeLines(screen, runtime.now()),
       ...displayLines(screen?.display, screen?.timezone),
+      ...kioskLines(screen?.kiosk),
       ...rebootScheduleLines(screen?.reboot_schedule, screen?.next_reboot_at, screen?.timezone),
       ...healthLines(screen?.health),
       ...outageLines(screen),
@@ -2825,6 +2834,48 @@ var handleScreenSchedulePreview = commandHandler(async (args, runtime, resolved)
   };
 });
 
+// dist/handlers/screen-device-settings.js
+var screen_device_settings_exports = {};
+__export(screen_device_settings_exports, {
+  handleScreenBrightness: () => handleScreenBrightness,
+  handleScreenDisplayIdle: () => handleScreenDisplayIdle,
+  handleScreenKioskLock: () => handleScreenKioskLock
+});
+async function patchDeviceSetting(args, runtime, resolved, command, patch, title) {
+  const id = args.positionals[2];
+  if (!id)
+    throw usageError("".concat(command, " requires <id>."));
+  const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+  const ifMatch = flagString(args.flags, "expect-rev");
+  const response = await client.call({
+    method: "PATCH",
+    path: "/api/screens/".concat(encodeURIComponent(id)),
+    idempotent: true,
+    headers: ifMatch ? { "if-match": quotedRevision(ifMatch) } : void 0,
+    body: patch
+  });
+  const revision2 = response.body?.revision;
+  const lifted = playlistAnswerWarnings(response.body);
+  return {
+    envelope: jsonBody({ ...response, body: withoutAnswerWarnings(response.body) }, client.requestId, void 0, lifted),
+    exitCode: ExitCode.Success,
+    human: [title(id), ...revision2 !== void 0 ? ["revision: ".concat(revision2)] : [], ...lifted.map((warning) => "warning: ".concat(warning.message))].join("\n")
+  };
+}
+var handleScreenDisplayIdle = commandHandler(async (args, runtime, resolved) => {
+  const patch = displayIdlePatch(flagString(args.flags, "after"), flagString(args.flags, "wake"), flagBool(args.flags, "off"));
+  const idle = patch.display?.idle;
+  return patchDeviceSetting(args, runtime, resolved, "screen display-idle", patch, (id) => idle ? "Set display idle on ".concat(id, ": ").concat(displayIdleText(idle)) : "Turned off display idle on ".concat(id));
+}, true);
+var handleScreenBrightness = commandHandler(async (args, runtime, resolved) => {
+  const patch = brightnessPatch(flagString(args.flags, "mode"));
+  return patchDeviceSetting(args, runtime, resolved, "screen brightness", patch, (id) => "Set display brightness on ".concat(id, ": ").concat(patch.display?.brightness?.mode));
+}, true);
+var handleScreenKioskLock = commandHandler(async (args, runtime, resolved) => {
+  const patch = kioskLockPatch(flagBool(args.flags, "on"), flagBool(args.flags, "off"));
+  return patchDeviceSetting(args, runtime, resolved, "screen kiosk-lock", patch, (id) => patch.kiosk?.lock ? "Locked kiosk on ".concat(id, ": the Player pins itself to the screen") : "Released the kiosk lock on ".concat(id));
+}, true);
+
 // dist/cli-commands/screen.js
 function folderSelector(verb = "Target") {
   return new Option("--folder <ID>", "".concat(verb, " every active screen in this screen folder (sfd_...) and the folders inside it")).argParser(screenFolderIdOption("--folder")).conflicts("tag");
@@ -2846,6 +2897,12 @@ function registerScreenCommands(root, bind) {
   const wall = screen.command("wall").description("Set or clear a screen's video wall: one Player driving two to twelve displays as one canvas");
   subcommand(wall, "set").description("Set a screen's video wall").argument("<id>", "Screen identifier").requiredOption("--outputs <NAMES>", "Two to twelve comma-separated output names in physical order (left to right, then top to bottom), as screen show lists them under observation.surfaces (required)", wallOutputsOption).addOption(new Option("--arrangement <ARRANGEMENT>", "row (one row, left to right), column (one column, top to bottom) or grid (rows of --columns outputs, top to bottom) (required)").choices([...WALL_ARRANGEMENTS]).makeOptionMandatory()).option("--columns <N>", "Outputs per row of a grid (required for grid, not allowed for row or column); at least 2, dividing the outputs into at least 2 rows", positiveInteger("columns")).addOption(new Option("--rotation <DEGREES>", "Clockwise rotation of every output (default 0); 90 and 270 are portrait panels").choices([...WALL_ROTATIONS])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenWallSet));
   wall.command("clear").description("Remove a screen's video wall").argument("<id>", "Screen identifier").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenWallClear));
+  const displayIdle = screen.command("display-idle").description("Darken a screen's glass after a time without use, or turn that off").argument("<id>", "Screen identifier").option("--after <SECONDS>", "Go dark after this many seconds without use, 30 to 86400 (with --wake)", displayIdleAfterOption).option("--wake <WAKE>", "What lights the glass again: touch, presence or touch,presence (with --after)", displayIdleWakeOption).addOption(new Option("--off", "Turn idle-dark off").conflicts(["after", "wake"])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenDisplayIdle));
+  requireOptionGroup(displayIdle, "exactlyOne", ["--after", "--off"]);
+  requireOptionGroup(displayIdle, "together", ["--after", "--wake"]);
+  screen.command("brightness").description("Set whether a screen's brightness follows the device's light sensor").argument("<id>", "Screen identifier").addOption(new Option("--mode <MODE>", "auto follows the device's light sensor; fixed keeps the operator's brightness (required)").choices([...DISPLAY_BRIGHTNESS_MODES]).makeOptionMandatory()).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenBrightness));
+  const kioskLock = screen.command("kiosk-lock").description("Pin a screen's Player to the screen, or release it").argument("<id>", "Screen identifier").addOption(new Option("--on", "Pin the Player to the screen").conflicts("off")).addOption(new Option("--off", "Release the pin").conflicts("on")).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenKioskLock));
+  requireOptionGroup(kioskLock, "exactlyOne", ["--on", "--off"]);
   screen.command("archive").description("Archive a screen").argument("<id>", "Screen identifier").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenArchive));
   screen.command("unarchive").description("Restore an archived screen").argument("<id>", "Screen identifier").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenUnarchive));
   screen.command("suspend").description("Show a notice on a screen instead of its content, until screen resume").argument("<id>", "Screen identifier").requiredOption("--message <TEXT>", "Set the notice the screen shows, 1 to 280 characters; line feeds are kept (required)", suspendMessageOption).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenSuspend));
@@ -3253,6 +3310,7 @@ export {
   aspect_mismatch_exports,
   screen_exports,
   screen_schedule_change_exports,
+  screen_device_settings_exports,
   screen_exports2,
   android_provisioning_exports,
   fleet_links_exports,

@@ -43,7 +43,7 @@ import {
   notificationUserId,
   snoozeDurationMs,
   snoozedUntil
-} from "./chunk-NLGWPOA3.js";
+} from "./chunk-NWFLDXPM.js";
 import {
   subcommand
 } from "./chunk-QUFYJQPR.js";
@@ -289,7 +289,7 @@ var urlOption = (value) => webhookUrl(value);
 var cursorOption = (value) => webhookDeliveryCursor(value);
 function registerWebhooksCommands(root, bind) {
   const webhooks = root.command("webhooks").description("Send this project's events to your HTTPS endpoints as signed POSTs");
-  addCommandNotes(webhooks, 'Webhooks:\n  An organization has at most 50 notifications across its projects, email and webhook together. Each\n  matching project event is POSTed as the same JSON object events list returns,\n  signed with ScreenRig-Signature t=<unix>,v1=<hex HMAC-SHA256 over\n  "<t>.<raw body>">. The secret is printed only by create and rotate-secret.\n  Delivery is at least once and unordered; deduplicate on ScreenRig-Event-Id.\n  Email and screen alerts (offline, display disconnected, running hot, storage\n  full, content stuck, not playing, crashing) are screenrig notifications.');
+  addCommandNotes(webhooks, 'Webhooks:\n  An organization has at most 50 notifications across its projects, email and webhook together. Each\n  matching project event is POSTed as the same JSON object events list returns,\n  signed with ScreenRig-Signature t=<unix>,v1=<hex HMAC-SHA256 over\n  "<t>.<raw body>">. The secret is printed only by create and rotate-secret.\n  Delivery is at least once and unordered; deduplicate on ScreenRig-Event-Id.\n  Email and screen alerts (offline, display disconnected, running hot, on battery, storage\n  full, content stuck, not playing, crashing) are screenrig notifications.');
   webhooks.command("create").description("Register an HTTPS endpoint and print its signing secret once").requiredOption("--url <URL>", "https URL on a public Internet host, port 443 or 8443 (required)", urlOption).requiredOption("--event-types <TYPES>", "Comma-separated event types (screen.online) or prefixes (screen.*) (required)", eventTypesOption).option("--description <TEXT>", "Describe the endpoint (at most 200 characters)", webhookDescription).option("--disabled", "Create it disabled; nothing is delivered until webhooks update --enable").action(bind(handleWebhooksCreate));
   webhooks.command("list").description("List this project's webhooks (never their secrets)").action(bind(handleWebhooksList));
   webhooks.command("show").description("Inspect a webhook and its delivery health").argument("<id>", "Webhook identifier").action(bind(handleWebhooksShow));
@@ -623,8 +623,8 @@ function registerNotificationsCommands(root, bind) {
     "Notifications:",
     "  A notification sends an email, a signed webhook POST, or a message in Slack,",
     "  Teams, PagerDuty or Telegram when a screen changes",
-    "  state: screen_offline, display_disconnected, running_hot, storage_full,",
-    "  content_stuck, not_playing, loop_stalled, glass_blank, glass_frozen or crashing,",
+    "  state: screen_offline, display_disconnected, running_hot, on_battery,",
+    "  storage_full, content_stuck, not_playing, loop_stalled, glass_blank, glass_frozen or crashing,",
     "  or when a data source fails to refresh or goes stale (source_failed,",
     "  source_stale; --tag never matches a source), or when a content campaign (the",
     "  shared level of the schedule stack) stops reaching screens: reach_dropped when",
