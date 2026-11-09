@@ -212,6 +212,34 @@ DEFAULT_MARKETPLACE_URL = "https://raw.githubusercontent.com/screenrig/plugin/ma
 
 
 class FreshnessTests(unittest.TestCase):
+    def test_unregistered_checkout_returns_install_data_without_instructions(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="screenrig-unregistered-") as temporary:
+            root = Path(temporary)
+            helper = install_copy(HELPER, root / "skills/screenrig/scripts/screenrig-plugin-freshness")
+            config = root / "saved-config.json"
+            saved = '{"selected_project":"existing-project"}\n'
+            config.write_text(saved)
+            for host in (None, "claude", "codex", "grok", "hermes"):
+                for arguments, code in ((["--bootstrap", "--json"], 0), (["--run", "version"], 78)):
+                    with self.subTest(host=host, arguments=arguments):
+                        result = subprocess.run(
+                            ["node", str(helper), *(["--host", host] if host else []),
+                             "--config", str(config), *arguments],
+                            env=without(FRESHNESS_VARS), text=True, capture_output=True, timeout=30,
+                        )
+                        self.assertEqual(result.returncode, code, result.stderr)
+                        self.assertEqual(result.stderr, "")
+                        self.assertEqual(json.loads(result.stdout), {
+                            "ok": code == 0,
+                            "data": {"action": "install", "registration": None, "host": host,
+                                     "plugin_id": "screenrig@screenrig",
+                                     "marketplace_url": "https://github.com/screenrig/plugin"},
+                            "warnings": [{"code": "plugin_not_installed",
+                                          "message": "This package is not an enabled screenRIG plugin registered with the selected host."}],
+                        })
+                        self.assertEqual(config.read_text(), saved)
+                        self.assertFalse((root / "cli").exists())
+
     def test_codex_registration_does_not_depend_on_other_marketplaces(self) -> None:
         node = subprocess.check_output(["node", "-p", "process.execPath"], text=True).strip()
         with tempfile.TemporaryDirectory(prefix="screenrig-codex-registry-") as temporary:
@@ -325,6 +353,11 @@ process.stdout.write(JSON.stringify({ok:true,data,warnings:[]})+"\\n");
                 data = json.loads(result.stdout)["data"]
                 self.assertEqual(data["registration"], {"host": "claude", "marketplace": marketplace_name, "source": "plugin_list"})
                 self.assertEqual(data["action"], action)
+                self.assertNotIn("next", data)
+                if action == "refresh":
+                    self.assertEqual(data["host"], "claude")
+                    self.assertEqual(data["plugin_id"], "screenrig@screenrig")
+                    self.assertEqual(data["marketplace_url"], "https://github.com/screenrig/plugin")
                 if action == "ready":
                     self.assertEqual(data["freshness"]["updates_from"], marketplace_name)
                     self.assertFalse(data["freshness"]["stale"])
@@ -438,7 +471,10 @@ process.exitCode=code;
                             [{"id": "screenrig@screenrig", "installPath": str(tmp / "other")} ]):
                 write_json(registry, entries)
                 result = run("--bootstrap", "--json")
-                self.assertEqual(json.loads(result.stdout)["data"]["action"], "install")
+                data = json.loads(result.stdout)["data"]
+                self.assertEqual(data["action"], "install")
+                self.assertEqual(data["host"], "claude")
+                self.assertNotIn("next", data)
                 self.assertFalse(calls.exists(), "Unregistered packages must not invoke any CLI")
                 result = run("--run", "pair")
                 self.assertEqual(result.returncode, 78)
@@ -457,6 +493,7 @@ process.exitCode=code;
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)["data"]
             self.assertEqual(data["action"], "ready")
+            self.assertNotIn("next", data)
             self.assertEqual(data["registration"], {"host": "claude", "marketplace": "screenrig", "source": "plugin_list"})
             self.assertEqual(data["launcher"], str(script.with_name("screenrig")))
             recorded = [json.loads(line) for line in calls.read_text().splitlines()]
@@ -481,12 +518,15 @@ process.exitCode=code;
                 result = run("--bootstrap", "--json")
                 data = json.loads(result.stdout)["data"]
                 self.assertEqual(data["action"], action)
-                if "next" in state: self.assertEqual(data["next"], state["next"])
+                self.assertNotIn("next", data)
+                self.assertEqual(data["agent"], state, "Saved connection data must remain available as diagnostics")
             environment.pop("TEST_AGENT_JSON")
             environment["TEST_PENDING"] = "1"
             result = run("--bootstrap", "--json")
             self.assertEqual(json.loads(result.stdout)["data"]["action"], "resume")
-            self.assertEqual(json.loads(result.stdout)["data"]["next"]["command"], "screenrig agent enroll")
+            data = json.loads(result.stdout)["data"]
+            self.assertNotIn("next", data)
+            self.assertEqual(data["doctor"]["checks"][0]["next"]["command"], "screenrig agent enroll")
             environment.pop("TEST_PENDING")
             environment["TEST_DOCTOR_MODE"] = "media"
             result = run("--bootstrap", "--json")

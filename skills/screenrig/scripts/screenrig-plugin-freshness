@@ -221,6 +221,12 @@ function success(data, warnings) {
   writeEnvelope({ ok: true, data, warnings: warnings || [] }, 0);
 }
 
+// Recovery steps belong to the installed skill, never to runtime output.
+function installTarget(host) {
+  return { host: host || null, plugin_id: "screenrig@screenrig",
+    marketplace_url: "https://github.com/screenrig/plugin" };
+}
+
 function sameRoot(left, right) {
   try { return fs.realpathSync(left) === fs.realpathSync(right); } catch { return false; }
 }
@@ -380,10 +386,10 @@ function envelopeOf(result) {
 
 function bootstrapFailure(result, envelope, data, step, fallback) {
   const detail = result.error && result.error.code === "ETIMEDOUT"
-    ? `The bundled CLI ${step} timed out; retry bootstrap with the same configuration.`
-    : result.error ? `The bundled CLI ${step} could not start or return bounded output; check the plugin installation.`
-    : result.signal ? `The bundled CLI ${step} was interrupted; retry with the same configuration.`
-    : `The bundled CLI ${step} failed; inspect its structured diagnostics before continuing.`;
+    ? `The bundled CLI ${step} timed out.`
+    : result.error ? `The bundled CLI ${step} could not start or return bounded output.`
+    : result.signal ? `The bundled CLI ${step} was interrupted.`
+    : `The bundled CLI ${step} failed.`;
   const error = envelope && envelope.error || { type: "https://screenrig.ai/problems/usage-error",
     title: "Usage error", status: 400, code: "usage_error", detail, errors: [] };
   writeEnvelope({ ok: false, error, data }, result.status || fallback);
@@ -407,14 +413,14 @@ async function bootstrap(argv, run) {
   const root = path.resolve(__dirname, "..", "..", "..");
   const registration = readPluginVersion(root) && registeredHost(root, host);
   if (!registration) {
-    const data = { action: "install", registration: null,
-      next: "Check the current runtime's plugin list and install screenrig@screenrig from https://github.com/screenrig/plugin. Preserve the saved screenRIG configuration, then invoke the helper inside that registered package." };
-    writeEnvelope({ ok: !run, data, warnings: [{ code: "plugin_not_installed", message: data.next }] }, run ? 78 : 0);
+    const data = { action: "install", registration: null, ...installTarget(host) };
+    writeEnvelope({ ok: !run, data, warnings: [{ code: "plugin_not_installed",
+      message: "This package is not an enabled screenRIG plugin registered with the selected host." }] }, run ? 78 : 0);
     return;
   }
   const [major, minor, patch] = process.versions.node.split(".").map(Number); const minimum = {22: [23, 4], 24: [22, 1], 26: [12, 1]}[major];
   if (!/^\d+\.\d+\.\d+$/.test(process.versions.node) || !(major > 26 || !!minimum && (minor > minimum[0] || minor === minimum[0] && patch >= minimum[1]))) {
-    usageError("screenRIG requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x); expose a compatible runtime before retrying."); process.exitCode = 69; return;
+    usageError("screenRIG requires Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x)."); process.exitCode = 69; return;
   }
   const launcher = path.join(root, "skills", "screenrig", "scripts", "screenrig");
   if (run) {
@@ -426,7 +432,7 @@ async function bootstrap(argv, run) {
       ...(config ? ["--config", config] : [])], {
       stdio: "inherit", windowsHide: true,
     });
-    if (result.error) { usageError("The registered plugin's bundled CLI could not start; reinstall the official plugin and retry."); return; }
+    if (result.error) { usageError("The registered plugin's bundled CLI could not start."); return; }
     if (result.signal) { process.kill(process.pid, result.signal); return; }
     process.exitCode = result.status === null ? 1 : result.status;
     return;
@@ -434,7 +440,7 @@ async function bootstrap(argv, run) {
   const versionResult = bundled(root, ["version"]), version = envelopeOf(versionResult);
   if (versionResult.status !== 0 || !version || version.ok !== true ||
       !version.data.distribution || version.data.distribution.kind !== "plugin_bundle") {
-    usageError("The registered plugin's bundled version check failed; reinstall the official plugin and retry."); return;
+    usageError("The registered plugin's bundled version check failed."); return;
   }
   // A copy from a host's plugin directory updates there once that directory
   // publishes a release, so it is never compared with GitHub's latest.
@@ -445,10 +451,10 @@ async function bootstrap(argv, run) {
     : envelopeOf(spawnSync(process.execPath, [__filename, "--json"], {
       encoding: "utf8", timeout: 30000, maxBuffer: 1024 * 1024, windowsHide: true,
     }));
-  if (!freshness || freshness.ok !== true) { usageError("The registered plugin's freshness check failed; rerun it before continuing."); return; }
+  if (!freshness || freshness.ok !== true) { usageError("The registered plugin's freshness check failed."); return; }
   const common = { registration, launcher, version: version.data.version, freshness: freshness.data };
   if (freshness.data.action === "refresh") {
-    success({ ...common, action: "refresh", next: "Update the official plugin, resolve its new registered path and rerun bootstrap. Saved screenRIG credentials stay in the same user configuration." }); return;
+    success({ ...common, action: "refresh", ...installTarget(registration.host || host) }); return;
   }
   const doctorResult = bundled(root, ["doctor"], config), doctor = envelopeOf(doctorResult);
   const failedChecks = doctor && doctor.data && Array.isArray(doctor.data.checks)
@@ -457,16 +463,14 @@ async function bootstrap(argv, run) {
   const coreFailures = failedChecks.filter((check) => !mediaCheck(check));
   if (!doctor || doctor.ok !== true || !doctor.data || !Array.isArray(doctor.data.checks) || coreFailures.length ||
       (doctorResult.status !== 0 && !failedChecks.length)) {
-    bootstrapFailure(doctorResult, doctor, { ...common, action: "repair", doctor: doctor && doctor.data,
-      next: "Resolve the failing installation/config/service checks and rerun bootstrap with the same configuration." }, "doctor", 5); return;
+    bootstrapFailure(doctorResult, doctor, { ...common, action: "repair", doctor: doctor && doctor.data }, "doctor", 5); return;
   }
   const warnings = [...(freshness.warnings || [])];
   if (failedChecks.length) warnings.push({ code: "media_tools_missing",
-    message: "Media-tool checks failed. Account setup and pairing can continue; repair these tools before local upload/transcoding when that content path requires them." });
+    message: "Media-tool checks failed. Account setup and pairing remain available; affected local upload/transcoding paths require these tools." });
   const agentResult = bundled(root, ["agent", "status"], config), agent = envelopeOf(agentResult);
   if (!agent || agent.ok !== true || agentResult.status !== 0) {
-    bootstrapFailure(agentResult, agent, { ...common, action: "reconnect", doctor: doctor.data,
-      next: "Follow the bundled CLI's documented reconnect flow for the selected project; preserve credentials while reconciling." }, "agent status", 3); return;
+    bootstrapFailure(agentResult, agent, { ...common, action: "reconnect", doctor: doctor.data }, "agent status", 3); return;
   }
   const tokenCheck = doctor.data.checks.find((check) => check.name === "token");
   const state = agent.data;
@@ -476,8 +480,7 @@ async function bootstrap(argv, run) {
   if (active) {
     const result = bundled(root, ["project", "capabilities"], config), envelope = envelopeOf(result);
     if (!envelope || envelope.ok !== true || result.status !== 0) {
-      bootstrapFailure(result, envelope, { ...common, action: "reconnect", doctor: doctor.data, agent: state,
-        next: "Read the selected project's capabilities successfully before making changes." }, "project capabilities", 3); return;
+      bootstrapFailure(result, envelope, { ...common, action: "reconnect", doctor: doctor.data, agent: state }, "project capabilities", 3); return;
     }
     capabilities = envelope.data;
   }
@@ -485,16 +488,9 @@ async function bootstrap(argv, run) {
   const pending = firstRun && tokenCheck.next && tokenCheck.next.command === "screenrig agent enroll";
   const action = active ? "ready" : rejected ? "reconnect" : pending || state.status === "connecting" ? "resume"
     : firstRun ? "enroll" : "reconnect";
-  const next = active
-    ? "Reuse this selected project. Pair the intended Player using its supplied code, or ask only for that missing code. Then publish the requested content and inspect a Player screenshot."
-    : state.next || (pending ? tokenCheck.next : action === "enroll"
-      ? "Ask only for the missing contact email. Use the supplied organization or Screens, enroll once, then continue with pairing. If the user explicitly wants an existing account, use sign-in instead."
-      : action === "resume" ? { command: "screenrig agent status", reason: "Inspect the existing pending connection and continue its documented flow; do not enroll a new project." }
-      : tokenCheck && tokenCheck.next || "Follow the documented reconnect flow for this saved connection; preserve credentials while reconciling.");
   success({ ...common, action, doctor: doctor.data,
     agent: state, ...(capabilities ? { capabilities } : {}),
-    ...(agent.context ? { context: agent.context } : {}),
-    next }, warnings);
+    ...(agent.context ? { context: agent.context } : {}) }, warnings);
 }
 
 async function main() {
@@ -518,6 +514,7 @@ async function main() {
     success(
       {
         action: "not_installed",
+        ...installTarget(""),
         stale: false,
         published_unavailable: false,
         published_version: null,
@@ -528,7 +525,7 @@ async function main() {
         {
           code: "plugin_not_installed",
           message:
-            "No installed screenRIG plugin was found beside this helper or at the plugin root in the environment, so there is nothing to compare. Use the canonical marketplace install to get tracked updates.",
+            "No installed screenRIG plugin was found beside this helper or at the plugin root in the environment; no version comparison is available.",
         },
       ],
     );
@@ -559,7 +556,7 @@ async function main() {
       [
         {
           code: "published_version_unavailable",
-          message: "The published plugin version could not be read from GitHub. Continue with the installed copy.",
+          message: "The published plugin version could not be read from GitHub. The installed copy remains available.",
         },
       ],
     );
