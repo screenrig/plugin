@@ -3,6 +3,12 @@
 The only installation source is the public marketplace
 `https://github.com/screenrig/plugin`.
 
+For bootstrap `data.action=install`, use the current runtime's commands below
+under the user's installation authorization. `plugin_id`, `marketplace_url` and
+`host` are status data; a null host means unspecified, not an instruction to
+choose another runtime. Keep the saved screenRIG configuration, resolve the
+enabled package's root from the host's plugin list and rerun its bootstrap.
+
 ```bash
 # Claude Code
 claude plugin marketplace add https://github.com/screenrig/plugin.git --scope user
