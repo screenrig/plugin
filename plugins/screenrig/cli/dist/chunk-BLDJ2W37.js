@@ -1357,19 +1357,15 @@ function validatePlaylistWriteSemantics(value) {
             fail("".concat(itemPath, "/selector/order"), "weighted plays one item per visit: set one_at_a_time or batch_size 1");
         } else if (mediaSelector.weights !== void 0)
           fail("".concat(itemPath, "/selector/weights"), "is allowed only with order weighted");
-        if (mode === "duration" || mode === "application" || mode === "audio_end") {
+        if (mode === "duration" || mode === "application" || mode === "audio_end" || mode === "media_end") {
           if (Object.hasOwn(primitive, "dwell_ms"))
-            fail("".concat(itemPath, "/dwell_ms"), "is forbidden on duration and application pages");
+            fail("".concat(itemPath, "/dwell_ms"), "is forbidden on duration, application, audio_end and media_end pages");
           const selector = object(primitive.selector);
-          if ((selector.by === "all" || selector.by === "tag" || selector.by === "folder" || selector.by === "ids" && array(selector.media_ids).length > 1) && selector.one_at_a_time !== true)
-            fail("".concat(itemPath, "/selector/one_at_a_time"), "must be true for multiple media on duration or application pages");
+          if ((mode !== "media_end" || primitive.primitive === "image") && (selector.by === "all" || selector.by === "tag" || selector.by === "folder" || selector.by === "ids" && array(selector.media_ids).length > 1) && selector.one_at_a_time !== true)
+            fail("".concat(itemPath, "/selector/one_at_a_time"), "must be true for multiple media on a timed page");
         }
-        if (mode === "media_end") {
-          if (primitive.primitive === "image" && !Object.hasOwn(primitive, "dwell_ms"))
-            fail("".concat(itemPath, "/dwell_ms"), "is required for a media_end image");
-          if (primitive.primitive === "video" && primitive.loop === true)
-            fail("".concat(itemPath, "/loop"), "must be false for media_end");
-        }
+        if (mode === "media_end" && primitive.primitive === "video" && primitive.loop === true)
+          fail("".concat(itemPath, "/loop"), "must be false for media_end");
       }
     }
     if (mode === "application" && controllers !== 1)
@@ -1381,8 +1377,8 @@ function validatePlaylistWriteSemantics(value) {
     if (mode === "media_end") {
       if (web > 0)
         fail("".concat(path, "/advance"), "media_end forbids application and iframe primitives");
-      else if (primitives.filter((primitive) => primitive.primitive === "image" || primitive.primitive === "video").length !== 1)
-        fail("".concat(path, "/advance"), "media_end requires exactly one image or video primitive");
+      else if (primitives.filter((primitive) => primitive.primitive === "video").length !== 1)
+        fail("".concat(path, "/advance"), "media_end needs exactly one video primitive; images never drive advance");
     }
   }
   if (pages.length > 0 && unscheduled === 0)
@@ -1416,7 +1412,6 @@ var BACKGROUND_ID_MAX = 160;
 var BACKGROUND_COLOR_PATTERN = /^#[0-9A-F]{8}$/;
 var DEFAULT_BACKGROUND_COLOR = "#000000FF";
 var BACKGROUND_ORIENTATIONS = ["landscape", "portrait"];
-var IMAGE_BACKGROUND_PRIMITIVES_MAX = 23;
 function isBackgroundId(value) {
   return typeof value === "string" && value.length <= BACKGROUND_ID_MAX && BACKGROUND_ID_PATTERN.test(value);
 }
@@ -1995,9 +1990,6 @@ function validatePlaylistWrite(value, mediaPrimitives) {
     if (!Array.isArray(page.primitives) || page.primitives.length < 1 || page.primitives.length > 24) {
       throw usageError("".concat(pageName, ".primitives must contain 1 to 24 primitives."));
     }
-    if (page.primitives.length > IMAGE_BACKGROUND_PRIMITIVES_MAX && imageBackgroundOf(page)) {
-      throw usageError("".concat(pageName, ".primitives must contain at most ").concat(IMAGE_BACKGROUND_PRIMITIVES_MAX, " primitives on a page with an image background."));
-    }
     const primitiveIds = /* @__PURE__ */ new Set();
     const mediaPrimitivesOnPage = [];
     let iframeCount = 0;
@@ -2044,7 +2036,7 @@ function validatePlaylistWrite(value, mediaPrimitives) {
         if (primitive.alt !== void 0 && (typeof primitive.alt !== "string" || primitive.alt.length > 300))
           throw usageError("".concat(primitiveName, ".alt is invalid."));
         if (primitive.dwell_ms !== void 0)
-          number(primitive, "dwell_ms", primitiveName, { integer: true, min: 1e3, max: 864e5 });
+          throw usageError("".concat(primitiveName, ".dwell_ms is not accepted: an image takes its page's timing, and a media_end page advances on its video."));
       } else {
         if (primitive.muted !== void 0 && primitive.muted !== true)
           throw usageError("".concat(primitiveName, ".muted must be true."));
@@ -2056,21 +2048,20 @@ function validatePlaylistWrite(value, mediaPrimitives) {
       throw usageError("".concat(pageName, ".primitives must contain at most 2 iframe primitives."));
     if (advance === "application")
       throw usageError("".concat(pageName, " application advance is unsupported because bundles exclude applications."));
+    const videos = mediaPrimitivesOnPage.filter((media) => media.primitive === "video");
     if (advance === "media_end") {
-      if (page.primitives.length !== 1 || mediaPrimitivesOnPage.length !== 1 || iframeCount > 0)
-        throw usageError("".concat(pageName, " media_end requires exactly one image or video primitive."));
-      const only = mediaPrimitivesOnPage[0];
-      if (only.primitive === "image" && only.value.dwell_ms === void 0)
-        throw usageError("".concat(pageName, " media_end image requires dwell_ms."));
-      if (only.primitive === "video" && only.value.loop === true)
+      if (iframeCount > 0)
+        throw usageError("".concat(pageName, " media_end forbids iframe primitives."));
+      if (videos.length !== 1)
+        throw usageError("".concat(pageName, " media_end needs exactly one video primitive; images never drive advance."));
+      if (videos[0].value.loop === true)
         throw usageError("".concat(pageName, " media_end video must not loop."));
-    } else {
-      for (const media of mediaPrimitivesOnPage) {
-        if (media.primitive === "image" && media.value.dwell_ms !== void 0)
-          throw usageError("".concat(pageName, " ").concat(advance, " pages forbid image dwell_ms."));
-        if (media.selector.count > 1 && !media.selector.oneAtATime)
-          throw usageError("".concat(pageName, " multi-item selectors require one_at_a_time true."));
-      }
+    }
+    for (const media of mediaPrimitivesOnPage) {
+      if (advance === "media_end" && media.primitive === "video")
+        continue;
+      if (media.selector.count > 1 && !media.selector.oneAtATime)
+        throw usageError("".concat(pageName, " multi-item selectors require one_at_a_time true."));
     }
   }
   if (unscheduled === 0)

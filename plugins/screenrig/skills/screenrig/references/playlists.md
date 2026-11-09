@@ -343,9 +343,11 @@ video of its folders only (a stinger transition's logo included);
   `media generate`, or show live text with a built-in card.
 - `image` and `video` need a `selector` (`by` `id`, `ids`, `all`, `tag`,
   `folder` with a `folder_id` from `media folder list`); `media_id` lives inside it. Others take none. `id` and `ids` may name the organization Library's media, and `folder` a Library folder (`media folder list --library`); `all` and `tag` never reach the Library. Dynamic selectors
-  resolve at each loop; on duration, application and `audio_end` pages they
-  need `one_at_a_time: true`. `media_end` is valid only on a page with exactly
-  one image or video; an image there needs `dwell_ms`, a video must not loop.
+  resolve at each loop; on duration, application and `audio_end` pages, and
+  for images on a `media_end` page, they need `one_at_a_time: true`. A
+  `media_end` page moves on when its one video ends: exactly one video (no
+  `loop`, it may play a folder or several files in turn) and any images, which
+  never drive the advance and take no `dwell_ms`.
   Use `media selector-preview FILE --primitive image|video [--rect WxH]` to
   inspect a selector.
 - Weighted order (share of voice, sponsor rotation): `order: "weighted"` with

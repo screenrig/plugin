@@ -3,7 +3,7 @@ const require = screenrigCreateRequire(import.meta.url);
 import {
   assertPlaylistValid,
   validatePlaylistWrite
-} from "./chunk-ICGRU2XM.js";
+} from "./chunk-BLDJ2W37.js";
 import {
   USER_AGENT
 } from "./chunk-V3QE7ELU.js";

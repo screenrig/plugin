@@ -52,7 +52,7 @@ import {
   validatePlaylistWrite,
   wallSize,
   withCanvasBackground
-} from "./chunk-ICGRU2XM.js";
+} from "./chunk-BLDJ2W37.js";
 import {
   apexHost
 } from "./chunk-BWPKDRCP.js";
@@ -688,7 +688,6 @@ function normalizePlaylistForBundle(input, options = {}) {
           primitive: category,
           selector,
           ...category === "image" && typeof primitive.alt === "string" ? { alt: primitive.alt } : {},
-          ...category === "image" && typeof primitive.dwell_ms === "number" ? { dwell_ms: primitive.dwell_ms } : {},
           ...category === "video" ? { muted: primitive.muted === true, loop: primitive.loop === true } : {}
         };
       } else {

@@ -118,7 +118,7 @@ screenrig media sync run msy_ID                   # run one now
 - The sync fills a media folder (`--folder-id mfd_ID`, or a new one named after
   the source). Play it with a `folder` selector in an `image` or `video`
   primitive, once; it then follows the source, and a page of several files needs
-  `one_at_a_time: true` unless it is a `media_end` page:
+  `one_at_a_time: true` unless it is the video of a `media_end` page:
   `"selector": {"by": "folder", "folder_id": "mfd_ID", "one_at_a_time": true}`.
 - A file removed at the source is deleted. While a screen still shows it, it
   waits in a `Removed` subfolder (selectors stop playing it) and a later run
