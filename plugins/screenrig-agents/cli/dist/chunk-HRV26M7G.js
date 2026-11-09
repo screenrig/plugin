@@ -1138,6 +1138,8 @@ var handleMediaReplace = commandHandler(async (args, runtime, resolved) => {
         runtime,
         client,
         sourcePath,
+        // A scoped uploader must declare into the target's existing folder.
+        folderId: typeof media.folder_id === "string" && media.folder_id ? media.folder_id : void 0,
         explicitContentType: flagString(args.flags, "content-type"),
         transcodeOptions,
         noTranscode: flagBool(args.flags, "no-transcode"),

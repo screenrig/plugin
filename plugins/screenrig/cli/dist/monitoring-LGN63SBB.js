@@ -829,6 +829,7 @@ var CANNED_EVENT_MESSAGES = /* @__PURE__ */ new Set([
   "Screen effective playlist switched",
   "Screen takeover started",
   "Screen takeover ended",
+  "Screen takeover end changed",
   "A scheduled playlist cannot be shown; its entries were skipped",
   "Screen health changed",
   "Screen reboot requested",
@@ -843,7 +844,7 @@ var CANNED_EVENT_MESSAGES = /* @__PURE__ */ new Set([
   "Screen reboot schedule cleared",
   "Scheduled reboot skipped"
 ]);
-var NULL_AS_NONE_EVENT_TYPES = /* @__PURE__ */ new Set(["screen.display_changed", "screen.playlist_switched", "screen.takeover_started", "screen.takeover_ended", "screen.playlist_unavailable"]);
+var NULL_AS_NONE_EVENT_TYPES = /* @__PURE__ */ new Set(["screen.display_changed", "screen.playlist_switched", "screen.takeover_started", "screen.takeover_updated", "screen.takeover_ended", "screen.playlist_unavailable"]);
 var SILENT_EVENT_TYPES = /* @__PURE__ */ new Set(["application.event", "runtime.reported"]);
 function isEventScalar(value) {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
