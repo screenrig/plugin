@@ -10,13 +10,13 @@ import {
 } from "./chunk-DLIFEV74.js";
 import {
   FEED_REPEATABLE_FLAGS
-} from "./chunk-SOPO7JRX.js";
+} from "./chunk-NJXNNHY2.js";
 import {
   Command,
   CommanderError,
   Option,
   nonnegativeInteger
-} from "./chunk-UZ2GQVZJ.js";
+} from "./chunk-NIJKBMYW.js";
 import "./chunk-52RPSLX3.js";
 import "./chunk-LMVLFNSU.js";
 import "./chunk-G4R5Q7OS.js";
@@ -30,13 +30,13 @@ import {
   applyCreditsLowToSuccess,
   handleVersion,
   observedCreditsRemaining
-} from "./chunk-FP3WGXZK.js";
+} from "./chunk-LO3DNUZQ.js";
 import {
   clearResultContext,
   formatResultContext,
   processRuntime,
   resultContext
-} from "./chunk-LN4XKIFM.js";
+} from "./chunk-F4H5XAIL.js";
 import {
   LOG_SINK_DEGRADED_CODE,
   logSinkDegradedWarning
@@ -145,15 +145,15 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-U4LDVL53.js"),
-  ads: () => import("./ads-IWO2AZVH.js"),
-  media: () => import("./media-WCXCYCIR.js"),
-  playlists: () => import("./playlists-3G6BWYX2.js"),
-  screens: () => import("./screens-J4QBXD2Q.js"),
-  monitoring: () => import("./monitoring-LGN63SBB.js"),
-  integrations: () => import("./integrations-R5LQWU7V.js"),
-  migrate: () => import("./migrate-VDDTFX3E.js"),
-  docs: () => import("./docs-NDPWE3XN.js")
+  account: () => import("./account-THVIVIAQ.js"),
+  ads: () => import("./ads-JMUSSCPT.js"),
+  media: () => import("./media-CPPYAILI.js"),
+  playlists: () => import("./playlists-XCQJH3VQ.js"),
+  screens: () => import("./screens-YCABYQDQ.js"),
+  monitoring: () => import("./monitoring-BALOPL5Z.js"),
+  integrations: () => import("./integrations-IP2UAL5X.js"),
+  migrate: () => import("./migrate-EM2KX5NE.js"),
+  docs: () => import("./docs-TJXAGI4W.js")
 };
 var TOP_LEVEL_COMMANDS = {
   project: "account",
