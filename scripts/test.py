@@ -23,7 +23,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from urllib.parse import urljoin, urlsplit, parse_qs
+from urllib.parse import urljoin, urlsplit, parse_qs, parse_qsl
 from urllib.request import pathname2url
 
 sys.dont_write_bytecode = True
@@ -1089,11 +1089,14 @@ class MCPConnectionTests(unittest.TestCase):
 class ListingAttributionTests(unittest.TestCase):
     def test_listing_urls_keep_the_destination_and_tag_the_host(self) -> None:
         builder = load_script("attribution_builder", "build-plugin.py")
-        original = "https://screenrig.ai/docs?existing=value&utm_source=old#install"
+        original = "https://screenrig.ai/docs?existing=first&empty=&existing=second%20value&utm_source=old&utm_source=older#install"
         tagged = builder.listing_links({"url": original, "remote": "https://api.screenrig.ai/mcp"}, "codex")
         url = urlsplit(tagged["url"])
         self.assertEqual((url.path, url.fragment), ("/docs", "install"))
-        self.assertEqual(parse_qs(url.query), {"existing": ["value"], "utm_source": ["codex"], "utm_medium": ["package"], "utm_campaign": ["tof-libs"]})
+        self.assertEqual(parse_qsl(url.query, keep_blank_values=True), [
+            ("existing", "first"), ("empty", ""), ("existing", "second value"),
+            ("utm_source", "codex"), ("utm_medium", "package"), ("utm_campaign", "tof-libs"),
+        ])
         self.assertEqual(tagged["remote"], "https://api.screenrig.ai/mcp")
         self.assertEqual(builder.listing_links(tagged, "codex"), tagged)
 

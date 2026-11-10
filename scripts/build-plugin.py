@@ -477,8 +477,10 @@ def listing_links(value: Any, source: str) -> Any:
     if isinstance(value, str) and value.startswith("https://screenrig.ai"):
         url = urlsplit(value)
         if url.hostname == "screenrig.ai":
-            query = dict(parse_qsl(url.query))
-            query.update(utm_source=source, utm_medium="package", utm_campaign="tof-libs")
+            attribution = {"utm_source": source, "utm_medium": "package", "utm_campaign": "tof-libs"}
+            query = [(key, item) for key, item in parse_qsl(url.query, keep_blank_values=True)
+                     if key not in attribution]
+            query.extend(attribution.items())
             return urlunsplit((url.scheme, url.netloc, url.path, urlencode(query), url.fragment))
     return value
 
