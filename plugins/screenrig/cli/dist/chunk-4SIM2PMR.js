@@ -375,7 +375,7 @@ var GUIDANCE_EXAMPLES = {
   "support close": ["--conversation-id sc_ID"],
   "support read": ["--conversation-id sc_ID --sequence 12"],
   "docs search": ["schedule import", "payment_required --limit 3"],
-  "docs show": ["https://screenrig.ai/docs/cli", "https://screenrig.ai/docs/cli --section 'schedule import'"],
+  "docs show": ["https://screenrig.ai/docs/cli", "https://screenrig.ai/docs/cli/schedules --section 'schedule import'"],
   "feedback bug": ['"Preview failed" --body-file report.md'],
   "feedback feature": ['"New workflow" --body-file request.md'],
   "feedback list": ["--kind bug"],
