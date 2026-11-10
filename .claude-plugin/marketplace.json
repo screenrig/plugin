@@ -14,7 +14,7 @@
         "name": "screenRIG"
       },
       "category": "Developer Tools",
-      "homepage": "https://screenrig.ai",
+      "homepage": "https://screenrig.ai?utm_source=claude-directory&utm_medium=package&utm_campaign=tof-libs",
       "repository": "https://github.com/screenrig/plugin",
       "license": "Apache-2.0",
       "tags": [

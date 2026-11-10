@@ -5,7 +5,7 @@
   "author": {
     "name": "screenRIG"
   },
-  "homepage": "https://screenrig.ai",
+  "homepage": "https://screenrig.ai?utm_source=codex&utm_medium=package&utm_campaign=tof-libs",
   "repository": "https://github.com/screenrig/plugin",
   "license": "Apache-2.0",
   "keywords": [
@@ -41,11 +41,11 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://screenrig.ai/",
+    "websiteURL": "https://screenrig.ai/?utm_source=codex&utm_medium=package&utm_campaign=tof-libs",
     "brandColor": "#111827",
-    "supportURL": "https://screenrig.ai/contact",
-    "privacyPolicyURL": "https://screenrig.ai/privacy",
-    "termsOfServiceURL": "https://screenrig.ai/terms",
+    "supportURL": "https://screenrig.ai/contact?utm_source=codex&utm_medium=package&utm_campaign=tof-libs",
+    "privacyPolicyURL": "https://screenrig.ai/privacy?utm_source=codex&utm_medium=package&utm_campaign=tof-libs",
+    "termsOfServiceURL": "https://screenrig.ai/terms?utm_source=codex&utm_medium=package&utm_campaign=tof-libs",
     "logo": "./assets/logo.png",
     "composerIcon": "./assets/logo.png"
   }
