@@ -157,7 +157,7 @@ screenrig triggers deliveries trg_ID     # why each post was shown, ignored or r
   only to the sender's administrator. `triggers create|update` take the same
   `--verify`, `--verify-secret-file`, `--handshake` and `--clear-verify` as card
   webhooks (above); a post that is only a vendor handshake changes no alert.
-- Home Assistant example and the full request: <https://screenrig.ai/docs/cli#overlay-triggers>.
+- Home Assistant example and the full request: <https://screenrig.ai/docs/cli/triggers#overlay-triggers>.
 
 ## Per-screen values
 
