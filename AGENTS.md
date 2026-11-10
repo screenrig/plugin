@@ -46,6 +46,9 @@ the logo lives in the agents folder.
 - Locally the builder packs sibling `../cli` when present; CI packs
   `https://github.com/screenrig/cli` `main`. `components.lock.json` is provenance
   of the tarball just packed (filename, SHA-256, commit), not a pin to fetch.
+- A rebuild bundles every cli `main` commit since the one in `components.lock.json`: review `git log
+  <locked cli commit>..origin/main` with their authors first. Bare `build-plugin.py` runs `npm run build` in the
+  sibling cli, which cleans `dist/`; `--cli-artifact` avoids it.
 - `release-version-files.json` inventories every version-bearing file in both
   folders; add new ones there when you generate them. `main` carries the
   released version and the workspace release stamps and tags it. CI neither

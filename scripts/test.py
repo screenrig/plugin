@@ -23,7 +23,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit, parse_qs, parse_qsl
 from urllib.request import pathname2url
 
 sys.dont_write_bytecode = True
@@ -1086,6 +1086,40 @@ class MCPConnectionTests(unittest.TestCase):
                 self.assertTrue(any("host-managed OAuth" in error for error in validator.errors))
 
 
+class ListingAttributionTests(unittest.TestCase):
+    def test_listing_urls_keep_the_destination_and_tag_the_host(self) -> None:
+        builder = load_script("attribution_builder", "build-plugin.py")
+        original = "https://screenrig.ai/docs?existing=first&empty=&existing=second%20value&utm_source=old&utm_source=older#install"
+        tagged = builder.listing_links({"url": original, "remote": "https://api.screenrig.ai/mcp"}, "codex")
+        url = urlsplit(tagged["url"])
+        self.assertEqual((url.path, url.fragment), ("/docs", "install"))
+        self.assertEqual(parse_qsl(url.query, keep_blank_values=True), [
+            ("existing", "first"), ("empty", ""), ("existing", "second value"),
+            ("utm_source", "codex"), ("utm_medium", "package"), ("utm_campaign", "tof-libs"),
+        ])
+        self.assertEqual(tagged["remote"], "https://api.screenrig.ai/mcp")
+        self.assertEqual(builder.listing_links(tagged, "codex"), tagged)
+
+    def test_bundled_docs_credit_their_host_instead_of_skills_sh(self) -> None:
+        for folder, source in (("screenrig", "claude-directory"), ("screenrig-agents", "codex")):
+            for relative in ("README.md", "skills/screenrig/SKILL.md"):
+                for value in re.findall(r'https://screenrig\.ai[^\s)<>`"\\]*', (ROOT / "plugins" / folder / relative).read_text()):
+                    self.assertEqual(parse_qs(urlsplit(value).query).get("utm_source"), [source])
+
+    def test_public_listing_links_have_campaign_tags(self) -> None:
+        for relative in ("README.md", "skills/screenrig/SKILL.md", ".claude-plugin/marketplace.json",
+                         "plugins/screenrig/.claude-plugin/plugin.json",
+                         "plugins/screenrig-agents/.codex-plugin/plugin.json", "plugins/screenrig-agents/plugin.json"):
+            with self.subTest(path=relative):
+                urls = re.findall(r'https://screenrig\.ai[^\s)<>`"\\]*', (ROOT / relative).read_text())
+                self.assertTrue(urls)
+                for value in urls:
+                    query = parse_qs(urlsplit(value).query)
+                    self.assertEqual(query.get("utm_medium"), ["package"], value)
+                    self.assertEqual(query.get("utm_campaign"), ["tof-libs"], value)
+                    self.assertIn(query.get("utm_source", [""])[0], ("claude-directory", "codex", "grok", "skills-sh"), value)
+
+
 class PluginFolderTests(unittest.TestCase):
     """Claude installs plugins/screenrig, which holds no image or font; the other hosts install plugins/screenrig-agents."""
 
@@ -1102,7 +1136,7 @@ class PluginFolderTests(unittest.TestCase):
         manifest = json.loads((self.CLAUDE / ".claude-plugin/plugin.json").read_text())
         self.assertNotIn("icon", manifest)
         self.assertEqual(manifest["displayName"], "screenRIG")
-        self.assertEqual(manifest["privacyPolicyUrl"], "https://screenrig.ai/privacy")
+        self.assertEqual(manifest["privacyPolicyUrl"], "https://screenrig.ai/privacy?utm_source=claude-directory&utm_medium=package&utm_campaign=tof-libs")
         self.assertTrue(all(url.startswith("https://") for url in manifest["screenshots"]))
         self.assertIn("screenrig-views", manifest["mcpServers"])
 
@@ -1123,8 +1157,11 @@ class PluginFolderTests(unittest.TestCase):
         # Grok reads the Claude index: installs registered under plugins/screenrig keep updating.
         self.assertFalse((ROOT / ".grok-plugin").exists())
 
-    def test_both_folders_ship_identical_skills_and_cli(self) -> None:
-        self.assertEqual(builder.compare(self.CLAUDE / "skills", self.AGENTS / "skills"), [])
+    def test_both_folders_ship_equivalent_skills_and_identical_cli(self) -> None:
+        self.assertEqual(builder.compare(self.CLAUDE / "skills", self.AGENTS / "skills"), ["changed screenrig/SKILL.md"])
+        claude_skill = (self.CLAUDE / "skills/screenrig/SKILL.md").read_text()
+        agents_skill = (self.AGENTS / "skills/screenrig/SKILL.md").read_text()
+        self.assertEqual(claude_skill.replace("utm_source=claude-directory", "utm_source=codex"), agents_skill)
         self.assertEqual(builder.compare(self.CLAUDE / "cli", self.AGENTS / "cli"), [])
 
     def test_validator_rejects_an_image_in_the_claude_folder(self) -> None:
@@ -1213,4 +1250,4 @@ class ViewBridgeTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main(defaultTest=["LauncherTests", "FreshnessTests", "CalVerTests",
                                "TaughtSurfaceTests", "DocsOnlyTests", "DependencyBoundaryTests", "MCPConnectionTests",
-                               "PluginFolderTests", "ViewBridgeTests"])
+                               "ListingAttributionTests", "PluginFolderTests", "ViewBridgeTests"])

@@ -36,6 +36,11 @@ npx skills add screenrig/plugin --skill screenrig -g
 
 On first use the skill installs the plugin and its bundled CLI.
 
+Setup guides: [Claude](https://screenrig.ai/docs/start?utm_source=codex&utm_medium=package&utm_campaign=tof-libs),
+[Codex](https://screenrig.ai/docs/start?utm_source=codex&utm_medium=package&utm_campaign=tof-libs),
+[Grok](https://screenrig.ai/docs/start?utm_source=codex&utm_medium=package&utm_campaign=tof-libs),
+[skills.sh](https://screenrig.ai/docs/start?utm_source=codex&utm_medium=package&utm_campaign=tof-libs).
+
 Any other agent:
 
 ```text
@@ -48,8 +53,8 @@ Then install a Player on your screen and ask your agent to set up your first
 screen. Node.js 22.23.4+, 24.22.1+, or 26.12.1+ (excluding 23.x and 25.x) is
 required.
 
-[Set up your agent](https://screenrig.ai/docs/start) ·
-[Install the Player](https://screenrig.ai/docs/players)
+[Set up your agent](https://screenrig.ai/docs/start?utm_source=codex&utm_medium=package&utm_campaign=tof-libs) ·
+[Install the Player](https://screenrig.ai/docs/players?utm_source=codex&utm_medium=package&utm_campaign=tof-libs)
 
 ## You ask. Your agent does the rest.
 
@@ -84,14 +89,14 @@ Agent: The office TV shows your sales as a ranked table. When a row changes in
 Publishing reports whether each screen is actually playing the new content,
 and your agent can take a screenshot from any screen to show you.
 
-[See it working](https://screenrig.ai/digital-signage/menu-boards) ·
-[200+ apps](https://screenrig.ai/apps) ·
-[Use cases](https://screenrig.ai/use-cases) ·
-[Pricing](https://screenrig.ai/upgrades)
+[See it working](https://screenrig.ai/digital-signage/menu-boards?utm_source=codex&utm_medium=package&utm_campaign=tof-libs) ·
+[200+ apps](https://screenrig.ai/apps?utm_source=codex&utm_medium=package&utm_campaign=tof-libs) ·
+[Use cases](https://screenrig.ai/use-cases?utm_source=codex&utm_medium=package&utm_campaign=tof-libs) ·
+[Pricing](https://screenrig.ai/upgrades?utm_source=codex&utm_medium=package&utm_campaign=tof-libs)
 
 ## Players
 
-Install a Player from [Downloads](https://screenrig.ai/downloads), launch it,
+Install a Player from [Downloads](https://screenrig.ai/downloads?utm_source=codex&utm_medium=package&utm_campaign=tof-libs), launch it,
 and give your agent the pairing code it shows. The Player web app runs at
 [play.screenrig.ai](https://play.screenrig.ai) in any browser.
 
@@ -144,10 +149,10 @@ other hosts return text results.
 
 ## Privacy, terms and support
 
-[Privacy policy](https://screenrig.ai/privacy) ·
-[Terms](https://screenrig.ai/terms) ·
-[Support](https://screenrig.ai/contact) ·
-[Documentation](https://screenrig.ai/docs)
+[Privacy policy](https://screenrig.ai/privacy?utm_source=codex&utm_medium=package&utm_campaign=tof-libs) ·
+[Terms](https://screenrig.ai/terms?utm_source=codex&utm_medium=package&utm_campaign=tof-libs) ·
+[Support](https://screenrig.ai/contact?utm_source=codex&utm_medium=package&utm_campaign=tof-libs) ·
+[Documentation](https://screenrig.ai/docs?utm_source=codex&utm_medium=package&utm_campaign=tof-libs)
 
 ## Contributing
 

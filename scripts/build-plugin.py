@@ -23,6 +23,7 @@ import json
 import os
 import re
 import shutil
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import stat
 import subprocess
 import sys
@@ -467,6 +468,23 @@ def stamp_bundled_cli_version(cli_root: Path, release_version: str) -> None:
     path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
 
 
+def listing_links(value: Any, source: str) -> Any:
+    """Attribute public site links; transport URLs and other origins stay literal."""
+    if isinstance(value, dict):
+        return {key: listing_links(item, source) for key, item in value.items()}
+    if isinstance(value, list):
+        return [listing_links(item, source) for item in value]
+    if isinstance(value, str) and value.startswith("https://screenrig.ai"):
+        url = urlsplit(value)
+        if url.hostname == "screenrig.ai":
+            attribution = {"utm_source": source, "utm_medium": "package", "utm_campaign": "tof-libs"}
+            query = [(key, item) for key, item in parse_qsl(url.query, keep_blank_values=True)
+                     if key not in attribution]
+            query.extend(attribution.items())
+            return urlunsplit((url.scheme, url.netloc, url.path, urlencode(query), url.fragment))
+    return value
+
+
 def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version: str) -> None:
     """Write every manifest under ``plugins_root``: Claude's into its folder, the rest into the agents folder."""
     base = {
@@ -498,7 +516,7 @@ def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version
     claude["screenshots"] = LISTING_SCREENSHOTS
     claude_root = plugins_root / CLAUDE_FOLDER
     (claude_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
-    (claude_root / ".claude-plugin" / "plugin.json").write_text(json.dumps(claude, indent=2) + "\n", encoding="utf-8")
+    (claude_root / ".claude-plugin" / "plugin.json").write_text(json.dumps(listing_links(claude, "claude-directory"), indent=2) + "\n", encoding="utf-8")
     shutil.copyfile(ROOT / "assets" / "logo.png", claude_root / CLAUDE_ICON)
 
     agents_root = plugins_root / AGENTS_FOLDER
@@ -512,7 +530,7 @@ def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version
     codex["interface"] = metadata["interface"]
     portable = {"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", **base,
                 "extensions": {"com.openai": {"interface": metadata["interface"], **SUBMISSION}}}
-    (agents_root / "plugin.json").write_text(json.dumps(portable, indent=2) + "\n", encoding="utf-8")
+    (agents_root / "plugin.json").write_text(json.dumps(listing_links(portable, "codex"), indent=2) + "\n", encoding="utf-8")
     portable_mcp = {
         "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
         "mcpServers": {"screenrig-views": {
@@ -534,7 +552,7 @@ def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version
     }
     (agents_root / "openclaw.plugin.json").write_text(
         json.dumps(openclaw, indent=2) + "\n", encoding="utf-8")
-    (agents_root / ".codex-plugin" / "plugin.json").write_text(json.dumps(codex, indent=2) + "\n", encoding="utf-8")
+    (agents_root / ".codex-plugin" / "plugin.json").write_text(json.dumps(listing_links(codex, "codex"), indent=2) + "\n", encoding="utf-8")
 
 
 def verify_generated_launcher(plugin_root: Path) -> None:
@@ -589,6 +607,13 @@ def copy_docs(plugin_root: Path, folder: str = CLAUDE_FOLDER) -> None:
     if skill_target.exists():
         shutil.rmtree(skill_target)
     shutil.copytree(SKILLS, skill_target, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    # skills.sh reads the canonical skill; bundled docs belong to their host listing.
+    source = "claude-directory" if folder == CLAUDE_FOLDER else "codex"
+    for relative in ("README.md", "skills/screenrig/SKILL.md"):
+        path = plugin_root / relative
+        content = re.sub(r'https://screenrig\.ai[^\s)<>`"\\]*',
+                         lambda match: listing_links(match.group(0), source), path.read_text(encoding="utf-8"))
+        path.write_text(content, encoding="utf-8")
 
 
 def build(
@@ -599,7 +624,7 @@ def build(
     cli_commit: str | None = None,
     check: bool = False,
 ) -> Path:
-    """Build every plugin folder under ``output``; both carry the same skills and CLI."""
+    """Build every plugin folder under ``output``; both carry the same skill content and CLI, with host-specific link tags."""
     release_version = version()
     for folder in PLUGIN_FOLDERS:
         copy_docs(output / folder, folder)
