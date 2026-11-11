@@ -185,7 +185,8 @@ one.
 An `iframe` `src` and `fallback_src` take URL tokens in the path, query or
 fragment of an `http(s)` address, and an `application` takes optional `params`
 (up to 16 names of `[a-z0-9_]{1,32}`, `ticket` and `policy` reserved, values up
-to 512 characters, appended to its launch URL so it reads `location.search`):
+to 512 characters; the app reads them from `screenrig.context.params`, and the web
+Player also appends them to its launch URL as `location.search`):
 `{screen.id}` (without `scr_`), `{screen.name}`, `{screen.timezone}`,
 `{screen.field.NAME}`, `{screen.location.lat}`, `{screen.location.lon}`,
 `{screen.location.name}`, `{screen.location.address}`. Example `src`:

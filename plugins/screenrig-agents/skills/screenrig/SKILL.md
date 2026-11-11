@@ -210,7 +210,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | A designed backdrop behind cards, video or other primitives | page background: `background sets --search TEXT --orientation landscape\|portrait`, `background show SET_ID`, then `background apply BG_ID --playlist-id ID --page-id ID`; put content where its `layout` leaves calm space (on `left-half`, the right half) and light content on `tone: dark` |
 | Non-interactive live display: clocks, weather, menus, queues, KPIs, tickers | built-in card: `cards list`, `cards show`, `card create`, `card data put` ([playlists](references/playlists.md#built-in-cards-and-feeds)) |
 | An outside system pushing data a card shows (a CMS, Zapier, a point of sale, a script) | card webhook: `kv webhook create --card crd_ID --map FILE`; the sender POSTs JSON to its url, and a vendor that signs its posts (GitHub, Stripe, Shopify, Slack) verifies with `--verify` ([playlists](references/playlists.md#card-webhooks)) |
-| Touch or other input, a peripheral, an exact look no card has, a wall panel that dims, sleeps and wakes, or a device on the screen's network | application: `app upload`, then an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md?utm_source=codex&utm_medium=package&utm_campaign=tof-libs): `screenrig.device` drives the display, presence and volume keys; apps may call `http://` addresses on Android) |
+| Touch or other input, a peripheral, an exact look no card has, a wall panel that dims, sleeps and wakes, or a device on the screen's network | application: try it with `app dev`, then `app upload` and an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md?utm_source=codex&utm_medium=package&utm_campaign=tof-libs): `screenrig.device` drives the display, presence, volume keys and hardware; apps may call `http://` addresses on Android) |
 | Live video, a web page or a Google/Microsoft document, background music | `stream` or `iframe` primitive; playlist soundtrack ([playlists](references/playlists.md)) |
 | A Linux or Windows Player driving 2 to 12 displays as one wall | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
 | A footer ticker or header logo over the page, on the same screen | strip: a playlist with `--format-region`, shown by a level that `covers` that region ([playlists](references/playlists.md#strips)) |
@@ -225,6 +225,24 @@ make no SDK call while `readyState` is not `active`. An app with nothing to show
 calls `screenrig.skip()` instead of `ready()`: the screen moves on and counts no
 play. Use screenRIG's `feeds` for weather, rates and other third-party data,
 never the providers ([feed families and their cards](references/playlists.md#built-in-cards-and-feeds)).
+
+Try an app before uploading it: `screenrig app dev DIR` serves it in a local
+Player harness (capability switches, screen facts, simulated device events and
+hardware, a local `kv` file) and prints its `emit` and `log` lines and any pack
+refusal in the terminal. In TypeScript, `screenrig app types DIR` writes
+`screenrig.d.ts` into the sources, not the uploaded directory. An app reads its
+launch params and the screen's name and time zone from `screenrig.context.params`
+and `.screen` on every Player, stops work on `screenrig.onVisibility`, reads
+`screenrig.pageTiming()`, and keeps JSON in `kv` with `kv.getJSON` and `setJSON`.
+A scanner, camera, sound level, serial port, GPIO line, Bluetooth LE device or
+printer is `screenrig.device`; check `supports()` and `capabilities` first
+([hardware](https://screenrig.ai/docs/sdk.md?utm_source=codex&utm_medium=package&utm_campaign=tof-libs#hardware)).
+
+To follow an MQTT broker, the app bundles `mqtt.js` and connects over WebSocket
+(`ws://` on the screen's network, `wss://` for a cloud broker), reading the broker
+address and a subscribe-only account from `kv`, never from params or the bundle.
+A cloud broker's rule engine can post to a `kv webhook` instead
+([MQTT](https://screenrig.ai/docs/sdk.md?utm_source=codex&utm_medium=package&utm_campaign=tof-libs#mqtt)).
 
 Write card data and `kv` values when the value changes, never on a fast timer; a
 job that keeps a card current writes on the data's own schedule with `--ttl`
