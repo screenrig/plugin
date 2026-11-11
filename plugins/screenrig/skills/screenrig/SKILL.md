@@ -234,9 +234,11 @@ refusal in the terminal. In TypeScript, `screenrig app types DIR` writes
 launch params and the screen's name and time zone from `screenrig.context.params`
 and `.screen` on every Player, stops work on `screenrig.onVisibility`, reads
 `screenrig.pageTiming()`, and keeps JSON in `kv` with `kv.getJSON` and `setJSON`.
-A scanner, camera, sound level, serial port, GPIO line, Bluetooth LE device or
-printer is `screenrig.device`; check `supports()` and `capabilities` first
-([hardware](https://screenrig.ai/docs/sdk.md?utm_source=claude-directory&utm_medium=package&utm_campaign=tof-libs#hardware)).
+A scanner, camera, sound level, serial port, GPIO line (`pull` for a button,
+`idle` for a relay), Bluetooth LE device, printer, IR remote or emitter, UDP
+show-control message or a BrightSign HDMI input is `screenrig.device`; check
+`supports()` and `capabilities` first. Which Player has which is the
+[hardware matrix](https://screenrig.ai/docs/hardware.md?utm_source=claude-directory&utm_medium=package&utm_campaign=tof-libs).
 
 To follow an MQTT broker, the app bundles `mqtt.js` and connects over WebSocket
 (`ws://` on the screen's network, `wss://` for a cloud broker), reading the broker
@@ -477,7 +479,9 @@ nothing. MCP: `screenrig_schedule_import_preview` and
 Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen display-idle` (dark after idle, wake on touch or presence),
-`screen brightness --mode auto` (light sensor), `screen kiosk-lock` (pin the
+`screen brightness --mode auto` (light sensor), `screen display-output --mode
+3840x2160x60p|auto` (output mode, from the modes `screen show` lists),
+`screen display-cec --on` (the TV switches to the Player), `screen kiosk-lock` (pin the
 Player on Android), `screen volume` (`--level 0-100`, `--mute`, `--unmute`; only
 where the Player declares it, else `volume_unsupported`; `screen show` reports
 `volume`), `screen reboot` (only where the Player declares it; fleets need `--yes`
