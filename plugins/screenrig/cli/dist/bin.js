@@ -2,6 +2,41 @@
 import { createRequire as screenrigCreateRequire } from "node:module";
 const require = screenrigCreateRequire(import.meta.url);
 import {
+  FEED_REPEATABLE_FLAGS
+} from "./chunk-HQPJWYRP.js";
+import {
+  Command,
+  CommanderError,
+  Option,
+  nonnegativeInteger
+} from "./chunk-A2S45EKE.js";
+import {
+  applyCreditsLowToSuccess,
+  handleVersion,
+  observedCreditsRemaining
+} from "./chunk-SX4HKPRA.js";
+import "./chunk-UD3J3FNQ.js";
+import {
+  LOG_SINK_DEGRADED_CODE,
+  logSinkDegradedWarning
+} from "./chunk-PPWTLS44.js";
+import {
+  clearResultContext,
+  formatResultContext,
+  processRuntime,
+  resultContext
+} from "./chunk-RY7TSGK3.js";
+import {
+  errorEnvelope,
+  successEnvelope
+} from "./chunk-D2RLMLYO.js";
+import "./chunk-7EJTDXNL.js";
+import {
+  CLI_VERSION
+} from "./chunk-BFLHHH47.js";
+import "./chunk-P3D5NU6C.js";
+import "./chunk-SFYZH3GR.js";
+import {
   commandFromArgv,
   commandPath,
   findCommand,
@@ -9,47 +44,10 @@ import {
   invocationFlags
 } from "./chunk-DLIFEV74.js";
 import {
-  FEED_REPEATABLE_FLAGS
-} from "./chunk-NJXNNHY2.js";
-import {
-  Command,
-  CommanderError,
-  Option,
-  nonnegativeInteger
-} from "./chunk-NIJKBMYW.js";
-import "./chunk-52RPSLX3.js";
-import "./chunk-LMVLFNSU.js";
-import "./chunk-G4R5Q7OS.js";
-import "./chunk-XAYSKU3G.js";
-import {
   commandExamples,
   commandNotes,
   commandRelationships
 } from "./chunk-IBLNZ4EM.js";
-import {
-  applyCreditsLowToSuccess,
-  handleVersion,
-  observedCreditsRemaining
-} from "./chunk-LO3DNUZQ.js";
-import {
-  clearResultContext,
-  formatResultContext,
-  processRuntime,
-  resultContext
-} from "./chunk-F4H5XAIL.js";
-import {
-  LOG_SINK_DEGRADED_CODE,
-  logSinkDegradedWarning
-} from "./chunk-PPWTLS44.js";
-import {
-  errorEnvelope,
-  successEnvelope
-} from "./chunk-D2RLMLYO.js";
-import {
-  CLI_VERSION
-} from "./chunk-V3QE7ELU.js";
-import "./chunk-7EJTDXNL.js";
-import "./chunk-SFYZH3GR.js";
 import {
   CliError,
   ExitCode,
@@ -59,6 +57,10 @@ import {
   usageError,
   withDefaultHint
 } from "./chunk-JP4OQPAN.js";
+import "./chunk-PGM5AQER.js";
+import "./chunk-G4R5Q7OS.js";
+import "./chunk-LMVLFNSU.js";
+import "./chunk-XAYSKU3G.js";
 import "./chunk-3FYAGULW.js";
 
 // dist/cli-errors.js
@@ -145,15 +147,15 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-THVIVIAQ.js"),
-  ads: () => import("./ads-JMUSSCPT.js"),
-  media: () => import("./media-CPPYAILI.js"),
-  playlists: () => import("./playlists-3ZNNQOII.js"),
-  screens: () => import("./screens-BTUON53J.js"),
-  monitoring: () => import("./monitoring-CWL3QDTI.js"),
-  integrations: () => import("./integrations-IP2UAL5X.js"),
-  migrate: () => import("./migrate-5JKOCM2K.js"),
-  docs: () => import("./docs-TJXAGI4W.js")
+  account: () => import("./account-NHJTA72N.js"),
+  ads: () => import("./ads-AY4T3KAA.js"),
+  media: () => import("./media-IL6XJWJD.js"),
+  playlists: () => import("./playlists-BFSXB5Z7.js"),
+  screens: () => import("./screens-DI4B5ROT.js"),
+  monitoring: () => import("./monitoring-QL5GXPBP.js"),
+  integrations: () => import("./integrations-CLV3CNMZ.js"),
+  migrate: () => import("./migrate-5XVWX7BG.js"),
+  docs: () => import("./docs-J3VHD47J.js")
 };
 var TOP_LEVEL_COMMANDS = {
   project: "account",
@@ -412,7 +414,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-5TWOPSUE.js");
+    const { registerGuidance } = await import("./register-guidance-YY25IHEX.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
