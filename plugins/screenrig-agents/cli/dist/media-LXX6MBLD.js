@@ -497,7 +497,7 @@ async function appDev(args, runtime, resolved) {
   const dir = args.positionals[2];
   if (!dir)
     throw usageError("app dev requires a directory.");
-  const { assertDevPort, startDevServer } = await import("./dev-OZ7OG3XU.js");
+  const { assertDevPort, startDevServer } = await import("./dev-ODRWOGMF.js");
   const { DEV_PORT } = await import("./origins-PTIWFCQR.js");
   const { devEventData, formatDevLine } = await import("./output-LWET5CHN.js");
   const directory = await requireAppDirectory(runtime, dir, "app dev ./DIRECTORY");

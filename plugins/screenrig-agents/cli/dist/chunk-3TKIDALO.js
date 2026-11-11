@@ -69,11 +69,15 @@ import {
   commandCancelProblem,
   commandLines,
   commandResultText,
+  displayCecPatch,
   displayIdleAfterOption,
   displayIdlePatch,
   displayIdleText,
   displayIdleWakeOption,
   displayLines,
+  displayOutputModeOption,
+  displayOutputObservationLines,
+  displayOutputPatch,
   displayPower,
   displayProblem,
   displayScheduleWrite,
@@ -138,7 +142,7 @@ import {
   volumeProblem,
   volumeText,
   volumeWrite
-} from "./chunk-TKFLMGQG.js";
+} from "./chunk-LJV5U2IE.js";
 import {
   fieldMap,
   fleetLinkFieldOption,
@@ -945,6 +949,7 @@ var handleScreenShow = commandHandler(async (args, runtime, resolved) => {
       ...storageLines(screen, runtime.now()),
       ...manifestUpgradeLines(screen, runtime.now()),
       ...displayLines(screen?.display, screen?.timezone),
+      ...displayOutputObservationLines(screen?.observation?.display_output),
       ...volumeLines(screen?.volume),
       ...kioskLines(screen?.kiosk),
       ...rebootScheduleLines(screen?.reboot_schedule, screen?.next_reboot_at, screen?.timezone),
@@ -2879,7 +2884,9 @@ var handleScreenSchedulePreview = commandHandler(async (args, runtime, resolved)
 var screen_device_settings_exports = {};
 __export(screen_device_settings_exports, {
   handleScreenBrightness: () => handleScreenBrightness,
+  handleScreenDisplayCec: () => handleScreenDisplayCec,
   handleScreenDisplayIdle: () => handleScreenDisplayIdle,
+  handleScreenDisplayOutput: () => handleScreenDisplayOutput,
   handleScreenKioskLock: () => handleScreenKioskLock
 });
 async function patchDeviceSetting(args, runtime, resolved, command, patch, title) {
@@ -2912,6 +2919,16 @@ var handleScreenBrightness = commandHandler(async (args, runtime, resolved) => {
   const patch = brightnessPatch(flagString(args.flags, "mode"));
   return patchDeviceSetting(args, runtime, resolved, "screen brightness", patch, (id) => "Set display brightness on ".concat(id, ": ").concat(patch.display?.brightness?.mode));
 }, true);
+var handleScreenDisplayOutput = commandHandler(async (args, runtime, resolved) => {
+  const patch = displayOutputPatch(flagString(args.flags, "mode"), flagBool(args.flags, "clear"));
+  const output = patch.display?.output;
+  return patchDeviceSetting(args, runtime, resolved, "screen display-output", patch, (id) => output ? "Set display output on ".concat(id, ": ").concat(output.mode) : "Cleared the display output mode on ".concat(id));
+}, true);
+var handleScreenDisplayCec = commandHandler(async (args, runtime, resolved) => {
+  const patch = displayCecPatch(flagBool(args.flags, "on"), flagBool(args.flags, "off"), flagBool(args.flags, "clear"));
+  const cec = patch.display?.cec;
+  return patchDeviceSetting(args, runtime, resolved, "screen display-cec", patch, (id) => cec ? "Set display CEC on ".concat(id, ": ").concat(cec.take_input ? "the Player takes the TV's input" : "the Player leaves the TV's input alone") : "Cleared the display CEC setting on ".concat(id));
+}, true);
 var handleScreenKioskLock = commandHandler(async (args, runtime, resolved) => {
   const patch = kioskLockPatch(flagBool(args.flags, "on"), flagBool(args.flags, "off"));
   return patchDeviceSetting(args, runtime, resolved, "screen kiosk-lock", patch, (id) => patch.kiosk?.lock ? "Locked kiosk on ".concat(id, ": the Player pins itself to the screen") : "Released the kiosk lock on ".concat(id));
@@ -2942,6 +2959,10 @@ function registerScreenCommands(root, bind) {
   requireOptionGroup(displayIdle, "exactlyOne", ["--after", "--off"]);
   requireOptionGroup(displayIdle, "together", ["--after", "--wake"]);
   screen.command("brightness").description("Set whether a screen's brightness follows the device's light sensor").argument("<id>", "Screen identifier").addOption(new Option("--mode <MODE>", "auto follows the device's light sensor; fixed keeps the operator's brightness (required)").choices([...DISPLAY_BRIGHTNESS_MODES]).makeOptionMandatory()).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenBrightness));
+  const displayOutput = screen.command("display-output").description("Set the video mode a screen's Player sets on its output, or clear it").argument("<id>", "Screen identifier").option("--mode <MODE>", "auto (the display's own preferred mode) or WIDTHxHEIGHTxFPS with an optional p or i, such as 3840x2160x60p", displayOutputModeOption).addOption(new Option("--clear", "Remove the setting").conflicts("mode")).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenDisplayOutput));
+  requireOptionGroup(displayOutput, "exactlyOne", ["--mode", "--clear"]);
+  const displayCec = screen.command("display-cec").description("Have a screen's Player take the TV's HDMI input over CEC, or stop").argument("<id>", "Screen identifier").addOption(new Option("--on", "Assert HDMI-CEC active source at start and whenever display power turns on").conflicts(["off", "clear"])).addOption(new Option("--off", "Do not take the TV's input").conflicts(["on", "clear"])).addOption(new Option("--clear", "Remove the setting").conflicts(["on", "off"])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenDisplayCec));
+  requireOptionGroup(displayCec, "exactlyOne", ["--on", "--off", "--clear"]);
   const kioskLock = screen.command("kiosk-lock").description("Pin a screen's Player to the screen, or release it").argument("<id>", "Screen identifier").addOption(new Option("--on", "Pin the Player to the screen").conflicts("off")).addOption(new Option("--off", "Release the pin").conflicts("on")).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenKioskLock));
   requireOptionGroup(kioskLock, "exactlyOne", ["--on", "--off"]);
   screen.command("archive").description("Archive a screen").argument("<id>", "Screen identifier").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenArchive));

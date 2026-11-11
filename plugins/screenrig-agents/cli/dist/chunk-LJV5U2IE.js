@@ -550,10 +550,14 @@ __export(screen_device_settings_exports, {
   DISPLAY_IDLE_AFTER_MIN_S: () => DISPLAY_IDLE_AFTER_MIN_S,
   DISPLAY_IDLE_WAKE: () => DISPLAY_IDLE_WAKE,
   brightnessPatch: () => brightnessPatch,
+  displayCecPatch: () => displayCecPatch,
   displayIdleAfterOption: () => displayIdleAfterOption,
   displayIdlePatch: () => displayIdlePatch,
   displayIdleText: () => displayIdleText,
   displayIdleWakeOption: () => displayIdleWakeOption,
+  displayOutputModeOption: () => displayOutputModeOption,
+  displayOutputObservationLines: () => displayOutputObservationLines,
+  displayOutputPatch: () => displayOutputPatch,
   displaySettingsLines: () => displaySettingsLines,
   kioskLines: () => kioskLines,
   kioskLockPatch: () => kioskLockPatch
@@ -594,6 +598,23 @@ function brightnessPatch(mode) {
   }
   return { display: { brightness: { mode } } };
 }
+var DISPLAY_OUTPUT_MODE = /^(auto|[1-9][0-9]{1,4}x[1-9][0-9]{1,4}x[1-9][0-9]{0,2}(\.[0-9]{1,3})?[pi]?)$/;
+function displayOutputModeOption(value) {
+  if (value.length > 24 || !DISPLAY_OUTPUT_MODE.test(value)) {
+    throw usageError("--mode takes auto or a video mode WIDTHxHEIGHTxFPS with an optional p or i, such as 3840x2160x60p or 1920x1080x59.94i.");
+  }
+  return value;
+}
+function displayOutputPatch(mode, clear) {
+  if (clear === (mode !== void 0))
+    throw usageError("screen display-output requires --mode MODE or --clear.");
+  return { display: { output: clear ? null : { mode: displayOutputModeOption(mode) } } };
+}
+function displayCecPatch(on, off, clear) {
+  if ([on, off, clear].filter(Boolean).length !== 1)
+    throw usageError("screen display-cec requires exactly one of --on, --off or --clear.");
+  return { display: { cec: clear ? null : { take_input: on } } };
+}
 function kioskLockPatch(on, off) {
   if (on === off)
     throw usageError("screen kiosk-lock requires --on or --off.");
@@ -610,6 +631,21 @@ function displaySettingsLines(display) {
   const mode = display.brightness?.mode;
   if (mode === "auto" || mode === "fixed")
     lines.push("Display brightness: ".concat(mode));
+  if (typeof display.output?.mode === "string")
+    lines.push("Display output: ".concat(display.output.mode));
+  if (typeof display.cec?.take_input === "boolean")
+    lines.push("Display CEC: ".concat(display.cec.take_input ? "takes the TV's input (active source) at start and when display power turns on" : "does not take the TV's input"));
+  return lines;
+}
+function displayOutputObservationLines(reported) {
+  if (!reported)
+    return [];
+  const modes = Array.isArray(reported.modes) ? reported.modes.filter((mode) => typeof mode === "string") : [];
+  const lines = [];
+  if (typeof reported.mode === "string")
+    lines.push("Output mode in force: ".concat(reported.mode));
+  if (modes.length > 0)
+    lines.push("Output modes the Player can set (".concat(modes.length, "): ").concat(modes.join(", ")));
   return lines;
 }
 function kioskLines(kiosk) {
@@ -2016,8 +2052,12 @@ export {
   displayIdleWakeOption,
   displayIdlePatch,
   brightnessPatch,
+  displayOutputModeOption,
+  displayOutputPatch,
+  displayCecPatch,
   kioskLockPatch,
   displayIdleText,
+  displayOutputObservationLines,
   kioskLines,
   screen_device_settings_exports,
   volumeLevelOption,
