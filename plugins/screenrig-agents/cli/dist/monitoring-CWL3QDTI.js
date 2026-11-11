@@ -842,7 +842,8 @@ var CANNED_EVENT_MESSAGES = /* @__PURE__ */ new Set([
   "Screen display schedule cleared",
   "Screen reboot schedule updated",
   "Screen reboot schedule cleared",
-  "Scheduled reboot skipped"
+  "Scheduled reboot skipped",
+  "Screen volume requested"
 ]);
 var NULL_AS_NONE_EVENT_TYPES = /* @__PURE__ */ new Set(["screen.display_changed", "screen.playlist_switched", "screen.takeover_started", "screen.takeover_updated", "screen.takeover_ended", "screen.playlist_unavailable"]);
 var SILENT_EVENT_TYPES = /* @__PURE__ */ new Set(["application.event", "runtime.reported"]);

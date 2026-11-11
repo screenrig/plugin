@@ -104,8 +104,13 @@ import {
   suspendMessageOption,
   suspendProblem,
   suspensionLines,
-  untilOption
-} from "./chunk-IQNXCBTB.js";
+  untilOption,
+  volumeLevelOption,
+  volumeLines,
+  volumeProblem,
+  volumeText,
+  volumeWrite
+} from "./chunk-LUZSJABT.js";
 import {
   WALL_ARRANGEMENTS,
   WALL_ROTATIONS,
@@ -117,7 +122,7 @@ import {
   wallLine,
   wallOutputsOption,
   wallProblem
-} from "./chunk-BLDJ2W37.js";
+} from "./chunk-HGYSRZDE.js";
 import {
   validateProvisioningUrls
 } from "./chunk-MR54EUES.js";
@@ -371,6 +376,7 @@ __export(screen_exports, {
   handleScreenUpdate: () => handleScreenUpdate,
   handleScreenUpdateSoftware: () => handleScreenUpdateSoftware,
   handleScreenUptime: () => handleScreenUptime,
+  handleScreenVolume: () => handleScreenVolume,
   handleScreenWallClear: () => handleScreenWallClear,
   handleScreenWallSet: () => handleScreenWallSet,
   hostLines: () => hostLines,
@@ -939,6 +945,7 @@ var handleScreenShow = commandHandler(async (args, runtime, resolved) => {
       ...storageLines(screen, runtime.now()),
       ...manifestUpgradeLines(screen, runtime.now()),
       ...displayLines(screen?.display, screen?.timezone),
+      ...volumeLines(screen?.volume),
       ...kioskLines(screen?.kiosk),
       ...rebootScheduleLines(screen?.reboot_schedule, screen?.next_reboot_at, screen?.timezone),
       ...healthLines(screen?.health),
@@ -2594,6 +2601,40 @@ var handleScreenDisplay = commandHandler(async (args, runtime, resolved) => {
     human: [displayHuman("Display override saved on ".concat(id, ": requested ").concat(power, " ").concat(until ? "until ".concat(instantInZone(until, screen?.timezone)) : "until the display schedule's next boundary, or until replaced"), screen), ...warnings.map((warning) => "warning: ".concat(warning.message))].join("\n")
   };
 }, true);
+var handleScreenVolume = commandHandler(async (args, runtime, resolved) => {
+  const write = volumeWrite(flagString(args.flags, "level"), flagBool(args.flags, "mute"), flagBool(args.flags, "unmute"));
+  const target = screenTarget(args, "screen volume");
+  if (target.kind === "fleet")
+    rejectFleetRevision(args, "screen volume");
+  const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+  if (target.kind === "fleet")
+    return screenFleetAction(client, runtime, "Fleet volume ".concat(volumeText(write)), target.selector, { type: "volume", ...write });
+  const id = target.id;
+  const revision2 = flagString(args.flags, "expect-rev");
+  let response;
+  try {
+    response = await client.call({
+      method: "POST",
+      path: "/api/screens/".concat(encodeURIComponent(id), "/volume"),
+      idempotent: true,
+      body: write,
+      ...revision2 ? { headers: { "if-match": quotedRevision(revision2) } } : {}
+    });
+  } catch (error) {
+    throw volumeProblem(error, id);
+  }
+  const screen = response.body;
+  return {
+    envelope: jsonBody(response, client.requestId),
+    exitCode: ExitCode.Success,
+    human: [
+      "Set volume on ".concat(id, ": ").concat(volumeText(write)),
+      ...screen?.online === false ? ["The screen is offline; its Player applies the request from its next manifest."] : [],
+      ...volumeLines(screen?.volume),
+      ...screen?.revision !== void 0 ? ["revision: ".concat(screen.revision)] : []
+    ].join("\n")
+  };
+}, true);
 var handleScreenDisplayScheduleShow = commandHandler(async (args, runtime, resolved) => {
   const id = args.positionals[3];
   if (!id)
@@ -2994,6 +3035,10 @@ function registerScreenCommands(root, bind) {
   addCommandExamples(rebootSchedule.commands.find((command) => command.name() === "show"), "screenrig screen reboot-schedule show scr_LOBBY");
   addCommandExamples(rebootScheduleSet, 'screenrig screen reboot-schedule set scr_LOBBY --window "Mon-Sun 04:00-04:30"', 'screenrig screen reboot-schedule set --tag Cafe --window "Mon-Fri 04:00-04:30" --window "Sat,Sun 05:00-06:00"', "screenrig screen reboot-schedule set scr_LOBBY --file reboots.json --expect-rev 4");
   addCommandExamples(rebootSchedule.commands.find((command) => command.name() === "clear"), "screenrig screen reboot-schedule clear scr_LOBBY", "screenrig screen reboot-schedule clear --tag Cafe");
+  const volume = screen.command("volume").description("Set a screen's volume or mute it now, or a fleet's volumes").argument("[id...]", "Screen identifier; several ids target those screens in one fleet request").option("--tag <TAG>", "Target every active screen carrying this tag", screenTagOption).addOption(folderSelector()).addOption(new Option("--level <PERCENT>", "Volume from 0 to 100 (omitted: the screen keeps its level)").argParser(volumeLevelOption)).addOption(new Option("--mute", "Silence the screen; its level is kept").conflicts(["unmute"])).addOption(new Option("--unmute", "Restore the sound at the screen's level").conflicts(["mute"])).option("--expect-rev <REVISION>", "Optionally require this screen revision (one screen id only)", revision).action(bind(handleScreenVolume));
+  requireOptionGroup(volume, "atLeastOne", ["--level", "--mute", "--unmute"]);
+  addCommandNotes(volume, "Volume:\n  Sets the screen's level (0 to 100), its mute, or both. --mute keeps the\n  level, so --unmute restores it. Only a Player that declares the volume\n  capability applies it; any other screen is refused with volume_unsupported\n  (exit 5) and nothing is recorded. A screen in a protected screen folder is\n  refused with protected_target (exit 5); one protected screen in a fleet\n  selection refuses the whole fleet request. An offline screen applies the\n  request from its next manifest. A change made later in the Player's settings\n  menu wins until the next request. screen show: Volume reported is what the\n  Player reached (device volume, or the Player's own gain). A video plays its\n  audio, at this volume, only when its page sets sound (playlist page add\n  --sound). At most 10 volume changes per screen per minute.");
+  addCommandExamples(volume, "screenrig screen volume scr_LOBBY --level 40", "screenrig screen volume scr_LOBBY --mute", "screenrig screen volume --tag Lobby --level 25 --unmute");
   const update = screen.commands.find((command) => command.name() === "update");
   requireOptionGroup(update, "requires", ["--location-name", "--location"]);
   requireOptionGroup(update, "requires", ["--address", "--location"]);

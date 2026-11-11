@@ -6,7 +6,7 @@ import {
 import {
   GUIDANCE_NOTES_1,
   GUIDANCE_NOTES_2
-} from "./chunk-2SUDMOCN.js";
+} from "./chunk-ZGFCK2VJ.js";
 import {
   addCommandExamples,
   addCommandNotes,
@@ -243,8 +243,8 @@ var GUIDANCE_EXAMPLES = {
   "playlist export": ["pl_PLAYLIST --output lobby-bundle"],
   "playlist import": ['lobby-bundle --name "Lobby copy"', "lobby-bundle --update pl_PLAYLIST"],
   "playlist patch": ['pl_PLAYLIST --name "Recordings \u2014 36 tracks" --expect-rev 7', "pl_PLAYLIST changes.json"],
-  "playlist page add": ["pl_PLAYLIST --media med_IMAGE --from 2026-12-01 --until 2026-12-24", 'pl_PLAYLIST --media med_VIDEO --before up-ab12cd34 --note "Winter menu"', "pl_PLAYLIST --file page.json --page-id welcome"],
-  "playlist page replace": ["pl_PLAYLIST up-ab12cd34 --media med_NEW", "pl_PLAYLIST up-ab12cd34 --until 2026-12-31", "pl_PLAYLIST up-ab12cd34 --always"],
+  "playlist page add": ["pl_PLAYLIST --media med_IMAGE --from 2026-12-01 --until 2026-12-24", 'pl_PLAYLIST --media med_VIDEO --before up-ab12cd34 --note "Winter menu"', "pl_PLAYLIST --media med_VIDEO --sound", "pl_PLAYLIST --file page.json --page-id welcome"],
+  "playlist page replace": ["pl_PLAYLIST up-ab12cd34 --media med_NEW", "pl_PLAYLIST up-ab12cd34 --until 2026-12-31", "pl_PLAYLIST up-ab12cd34 --always", "pl_PLAYLIST up-ab12cd34 --sound"],
   "playlist page remove": ["pl_PLAYLIST up-ab12cd34"],
   "playlist rename": ['pl_PLAYLIST --name "Recordings \u2014 36 tracks" --expect-rev 7'],
   "playlist list": ["", "--templates", "--library", "--library --templates"],

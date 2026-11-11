@@ -7,7 +7,7 @@ import {
   isAdSlotPage,
   playlistNeedsTimezone,
   wallProblem
-} from "./chunk-BLDJ2W37.js";
+} from "./chunk-HGYSRZDE.js";
 import {
   cardUid,
   validatePlaylistCards
@@ -614,6 +614,95 @@ function displaySettingsLines(display) {
 }
 function kioskLines(kiosk) {
   return kiosk && typeof kiosk.lock === "boolean" ? ["Kiosk lock: ".concat(kiosk.lock ? "on" : "off")] : [];
+}
+
+// dist/screen-volume.js
+var screen_volume_exports = {};
+__export(screen_volume_exports, {
+  VOLUME_LEVEL_MAX: () => VOLUME_LEVEL_MAX,
+  volumeLevel: () => volumeLevel,
+  volumeLevelOption: () => volumeLevelOption,
+  volumeLines: () => volumeLines,
+  volumeProblem: () => volumeProblem,
+  volumeText: () => volumeText,
+  volumeWrite: () => volumeWrite
+});
+var VOLUME_LEVEL_MAX = 100;
+function volumeLevel(value) {
+  const text = value.trim();
+  const level = /^\d{1,3}$/.test(text) ? Number(text) : Number.NaN;
+  if (!Number.isInteger(level) || level > VOLUME_LEVEL_MAX) {
+    throw usageError("--level takes a whole number from 0 to ".concat(VOLUME_LEVEL_MAX, "."));
+  }
+  return level;
+}
+function volumeLevelOption(value) {
+  volumeLevel(value);
+  return value;
+}
+function volumeWrite(level, mute, unmute) {
+  if (mute && unmute)
+    throw usageError("Use --mute or --unmute, not both.");
+  const write = {};
+  if (level !== void 0)
+    write.level = volumeLevel(level);
+  if (mute)
+    write.muted = true;
+  else if (unmute)
+    write.muted = false;
+  if (write.level === void 0 && write.muted === void 0) {
+    throw usageError("screen volume requires --level 0-100, --mute or --unmute.");
+  }
+  return write;
+}
+function volumeText(volume) {
+  return [
+    typeof volume.level === "number" ? "level ".concat(volume.level) : void 0,
+    volume.muted === true ? "muted" : volume.muted === false ? "unmuted" : void 0
+  ].filter(Boolean).join(", ");
+}
+function volumeLines(volume) {
+  if (!volume || typeof volume !== "object")
+    return [];
+  const lines = [];
+  const requested = volume.requested;
+  if (requested && typeof requested === "object" && typeof requested.volume_id === "string") {
+    const text = volumeText(requested);
+    lines.push("Volume requested: ".concat(text || "no change").concat(typeof requested.set_at === "string" ? " (set ".concat(requested.set_at, ")") : ""));
+  }
+  const reported = volume.reported;
+  if (reported && typeof reported === "object" && typeof reported.reported_at === "string") {
+    const parts = [
+      volumeText(reported),
+      reported.hardware === true ? "device volume" : reported.hardware === false ? "Player volume" : void 0
+    ].filter(Boolean).join(", ");
+    lines.push("Volume reported: ".concat(parts || "no volume", " at ").concat(reported.reported_at).concat(reported.stale ? " (stale: no report for over 35 minutes)" : ""));
+  }
+  return lines;
+}
+function volumeProblem(error, id) {
+  if (!(error instanceof CliError) || error.problem.next)
+    return error;
+  if (error.problem.code === "volume_unsupported") {
+    return new CliError({
+      ...error.problem,
+      detail: "".concat(error.problem.detail, " Nothing was sent: only a Player that declares the volume capability applies a remote volume."),
+      next: { command: "screenrig screen show ".concat(id), reason: "Check host.capabilities for volume. Update the Player and run the command again, or set the volume in the Player's settings menu." }
+    }, error.exitCode, error.warnings);
+  }
+  if (error.problem.code === "resource_conflict") {
+    return new CliError({
+      ...error.problem,
+      next: { command: "screenrig screen show ".concat(id), reason: "This screen has no paired Player yet, so there is no volume to set. Pair it first." }
+    }, error.exitCode, error.warnings);
+  }
+  if (error.problem.code === "screen_archived") {
+    return new CliError({
+      ...error.problem,
+      next: { command: "screenrig screen unarchive ".concat(id), reason: "An archived screen refuses volume control. Unarchive it first." }
+    }, error.exitCode, error.warnings);
+  }
+  return error;
 }
 
 // dist/screen-display.js
@@ -1931,6 +2020,12 @@ export {
   displayIdleText,
   kioskLines,
   screen_device_settings_exports,
+  volumeLevelOption,
+  volumeWrite,
+  volumeText,
+  volumeLines,
+  volumeProblem,
+  screen_volume_exports,
   displayScheduleWrite,
   rebootScheduleWrite,
   displayPower,

@@ -148,11 +148,11 @@ var COMMAND_BUNDLES = {
   account: () => import("./account-THVIVIAQ.js"),
   ads: () => import("./ads-JMUSSCPT.js"),
   media: () => import("./media-CPPYAILI.js"),
-  playlists: () => import("./playlists-XCQJH3VQ.js"),
-  screens: () => import("./screens-YCABYQDQ.js"),
-  monitoring: () => import("./monitoring-BALOPL5Z.js"),
+  playlists: () => import("./playlists-3ZNNQOII.js"),
+  screens: () => import("./screens-BTUON53J.js"),
+  monitoring: () => import("./monitoring-CWL3QDTI.js"),
   integrations: () => import("./integrations-IP2UAL5X.js"),
-  migrate: () => import("./migrate-EM2KX5NE.js"),
+  migrate: () => import("./migrate-5JKOCM2K.js"),
   docs: () => import("./docs-TJXAGI4W.js")
 };
 var TOP_LEVEL_COMMANDS = {
@@ -412,7 +412,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-OJIWWL7S.js");
+    const { registerGuidance } = await import("./register-guidance-5TWOPSUE.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };

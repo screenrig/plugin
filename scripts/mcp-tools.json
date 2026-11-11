@@ -156,6 +156,7 @@
     "screenrig_screen_unarchive",
     "screenrig_screen_update",
     "screenrig_screen_update_software",
+    "screenrig_screen_volume",
     "screenrig_server_status",
     "screenrig_source_create",
     "screenrig_source_delete",

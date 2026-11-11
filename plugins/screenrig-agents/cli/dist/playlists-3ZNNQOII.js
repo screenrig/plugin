@@ -52,7 +52,7 @@ import {
   validatePlaylistWrite,
   wallSize,
   withCanvasBackground
-} from "./chunk-BLDJ2W37.js";
+} from "./chunk-HGYSRZDE.js";
 import {
   apexHost
 } from "./chunk-BWPKDRCP.js";
@@ -688,7 +688,7 @@ function normalizePlaylistForBundle(input, options = {}) {
           primitive: category,
           selector,
           ...category === "image" && typeof primitive.alt === "string" ? { alt: primitive.alt } : {},
-          ...category === "video" ? { muted: primitive.muted === true, loop: primitive.loop === true } : {}
+          ...category === "video" ? { muted: primitive.muted !== false, loop: primitive.loop === true } : {}
         };
       } else {
         throw usageError("Playlist export encountered an unsupported primitive.");
@@ -1667,7 +1667,7 @@ var handlePlaylistInit = commandHandler(async (args, runtime, resolved) => {
       content.push({ primitive: audioFile ? "audio" : "image", state: "ready", id: "med_PENDING" });
     }
   }
-  const options = { name: flagString(args.flags, "name"), content, ...dimensions, durationMs: flagNumber(args.flags, "duration-ms"), fit: flagString(args.flags, "fit") ?? "contain" };
+  const options = { name: flagString(args.flags, "name"), content, ...dimensions, durationMs: flagNumber(args.flags, "duration-ms"), fit: flagString(args.flags, "fit") ?? "contain", sound: flagBool(args.flags, "sound") };
   const validated = preparePlaylist(options);
   const shortApplication = shortApplicationPageWarning(validated);
   if (shortApplication)
@@ -1816,6 +1816,7 @@ async function transitionFor(client, playlist) {
     throw error;
   }
 }
+var SOUND_CUE_MESSAGE = "a page with sound cannot cue the soundtrack";
 function buildMediaPage(input) {
   const canvas = pageCanvas(input.playlist);
   const primitive = {
@@ -1826,8 +1827,10 @@ function buildMediaPage(input) {
     layer: 0,
     content_fit: input.fit
   };
+  if (input.sound === true && input.kind !== "video")
+    throw usageError("--sound plays a video's audio; this media is an image.");
   if (input.kind === "video")
-    primitive.muted = true;
+    primitive.muted = input.sound !== true;
   const page = {
     id: input.id,
     canvas,
@@ -1872,7 +1875,7 @@ function authoringPage(stored) {
 function replaceMedia(input) {
   const page = authoringPage(input.stored);
   let result = page;
-  if (input.mediaId !== void 0 || input.fit !== void 0 || input.seconds !== void 0) {
+  if (input.mediaId !== void 0 || input.fit !== void 0 || input.seconds !== void 0 || input.sound === true) {
     const primitives = Array.isArray(page.primitives) ? page.primitives : [];
     const only = primitives.length === 1 && isObject(primitives[0]) ? primitives[0] : void 0;
     if (!only) {
@@ -1884,13 +1887,21 @@ function replaceMedia(input) {
         primitive.selector = { by: "id", media_id: input.mediaId };
       if (input.fit)
         primitive.content_fit = input.fit;
+      if (input.sound === true) {
+        if (only.primitive !== "video")
+          throw usageError("--sound plays a video's audio; page ".concat(String(input.stored.id), " shows ").concat(only.primitive === "image" ? "an image" : "a ".concat(String(only.primitive)), "."));
+        primitive.muted = false;
+      }
       result = { ...page, primitives: [primitive] };
       if (only.primitive === "image" && input.seconds !== void 0)
         result.advance = { mode: "duration", after_ms: Math.round(input.seconds * 1e3) };
     } else {
-      const rebuilt = buildMediaPage({ id: String(input.stored.id), mediaId: input.mediaId, kind: input.kind, fit: input.fit ?? "contain", seconds: input.seconds ?? DEFAULT_SECONDS, playlist: input.playlist });
+      const rebuilt = buildMediaPage({ id: String(input.stored.id), mediaId: input.mediaId, kind: input.kind, fit: input.fit ?? "contain", seconds: input.seconds ?? DEFAULT_SECONDS, playlist: input.playlist, ...input.sound ? { sound: true } : {} });
       result = { ...page, canvas: rebuilt.canvas, advance: rebuilt.advance, primitives: rebuilt.primitives };
     }
+  }
+  if (input.sound === true && result.audio_cue !== void 0) {
+    throw usageError("Page ".concat(String(input.stored.id), " has an audio_cue, and ").concat(SOUND_CUE_MESSAGE, ". Replace it with --file, without the cue, to give it sound."));
   }
   if (input.always) {
     const visibility2 = withoutDates(page.visibility);
@@ -1932,6 +1943,9 @@ function fit(args) {
   if (value !== "contain" && value !== "cover")
     throw usageError("--fit takes contain or cover.");
   return value;
+}
+function sound(args) {
+  return flagBool(args.flags, "sound");
 }
 function dates(args) {
   const from = flagString(args.flags, "from"), until = flagString(args.flags, "until");
@@ -2035,8 +2049,8 @@ var handlePlaylistPageAdd = commandHandler(async (args, runtime, resolved) => {
   const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
   let page;
   if (file !== void 0) {
-    if (seconds(args) !== void 0 || fit(args) !== void 0)
-      throw usageError("--seconds and --fit shape a page built from --media; a --file page is sent as written.");
+    if (seconds(args) !== void 0 || fit(args) !== void 0 || sound(args))
+      throw usageError("--seconds, --fit and --sound shape a page built from --media; a --file page is sent as written.");
     page = await pageFromFile(file, runtime);
     if (requestedId !== void 0)
       page.id = requestedId;
@@ -2047,7 +2061,7 @@ var handlePlaylistPageAdd = commandHandler(async (args, runtime, resolved) => {
     const kind = await mediaOf(client, media);
     const { playlist } = await playlistOf(client, id);
     const transition = await transitionFor(client, playlist);
-    page = buildMediaPage({ id: requestedId ?? newPageId(), mediaId: media, kind, fit: fit(args) ?? "contain", seconds: seconds(args) ?? DEFAULT_SECONDS, playlist, transition, ...when.from ? { from: when.from } : {}, ...when.until ? { until: when.until } : {} });
+    page = buildMediaPage({ id: requestedId ?? newPageId(), mediaId: media, kind, fit: fit(args) ?? "contain", seconds: seconds(args) ?? DEFAULT_SECONDS, playlist, transition, ...sound(args) ? { sound: true } : {}, ...when.from ? { from: when.from } : {}, ...when.until ? { until: when.until } : {} });
   }
   const response = await pageWrite(client, args, { method: "POST", path: pagesPath(id), body: { page, ...before !== void 0 ? { before } : {} } });
   return pageResult(response, client.requestId, "Page ".concat(String(page.id), " added to ").concat(id, "."));
@@ -2059,15 +2073,15 @@ var handlePlaylistPageReplace = commandHandler(async (args, runtime, resolved) =
   if (file !== void 0 && media !== void 0)
     throw usageError("playlist page replace takes --file PAGE.json or --media MED_ID, not both.");
   const when = dates(args);
-  if (file === void 0 && media === void 0 && when.from === void 0 && when.until === void 0 && !when.always) {
-    throw usageError("playlist page replace requires --file PAGE.json, --media MED_ID, or a date change (--from, --until or --always).");
+  if (file === void 0 && media === void 0 && when.from === void 0 && when.until === void 0 && !when.always && !sound(args)) {
+    throw usageError("playlist page replace requires --file PAGE.json, --media MED_ID, a date change (--from, --until or --always), or --sound.");
   }
   const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
   let page;
   let revision2;
   if (file !== void 0) {
-    if (seconds(args) !== void 0 || fit(args) !== void 0)
-      throw usageError("--seconds and --fit shape a page built from --media; a --file page is sent as written.");
+    if (seconds(args) !== void 0 || fit(args) !== void 0 || sound(args))
+      throw usageError("--seconds, --fit and --sound shape a page built from --media; a --file page is sent as written.");
     page = await pageFromFile(file, runtime);
     if (page.id !== void 0 && page.id !== pageId)
       throw usageError("The page file's id ".concat(String(page.id), " is not ").concat(pageId, "; a replace keeps the page's id."));
@@ -2086,7 +2100,7 @@ var handlePlaylistPageReplace = commandHandler(async (args, runtime, resolved) =
   } else {
     const { stored, playlist, revision: current } = await storedPageOf(client, id, pageId, resolved.token);
     const kind = media !== void 0 ? await mediaOf(client, media) : void 0;
-    page = replaceMedia({ stored, ...media !== void 0 ? { mediaId: media, kind } : {}, ...fit(args) ? { fit: fit(args) } : {}, ...seconds(args) !== void 0 ? { seconds: seconds(args) } : {}, playlist, ...when.from ? { from: when.from } : {}, ...when.until ? { until: when.until } : {}, always: when.always });
+    page = replaceMedia({ stored, ...media !== void 0 ? { mediaId: media, kind } : {}, ...fit(args) ? { fit: fit(args) } : {}, ...seconds(args) !== void 0 ? { seconds: seconds(args) } : {}, ...sound(args) ? { sound: true } : {}, playlist, ...when.from ? { from: when.from } : {}, ...when.until ? { until: when.until } : {}, always: when.always });
     revision2 = current;
   }
   return putPage(client, args, id, pageId, page, revision2, "Page ".concat(pageId, " of ").concat(id, " replaced."));
@@ -2104,11 +2118,12 @@ var REGIONS = ["header", "footer", "side"];
 var ORIENTATIONS = ["landscape", "portrait"];
 var REGION_HELP = "Make a strip: a playlist drawn over the page along the top (header), bottom (footer) or right edge (side) of a display, replacing a format in the file; give --format-orientation too";
 var ORIENTATION_HELP = "With --format-region: the orientation of the display the strip is made for, as the viewer sees it";
+var SOUND_HELP = "Play a video's audio (default: silent)";
 function registerPlaylistCommands(root, bind) {
   const playlist = root.command("playlist").description("Author, validate, and manage playlists");
-  const init = playlist.command("init").description("Prepare an editable playlist from files, ready media, application releases, or http(s) URLs").argument("<inputs...>", "Local image/video/audio files, med_ IDs, rel_ IDs, http(s) URLs or pasted <iframe> embed codes (iframe pages) in playback order; audio becomes the soundtrack").requiredOption("--name <NAME>", "Playlist name").requiredOption("--output <FILE>", "Write an editable playlist file").option("--overwrite", "Replace an existing output file atomically with a document built from these inputs").option("--target-width <PX>", "Override canvas width", positiveInteger("target-width")).option("--target-height <PX>", "Override canvas height", positiveInteger("target-height")).addOption(new Option("--duration-ms <MS>", "Non-video page duration (default 8000; 86400000 for application pages)").argParser(positiveInteger("duration-ms"))).addOption(new Option("--fit <FIT>", "Content fit").choices(["contain", "cover", "fill"]).default("contain")).option("--no-transcode", "Upload accepted file bytes unchanged").option("--no-progress", "Suppress upload progress on stderr").option("--poll-ms <MS>", "Upload polling interval", positiveInteger("poll-ms")).option("--screen-id <ID>", "Use this screen\u2019s identity, revision, and reported dimensions (a video wall\u2019s canvas and format when it has one)").action(bind(handlePlaylistInit));
+  const init = playlist.command("init").description("Prepare an editable playlist from files, ready media, application releases, or http(s) URLs").argument("<inputs...>", "Local image/video/audio files, med_ IDs, rel_ IDs, http(s) URLs or pasted <iframe> embed codes (iframe pages) in playback order; audio becomes the soundtrack").requiredOption("--name <NAME>", "Playlist name").requiredOption("--output <FILE>", "Write an editable playlist file").option("--overwrite", "Replace an existing output file atomically with a document built from these inputs").option("--target-width <PX>", "Override canvas width", positiveInteger("target-width")).option("--target-height <PX>", "Override canvas height", positiveInteger("target-height")).addOption(new Option("--duration-ms <MS>", "Non-video page duration (default 8000; 86400000 for application pages)").argParser(positiveInteger("duration-ms"))).addOption(new Option("--fit <FIT>", "Content fit").choices(["contain", "cover", "fill"]).default("contain")).option("--sound", "Play the audio of video pages (default: silent)").option("--no-transcode", "Upload accepted file bytes unchanged").option("--no-progress", "Suppress upload progress on stderr").option("--poll-ms <MS>", "Upload polling interval", positiveInteger("poll-ms")).option("--screen-id <ID>", "Use this screen\u2019s identity, revision, and reported dimensions (a video wall\u2019s canvas and format when it has one)").action(bind(handlePlaylistInit));
   requireOptionGroup(init, "together", ["--target-width", "--target-height"]);
-  addCommandNotes(init, "Provide --screen-id for target identity, revision, and reported dimensions, or both target dimensions. Files upload up to four at a time and wait for readiness; data.uploads reports each file's media_id, reused and per-stage timing. Nothing is written until every upload is ready, so an interrupted run leaves no output; rerun the same command and files already uploaded return their existing media IDs. Release IDs are pinned; server validation checks availability, and data.release_ids and data.media_ids report what the document holds. An existing non-empty --output file fails with usage_error (exit 2) and is left untouched; choose a new path or add --overwrite to rebuild it from these inputs, never publish the old file. Application pages hold for 24 hours (86400000 ms, the contract maximum) unless --duration-ms is given, because an app that rotates internally restarts each time its page advances; an application page set under 60 seconds earns an application_page_short warning here, in playlist validate and in screen publish. Audio inputs become the playlist soundtrack (tracks in input order) instead of pages. A screen with a video wall (screen wall set) uses the wall's canvas and the document carries the matching format {displays, arrangement, orientation, columns for a grid}: each tile is 1920x1080, or 1080x1920 for rotation 90 and 270, a row is that many tiles wide, a column that many tiles high and a grid its columns wide (data.format reports it). Explicit --target-width and --target-height instead make an ordinary playlist that every display mirrors. Inspect the document before publishing. An iframe address may carry screen tokens such as {screen.field.kiosk_id} in its path, query or fragment: it is kept as written and each screen's manifest fills in its own. A pasted <iframe> embed code (from Google's Publish to web or Microsoft's Embed dialog) is read for its src and becomes an iframe page; Google Slides, Docs and Sheets and Microsoft 365 Embed links are rebuilt for the screen when the playlist is written, and a Slides deck advances on its link's delay held to --duration-ms (give the page the time of the whole deck).");
+  addCommandNotes(init, "Provide --screen-id for target identity, revision, and reported dimensions, or both target dimensions. Files upload up to four at a time and wait for readiness; data.uploads reports each file's media_id, reused and per-stage timing. Nothing is written until every upload is ready, so an interrupted run leaves no output; rerun the same command and files already uploaded return their existing media IDs. Release IDs are pinned; server validation checks availability, and data.release_ids and data.media_ids report what the document holds. An existing non-empty --output file fails with usage_error (exit 2) and is left untouched; choose a new path or add --overwrite to rebuild it from these inputs, never publish the old file. Application pages hold for 24 hours (86400000 ms, the contract maximum) unless --duration-ms is given, because an app that rotates internally restarts each time its page advances; an application page set under 60 seconds earns an application_page_short warning here, in playlist validate and in screen publish. Audio inputs become the playlist soundtrack (tracks in input order) instead of pages. Video pages are silent unless --sound; a page with sound pauses the soundtrack while it shows. A screen with a video wall (screen wall set) uses the wall's canvas and the document carries the matching format {displays, arrangement, orientation, columns for a grid}: each tile is 1920x1080, or 1080x1920 for rotation 90 and 270, a row is that many tiles wide, a column that many tiles high and a grid its columns wide (data.format reports it). Explicit --target-width and --target-height instead make an ordinary playlist that every display mirrors. Inspect the document before publishing. An iframe address may carry screen tokens such as {screen.field.kiosk_id} in its path, query or fragment: it is kept as written and each screen's manifest fills in its own. A pasted <iframe> embed code (from Google's Publish to web or Microsoft's Embed dialog) is read for its src and becomes an iframe page; Google Slides, Docs and Sheets and Microsoft 365 Embed links are rebuilt for the screen when the playlist is written, and a Slides deck advances on its link's delay held to --duration-ms (give the page the time of the whole deck).");
   addCommandExamples(init, "screenrig playlist init med_IMAGE --name Lobby --screen-id scr_SCREEN --output lobby.json", "screenrig playlist init med_IMAGE med_VIDEO --name Lobby --target-width 1920 --target-height 1080 --output lobby.json");
   playlist.command("validate").description("Validate a playlist file").argument("<file>", "Playlist JSON file, or - for stdin").action(bind(handlePlaylistValidate));
   const create = playlist.command("create").description("Create a playlist from a file, from a template, or the built-in Urgent notice template").argument("[file]", "Playlist JSON file, or - for stdin").option("--from-template <ID>", "Make the playlist from this template: its current pages with the --set values filled in").option("--starter <KEY>", "Add a built-in template: urgent-notice (a headline and a message)").option("--name <NAME>", "The new playlist's name (required with --from-template)").option("--set <NAME=VALUE>", "With --from-template: a field's value, a media ID for a media field (repeatable)", templateSetOption).option("--dry-run", "With --from-template: check the values and print the page count without creating anything").option("--note <TEXT>", NOTE_HELP, reviewNoteOption).addOption(new Option("--format-region <REGION>", REGION_HELP).choices(REGIONS)).addOption(new Option("--format-orientation <ORIENTATION>", ORIENTATION_HELP).choices(ORIENTATIONS)).action(bind(handlePlaylistCreate));
@@ -2143,11 +2158,11 @@ function registerPlaylistCommands(root, bind) {
   revisionGroup.command("show").description("Show one revision and the playlist as it stood at that revision").argument("<id>", "Playlist identifier").requiredOption("--revision <N>", "Revision to show, as playlist revisions numbers it (required)", positiveInteger("revision")).action(bind(handlePlaylistRevisionShow));
   playlist.command("promote").description("Make an earlier revision current again by copying it forward as a new revision").argument("<id>", "Playlist identifier").requiredOption("--revision <N>", "Revision to copy forward, as playlist revisions numbers it (required)", positiveInteger("revision")).requiredOption("--expect-rev <REVISION>", "The playlist's current revision, from playlist show or the current row of playlist revisions (If-Match; required)", revision).action(bind(handlePlaylistPromote));
   const page = playlist.command("page").description("Add, replace or remove one page of a playlist without resending the others");
-  const pageAdd = page.command("add").description("Add a page: an uploaded image or video, or a page file").argument("<playlist-id>", "Playlist identifier").option("--file <PAGE.json>", "A page object to add, or - for stdin").option("--media <MED_ID>", "Show this image or video full-canvas, built on the playlist's canvas").option("--seconds <N>", "How long an image shows (default 10); a video plays to its end", positiveInteger("seconds")).addOption(new Option("--fit <FIT>", "How the media fits the canvas (default contain)").choices(["contain", "cover"])).option("--from <WHEN>", "First time the page is shown: YYYY-MM-DDTHH:MM or YYYY-MM-DD (00:00), in each screen's timezone").option("--until <WHEN>", "End of the page's showing: YYYY-MM-DDTHH:MM, or YYYY-MM-DD for the end of that day").option("--before <PAGE_ID>", "Put the page in front of this page (default: at the end)").option("--page-id <ID>", "The new page's id (default: up- and eight letters or digits)").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).option("--note <TEXT>", NOTE_HELP, reviewNoteOption).action(bind(handlePlaylistPageAdd));
+  const pageAdd = page.command("add").description("Add a page: an uploaded image or video, or a page file").argument("<playlist-id>", "Playlist identifier").option("--file <PAGE.json>", "A page object to add, or - for stdin").option("--media <MED_ID>", "Show this image or video full-canvas, built on the playlist's canvas").option("--seconds <N>", "How long an image shows (default 10); a video plays to its end", positiveInteger("seconds")).addOption(new Option("--fit <FIT>", "How the media fits the canvas (default contain)").choices(["contain", "cover"])).option("--sound", SOUND_HELP).option("--from <WHEN>", "First time the page is shown: YYYY-MM-DDTHH:MM or YYYY-MM-DD (00:00), in each screen's timezone").option("--until <WHEN>", "End of the page's showing: YYYY-MM-DDTHH:MM, or YYYY-MM-DD for the end of that day").option("--before <PAGE_ID>", "Put the page in front of this page (default: at the end)").option("--page-id <ID>", "The new page's id (default: up- and eight letters or digits)").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).option("--note <TEXT>", NOTE_HELP, reviewNoteOption).action(bind(handlePlaylistPageAdd));
   requireOptionGroup(pageAdd, "exactlyOne", ["--file", "--media"]);
-  const pageReplace = page.command("replace").description("Replace one page, keeping its place and id").argument("<playlist-id>", "Playlist identifier").argument("<page-id>", "The page to replace").option("--file <PAGE.json>", "The complete new page, or - for stdin").option("--media <MED_ID>", "Swap the page's media; everything else, dates included, stays as stored. Without --file or --media, only the dates (and --seconds, --fit) change").option("--seconds <N>", "How long an image shows", positiveInteger("seconds")).addOption(new Option("--fit <FIT>", "How the media fits the canvas").choices(["contain", "cover"])).option("--from <WHEN>", "First time the page is shown: YYYY-MM-DDTHH:MM or YYYY-MM-DD (00:00), in each screen's timezone").option("--until <WHEN>", "End of the page's showing: YYYY-MM-DDTHH:MM, or YYYY-MM-DD for the end of that day").option("--always", "Remove the page's dates (from and until); a switch-off or weekly windows the project set stay").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).option("--note <TEXT>", NOTE_HELP, reviewNoteOption).action(bind(handlePlaylistPageReplace));
+  const pageReplace = page.command("replace").description("Replace one page, keeping its place and id").argument("<playlist-id>", "Playlist identifier").argument("<page-id>", "The page to replace").option("--file <PAGE.json>", "The complete new page, or - for stdin").option("--media <MED_ID>", "Swap the page's media; everything else, dates included, stays as stored. Without --file or --media, only the dates (and --seconds, --fit, --sound) change").option("--seconds <N>", "How long an image shows", positiveInteger("seconds")).addOption(new Option("--fit <FIT>", "How the media fits the canvas").choices(["contain", "cover"])).option("--sound", SOUND_HELP).option("--from <WHEN>", "First time the page is shown: YYYY-MM-DDTHH:MM or YYYY-MM-DD (00:00), in each screen's timezone").option("--until <WHEN>", "End of the page's showing: YYYY-MM-DDTHH:MM, or YYYY-MM-DD for the end of that day").option("--always", "Remove the page's dates (from and until); a switch-off or weekly windows the project set stay").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).option("--note <TEXT>", NOTE_HELP, reviewNoteOption).action(bind(handlePlaylistPageReplace));
   requireOptionGroup(pageReplace, "atMostOne", ["--file", "--media"]);
-  requireOptionGroup(pageReplace, "atLeastOne", ["--file", "--media", "--from", "--until", "--always"]);
+  requireOptionGroup(pageReplace, "atLeastOne", ["--file", "--media", "--from", "--until", "--always", "--sound"]);
   page.command("remove").description("Remove one page").argument("<playlist-id>", "Playlist identifier").argument("<page-id>", "The page to remove").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).option("--note <TEXT>", NOTE_HELP, reviewNoteOption).action(bind(handlePlaylistPageRemove));
   playlist.command("delete").description("Delete a playlist").argument("<id>", "Playlist identifier").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handlePlaylistDelete));
 }

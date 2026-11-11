@@ -1397,6 +1397,8 @@ function validatePlaylistWriteSemantics(value) {
         fail("/pages/".concat(index, "/advance"), "audio_end requires an audio_cue on the same page");
       continue;
     }
+    if (array(page.primitives).map(object).some((primitive) => (primitive.primitive === "video" || primitive.primitive === "stream") && primitive.muted === false))
+      fail("/pages/".concat(index, "/audio_cue"), "a page with sound cannot cue the soundtrack");
     if (!Object.hasOwn(playlist, "audio"))
       fail("/pages/".concat(index, "/audio_cue"), "requires a playlist audio soundtrack");
     else if (!trackIds.has(object(page.audio_cue).track))
@@ -2038,14 +2040,16 @@ function validatePlaylistWrite(value, mediaPrimitives) {
         if (primitive.dwell_ms !== void 0)
           throw usageError("".concat(primitiveName, ".dwell_ms is not accepted: an image takes its page's timing, and a media_end page advances on its video."));
       } else {
-        if (primitive.muted !== void 0 && primitive.muted !== true)
-          throw usageError("".concat(primitiveName, ".muted must be true."));
+        optionalBoolean(primitive, "muted", primitiveName);
         optionalBoolean(primitive, "loop", primitiveName);
       }
       mediaPrimitivesOnPage.push({ primitive: category, value: primitive, selector });
     }
     if (iframeCount > 2)
       throw usageError("".concat(pageName, ".primitives must contain at most 2 iframe primitives."));
+    if (page.audio_cue !== void 0 && mediaPrimitivesOnPage.some((media) => media.primitive === "video" && media.value.muted === false)) {
+      throw usageError("".concat(pageName, ".audio_cue: a page with sound cannot cue the soundtrack."));
+    }
     if (advance === "application")
       throw usageError("".concat(pageName, " application advance is unsupported because bundles exclude applications."));
     const videos = mediaPrimitivesOnPage.filter((media) => media.primitive === "video");
@@ -2482,7 +2486,7 @@ function preparePlaylist(options) {
         rect: { x: 0, y: 0, width: options.width, height: options.height },
         layer: 0,
         content_fit: live ? "fill" : options.fit,
-        ...video ? { muted: true, loop: false } : {}
+        ...video ? { muted: options.sound !== true, loop: false } : {}
       }]
     };
   }) };
