@@ -231,6 +231,11 @@ job that keeps a card current writes on the data's own schedule with `--ttl`
 ([keep cards current](references/sources.md#keep-cards-current)).
 A write that answers `rate_limited` waits `error.retry_after_seconds`, then retries.
 
+Videos play silent. Give a page sound with `--sound` (`playlist init`,
+`playlist page add|replace`) or `muted: false` on a `video` or `stream`
+primitive: the soundtrack pauses while that page shows and resumes after, so a
+page with sound takes no `audio_cue`.
+
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
 names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
@@ -455,7 +460,9 @@ Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen display-idle` (dark after idle, wake on touch or presence),
 `screen brightness --mode auto` (light sensor), `screen kiosk-lock` (pin the
-Player on Android), `screen reboot` (only where the Player declares it; fleets need `--yes`
+Player on Android), `screen volume` (`--level 0-100`, `--mute`, `--unmute`; only
+where the Player declares it, else `volume_unsupported`; `screen show` reports
+`volume`), `screen reboot` (only where the Player declares it; fleets need `--yes`
 and the user's confirmation) and `screen reboot-schedule set ID|--tag TAG
 --window "Mon-Sun 04:00-04:30"` (the backend reboots at each window's start in
 the screen's timezone, which must be set; an offline screen is rebooted only

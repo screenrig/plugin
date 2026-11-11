@@ -433,6 +433,8 @@ video of its folders only (a stinger transition's logo included);
 - A soundtrack is `audio: {tracks, loop, volume, cued}` (1 to 128 uploaded
   tracks); pages bind with `audio_cue` or `advance: {"mode": "audio_end"}`.
   `playlist update` replaces the whole document, so omitting `audio` removes it.
+  A page with a `video` or `stream` that sets `muted: false` plays that sound
+  and pauses the soundtrack while it shows, so it cannot carry an `audio_cue`.
   Details: [soundtracks](https://screenrig.ai/docs/compose.md#add-a-soundtrack).
 - An ad break is an `adslot` page (`id`, `type`, `adslot_id`, optional
   `visibility`), not a primitive; keep an ordinary fallback page.
