@@ -55,8 +55,10 @@ the state word alone.
 `health.renderer_restarts_24h`, `health.reported_at`, `health.stale`.
 
 **Connection** — `state`, `online`, `last_seen_at`, `last_online_at`,
-`health.network.kind`, `health.network.wifi_rssi_dbm` in dBm, `timezone` with
-`timezone_source`, `tags`, `created_at`, `updated_at`.
+`health.network.kind`, `health.network.wifi_rssi_dbm` in dBm,
+`effective_timezone` with `timezone_source` (`screen` override, `device` or
+`default` UTC), `timezone` (the override, when set), `tags`, `created_at`,
+`updated_at`.
 
 **Storage** — `storage.volume.available_bytes` over `.total_bytes`,
 `storage.cache.house_used_bytes` over `.capacity_bytes`, `storage.plan.fit`

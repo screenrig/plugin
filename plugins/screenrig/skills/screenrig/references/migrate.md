@@ -16,7 +16,8 @@ chat replies or a command line, and never ask for one to be pasted into chat.
    sign-in and sends nothing to screenRIG. Show the person the counts, every
    `not_imported` reason and the `lossy` changes. Where `next` asks for
    originals, have them download the files into one folder and rescan with
-   `--files DIR`. Add `--timezone ZONE` when screens have no time zone.
+   `--files DIR`. Add `--timezone ZONE` to give screens that name none a time zone; a
+   screen without one follows its device's zone.
 3. `migrate apply --dry-run` prints the plan from the project as it is now.
    `migrate apply` (Manage access) makes the media, playlists, one waiting
    screen per old screen and the campaigns. It is safe to rerun and never
@@ -32,6 +33,6 @@ chat replies or a command line, and never ask for one to be pasted into chat.
    run `migrate apply` again, which finishes the screen. Past the project's 50
    links a screen has no link and pairs by code.
 5. Verify each screen with `screen show` and `screen screenshot`. Set what the
-   report said was missing: `screen set-timezone` where `no_timezone`,
-   `screen assign` where `no_default_playlist`.
+   report said was missing: `screen assign` where `no_default_playlist`. A screen
+   follows its device's time zone; `screen set-timezone` only overrides it.
 6. Tell the person to keep the old system running until every screen matches.

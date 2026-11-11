@@ -399,8 +399,9 @@ content across screens (a promotion at every `north` store, weekday lunch
 menus) create one campaign, not per-screen schedules: `campaign create --name
 Lunch --playlist-id ID --tag north --window mon-fri@11:00-14:00` (`--folder ID`
 for a folder). Screens that join its audience later get it too. It needs each
-screen's default playlist and, with any date or time rule, its timezone
-(`screen set-timezone`). `campaign screens ID` shows every screen's
+screen's default playlist; its date and time rules read in each screen's time
+zone, which is its device's unless `screen set-timezone` overrides it (`screen
+set-timezone ID --clear` removes the override). `campaign screens ID` shows every screen's
 standing, `campaign show ID` its `reach` (`published`, `current`, `empty_groups`;
 see [notifications](references/notifications.md#reach_dropped-and-group_empty-a-campaign-silently-stops-reaching-screens)),
 and `campaign explain SCREEN_ID` says why one does not play it;
@@ -467,8 +468,8 @@ a name; `folder:NAME`; `tag:NAME`), `content` (a media file name,
 `playlist:NAME`), `start` and `end` (`2026-11-05 18:00`; an end that is a date
 alone closes that day), and optionally `timezone`, `days` (`Mon-Fri`), `daily
 start` and `daily end`, `priority` (0-100, higher wins), `name` and `display`.
-Times are read on each screen's own clock; a screen needs its timezone and a
-default playlist. Rows that agree on content, times and priority become one
+Times are read on each screen's own clock (its device's time zone unless
+overridden); a screen needs a default playlist. Rows that agree on content, times and priority become one
 level: one screen gets an entry in its own schedule, several screens, a folder
 or a tag one shared level (a campaign). The same `--name` updates the levels it
 made and removes those whose rows are gone; the same sheet again changes
@@ -487,7 +488,7 @@ where the Player declares it, else `volume_unsupported`; `screen show` reports
 `volume`), `screen reboot` (only where the Player declares it; fleets need `--yes`
 and the user's confirmation) and `screen reboot-schedule set ID|--tag TAG
 --window "Mon-Sun 04:00-04:30"` (the backend reboots at each window's start in
-the screen's timezone, which must be set; an offline screen is rebooted only
+the screen's time zone; an offline screen is rebooted only
 until the window ends; `show` prints `next_reboot_at`; no offline alert for a
 reboot it sent). Verify with `effective_playlist` in `screen show`.
 `reboot`, `reload` and the three below reach an online screen at once and wait

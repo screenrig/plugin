@@ -421,8 +421,8 @@ video of its folders only (a stinger transition's logo included);
   rejected. A file that asks viewers to sign in fails with `document_not_shared`
   naming the setting to change. The screen needs Google or Microsoft on the
   internet.
-- `visibility` times are civil (no zone); keep at least one page without it, and
-  set the screen timezone before assigning a scheduled playlist. A
+- `visibility` times are civil, read in each screen's time zone (its device's
+  unless `screen set-timezone` overrides it); keep at least one page without it. A
   `visibility.data` condition keys off card data. Its key `{screen.weather}`
   keys off the weather where each screen is (give the screen a location first,
   `screen update --location`): `{"key":"{screen.weather}","path":"/condition","equals":"rain"}`.
