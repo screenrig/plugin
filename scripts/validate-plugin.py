@@ -447,7 +447,8 @@ def check_no_alternate_surfaces() -> None:
             errors.append(f"skills/screenrig/SKILL.md: does not teach {taught}")
     # The product has no image generation, usage credit or metered requests.
     retired = re.compile(
-        r"media generate|screenrig_media_generate|usage credit|billed (?:API )?(?:request|event|route)|payment_required",
+        r"media generate|screenrig_media_generate|usage credit|billed (?:API )?(?:request|event|route)|payment_required"
+        r"|\bcredits\b(?!_)|credit balance|prepaid balance|\bwallet\b",
         re.IGNORECASE)
     for path in (ROOT / "skills").rglob("*"):
         if path.is_file() and path.suffix in {".md", ".yaml"}:

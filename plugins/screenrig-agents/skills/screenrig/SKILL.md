@@ -589,7 +589,8 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   answer is 429 `rate_limited` with `error.retry_after_seconds` (up to an
   hour): wait that long once, rerun the same command once, never loop, and tell
   the user. `screenrig billing usage` shows storage against the plan limit and
-  the requests used this hour. Spend requests well: `media upload-batch` for
+  the hourly cap (`agent_requests_per_hour`); the `RateLimit` header of each
+  counted response carries the requests remaining. Spend requests well: `media upload-batch` for
   many files, and a listen stream (`events follow`) instead of polling lists.
 - **Storage.** Each plan includes a fixed amount (1 GB on Standard, 100 GB on
   Plus, 1,000 GB on Premium and Education, 10,000 GB on Enterprise). An upload

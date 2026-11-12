@@ -82,7 +82,7 @@ METADATA: dict[str, Any] = {
     "interface": {
         "displayName": "screenRIG",
         "shortDescription": "Put your content on screens",
-        "longDescription": "Use screenRIG to prepare content, pair Players, upload images and videos, and publish playlists to your screens. In environments that can run the bundled CLI, manage signage and eligible advertising workflows through conversation. Connect your screenRIG account to browse interactive screen, media, and playlist cards in supported MCP Apps hosts. Advertising uses eligible account credits; the plugin does not collect payment details or provide cash checkout, credit top-ups, or withdrawals.",
+        "longDescription": "Use screenRIG to prepare content, pair Players, upload images and videos, and publish playlists to your screens. In environments that can run the bundled CLI, manage signage and eligible advertising workflows through conversation. Connect your screenRIG account to browse interactive screen, media, and playlist cards in supported MCP Apps hosts. Advertisers pay in US dollars by card or x402 machine payment through screenRIG; the plugin does not collect payment details or provide checkout or withdrawals.",
         "defaultPrompt": [
             "Help me get a photo and video playing on my TV.",
             "Show my screenRIG screens.",
@@ -117,7 +117,7 @@ SUBMISSION: dict[str, Any] = {
     "review": {
         "demo_recording_url": "https://drive.google.com/file/d/1pW-ohPjCHR35XzFJcmrKFZB-Wg45buGs/view?usp=sharing",
         "commerce": True,
-        "commerce_description": "screenRIG supports buying and selling advertising placements using eligible account credits, including campaign pricing, activation, and settlement after verified playback. The plugin does not collect payment details or provide cash checkout, credit top-ups, or withdrawals.",
+        "commerce_description": "screenRIG supports buying and selling advertising placements with prices and earnings in US dollars (advertisers pay by card or x402 machine payment), including campaign pricing, activation, and settlement after verified playback. The plugin does not collect payment details or provide checkout or withdrawals.",
         "test_cases": {
             "positive": [
                 {
@@ -161,8 +161,8 @@ SUBMISSION: dict[str, Any] = {
                     "prompt": "Move the mouse on the computer connected to my screen and type into its open spreadsheet."
                 },
                 {
-                    "description": "Unsupported cash withdrawal. Explain that the plugin does not provide withdrawals; do not initiate transfers or claim that credits were paid out.",
-                    "prompt": "Withdraw my advertising credits into my bank account."
+                    "description": "Unsupported cash withdrawal. Explain that the plugin does not provide withdrawals; do not initiate transfers or claim that earnings were paid out.",
+                    "prompt": "Withdraw my advertising earnings into my bank account."
                 }
             ]
         }

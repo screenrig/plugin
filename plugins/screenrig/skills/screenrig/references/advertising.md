@@ -1,6 +1,7 @@
 # Advertising
 
-Advertising runs on the project's one prepaid balance and the same CLI. `advertiser`
+Advertising runs on the same CLI. Advertisers pay in US dollars by card or x402
+machine payment, and sellers' earnings are dollars. `advertiser`
 and `screens` are independent project features: a project can buy ads, sell its
 own inventory, do both or neither. Read `screenrig project capabilities` first;
 the server's answer wins over anything cached. Flags and examples:
@@ -11,11 +12,11 @@ the server's answer wins over anything cached. Flags and examples:
 1. A person claims the emailed buyer invitation in the dashboard; admission is
    by invitation only. `ads networks list|show` reads the sellers, screens, slots
    and per-play rates this membership permits. An empty list means no permission.
-2. Read `billing balance`, upload creative with `media upload`, bind it with
+2. Read `billing balance` (the project's funds for ads), upload creative with `media upload`, bind it with
    `ads creatives create --media-id ID --copy TEXT`.
 3. `ads campaigns create FILE` drafts a campaign (networks, scope, flight,
-   `image_duration_ms`, `max_play_price_mcr`, daily and lifetime caps). Money is
-   decimal mcr strings. A draft spends nothing and is not permission to buy.
+   `image_duration_ms`, `max_play_price_mcr`, daily and lifetime caps). Money fields
+   (`*_mcr`) are exact decimal strings. A draft spends nothing and is not permission to buy.
 4. `ads campaigns preview ID` returns the quote; show the user the prices,
    flight and caps. Only with the user's explicit authority run
    `ads campaigns activate ID --quote-id QUOTE --expect-rev REV`. Activation
@@ -24,7 +25,7 @@ the server's answer wins over anything cached. Flags and examples:
 5. Monitor with `ads reports spend`; `pause` and `resume` need the current
    revision. A seller rate change sets `price_change_pending`, which only
    `preview` then `accept-rates --quote-id ... --expect-rev ...` clears; a
-   top-up or `resume` does not. `quote_stale` means re-preview.
+   payment or `resume` does not. `quote_stale` means re-preview.
 
 ## Selling
 
@@ -64,14 +65,13 @@ ready images or videos), an optional `goal_plays` and targeting (`screen_ids`,
   goal, pace, value and rows by day, screen and media. `ads reports fill` shows
   how the project's ad slots were filled and why the rest were not.
 
-## Credits and cash
+## Payment and payouts
 
-Purchased credits fund ad spend; ad-earned credits pay platform
-costs and ads in another invited network; promotional credits do not pay for ads.
-A campaign on the project's own network is a direct campaign; a marketplace buy
-there is refused (`self_deal`). Cash-out is not available in the CLI: a verified
-financial administrator withdraws in the dashboard. On `insufficient_credits`
-send the user to the dashboard to add credits, and invent no payment command or
-balance. `capability_required` and
+Advertisers pay by card or x402 machine payment, and prices and earnings are
+dollars. Seller payouts start 1 January 2027; the dashboard's financial
+administrator withdraws, and the CLI has no cash-out. A campaign on the
+project's own network is a direct campaign; a marketplace buy there is refused
+(`self_deal`). On `insufficient_credits` send the user to the dashboard to add
+funds by card or x402 payment, and invent no payment command. `capability_required` and
 `invitation_*` errors are final until the cause changes. Ad playback evidence is
 not an audited audience count.

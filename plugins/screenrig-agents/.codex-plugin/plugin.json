@@ -28,7 +28,7 @@
   "interface": {
     "displayName": "screenRIG",
     "shortDescription": "Put your content on screens",
-    "longDescription": "Use screenRIG to prepare content, pair Players, upload images and videos, and publish playlists to your screens. In environments that can run the bundled CLI, manage signage and eligible advertising workflows through conversation. Connect your screenRIG account to browse interactive screen, media, and playlist cards in supported MCP Apps hosts. Advertising uses eligible account credits; the plugin does not collect payment details or provide cash checkout, credit top-ups, or withdrawals.",
+    "longDescription": "Use screenRIG to prepare content, pair Players, upload images and videos, and publish playlists to your screens. In environments that can run the bundled CLI, manage signage and eligible advertising workflows through conversation. Connect your screenRIG account to browse interactive screen, media, and playlist cards in supported MCP Apps hosts. Advertisers pay in US dollars by card or x402 machine payment through screenRIG; the plugin does not collect payment details or provide checkout or withdrawals.",
     "defaultPrompt": [
       "Help me get a photo and video playing on my TV.",
       "Show my screenRIG screens.",
