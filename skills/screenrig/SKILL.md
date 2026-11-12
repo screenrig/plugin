@@ -134,7 +134,7 @@ you work for can approve.
   outside are listed with `editable: false`; do not change them.
 - Members, agents, invitations, fleet links, settings and project-wide reports
   are outside any scope. Read playback, calendar and logs per screen.
-- A protected folder (and the folders inside it) needs a second approver for
+- A protected folder (Premium; and the folders inside it) needs a second approver for
   anything that reaches its screens, at every access level. Assigning, schedules,
   takeovers, campaigns and folder or move changes return `pending_review`: say it
   waits, never that it plays. Tags, fields, location, timezone, replace, delete,
@@ -212,9 +212,9 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | An outside system pushing data a card shows (a CMS, Zapier, a point of sale, a script) | card webhook: `kv webhook create --card crd_ID --map FILE`; the sender POSTs JSON to its url, and a vendor that signs its posts (GitHub, Stripe, Shopify, Slack) verifies with `--verify` ([playlists](references/playlists.md#card-webhooks)) |
 | Touch or other input, a peripheral, an exact look no card has, a wall panel that dims, sleeps and wakes, or a device on the screen's network | application: try it with `app dev`, then `app upload` and an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md?utm_source=skills-sh&utm_medium=package&utm_campaign=tof-libs): `screenrig.device` drives the display, presence, volume keys and hardware; apps may call `http://` addresses on Android) |
 | Live video, a web page or a Google/Microsoft document, background music | `stream` or `iframe` primitive; playlist soundtrack ([playlists](references/playlists.md)) |
-| A Linux or Windows Player driving 2 to 12 displays as one wall | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
+| A Linux or Windows Player driving 2 to 12 displays as one wall (2 or 3 displays need Plus, 4 to 12 Enterprise) | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
 | A footer ticker or header logo over the page, on the same screen | strip: a playlist with `--format-region`, shown by a level that `covers` that region ([playlists](references/playlists.md#strips)) |
-| The same layout with staff-filled text, a photo or a link (brand rules, quick notices) | template: `fields` and `locked` on a playlist, then `playlist create --from-template` ([playlists](references/playlists.md#templates)) |
+| The same layout with staff-filled text, a photo or a link (brand rules, quick notices) | template (Premium): `fields` and `locked` on a playlist, then `playlist create --from-template` ([playlists](references/playlists.md#templates)) |
 | Data that lives elsewhere: a calendar, a sheet, a till, Slack, social posts, reviews | a card plus `source create`, from a preset when one exists (`source presets`; [sources](references/sources.md#presets)) |
 | Data that must stay current, and which way to feed it | a source, your own scheduled `card data put --ttl`, or a webhook ([keep cards current](references/sources.md#keep-cards-current)) |
 
@@ -329,7 +329,8 @@ content, and inspect every render at full size before publishing.
    acknowledged it; `assigned` means it has not, and `data.playback.reason` says why.
    To edit, `playlist show ID --output FILE`, edit, `playlist update ID FILE`
    (this affects every assigned screen). To undo, `playlist revisions ID`, then
-   `playlist promote ID --revision N --expect-rev CURRENT` copies one forward.
+   `playlist promote ID --revision N --expect-rev CURRENT` copies one forward
+   (Premium; `playlist revisions` is open on every plan).
 3. Take `screen screenshot SCREEN_ID` and inspect it before saying content is
    showing. `screen play-page` shows one page.
    Watch a screen live or sample frames: [live view](references/live-view.md).
@@ -396,7 +397,10 @@ entries in order, its default playlist, its nearest folder's default. For
 content across screens (a promotion at every `north` store, weekday lunch
 menus) create one campaign, not per-screen schedules: `campaign create --name
 Lunch --playlist-id ID --tag north --window mon-fri@11:00-14:00` (`--folder ID`
-for a folder). Screens that join its audience later get it too. It needs each
+for a folder). Screens that join its audience later get it too. Campaigns need Plus: on
+Standard `campaign create`, `resume`, `restore` and any `update` but a pause
+answer `feature_not_in_plan`, so give each screen its own entries with `screen
+schedule set` (open on every plan). A campaign needs each
 screen's default playlist; its date and time rules read in each screen's time
 zone, which is its device's unless `screen set-timezone` overrides it (`screen
 set-timezone ID --clear` removes the override). `campaign screens ID` shows every screen's
@@ -408,7 +412,8 @@ switches: check a plan before its date. The MCP tool `screenrig_schedule_calenda
 takes a screen, folder, tag or campaign and returns what its screens play over up
 to 93 days: each level's spans (plays, partial, outranked, conditional) and its
 conflicts (two campaigns of one priority holding at once, a level that never
-plays).
+plays). A folder, tag or campaign calendar needs Premium; one screen's calendar
+is open on every plan.
 
 A level holds while all its rules hold: `from`, `until`, weekly `windows`,
 `monthly` (day 1-31, or the 1st-4th or last weekday), `dates` (a whole day or
@@ -453,7 +458,7 @@ screenrig campaign create --name Browse --playlist-id pl_MENU --screen-id scr_KI
 The second plays the menu while someone uses the kiosk and returns to its
 default attract loop after 90 idle seconds.
 
-**Schedule import.** For a sheet of schedule lines (a venue's spreadsheet of
+**Schedule import** (Premium). For a sheet of schedule lines (a venue's spreadsheet of
 screen codes, file names, start and end times) do not create levels one by one.
 `screenrig schedule import FILE --name NAME` (CSV, XLSX or JSON rows) checks
 every row and prints its errors by column, the levels it makes and the calendar
@@ -485,7 +490,7 @@ Player on Android), `screen volume` (`--level 0-100`, `--mute`, `--unmute`; only
 where the Player declares it, else `volume_unsupported`; `screen show` reports
 `volume`), `screen reboot` (only where the Player declares it; fleets need `--yes`
 and the user's confirmation) and `screen reboot-schedule set ID|--tag TAG
---window "Mon-Sun 04:00-04:30"` (the backend reboots at each window's start in
+--window "Mon-Sun 04:00-04:30"` (in every plan; the backend reboots at each window's start in
 the screen's time zone; an offline screen is rebooted only
 until the window ends; `show` prints `next_reboot_at`; no offline alert for a
 reboot it sent). Verify with `effective_playlist` in `screen show`.
@@ -546,7 +551,7 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
 | `playback totals\|completeness`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
 | `reports` | The user wants health, uptime or alerts for a property by folder, tag or screen, a file to hand someone (CSV, XLSX, PDF), a sponsor's or advertiser's proof of play, a report emailed on a schedule, or a full copy of the project | `reports list`, then `reports show fleet_health` (every folder rolls up the folders inside it; `--group-by screen --folder-id ID --direct` for a folder's own screens). `--format pdf\|xlsx\|csv --output FILE` writes it, and the alerts, uptime, health, playback and ads report commands take the same flags. `reports show proof_of_play --advertiser NAME --format pdf` is the statement for an advertiser. `reports subscriptions create --kind KIND --cadence weekly --format pdf --recipients MEMBERS` emails project members only (user ids or member emails); `reports subscriptions send ID` mails it now and the subscription shows `last_status` and `last_error`. `project export DIR` writes JSON, original media with a hash manifest, CSV and the event log, never secrets; rerun it to continue. [reports](references/reports.md) |
-| `audit` | The user asks who changed something, what a screen, playlist or setting was before, what an agent or a colleague changed last week, or wants the record of changes for a compliance review | `audit list --resource-type screen --resource-id ID` (or `--actor-kind agent`, `--source mcp`, `--action 'playlist.*'`, `--since TIME`), `audit show ID` prints each changed field's before and after. Secrets read `(redacted)`; every other value is as stored. `audit export --format pdf\|xlsx\|csv --output FILE` writes the filtered log, and `audit head` then `audit verify --anchor SEQ:HASH` proves a kept copy was not rewritten. Kept 400 days; card data, K/V values and telemetry are not in it. [reports](references/reports.md) |
+| `audit` | (Premium) The user asks who changed something, what a screen, playlist or setting was before, what an agent or a colleague changed last week, or wants the record of changes for a compliance review | `audit list --resource-type screen --resource-id ID` (or `--actor-kind agent`, `--source mcp`, `--action 'playlist.*'`, `--since TIME`), `audit show ID` prints each changed field's before and after. Secrets read `(redacted)`; every other value is as stored. `audit export --format pdf\|xlsx\|csv --output FILE` writes the filtered log, and `audit head` then `audit verify --anchor SEQ:HASH` proves a kept copy was not rewritten. Kept 400 days; card data, K/V values and telemetry are not in it. [reports](references/reports.md) |
 | `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |
 
 ## Keep the project tidy
@@ -598,11 +603,19 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   change plan, and do not retry the upload. Stored content keeps playing, and
   card data and key/value writes are never refused for storage.
 - `feature_not_in_plan` (HTTP 402) means the project's plan does not include the
-  feature. Do not retry; tell the user the plan
-  `error.required_plan` names (`plus`, `premium` or `enterprise`) and continue
-  without the feature. `screenrig project capabilities` lists the plan's
-  features. No plan limits how many screens a project has, so never suggest a
-  plan to add screens.
+  feature. Do not retry. Tell the user which plan
+  includes it (`error.required_plan`: `plus`, `premium` or `enterprise`), point
+  them at [pricing](https://screenrig.ai/pricing?utm_source=skills-sh&utm_medium=package&utm_campaign=tof-libs), and carry on with
+  what the current plan allows. `screenrig project capabilities` lists each
+  feature and its plan. Beyond Standard, Plus has campaigns, weighted rotation,
+  data conditions, walls of 2 or 3 displays, alert routing, reports,
+  dashboards, connected sources, media sync, uploaders and screen scope;
+  Premium adds single sign-on, the audit log, protected folders, playlist
+  templates, the Library, the schedule calendar across folders, tags and
+  campaigns, playlist revision restore, schedule import, per-screen keyed data
+  and direct campaigns; Enterprise adds SCIM, schedule change control, the
+  Momentus source and walls of 4 to 12 displays. No plan limits how many screens
+  a project has, so never suggest a plan to add screens.
 - Never expose secrets: credentials of any kind, authentication headers, cookies, signed
   URLs and webhook secrets stay out of conversation, files and logs, and a
   sign-in address and code, invitation link or fleet-link URL goes only to the
