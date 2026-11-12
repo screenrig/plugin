@@ -402,7 +402,8 @@ the function status codes that are cancelled or not to be shown; Momentus status
 codes are the venue's own, so ask. It fills an `events` card (the event
 directory), a `room-board` card, or a `room` card for exactly one room.
 
-One source can also keep each screen to its own room. Set `room_key_prefix`
+One source can also keep each screen to its own room (per-screen keyed data,
+Premium). Set `room_key_prefix`
 (for example `momentus-room-`) and the source writes a `room` document per room
 under that prefix plus the room's key. Give each room's screen the field:
 `screen update SCR --field room=ballroom-a`. Use the inline catalogue type

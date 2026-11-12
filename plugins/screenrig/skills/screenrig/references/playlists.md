@@ -77,7 +77,8 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
   `{"documents":[{"fields":{"room":"A101"},"document":{"body":"Room A101"}}]}`.
   Place the owning `crd_` instance with `data: "room-{screen.field.room}"`;
   each screen reads the key filled from its own field. JSON, CSV and Sheets
-  sources use the same envelope with `key_template` in their settings.
+  sources use the same envelope with `key_template` in their settings (per-screen
+  keyed data on a source needs Premium).
   Preview source mappings with `source test`; all outputs use the owning card's
   schema. Use separate instances, mappings and key prefixes for different cards
   reading the same feed. Missing fields, duplicate keys or invalid documents
@@ -215,9 +216,10 @@ exported.
 ## Video walls
 
 A kiosk-installed Linux Player or a Windows Player drives 2 to 12 displays as
-one wall. Set it with `screenrig screen wall set SCREEN_ID --outputs
-HDMI-A-1,HDMI-A-2 --arrangement row|column|grid [--columns N] [--rotation
-0|90|180|270]` (outputs from `screen show`, such as `HDMI-A-1` on Linux or
+one wall (2 or 3 displays need Plus, 4 to 12 Enterprise: a wall or wall playlist
+format the plan lacks is `feature_not_in_plan`). Set it with `screenrig screen
+wall set SCREEN_ID --outputs HDMI-A-1,HDMI-A-2 --arrangement row|column|grid
+[--columns N] [--rotation 0|90|180|270]` (outputs from `screen show`, such as `HDMI-A-1` on Linux or
 `DISPLAY1` on Windows, listed left to right, then top to bottom) and remove it
 with `screen wall clear SCREEN_ID`; `wall_unsupported` means the Player lacks
 wall support. A grid takes `--columns`, an integer of at least 2 that divides
@@ -271,7 +273,7 @@ that resolve their own stack draw strips; any other Player's row reads
 
 ## Templates
 
-A template is an ordinary playlist with two additions, built once from the
+A template (Premium) is an ordinary playlist with two additions, built once from the
 brand guidelines so staff can fill in the parts that change.
 
 - `locked: true` on a primitive marks fixed brand content (logo, background,
@@ -351,7 +353,8 @@ video of its folders only (a stinger transition's logo included);
   never drive the advance and take no `dwell_ms`.
   Use `media selector-preview FILE --primitive image|video [--rect WxH]` to
   inspect a selector.
-- Weighted order (share of voice, sponsor rotation): `order: "weighted"` with
+- Weighted order (share of voice, sponsor rotation; needs Plus, else a new
+  weight is refused with `feature_not_in_plan`): `order: "weighted"` with
   `weights`, both or neither, plus `one_at_a_time: true` or `batch_size: 1`.
   `weights` maps `med_` IDs or `tag:NAME` to 1-1000 (64 keys at most); 50/30/20
   plays exactly 5/3/2 of every 10. An item takes its `med_` key, else its first
@@ -423,7 +426,7 @@ video of its folders only (a stinger transition's logo included);
   internet.
 - `visibility` times are civil, read in each screen's time zone (its device's
   unless `screen set-timezone` overrides it); keep at least one page without it. A
-  `visibility.data` condition keys off card data. Its key `{screen.weather}`
+  `visibility.data` condition (Plus) keys off card data. Its key `{screen.weather}`
   keys off the weather where each screen is (give the screen a location first,
   `screen update --location`): `{"key":"{screen.weather}","path":"/condition","equals":"rain"}`.
   `/condition` is clear, cloud, fog, rain, snow, storm or wind; `/band` is
