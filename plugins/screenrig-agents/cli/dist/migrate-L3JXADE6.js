@@ -2,7 +2,7 @@ import { createRequire as screenrigCreateRequire } from "node:module";
 const require = screenrigCreateRequire(import.meta.url);
 import {
   register
-} from "./chunk-FAHVNSNK.js";
+} from "./chunk-N2TZ2CGO.js";
 import "./chunk-TBH2NL64.js";
 import "./chunk-AXX5NCIK.js";
 import "./chunk-3W3YTE3M.js";
