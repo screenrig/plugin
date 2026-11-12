@@ -66,7 +66,7 @@ ready images or videos), an optional `goal_plays` and targeting (`screen_ids`,
 
 ## Credits and cash
 
-Purchased credits fund generation and ad spend; ad-earned credits pay platform
+Purchased credits fund ad spend; ad-earned credits pay platform
 costs and ads in another invited network; promotional credits do not pay for ads.
 A campaign on the project's own network is a direct campaign; a marketplace buy
 there is refused (`self_deal`). Cash-out is not available in the CLI: a verified

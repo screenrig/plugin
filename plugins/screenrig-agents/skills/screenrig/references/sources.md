@@ -63,7 +63,7 @@ take it as an argument or print it.
   Instagram post's caption): the card takes pictures only as media, so a post
   without words is left out.
 - `google-reviews` reads the place every 6 hours and `google-travel-times` every
-  15 minutes (one billed route element per destination per refresh), both on the
+  15 minutes (one Google route element per destination per refresh), both on the
   customer's own Google key: leave the interval alone. The reviews card shows the
   Google mark and each reviewer's name, as Google requires, and its data leaves
   the screen after 24 hours without a refresh.

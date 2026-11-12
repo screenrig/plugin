@@ -398,7 +398,7 @@ def check_no_alternate_surfaces() -> None:
     required_marketplace = {
         "README.md": ["https://screenrig.ai/docs/start", "SECURITY.md", "Node.js 22.23.4"],
         "skills/screenrig/SKILL.md": ["screenrig version", "screenrig-plugin-freshness", "screenrig doctor",
-            "not_enrolled", "agent enroll", "payment_required", "pending_review", "screenrig help --all",
+            "not_enrolled", "agent enroll", "rate_limited", "quota_exceeded", "pending_review", "screenrig help --all",
             "screen list --state archived", "screen recover", "recovery_pending", "screen unarchive",
             "unarchive alone does not bring it back"],
         "skills/screenrig/references/installation.md": ["--trust", "marketplace add"],
@@ -442,9 +442,18 @@ def check_no_alternate_surfaces() -> None:
             if pattern.search(skill_text):
                 errors.append(f"{skill_path.relative_to(ROOT)}: stale {label} language")
     skill_text = (ROOT / "skills/screenrig/SKILL.md").read_text(encoding="utf-8")
-    for taught in ("media generate", "media download", "screen archive", "screen unarchive", "screen recover"):
+    for taught in ("media upload-batch", "billing usage", "screen archive", "screen unarchive", "screen recover"):
         if taught not in skill_text:
             errors.append(f"skills/screenrig/SKILL.md: does not teach {taught}")
+    # The product has no image generation, usage credit or metered requests.
+    retired = re.compile(
+        r"media generate|screenrig_media_generate|usage credit|billed (?:API )?(?:request|event|route)|payment_required",
+        re.IGNORECASE)
+    for path in (ROOT / "skills").rglob("*"):
+        if path.is_file() and path.suffix in {".md", ".yaml"}:
+            match = retired.search(path.read_text(encoding="utf-8"))
+            if match:
+                errors.append(f"{path.relative_to(ROOT)}: retired phrase: {match.group(0)}")
 
 
 # A skill is read by an agent that then acts on it. A command or tool the product no

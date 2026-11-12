@@ -88,7 +88,7 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
 - The sender authenticates with the webhook's secret as a bearer credential (or
   HTTP Basic with the webhook id as user), never the secret in the url. Each post is checked as the
   card's own data (`card_data_invalid` names the path), an identical document is
-  not rewritten, and an accepted post is one billed API request.
+  not rewritten, and a webhook post does not count toward the hourly agent-request cap.
 - A wrong url, a wrong secret, a disabled webhook and any GET answer the same 404;
   only `deliveries` says why. `--signing` also requires `ScreenRig-Signature:
   t=UNIX,v1=HEX`, the HMAC-SHA256 of `t.BODY` under `data.signing_secret`, within
@@ -340,8 +340,8 @@ video of its folders only (a stinger transition's logo included);
   `primitive`, its own fields, `rect`, `layer`, `content_fit`, optional `enter`
   and `motion`).
 - Primitives are `image`, `video`, `stream`, `iframe`, `application`, `card`.
-  Text and shapes are not primitives: generate them into an image with
-  `media generate`, or show live text with a built-in card.
+  Text and shapes are not primitives: draw them into an image with your own
+  tools and `media upload` it, or show live text with a built-in card.
 - `image` and `video` need a `selector` (`by` `id`, `ids`, `all`, `tag`,
   `folder` with a `folder_id` from `media folder list`); `media_id` lives inside it. Others take none. `id` and `ids` may name the organization Library's media, and `folder` a Library folder (`media folder list --library`); `all` and `tag` never reach the Library. Dynamic selectors
   resolve at each loop; on duration, application and `audio_end` pages, and
