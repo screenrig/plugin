@@ -216,13 +216,24 @@ exported.
 ## Video walls
 
 A kiosk-installed Linux Player or a Windows Player drives 2 to 12 displays as
-one wall (2 or 3 displays need Plus, 4 to 12 Enterprise: a wall or wall playlist
-format the plan lacks is `feature_not_in_plan`). Set it with `screenrig screen
+one wall (2 displays are in every plan, 3 need Plus, 4 to 12 Enterprise: a wall
+or wall playlist format the plan lacks is `feature_not_in_plan`; a schedule,
+campaign or fleet schedule lock to display 2 is free and display 3 or higher
+needs Plus). Set it with `screenrig screen
 wall set SCREEN_ID --outputs HDMI-A-1,HDMI-A-2 --arrangement row|column|grid
 [--columns N] [--rotation 0|90|180|270]` (outputs from `screen show`, such as `HDMI-A-1` on Linux or
-`DISPLAY1` on Windows, listed left to right, then top to bottom) and remove it
+`DISPLAY1` on Windows, listed left to right, then top to bottom; `--arrangement`
+defaults to row) and remove it
 with `screen wall clear SCREEN_ID`; `wall_unsupported` means the Player lacks
-wall support. A grid takes `--columns`, an integer of at least 2 that divides
+wall support (`display.wall` for two or more outputs). One output rotates a
+single screen: `screen wall set SCREEN_ID --outputs HDMI-A-1 --rotation 90`
+turns it to portrait. It needs a Player that declares `display.rotate` (the
+Linux kiosk Player; else `wall_unsupported`), no plan feature, and no `format`:
+author with `playlist init --screen-id SCREEN_ID`, which writes a 1080x1920
+canvas for 90 or 270 and 1920x1080 otherwise, and assigning a playlist that has
+a `format` to a one-output screen is `playlist_format_mismatch`. The Player's
+own menu can set its layout too, so read `screen show` for the wall before
+setting one. A grid takes `--columns`, an integer of at least 2 that divides
 the displays into at least 2 rows (12 displays in 4 columns make 3 rows); a row
 or column takes none. Prefer a grid when a row or column would exceed 16384 px
 (more than 8 landscape displays in a row), the widest buffer most GPUs

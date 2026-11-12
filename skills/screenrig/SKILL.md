@@ -175,12 +175,22 @@ select fleets and are not authorization. Displays run by a device manager use
 `fleet-links create` instead of per-screen codes: its URL goes in a kiosk
 browser, in Android or
 Apple managed app configuration as `fleet_link` (`asset_id` names the screen),
-or in `/etc/screenrig/fleet-link` on Linux; `--expires-at` ends it. Its URL
+in `/etc/screenrig/fleet-link` on Linux, or in a `screenrig-fleet-link` file on
+the boot partition of a Raspberry Pi image; `--expires-at` ends it. Its URL
 creates screens, so give it only to the person who configures the devices. A
 browser that keeps no storage (vMix, OBS) opens the screen's own link
 (`screen link create SCREEN_ID`; rerunning it replaces the link). A
 factory-reset Android 10+ device enrolls by QR code:
 [Android device owner](references/android-device-owner.md).
+
+**Raspberry Pi.** The user flashes the screenRIG image with Raspberry Pi Imager
+(`rpi-imager --repo https://screenrig.ai/linux/rpi-imager.json?utm_source=skills-sh&utm_medium=package&utm_campaign=tof-libs`). The Pi boots
+into the Player and shows a pairing code, so pair it as above; a
+`screenrig-fleet-link` file on the boot partition enrolls it without a code. The
+Player's own menu (Device Configuration: Displays, Wi-Fi, Network, Time zone,
+Restart device, Shut down, Reset this screen) sets the network, time zone and
+display layout on the device, so no keyboard, SSH or agent step is needed. A
+Linux install with `install.sh --kiosk --manage-host` has the same screen.
 
 `screen archive` darkens a screen but keeps its playlist and binding. Before
 pairing a used display, run `screen list --state archived`. If `screen show` reports `recovery_pending`,
@@ -212,7 +222,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | An outside system pushing data a card shows (a CMS, Zapier, a point of sale, a script) | card webhook: `kv webhook create --card crd_ID --map FILE`; the sender POSTs JSON to its url, and a vendor that signs its posts (GitHub, Stripe, Shopify, Slack) verifies with `--verify` ([playlists](references/playlists.md#card-webhooks)) |
 | Touch or other input, a peripheral, an exact look no card has, a wall panel that dims, sleeps and wakes, or a device on the screen's network | application: try it with `app dev`, then `app upload` and an `application` primitive ([SDK](https://screenrig.ai/docs/sdk.md?utm_source=skills-sh&utm_medium=package&utm_campaign=tof-libs): `screenrig.device` drives the display, presence, volume keys and hardware; apps may call `http://` addresses on Android) |
 | Live video, a web page or a Google/Microsoft document, background music | `stream` or `iframe` primitive; playlist soundtrack ([playlists](references/playlists.md)) |
-| A Linux or Windows Player driving 2 to 12 displays as one wall (2 or 3 displays need Plus, 4 to 12 Enterprise) | `screen wall set`, then a playlist with `format` and primitive `displays` ([playlists](references/playlists.md#video-walls)) |
+| A Linux or Windows Player driving 2 to 12 displays as one wall (2 displays are in every plan, 3 need Plus, 4 to 12 Enterprise), or one Linux screen turned to portrait | `screen wall set` (one output with `--rotation 90` rotates a single screen), then a playlist with `format` and primitive `displays` for a wall, or `playlist init --screen-id` for a rotated screen ([playlists](references/playlists.md#video-walls)) |
 | A footer ticker or header logo over the page, on the same screen | strip: a playlist with `--format-region`, shown by a level that `covers` that region ([playlists](references/playlists.md#strips)) |
 | The same layout with staff-filled text, a photo or a link (brand rules, quick notices) | template (Premium): `fields` and `locked` on a playlist, then `playlist create --from-template` ([playlists](references/playlists.md#templates)) |
 | Data that lives elsewhere: a calendar, a sheet, a till, Slack, social posts, reviews | a card plus `source create`, from a preset when one exists (`source presets`; [sources](references/sources.md#presets)) |
@@ -608,7 +618,7 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   them at [pricing](https://screenrig.ai/pricing?utm_source=skills-sh&utm_medium=package&utm_campaign=tof-libs), and carry on with
   what the current plan allows. `screenrig project capabilities` lists each
   feature and its plan. Beyond Standard, Plus has campaigns, weighted rotation,
-  data conditions, walls of 2 or 3 displays, alert routing, reports,
+  data conditions, walls of 3 displays (two are in every plan), alert routing, reports,
   dashboards, connected sources, media sync, uploaders and screen scope;
   Premium adds single sign-on, the audit log, protected folders, playlist
   templates, the Library, the schedule calendar across folders, tags and
