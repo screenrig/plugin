@@ -60,6 +60,9 @@ loads one screenRIG skill.
 
 Claude sends what you ask it to create or change (screen names, playlists,
 card content, schedules) to your screenRIG account through
-`api.screenrig.ai`, and reads your screens, media and reports from it. The
-plugin stores nothing itself. [Privacy](https://screenrig.ai/privacy) ·
+`api.screenrig.ai`, and reads your screens, media and reports from it. A file
+Claude uploads for you goes to screenRIG's file storage on Cloudflare R2
+(`r2.cloudflarestorage.com`), at a signed address the connector gives for that
+one file. Your account keeps what you put in it until you delete it. The plugin
+stores nothing itself. [Privacy](https://screenrig.ai/privacy) ·
 [Terms](https://screenrig.ai/terms) · [Support](https://screenrig.ai/contact)
