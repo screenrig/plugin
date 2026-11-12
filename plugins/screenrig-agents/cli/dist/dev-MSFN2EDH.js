@@ -642,6 +642,8 @@ var FEATURE_NAMES = [
   "device.watch",
   "device.vibrate",
   "device.scan",
+  "device.scanner",
+  "device.people",
   "device.camera",
   "device.sound",
   "device.serial",
@@ -659,7 +661,12 @@ var FEATURE_NAMES = [
   "context.params",
   "context.screen"
 ];
-var IMPLIED_FEATURES = { "device.ir": ["device.ir.send"] };
+var IMPLIED_FEATURES = {
+  "device.ir": ["device.ir.send"],
+  // Older Players advertised camera as one feature for both scanner controls
+  // and people-count events.
+  "device.camera": ["device.scanner", "device.people"]
+};
 function advertises(features, feature) {
   return features.includes(feature) || features.some((held) => IMPLIED_FEATURES[held]?.includes(feature) === true);
 }
@@ -678,8 +685,8 @@ var BASELINE_FEATURES = [
   "response.problem"
 ];
 var KIND_FEATURES = {
-  "device.scanner.start": "device.camera",
-  "device.scanner.stop": "device.camera",
+  "device.scanner.start": "device.scanner",
+  "device.scanner.stop": "device.scanner",
   "device.serial.list": "device.serial",
   "device.serial.open": "device.serial",
   "device.serial.write": "device.serial",
@@ -705,7 +712,7 @@ var WATCH_EVENTS = [
   { name: "light", capability: "device.light", feature: "device.watch" },
   { name: "network", capability: "device.network", feature: "device.watch" },
   { name: "scan", capability: "device.scan", feature: "device.scan" },
-  { name: "people", capability: "device.camera", feature: "device.camera" },
+  { name: "people", capability: "device.camera", feature: "device.people" },
   { name: "sound", capability: "device.sound", feature: "device.sound" },
   { name: "serial", capability: "device.serial", feature: "device.serial" },
   { name: "gpio", capability: "device.gpio", feature: "device.gpio" },

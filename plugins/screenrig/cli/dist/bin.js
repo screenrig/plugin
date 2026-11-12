@@ -143,7 +143,7 @@ function registerGlobalOptions(root) {
 var COMMAND_BUNDLES = {
   account: () => import("./account-ZRKGVJPV.js"),
   ads: () => import("./ads-5AAQQQPK.js"),
-  media: () => import("./media-4EZWTL2M.js"),
+  media: () => import("./media-EC3JFY4B.js"),
   playlists: () => import("./playlists-GSYSVIAG.js"),
   screens: () => import("./screens-YVAEGVPH.js"),
   monitoring: () => import("./monitoring-LAFTEER6.js"),
