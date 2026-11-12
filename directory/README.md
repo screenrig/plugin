@@ -52,6 +52,8 @@ plugin, which you can install yourself from
 [github.com/screenrig/plugin](https://github.com/screenrig/plugin); see
 [Set up your agent](https://screenrig.ai/docs/start) and the
 [CLI reference](https://screenrig.ai/docs/cli). Both work on the same account.
+In Claude Code, remove this copy once the full plugin is installed, so Claude
+loads one screenRIG skill.
 
 ## Data
 
