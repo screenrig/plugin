@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Build the committed ScreenRig plugin folders from canonical sources.
 
-``plugins/screenrig`` is the Claude folder (the Claude plugin directory scans it,
-and ``.claude-plugin/marketplace.json`` installs it): no image, no font and no
-manifest but ``.claude-plugin/plugin.json``. ``plugins/screenrig-agents`` is the
-folder Codex, Grok and OpenClaw install: the portable, Codex and OpenClaw
-manifests, the MCP declarations and the listing logo.
+``plugins/screenrig`` is the Claude folder (``.claude-plugin/marketplace.json``
+installs it): no image, no font and no manifest but
+``.claude-plugin/plugin.json``. ``plugins/screenrig-agents`` is the folder Codex,
+Grok and OpenClaw install: the portable, Codex and OpenClaw manifests, the MCP
+declarations and the listing logo. ``plugins/screenrig-directory`` is the folder
+submitted to the Claude plugin directory, which accepts no script or program
+from this organization: a skill written for the remote MCP server, a README, the
+license, the manifest, ``.mcp.json`` and the listing icon, built from
+``directory/``.
 
 Pack sibling ``../cli`` or a ``--cli-artifact`` from current ``screenrig/cli``
 ``main``. ``components.lock.json`` is provenance of the tarball just packed
@@ -41,7 +45,14 @@ PLUGIN_NAME = "screenrig"
 # Folder names under plugins/. Claude's holds no image or font file.
 CLAUDE_FOLDER = "screenrig"
 AGENTS_FOLDER = "screenrig-agents"
+# The folders that carry the bundled CLI.
 PLUGIN_FOLDERS = (CLAUDE_FOLDER, AGENTS_FOLDER)
+# The Claude plugin directory's folder: text and the icon only, no CLI.
+DIRECTORY_FOLDER = "screenrig-directory"
+DIRECTORY_SOURCE = ROOT / "directory"
+ALL_FOLDERS = (*PLUGIN_FOLDERS, DIRECTORY_FOLDER)
+MCP_URL = "https://api.screenrig.ai/mcp"
+MCP_SCOPES = ("access:manage", "screens", "content", "playlists", "reports")
 CLI_REPOSITORY = "screenrig/cli"
 CLI_ARTIFACT_NAME = "screenrig-cli.tgz"
 # Provenance of the tarball just packed. Never a fetch pin.
@@ -485,9 +496,8 @@ def listing_links(value: Any, source: str) -> Any:
     return value
 
 
-def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version: str) -> None:
-    """Write every manifest under ``plugins_root``: Claude's into its folder, the rest into the agents folder."""
-    base = {
+def base_manifest(metadata: dict[str, Any], release_version: str) -> dict[str, Any]:
+    return {
         "name": PLUGIN_NAME,
         "version": release_version,
         "description": metadata["description"],
@@ -497,23 +507,66 @@ def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version
         "license": metadata["license"],
         "keywords": metadata["keywords"],
     }
+
+
+def claude_listing(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Claude plugin directory listing fields: the name, the links shown beside
+    it and https screenshots. The icon is .claude-plugin/icon.png, the path the
+    directory looks for; nothing names it, because the directory holds a plugin
+    for review when a manifest, command or script names an image."""
+    return {
+        "displayName": metadata["interface"]["displayName"],
+        "privacyPolicyUrl": metadata["interface"]["privacyPolicyURL"],
+        "termsOfServiceUrl": metadata["interface"]["termsOfServiceURL"],
+        "supportUrl": metadata["interface"]["supportURL"],
+        "documentationUrl": "https://screenrig.ai/docs",
+        "screenshots": LISTING_SCREENSHOTS,
+    }
+
+
+def write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+def tag_links(text: str, source: str) -> str:
+    return re.sub(r'https://screenrig\.ai[^\s)<>`"\\]*', lambda match: listing_links(match.group(0), source), text)
+
+
+def build_directory(root: Path, metadata: dict[str, Any], release_version: str) -> None:
+    """Write the Claude plugin directory's folder: Markdown, JSON and the icon, nothing that runs."""
+    if root.exists():
+        shutil.rmtree(root)
+    (root / "skills" / PLUGIN_NAME).mkdir(parents=True)
+    shutil.copy2(ROOT / "LICENSE", root / "LICENSE")
+    (root / "README.md").write_text(
+        tag_links((DIRECTORY_SOURCE / "README.md").read_text(encoding="utf-8"), "claude-directory"), encoding="utf-8")
+    # One skill description everywhere: the canonical skill's front matter leads the directory's body.
+    canonical = (SKILLS / PLUGIN_NAME / "SKILL.md").read_text(encoding="utf-8")
+    front_matter = re.match(r"---\n.*?\n---\n", canonical, re.DOTALL)
+    if front_matter is None:
+        raise BuildError("skills/screenrig/SKILL.md has no front matter")
+    body = (DIRECTORY_SOURCE / "skill.md").read_text(encoding="utf-8")
+    (root / "skills" / PLUGIN_NAME / "SKILL.md").write_text(
+        tag_links(front_matter.group(0) + "\n" + body, "claude-directory"), encoding="utf-8")
+    manifest = {**base_manifest(metadata, release_version), **claude_listing(metadata)}
+    write_json(root / ".claude-plugin" / "plugin.json", listing_links(manifest, "claude-directory"))
+    write_json(root / ".mcp.json", {"mcpServers": {"screenrig-views": {
+        "type": "http", "url": MCP_URL, "oauth": {"scopes": " ".join(MCP_SCOPES)}}}})
+    shutil.copyfile(ROOT / "assets" / "logo.png", root / CLAUDE_ICON)
+
+
+def emit_manifests(plugins_root: Path, metadata: dict[str, Any], release_version: str) -> None:
+    """Write every manifest under ``plugins_root``: Claude's into its folder, the rest into the agents folder."""
+    base = base_manifest(metadata, release_version)
     # Host-specific compatibility manifests retain their OAuth hints. The
     # portable MCP declaration stays transport-only so current Codex clients
     # can load it and discover OAuth from the remote server.
-    scopes = ["access:manage", "screens", "content", "playlists", "reports"]
-    remote = {"type": "http", "url": "https://api.screenrig.ai/mcp"}
+    scopes = list(MCP_SCOPES)
+    remote = {"type": "http", "url": MCP_URL}
     claude = dict(base)
     claude["mcpServers"] = {"screenrig-views": {**remote, "oauth": {"scopes": " ".join(scopes)}}}
-    # Claude plugin directory listing: its name, the links shown beside it and
-    # https screenshots. The icon is .claude-plugin/icon.png, the path the
-    # directory looks for; nothing names it, because the directory holds a
-    # plugin for review when a manifest, command or script names an image.
-    claude["displayName"] = metadata["interface"]["displayName"]
-    claude["privacyPolicyUrl"] = metadata["interface"]["privacyPolicyURL"]
-    claude["termsOfServiceUrl"] = metadata["interface"]["termsOfServiceURL"]
-    claude["supportUrl"] = metadata["interface"]["supportURL"]
-    claude["documentationUrl"] = "https://screenrig.ai/docs"
-    claude["screenshots"] = LISTING_SCREENSHOTS
+    claude.update(claude_listing(metadata))
     claude_root = plugins_root / CLAUDE_FOLDER
     (claude_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
     (claude_root / ".claude-plugin" / "plugin.json").write_text(json.dumps(listing_links(claude, "claude-directory"), indent=2) + "\n", encoding="utf-8")
@@ -611,9 +664,7 @@ def copy_docs(plugin_root: Path, folder: str = CLAUDE_FOLDER) -> None:
     source = "claude-directory" if folder == CLAUDE_FOLDER else "codex"
     for relative in ("README.md", "skills/screenrig/SKILL.md"):
         path = plugin_root / relative
-        content = re.sub(r'https://screenrig\.ai[^\s)<>`"\\]*',
-                         lambda match: listing_links(match.group(0), source), path.read_text(encoding="utf-8"))
-        path.write_text(content, encoding="utf-8")
+        path.write_text(tag_links(path.read_text(encoding="utf-8"), source), encoding="utf-8")
 
 
 def build(
@@ -649,6 +700,7 @@ def build(
                 raise BuildError("--write-lock requires --cli-commit or a sibling ../cli checkout")
             write_component_lock(commit, artifact)
     emit_manifests(output, METADATA, release_version)
+    build_directory(output / DIRECTORY_FOLDER, METADATA, release_version)
     for folder in PLUGIN_FOLDERS:
         verify_generated_launcher(output / folder)
     return output
@@ -724,6 +776,9 @@ def main() -> int:
                         expected = Path(temp) / folder
                         copy_docs(expected, folder)
                         changes.extend(f"{folder}: {change}" for change in compare_docs(expected, PLUGINS / folder, folder))
+                    expected = Path(temp) / DIRECTORY_FOLDER
+                    build_directory(expected, METADATA, version())
+                    changes.extend(f"{DIRECTORY_FOLDER}: {change}" for change in compare(expected, PLUGINS / DIRECTORY_FOLDER))
                     if changes:
                         print("generated ScreenRig plugin docs are stale:", file=sys.stderr)
                         for change in changes:
@@ -733,6 +788,7 @@ def main() -> int:
                 return 0
             for folder in PLUGIN_FOLDERS:
                 copy_docs(PLUGINS / folder, folder)
+            build_directory(PLUGINS / DIRECTORY_FOLDER, METADATA, version())
             print("updated ScreenRig plugin docs; CLI bundle and provenance unchanged")
             return 0
         if args.check:
@@ -746,9 +802,9 @@ def main() -> int:
                     check=True,
                 )
                 changes = []
-                for folder in PLUGIN_FOLDERS:
+                for folder in ALL_FOLDERS:
                     changes.extend(f"{folder}: {change}" for change in compare(expected / folder, PLUGINS / folder))
-                extra = sorted(path.name for path in PLUGINS.iterdir() if path.name not in PLUGIN_FOLDERS) if PLUGINS.is_dir() else []
+                extra = sorted(path.name for path in PLUGINS.iterdir() if path.name not in ALL_FOLDERS) if PLUGINS.is_dir() else []
                 changes.extend(f"extra plugins/{name}" for name in extra)
                 if changes:
                     print("generated ScreenRig plugin is stale:", file=sys.stderr)

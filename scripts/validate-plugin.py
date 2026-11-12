@@ -21,6 +21,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / "plugins" / "screenrig"
 AGENTS_PLUGIN = ROOT / "plugins" / "screenrig-agents"
+DIRECTORY_PLUGIN = ROOT / "plugins" / "screenrig-directory"
 PLUGIN_REPOSITORY = "https://github.com/screenrig/plugin"
 CLI_REPOSITORY = "git+https://github.com/screenrig/cli.git"
 # Every marketplace install clones this repository and copies one plugin folder
@@ -128,6 +129,103 @@ def check_claude_folder_boundary() -> None:
     for reference in re.findall(r'"([^"]+)"', manifest_text):
         if not reference.startswith(("http://", "https://")) and reference.lower().endswith(CLAUDE_FORBIDDEN_SUFFIXES):
             errors.append(f"plugins/screenrig/.claude-plugin/plugin.json: names an image or font: {reference}")
+
+
+# The Claude plugin directory takes scripts, programs and fields outside its lists
+# only from organizations Anthropic has Verified. The folder submitted to it holds
+# Markdown, text, JSON, YAML and PNG, JPEG, GIF, WebP or ICO images, none starting
+# with #!, no package manager file, and only the manifest and MCP fields below.
+DIRECTORY_TEXT_SUFFIXES = (".md", ".txt", ".json", ".yaml", ".yml")
+DIRECTORY_ALLOWED_SUFFIXES = DIRECTORY_TEXT_SUFFIXES + DIRECTORY_IMAGE_SUFFIXES + (".ico",)
+DIRECTORY_ALLOWED_NAMES = ("LICENSE", "README", ".gitignore")
+DIRECTORY_PACKAGE_FILES = re.compile(
+    r"^(?:package(?:-lock)?\.json|npm-shrinkwrap\.json|pnpm-(?:workspace|lock)\.yaml|\.npmrc|\.yarnrc(?:\.yml)?|yarn\.lock"
+    r"|bun\.lockb?|bunfig\.toml|uv\.(?:toml|lock)|pyproject\.toml|requirements.*\.txt|Pipfile.*|Cargo\.(?:toml|lock)|go\.(?:mod|sum))$")
+DIRECTORY_MANIFEST_FIELDS = {
+    "name", "version", "description", "author", "homepage", "repository", "license", "keywords",
+    "displayName", "privacyPolicyUrl", "termsOfServiceUrl", "supportUrl", "documentationUrl", "screenshots"}
+DIRECTORY_MCP_FIELDS = {"type", "url", "headers", "timeout", "alwaysLoad", "oauth", "name", "title", "displayName", "description"}
+DIRECTORY_OAUTH_FIELDS = {"clientId", "callbackPort", "authServerMetadataUrl", "scopes"}
+DIRECTORY_SKILL_FIELDS = {"name", "description"}
+
+
+def check_directory_folder() -> None:
+    label = DIRECTORY_PLUGIN.relative_to(ROOT).as_posix()
+    for relative in (".claude-plugin/plugin.json", ".claude-plugin/icon.png", ".mcp.json", "LICENSE", "README.md",
+                     "skills/screenrig/SKILL.md"):
+        if not (DIRECTORY_PLUGIN / relative).is_file():
+            errors.append(f"missing {label}/{relative}")
+    for path in sorted(DIRECTORY_PLUGIN.rglob("*")):
+        if path.is_symlink():
+            errors.append(f"{path.relative_to(ROOT)}: the directory folder holds regular files only")
+        if not path.is_file():
+            continue
+        name = path.relative_to(ROOT).as_posix()
+        if path.suffix.lower() not in DIRECTORY_ALLOWED_SUFFIXES and path.name not in DIRECTORY_ALLOWED_NAMES:
+            errors.append(f"{name}: the Claude plugin directory accepts only Markdown, text, JSON, YAML and images from this organization")
+        if DIRECTORY_PACKAGE_FILES.fullmatch(path.name):
+            errors.append(f"{name}: the Claude plugin directory refuses package manager files")
+        if stat.S_IMODE(path.stat().st_mode) & 0o111:
+            errors.append(f"{name}: must not be executable")
+        data = path.read_bytes()
+        if data.startswith(b"#!"):
+            errors.append(f"{name}: starts with #!, which the Claude plugin directory reads as a program")
+        if path.suffix.lower() in DIRECTORY_IMAGE_SUFFIXES + (".ico",):
+            continue
+        if len(data) > DIRECTORY_READ_BYTES:
+            errors.append(f"{name}: over the {DIRECTORY_READ_BYTES:,} bytes the Claude plugin directory reads")
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            errors.append(f"{name}: must be UTF-8 text")
+            continue
+        if "\0" in text:
+            errors.append(f"{name}: must hold no NUL byte")
+        for offset, kind, sample in folder_scan_findings(text):
+            errors.append(f"{name}:{text.count(chr(10), 0, offset) + 1}: {kind} ({sample!r}) reads as a credential read "
+                          "to the Claude plugin directory scan; reword")
+        if path.suffix == ".md":
+            for kind, pattern in SCANNER_PATTERNS.items():
+                match = pattern.search(text)
+                if match:
+                    errors.append(f"{name}:{text.count(chr(10), 0, match.start()) + 1}: {kind} ({match.group(0)!r}) is "
+                                  "read as a credential or download-and-execute by the Claude plugin directory scan; reword")
+            if re.search(r"\b(?:npm|pnpm|yarn|bun|pip|pipx|uv|npx|uvx|bunx|brew|cargo)\s+(?:i|install|add|config|dlx|run|x)\b", text):
+                errors.append(f"{name}: names a package manager command; link to the documentation instead")
+    manifest = load(DIRECTORY_PLUGIN / ".claude-plugin" / "plugin.json")
+    extra = sorted(set(manifest) - DIRECTORY_MANIFEST_FIELDS)
+    if extra:
+        errors.append(f"{label}/.claude-plugin/plugin.json: fields outside the directory's list: {', '.join(extra)}")
+    claude = load(PLUGIN / ".claude-plugin" / "plugin.json")
+    if manifest != {key: value for key, value in claude.items() if key != "mcpServers"}:
+        errors.append(f"{label}/.claude-plugin/plugin.json: differs from the Claude folder's manifest beyond mcpServers")
+    servers = load(DIRECTORY_PLUGIN / ".mcp.json").get("mcpServers")
+    if servers != claude.get("mcpServers"):
+        errors.append(f"{label}/.mcp.json: expected the Claude folder's public remote MCP with host-managed OAuth only")
+    for server in (servers or {}).values() if isinstance(servers, dict) else ():
+        if set(server) - DIRECTORY_MCP_FIELDS or set(server.get("oauth") or {}) - DIRECTORY_OAUTH_FIELDS:
+            errors.append(f"{label}/.mcp.json: fields outside the directory's list")
+    skill_path = DIRECTORY_PLUGIN / "skills" / "screenrig" / "SKILL.md"
+    if not skill_path.is_file():
+        return
+    skill = skill_path.read_text(encoding="utf-8")
+    canonical = (ROOT / "skills" / "screenrig" / "SKILL.md").read_text(encoding="utf-8")
+    front_matter = re.match(r"---\n(.*?)\n---\n", skill, re.DOTALL)
+    if front_matter is None or front_matter.group(0) != (re.match(r"---\n.*?\n---\n", canonical, re.DOTALL) or [""])[0]:
+        errors.append(f"{label}/skills/screenrig/SKILL.md: front matter differs from the canonical skill")
+    elif {line.split(":", 1)[0] for line in front_matter.group(1).splitlines() if line[:1].isalpha()} - DIRECTORY_SKILL_FIELDS:
+        errors.append(f"{label}/skills/screenrig/SKILL.md: front matter takes name and description only")
+    tools = published_mcp_tools()
+    if tools is not None:
+        errors.extend(f"{label}/skills/screenrig/SKILL.md:{line}: {problem}" for line, problem in taught_tool_errors(skill, tools))
+    for fact in ("screenrig_screen_pair", "screenrig_playlist_create", "screenrig_screen_screenshot", "screenrig_docs_search",
+                 "https://github.com/screenrig/plugin", "do not download, install or run it yourself"):
+        if fact not in skill:
+            errors.append(f"{label}/skills/screenrig/SKILL.md: required fact missing: {fact}")
+    readme = (DIRECTORY_PLUGIN / "README.md").read_text(encoding="utf-8") if (DIRECTORY_PLUGIN / "README.md").is_file() else ""
+    prose = re.sub(r"```.*?```", "", readme, flags=re.DOTALL)
+    if len(prose.split()) < 40 or "https://github.com/screenrig/plugin" not in readme or "api.screenrig.ai" not in readme:
+        errors.append(f"{label}/README.md: needs 40 words outside code, the connector's host and the full plugin's address")
 
 
 def check_package() -> None:
@@ -338,7 +436,7 @@ def tree_sizes(ref: str | None) -> dict[str, int] | None:
 
 
 def check_budget() -> None:
-    folders = ("plugins/screenrig/", "plugins/screenrig-agents/")
+    folders = ("plugins/screenrig/", "plugins/screenrig-agents/", "plugins/screenrig-directory/")
     for label, ref in (("working tree", None), ("origin/main", "origin/main")):
         sizes = tree_sizes(ref)
         if sizes is None:
@@ -394,6 +492,9 @@ def check_no_alternate_surfaces() -> None:
                 continue
             if path.is_file() and path.name in {".mcp.json", "mcp.json"}:
                 errors.append(f"{path.relative_to(ROOT)}: unexpected MCP declaration")
+    for path in DIRECTORY_PLUGIN.rglob("*"):
+        if path.is_file() and path.name in {".mcp.json", "mcp.json"} and path != DIRECTORY_PLUGIN / ".mcp.json":
+            errors.append(f"{path.relative_to(ROOT)}: unexpected MCP declaration")
 
     required_marketplace = {
         "README.md": ["https://screenrig.ai/docs/start", "SECURITY.md", "Node.js 22.23.4"],
@@ -757,6 +858,7 @@ def main() -> int:
     check_package()
     check_claude_folder_boundary()
     check_agents_package()
+    check_directory_folder()
     check_budget()
     check_no_alternate_surfaces()
     check_taught_surface()

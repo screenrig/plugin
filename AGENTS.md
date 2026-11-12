@@ -17,19 +17,34 @@ that script; raising them is the operator's decision.
 
 ## Plugin folders
 
-Two generated folders carry the same skills and bundled CLI:
+Two generated folders carry the same skills and bundled CLI, and a third is
+the Claude plugin directory's listing:
 
 | Folder | Installed by |
 |---|---|
 | `plugins/screenrig` | Claude and Grok (`.claude-plugin/marketplace.json`); `.claude-plugin/plugin.json` carries the inline `mcpServers` |
 | `plugins/screenrig-agents` | Codex (`.agents/plugins/marketplace.json`) and OpenClaw; the Codex, portable and OpenClaw manifests, `.mcp.json` and `assets/logo.png` |
+| `plugins/screenrig-directory` | The Claude plugin directory (the folder submitted in its portal; no marketplace index lists it) |
+
+The directory takes scripts, programs, hooks, local MCP servers, `allowed-tools`
+and fields outside its lists only from organizations Anthropic has Verified, and
+there is no way to ask for that. So `plugins/screenrig-directory` holds no CLI
+and nothing that runs: one skill written for the remote MCP server
+(`directory/skill.md` under the canonical skill's front matter),
+`directory/README.md`, `LICENSE`, the Claude manifest without `mcpServers`,
+`.mcp.json` and the listing icon. Its job is to be found: it names what the CLI
+adds and tells the person they can install the full plugin themselves, and
+never tells the agent to download, install or run it. Write no package manager
+command there; link to the docs. `validate-plugin.py` (`check_directory_folder`)
+holds the directory's file, field and wording rules. A change to what MCP can
+or cannot do updates `directory/skill.md` and `directory/README.md`.
 
 Codex would fall back to the Claude index without
 `.agents/plugins/marketplace.json`, so that index exists. Grok has no index of
 its own: it reads the Claude index, which keeps installs registered under
-`plugins/screenrig` updating. The Claude plugin directory scans
-`plugins/screenrig` and holds any image or font a command, hook, script or
-manifest names, so that folder holds no image or font but the listing icon
+`plugins/screenrig` updating. The Claude plugin directory holds any image or
+font a command, hook, script or manifest names, so the Claude folder and the
+directory folder hold no image or font but the listing icon
 `.claude-plugin/icon.png` (the logo, named by nothing), and no manifest but
 `.claude-plugin/plugin.json`, which names no icon (`validate-plugin.py` fails on
 either). Codex needs `./`-relative logo paths inside its folder, which is why
@@ -37,9 +52,9 @@ the logo lives in the agents folder.
 
 ## Sources and generation
 
-- Canonical inputs: `skills/`, the root marketplace manifests and root public
-  files. Plugin metadata, listing and review cases live in
-  `scripts/build-plugin.py`, which generates both plugin folders and their
+- Canonical inputs: `skills/`, `directory/`, the root marketplace manifests and
+  root public files. Plugin metadata, listing and review cases live in
+  `scripts/build-plugin.py`, which generates every plugin folder and its
   manifests. Never edit `plugins/` by hand: change inputs and regenerate.
   Documentation-only change: `scripts/build-plugin.py --docs-only` (verify with
   `--docs-only --check`); it preserves the CLI, manifests and provenance.

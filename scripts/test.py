@@ -768,6 +768,7 @@ class CalVerTests(unittest.TestCase):
         for folder in ("screenrig", "screenrig-agents"):
             candidates += list((ROOT / "plugins" / folder).rglob("*plugin.json"))
             candidates += [ROOT / "plugins" / folder / "cli" / "package.json"]
+        candidates += list((ROOT / "plugins" / "screenrig-directory").rglob("*.json"))
         for path in candidates:
             versioned = bool(re.search(r'"version"\s*:', path.read_text()))
             self.assertEqual(str(path.relative_to(ROOT)) in files, versioned, str(path))
@@ -1101,7 +1102,8 @@ class ListingAttributionTests(unittest.TestCase):
         self.assertEqual(builder.listing_links(tagged, "codex"), tagged)
 
     def test_bundled_docs_credit_their_host_instead_of_skills_sh(self) -> None:
-        for folder, source in (("screenrig", "claude-directory"), ("screenrig-agents", "codex")):
+        for folder, source in (("screenrig", "claude-directory"), ("screenrig-agents", "codex"),
+                               ("screenrig-directory", "claude-directory")):
             for relative in ("README.md", "skills/screenrig/SKILL.md"):
                 for value in re.findall(r'https://screenrig\.ai[^\s)<>`"\\]*', (ROOT / "plugins" / folder / relative).read_text()):
                     self.assertEqual(parse_qs(urlsplit(value).query).get("utm_source"), [source])
@@ -1163,6 +1165,44 @@ class PluginFolderTests(unittest.TestCase):
         agents_skill = (self.AGENTS / "skills/screenrig/SKILL.md").read_text()
         self.assertEqual(claude_skill.replace("utm_source=claude-directory", "utm_source=codex"), agents_skill)
         self.assertEqual(builder.compare(self.CLAUDE / "cli", self.AGENTS / "cli"), [])
+
+    def test_directory_folder_holds_only_what_the_claude_directory_accepts(self) -> None:
+        directory = ROOT / "plugins" / "screenrig-directory"
+        self.assertEqual(sorted(path.relative_to(directory).as_posix() for path in directory.rglob("*") if path.is_file()), [
+            ".claude-plugin/icon.png", ".claude-plugin/plugin.json", ".mcp.json", "LICENSE", "README.md",
+            "skills/screenrig/SKILL.md"])
+        validator.errors.clear()
+        validator.check_directory_folder()
+        found = list(validator.errors)
+        validator.errors.clear()
+        self.assertEqual(found, [])
+
+    def test_validator_rejects_programs_and_extra_fields_in_the_directory_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            shutil.copytree(ROOT / "plugins", root / "plugins")
+            shutil.copytree(ROOT / "skills", root / "skills")
+            shutil.copytree(ROOT / "scripts", root / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+            directory = root / "plugins" / "screenrig-directory"
+            (directory / "skills/screenrig/scripts").mkdir()
+            (directory / "skills/screenrig/scripts/run.js").write_text("console.log(1)\n")
+            (directory / "launch.txt").write_text("#!/bin/sh\n")
+            write_json(directory / "package.json", {"name": "screenrig"})
+            manifest = json.loads((directory / ".claude-plugin/plugin.json").read_text())
+            write_json(directory / ".claude-plugin/plugin.json", {**manifest, "hooks": {}})
+            skill = directory / "skills/screenrig/SKILL.md"
+            skill.write_text(skill.read_text() + "\nCall `screenrig_media_generate`, then npm install -g screenrig.\n")
+            validator.errors.clear()
+            with patch.object(validator, "ROOT", root), patch.object(validator, "PLUGIN", root / "plugins/screenrig"), \
+                    patch.object(validator, "DIRECTORY_PLUGIN", directory):
+                validator.check_directory_folder()
+            messages = "\n".join(validator.errors)
+            validator.errors.clear()
+        for expected in ("run.js: the Claude plugin directory accepts only", "launch.txt: starts with #!",
+                         "package.json: the Claude plugin directory refuses package manager files",
+                         "fields outside the directory's list: hooks", "names MCP tool `screenrig_media_generate`",
+                         "names a package manager command"):
+            self.assertIn(expected, messages)
 
     def test_validator_rejects_an_image_in_the_claude_folder(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

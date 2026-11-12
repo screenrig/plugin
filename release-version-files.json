@@ -1,6 +1,7 @@
 [
   ".claude-plugin/marketplace.json",
   "plugins/screenrig/.claude-plugin/plugin.json",
+  "plugins/screenrig-directory/.claude-plugin/plugin.json",
   "plugins/screenrig/cli/package.json",
   "plugins/screenrig-agents/plugin.json",
   "plugins/screenrig-agents/openclaw.plugin.json",
