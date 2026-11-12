@@ -184,7 +184,7 @@ factory-reset Android 10+ device enrolls by QR code:
 [Android device owner](references/android-device-owner.md).
 
 **Raspberry Pi.** The user flashes the screenRIG image with Raspberry Pi Imager
-(`rpi-imager --repo https://screenrig.ai/linux/rpi-imager.json?utm_source=codex&utm_medium=package&utm_campaign=tof-libs`). The Pi boots
+(the Imager command for each operating system is in https://screenrig.ai/docs/players.md?utm_source=codex&utm_medium=package&utm_campaign=tof-libs#raspberry-pi). The Pi boots
 into the Player and shows a pairing code, so pair it as above; a
 `screenrig-fleet-link` file on the boot partition enrolls it without a code. The
 Player's own menu (Device Configuration: Displays, Wi-Fi, Network, Time zone,
