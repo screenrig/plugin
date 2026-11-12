@@ -99,9 +99,10 @@ and MP4 or WebM video already encoded for screens.
 
 - **It has a public address.** `screenrig_media_import` takes an https address
   that answers with the file itself (not a page about it, no sign-in) and
-  screenRIG fetches it. A share link from a drive works when it is a direct
-  download link.
-- **You can make an HTTP request** (a shell or a sandbox that reaches
+  screenRIG fetches it, up to 200 MB. A share link from a drive works when it
+  is a direct download link.
+- **You can make an HTTP request** (a shell, or a sandbox allowed to reach
+  the host in `upload_url`, which is screenRIG's file storage and not
   screenrig.ai). `screenrig_media_upload_create` with the file's name, type,
   exact size and SHA-256 answers with a signed `upload_url` and headers: send
   the bytes there, then `screenrig_media_upload_commit`. The URL and headers
@@ -122,7 +123,7 @@ a format screens do not play; say so and offer the CLI below.
 
 | Task | Tools |
 | --- | --- |
-| Another project | `screenrig_project_list`, `screenrig_project_create`; the person then reconnects the connector and chooses the new project, because a connection acts only in the projects it was approved for (`in_token`) |
+| Another project | `screenrig_project_list`, `screenrig_project_create`; the person then reconnects the connector and chooses the new project, because a connection acts only in the projects it was approved for (`in_token`). These and the organization and service-client tools need the identity choice on the consent page: on `forbidden` naming the identity scope, ask the person to reconnect and turn it on |
 | Organizations | `screenrig_organization_list`, `screenrig_organization_rename` |
 | A machine credential | `screenrig_service_client_create`, `screenrig_service_client_secret_add` |
 | Many screens from one link | `screenrig_fleet_link_create`, `screenrig_screen_provision` |

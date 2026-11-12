@@ -54,8 +54,10 @@ ALL_FOLDERS = (*PLUGIN_FOLDERS, DIRECTORY_FOLDER)
 MCP_URL = "https://api.screenrig.ai/mcp"
 MCP_SCOPES = ("access:manage", "screens", "content", "playlists", "reports")
 # The directory folder has no CLI, so its connection also asks for what the CLI
-# signs in with: identity (other projects, organizations, service clients) and
-# the project capability (audit, lifecycle, service clients).
+# signs in with: the project capability (audit, project lifecycle, service
+# clients) and identity, which the consent page offers and the person may leave
+# off (other projects, organizations, service-client changes). A backend older
+# than that consent choice refuses the identity scope: ship this after it.
 DIRECTORY_MCP_SCOPES = ("access:manage", "identity", "screens", "content", "playlists", "reports", "project")
 CLI_REPOSITORY = "screenrig/cli"
 CLI_ARTIFACT_NAME = "screenrig-cli.tgz"
