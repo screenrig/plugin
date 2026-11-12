@@ -3,33 +3,33 @@ import { createRequire as screenrigCreateRequire } from "node:module";
 const require = screenrigCreateRequire(import.meta.url);
 import {
   FEED_REPEATABLE_FLAGS
-} from "./chunk-HQPJWYRP.js";
+} from "./chunk-7XSOGIHY.js";
 import {
   Command,
   CommanderError,
   Option,
   nonnegativeInteger
-} from "./chunk-A2S45EKE.js";
+} from "./chunk-423MNWKW.js";
 import {
   applyCreditsLowToSuccess,
   handleVersion,
   observedCreditsRemaining
-} from "./chunk-SX4HKPRA.js";
+} from "./chunk-AOLD7THY.js";
 import "./chunk-UD3J3FNQ.js";
 import {
   LOG_SINK_DEGRADED_CODE,
   logSinkDegradedWarning
-} from "./chunk-PPWTLS44.js";
+} from "./chunk-V63J3UTW.js";
 import {
   clearResultContext,
   formatResultContext,
   processRuntime,
   resultContext
-} from "./chunk-RY7TSGK3.js";
+} from "./chunk-XWMHWXE7.js";
 import {
   errorEnvelope,
   successEnvelope
-} from "./chunk-D2RLMLYO.js";
+} from "./chunk-V5GOKJGU.js";
 import "./chunk-7EJTDXNL.js";
 import {
   CLI_VERSION
@@ -90,8 +90,6 @@ function commandError(error, command) {
       throw usageError("Invalid argument. See command help for supported values.");
     }
     case "commander.missingArgument":
-      if (path === "screen set-timezone")
-        throw usageError("screen set-timezone requires <id> --timezone.");
       throw usageError("".concat(path, " requires ").concat(command.registeredArguments.filter((arg) => arg.required).map((arg) => "<".concat(arg.name(), ">")).join(" "), "."));
     case "commander.excessArguments": {
       const word = command.commands.length && !command.registeredArguments.length && /^[a-z][a-z0-9-]{0,39}$/.test(command.args[0] ?? "") ? command.args[0] : void 0;
@@ -106,8 +104,6 @@ function commandError(error, command) {
       throw usageError("Conflicting options. See command help.");
     }
     case "commander.missingMandatoryOptionValue": {
-      if (path === "screen set-timezone")
-        throw usageError("screen set-timezone requires <id> --timezone.");
       const required = command.options.filter((option) => option.mandatory && command.getOptionValue(option.attributeName()) === void 0);
       const positional = command.registeredArguments.filter((arg, index) => arg.required && index >= command.args.length).map((arg) => "<".concat(arg.name(), ">"));
       const fleetTarget = command.registeredArguments.some((arg) => arg.variadic && !arg.required && arg.name() === "id") && command.options.some((option) => option.long === "--tag") && !command.args.length && command.getOptionValue("tag") === void 0 && command.getOptionValue("folder") === void 0;
@@ -147,15 +143,15 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-NHJTA72N.js"),
-  ads: () => import("./ads-AY4T3KAA.js"),
-  media: () => import("./media-LXX6MBLD.js"),
-  playlists: () => import("./playlists-BFSXB5Z7.js"),
-  screens: () => import("./screens-YK2TU3BC.js"),
-  monitoring: () => import("./monitoring-QL5GXPBP.js"),
-  integrations: () => import("./integrations-CLV3CNMZ.js"),
-  migrate: () => import("./migrate-5XVWX7BG.js"),
-  docs: () => import("./docs-J3VHD47J.js")
+  account: () => import("./account-L5EGDL25.js"),
+  ads: () => import("./ads-IJK3M2CL.js"),
+  media: () => import("./media-RJIWP6I7.js"),
+  playlists: () => import("./playlists-BYSLLEGE.js"),
+  screens: () => import("./screens-JDDKS5WV.js"),
+  monitoring: () => import("./monitoring-DAYYZX42.js"),
+  integrations: () => import("./integrations-5KMOWXEK.js"),
+  migrate: () => import("./migrate-ZBUJFM4W.js"),
+  docs: () => import("./docs-GWB2CN3D.js")
 };
 var TOP_LEVEL_COMMANDS = {
   project: "account",
@@ -414,7 +410,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-ZXGYSX6V.js");
+    const { registerGuidance } = await import("./register-guidance-EQAN3MA4.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
