@@ -200,8 +200,9 @@ def check_directory_folder() -> None:
     if manifest != {key: value for key, value in claude.items() if key != "mcpServers"}:
         errors.append(f"{label}/.claude-plugin/plugin.json: differs from the Claude folder's manifest beyond mcpServers")
     servers = load(DIRECTORY_PLUGIN / ".mcp.json").get("mcpServers")
-    if servers != claude.get("mcpServers"):
-        errors.append(f"{label}/.mcp.json: expected the Claude folder's public remote MCP with host-managed OAuth only")
+    wanted = {"screenrig-views": {"type": "http", "url": builder.MCP_URL, "oauth": {"scopes": " ".join(builder.DIRECTORY_MCP_SCOPES)}}}
+    if servers != wanted:
+        errors.append(f"{label}/.mcp.json: expected the public remote MCP with host-managed OAuth and the directory scopes only")
     for server in (servers or {}).values() if isinstance(servers, dict) else ():
         if set(server) - DIRECTORY_MCP_FIELDS or set(server.get("oauth") or {}) - DIRECTORY_OAUTH_FIELDS:
             errors.append(f"{label}/.mcp.json: fields outside the directory's list")
@@ -219,6 +220,7 @@ def check_directory_folder() -> None:
     if tools is not None:
         errors.extend(f"{label}/skills/screenrig/SKILL.md:{line}: {problem}" for line, problem in taught_tool_errors(skill, tools))
     for fact in ("screenrig_screen_pair", "screenrig_playlist_create", "screenrig_screen_screenshot", "screenrig_docs_search",
+                 "screenrig_media_import", "screenrig_media_upload_create", "screenrig_project_create",
                  "https://github.com/screenrig/plugin", "do not download, install or run it yourself"):
         if fact not in skill:
             errors.append(f"{label}/skills/screenrig/SKILL.md: required fact missing: {fact}")

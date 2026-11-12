@@ -53,6 +53,10 @@ DIRECTORY_SOURCE = ROOT / "directory"
 ALL_FOLDERS = (*PLUGIN_FOLDERS, DIRECTORY_FOLDER)
 MCP_URL = "https://api.screenrig.ai/mcp"
 MCP_SCOPES = ("access:manage", "screens", "content", "playlists", "reports")
+# The directory folder has no CLI, so its connection also asks for what the CLI
+# signs in with: identity (other projects, organizations, service clients) and
+# the project capability (audit, lifecycle, service clients).
+DIRECTORY_MCP_SCOPES = ("access:manage", "identity", "screens", "content", "playlists", "reports", "project")
 CLI_REPOSITORY = "screenrig/cli"
 CLI_ARTIFACT_NAME = "screenrig-cli.tgz"
 # Provenance of the tarball just packed. Never a fetch pin.
@@ -552,7 +556,7 @@ def build_directory(root: Path, metadata: dict[str, Any], release_version: str) 
     manifest = {**base_manifest(metadata, release_version), **claude_listing(metadata)}
     write_json(root / ".claude-plugin" / "plugin.json", listing_links(manifest, "claude-directory"))
     write_json(root / ".mcp.json", {"mcpServers": {"screenrig-views": {
-        "type": "http", "url": MCP_URL, "oauth": {"scopes": " ".join(MCP_SCOPES)}}}})
+        "type": "http", "url": MCP_URL, "oauth": {"scopes": " ".join(DIRECTORY_MCP_SCOPES)}}}})
     shutil.copyfile(ROOT / "assets" / "logo.png", root / CLAUDE_ICON)
 
 

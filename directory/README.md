@@ -43,12 +43,13 @@ nothing on your computer.
 
 ## Want the CLI too?
 
-The screenRIG CLI works with files and programs on your computer: it converts
-and uploads photos and video in bulk, syncs a Google Drive, Dropbox or
-Microsoft 365 folder, builds custom applications such as a check-in kiosk, sets
-up webhooks, sells and buys advertising, and migrates screens from another
-signage system. It ships in the full screenRIG
-plugin, which you can install yourself from
+Claude adds a photo or video from a link, from a synced Google Drive, Dropbox
+or Microsoft 365 folder, or from the file you drop on the dashboard. The
+screenRIG CLI adds the work that runs on your computer: it converts and
+resizes any photo or video as it uploads, in bulk, builds custom applications
+such as a check-in kiosk, sells and buys advertising, and migrates screens from
+another signage system. It ships in the full screenRIG plugin, which you can
+install yourself from
 [github.com/screenrig/plugin](https://github.com/screenrig/plugin); see
 [Set up your agent](https://screenrig.ai/docs/start) and the
 [CLI reference](https://screenrig.ai/docs/cli). Both work on the same account.
