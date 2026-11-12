@@ -3,34 +3,32 @@ import { createRequire as screenrigCreateRequire } from "node:module";
 const require = screenrigCreateRequire(import.meta.url);
 import {
   FEED_REPEATABLE_FLAGS
-} from "./chunk-7XSOGIHY.js";
+} from "./chunk-APKEIZV7.js";
 import {
   Command,
   CommanderError,
   Option,
   nonnegativeInteger
-} from "./chunk-423MNWKW.js";
+} from "./chunk-AYKYHF7L.js";
 import {
-  applyCreditsLowToSuccess,
-  handleVersion,
-  observedCreditsRemaining
-} from "./chunk-AOLD7THY.js";
+  handleVersion
+} from "./chunk-V4WYI62I.js";
 import "./chunk-UD3J3FNQ.js";
 import {
   LOG_SINK_DEGRADED_CODE,
   logSinkDegradedWarning
-} from "./chunk-V63J3UTW.js";
+} from "./chunk-NLAIEK5L.js";
 import {
   clearResultContext,
   formatResultContext,
   processRuntime,
   resultContext
-} from "./chunk-XWMHWXE7.js";
+} from "./chunk-B2ICBIZJ.js";
 import {
   errorEnvelope,
   successEnvelope
-} from "./chunk-V5GOKJGU.js";
-import "./chunk-7EJTDXNL.js";
+} from "./chunk-4DSCAOZX.js";
+import "./chunk-C6ZDNJWW.js";
 import {
   CLI_VERSION
 } from "./chunk-BFLHHH47.js";
@@ -47,7 +45,7 @@ import {
   commandExamples,
   commandNotes,
   commandRelationships
-} from "./chunk-IBLNZ4EM.js";
+} from "./chunk-B3OG6ANV.js";
 import {
   CliError,
   ExitCode,
@@ -56,7 +54,7 @@ import {
   renderProblem,
   usageError,
   withDefaultHint
-} from "./chunk-JP4OQPAN.js";
+} from "./chunk-VYWS3KLY.js";
 import "./chunk-PGM5AQER.js";
 import "./chunk-G4R5Q7OS.js";
 import "./chunk-LMVLFNSU.js";
@@ -143,15 +141,15 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-L5EGDL25.js"),
-  ads: () => import("./ads-IJK3M2CL.js"),
-  media: () => import("./media-TV5TUAL3.js"),
-  playlists: () => import("./playlists-BYSLLEGE.js"),
-  screens: () => import("./screens-JDDKS5WV.js"),
-  monitoring: () => import("./monitoring-DAYYZX42.js"),
-  integrations: () => import("./integrations-5KMOWXEK.js"),
-  migrate: () => import("./migrate-L3JXADE6.js"),
-  docs: () => import("./docs-GWB2CN3D.js")
+  account: () => import("./account-ZRKGVJPV.js"),
+  ads: () => import("./ads-5AAQQQPK.js"),
+  media: () => import("./media-4EZWTL2M.js"),
+  playlists: () => import("./playlists-GSYSVIAG.js"),
+  screens: () => import("./screens-YVAEGVPH.js"),
+  monitoring: () => import("./monitoring-LAFTEER6.js"),
+  integrations: () => import("./integrations-DV5FHVR3.js"),
+  migrate: () => import("./migrate-JZUQW2V4.js"),
+  docs: () => import("./docs-QPAOAJFG.js")
 };
 var TOP_LEVEL_COMMANDS = {
   project: "account",
@@ -410,7 +408,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-C7ENY3GG.js");
+    const { registerGuidance } = await import("./register-guidance-4ZVIGNDU.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
@@ -465,7 +463,7 @@ async function run(runtime = processRuntime()) {
   const explicitJson = options.includes("--json");
   const json = explicitJson || !options.includes("--human");
   try {
-    const dispatched = applyCreditsLowToSuccess(await executeCommand(runtime.argv, runtime), observedCreditsRemaining(runtime));
+    const dispatched = await executeCommand(runtime.argv, runtime);
     runtime.logger?.endRun();
     const result = applyLogSinkToSuccess(dispatched, runtime.logger?.droppedLines() ?? 0);
     if (result.output === "stream") {
