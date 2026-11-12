@@ -61,7 +61,6 @@
     "screenrig_kv_set",
     "screenrig_media_availability",
     "screenrig_media_delete",
-    "screenrig_media_generate",
     "screenrig_media_get",
     "screenrig_media_list",
     "screenrig_media_restore",
