@@ -142,7 +142,7 @@ import {
   volumeProblem,
   volumeText,
   volumeWrite
-} from "./chunk-4MWU77JX.js";
+} from "./chunk-3MIEPS3H.js";
 import {
   fieldMap,
   fleetLinkFieldOption,
@@ -258,7 +258,7 @@ import {
   wallLine,
   wallOutputsOption,
   wallProblem
-} from "./chunk-MBVDTLB3.js";
+} from "./chunk-QGJS32XQ.js";
 import {
   addCommandExamples,
   addCommandNotes,
@@ -1105,8 +1105,8 @@ var handleScreenWallSet = commandHandler(async (args, runtime, resolved) => {
   const id = args.positionals[3];
   const outputs = flagString(args.flags, "outputs");
   const arrangement = flagString(args.flags, "arrangement");
-  if (!id || !outputs || !arrangement)
-    throw usageError("screen wall set requires <id> --outputs --arrangement.");
+  if (!id || !outputs)
+    throw usageError("screen wall set requires <id> --outputs.");
   const wall = wallFromFlags(outputs, arrangement, flagString(args.flags, "rotation"), flagString(args.flags, "columns"));
   const { response, client, screen } = await screenWallPatch(args, runtime, resolved, id, wall);
   return {
@@ -2943,8 +2943,8 @@ function registerScreenCommands(root, bind) {
   const setTimezone = screen.command("set-timezone").description("Override a screen's time zone, or clear the override").argument("<id>", "Screen identifier").addOption(new Option("--timezone <ZONE>", "Override the time zone with an IANA name, such as Europe/London").conflicts(["clear"])).addOption(new Option("--clear", "Remove the override: the screen follows its device's time zone").conflicts(["timezone"])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenSetTimezone));
   requireOptionGroup(setTimezone, "exactlyOne", ["--timezone", "--clear"]);
   addCommandNotes(setTimezone, "Timezone:\n  Every screen reads its civil times (playlist schedules, takeovers, display and\n  reboot schedules, campaigns, page visibility and ad slots) in its effective\n  timezone: this override, else the zone its Player reports from the device,\n  else UTC. screen show prints it as Timezone with its source. A screen needs\n  no override while its device reports the right zone; set one only to read\n  the screen's times in another. ZONE is an IANA timezone name: Area/City such\n  as America/New_York, Europe/London or Asia/Tokyo, or UTC. --clear removes\n  the override.");
-  const wall = screen.command("wall").description("Set or clear a screen's video wall: one Player driving two to twelve displays as one canvas");
-  subcommand(wall, "set").description("Set a screen's video wall").argument("<id>", "Screen identifier").requiredOption("--outputs <NAMES>", "Two to twelve comma-separated output names in physical order (left to right, then top to bottom), as screen show lists them under observation.surfaces (required)", wallOutputsOption).addOption(new Option("--arrangement <ARRANGEMENT>", "row (one row, left to right), column (one column, top to bottom) or grid (rows of --columns outputs, top to bottom) (required)").choices([...WALL_ARRANGEMENTS]).makeOptionMandatory()).option("--columns <N>", "Outputs per row of a grid (required for grid, not allowed for row or column); at least 2, dividing the outputs into at least 2 rows", positiveInteger("columns")).addOption(new Option("--rotation <DEGREES>", "Clockwise rotation of every output (default 0); 90 and 270 are portrait panels").choices([...WALL_ROTATIONS])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenWallSet));
+  const wall = screen.command("wall").description("Set or clear a screen's video wall (one Player driving two to twelve displays as one canvas) or rotate a single screen");
+  subcommand(wall, "set").description("Set a screen's video wall, or rotate a single screen with one output").argument("<id>", "Screen identifier").requiredOption("--outputs <NAMES>", "One to twelve comma-separated output names in physical order (left to right, then top to bottom), as screen show lists them under observation.surfaces; one output rotates a single screen, two or more are a video wall (required)", wallOutputsOption).addOption(new Option("--arrangement <ARRANGEMENT>", "row (one row, left to right; the default), column (one column, top to bottom) or grid (rows of --columns outputs, top to bottom); one output is always row").choices([...WALL_ARRANGEMENTS])).option("--columns <N>", "Outputs per row of a grid (required for grid, not allowed for row or column); at least 2, dividing the outputs into at least 2 rows", positiveInteger("columns")).addOption(new Option("--rotation <DEGREES>", "Clockwise rotation of every output (default 0); 90 and 270 are portrait panels; with one output it rotates that screen").choices([...WALL_ROTATIONS])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenWallSet));
   wall.command("clear").description("Remove a screen's video wall").argument("<id>", "Screen identifier").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenWallClear));
   const displayIdle = screen.command("display-idle").description("Darken a screen's glass after a time without use, or turn that off").argument("<id>", "Screen identifier").option("--after <SECONDS>", "Go dark after this many seconds without use, 30 to 86400 (with --wake)", displayIdleAfterOption).option("--wake <WAKE>", "What lights the glass again: touch, presence or touch,presence (with --after)", displayIdleWakeOption).addOption(new Option("--off", "Turn idle-dark off").conflicts(["after", "wake"])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenDisplayIdle));
   requireOptionGroup(displayIdle, "exactlyOne", ["--after", "--off"]);

@@ -43,7 +43,7 @@ import {
 import {
   isAdSlotPage,
   wallProblem
-} from "./chunk-MBVDTLB3.js";
+} from "./chunk-QGJS32XQ.js";
 import {
   isResourceID
 } from "./chunk-SFYZH3GR.js";

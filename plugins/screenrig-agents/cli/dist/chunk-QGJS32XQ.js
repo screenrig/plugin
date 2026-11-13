@@ -2305,8 +2305,8 @@ var MAX_OUTPUTS = 12;
 var OUTPUT_NAME = /^[A-Za-z0-9._-]{1,64}$/;
 function wallOutputs(value, flag = "--outputs") {
   const names = value.split(",").map((name) => name.trim());
-  if (names.length < 2 || names.length > MAX_OUTPUTS) {
-    throw usageError("".concat(flag, " takes 2 to ").concat(MAX_OUTPUTS, " comma-separated output names in physical order, left to right then top to bottom, for example ").concat(flag, " HDMI-A-1,HDMI-A-2."));
+  if (names.length < 1 || names.length > MAX_OUTPUTS) {
+    throw usageError("".concat(flag, " takes 1 to ").concat(MAX_OUTPUTS, " comma-separated output names in physical order, left to right then top to bottom, for example ").concat(flag, " HDMI-A-1,HDMI-A-2 (one name rotates a single screen)."));
   }
   if (names.some((name) => !OUTPUT_NAME.test(name))) {
     throw usageError("".concat(flag, " names are 1 to 64 letters, digits, dots, underscores or dashes: the output names screen show lists as observation.surfaces[].id."));
@@ -2320,18 +2320,27 @@ function wallOutputsOption(value) {
   return value;
 }
 function wallFromFlags(outputs, arrangement, rotation, columns) {
-  if (!WALL_ARRANGEMENTS.includes(arrangement))
+  if (arrangement !== void 0 && !WALL_ARRANGEMENTS.includes(arrangement))
     throw usageError("--arrangement must be row, column, or grid.");
   if (rotation !== void 0 && !WALL_ROTATIONS.includes(rotation))
     throw usageError("--rotation must be 0, 90, 180, or 270.");
+  const names = wallOutputs(outputs);
+  if (names.length === 1) {
+    if (arrangement !== void 0 && arrangement !== "row")
+      throw usageError("--arrangement ".concat(arrangement, " needs two or more outputs; one output rotates a single screen, so leave --arrangement out or use row."));
+    if (columns !== void 0)
+      throw usageError("--columns is only for a grid of two or more outputs; one output rotates a single screen.");
+  }
   return {
-    outputs: wallOutputs(outputs),
-    arrangement,
+    outputs: names,
+    arrangement: arrangement ?? "row",
     ...columns === void 0 ? {} : { columns: Number(columns) },
     ...rotation === void 0 ? {} : { rotation: Number(rotation) }
   };
 }
 function wallLine(wall) {
+  if (wall.outputs.length === 1)
+    return "".concat(wall.outputs[0], " (single screen, rotation ").concat(wall.rotation ?? 0, ")");
   const shape = wall.arrangement === "grid" && wall.columns !== void 0 ? "grid, ".concat(wall.columns, " columns") : wall.arrangement;
   return "".concat(wall.outputs.join(", "), " (").concat(shape, ", rotation ").concat(wall.rotation ?? 0, ")");
 }
@@ -2347,10 +2356,12 @@ function wallCanvas(screen) {
   const { outputs, arrangement, rotation, columns } = wall;
   const count = Array.isArray(outputs) ? outputs.length : 0;
   const grid = arrangement === "grid";
-  if (count < 2 || count > MAX_OUTPUTS || !WALL_ARRANGEMENTS.includes(arrangement) || grid && !(Number.isInteger(columns) && columns >= 2 && count % columns === 0 && count / columns >= 2) || rotation !== void 0 && ![0, 90, 180, 270].includes(rotation)) {
+  if (count < 1 || count > MAX_OUTPUTS || !WALL_ARRANGEMENTS.includes(arrangement) || grid && !(Number.isInteger(columns) && columns >= 2 && count % columns === 0 && count / columns >= 2) || rotation !== void 0 && ![0, 90, 180, 270].includes(rotation)) {
     throw usageError("Screen response has an invalid video wall.");
   }
   const portrait = rotation === 90 || rotation === 270;
+  if (count === 1)
+    return wallSize(1, "row", portrait);
   return {
     ...wallSize(count, arrangement, portrait, columns),
     format: { displays: count, arrangement, orientation: portrait ? "portrait" : "landscape", ...grid ? { columns } : {} }
@@ -2361,8 +2372,8 @@ function wallProblem(error, id) {
     return error;
   return new CliError({
     ...error.problem,
-    detail: "".concat(error.problem.detail, " Nothing was changed. A video wall needs the Linux Player's kiosk install (cage and wlr-randr) or the Windows Player, which declare the display.wall capability in their host report (screen show lists host.capabilities); this screen's Player did not."),
-    next: { command: "screenrig screen show ".concat(id), reason: "Check host.capabilities for display.wall and observation.surfaces for the Player's output names." }
+    detail: "".concat(error.problem.detail, " Nothing was changed. A video wall of two or more displays needs the Linux Player's kiosk install (cage and wlr-randr) or the Windows Player, which declare the display.wall capability, and one rotated screen needs the Linux Player's kiosk install, which declares display.rotate. screen show lists host.capabilities; this screen's Player did not declare the one this layout needs."),
+    next: { command: "screenrig screen show ".concat(id), reason: "Check host.capabilities for display.wall (two or more outputs) or display.rotate (one output) and observation.surfaces for the Player's output names." }
   }, error.exitCode, error.warnings);
 }
 
