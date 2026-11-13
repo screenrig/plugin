@@ -2,10 +2,10 @@
   "schema": "screenrig.plugin-components-lock/v1",
   "cli": {
     "repository": "screenrig/cli",
-    "commit": "8deccd187e6acafcb5502e816cff46a11f188972",
+    "commit": "185452c80bd49749470710baa0f8d6017bfb22a8",
     "artifact": {
       "file": "screenrig-cli.tgz",
-      "sha256": "5119ba52b47b721a0b0fe84e57ed308a60a055740af0851f9cca899cbe855fa0"
+      "sha256": "1b8b0488893b3f6764ae5da9b6a6bd8d4c6317a5b10bc2a13b0cc5dfca64f800"
     }
   }
 }
