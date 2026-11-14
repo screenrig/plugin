@@ -80,8 +80,11 @@ never with `--json`. `screenrig status` reports service availability.
   enrollment. Production is the default; use another environment only when the
   user names it, and check `doctor`'s API origin before writing.
 - New user: ask only for the contact email, use sensible defaults for everything
-  else, then `screenrig agent enroll --email ADDRESS --organization NAME`
-  (organization defaults to `Screens`). With an AgentID claim code use
+  else, then `screenrig agent enroll --email ADDRESS --organization NAME`. NAME
+  is the business or person the screens are for, as the conversation already
+  gives it ("Acme Dental", "Xavier Castro"); use `Screens` only when you know
+  neither, and screenRIG names the organization from the email address. The
+  project gets a readable two-word name; `project rename` changes it. With an AgentID claim code use
   `--agentid-claim CODE` instead of `--email`. Add `--intent advertising` to buy
   ads without screens. When the person's message includes a screenRIG setup code
   (two groups of four letters and digits, like K7QX-2MPD), add
