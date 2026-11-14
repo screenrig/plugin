@@ -223,7 +223,7 @@ screen is archived as `replaced`; delete it, never unarchive it.
 
 | The page needs | Path |
 | --- | --- |
-| Finished image or video | `media upload` (H.264 default; `--codec hevc` where every target decodes it, and always for a Raspberry Pi 5) |
+| Finished image or video | `media upload` (H.264 default; `--codec hevc` where every target decodes it, and always for a Raspberry Pi) |
 | A new file for media screens already play | `media replace MEDIA_ID FILE` (same ID, so playlists and schedules keep playing it) |
 | Poster, menu, announcement | make the finished image yourself with your own tools (or find one), inspect it at full size, then `media upload` |
 | A live Grafana, Power BI or Tableau dashboard, or a page behind any other sign-in | `bi connection create grafana\|powerbi\|tableau` (or a public link), then `bi view create`; put its `embed_url` in an `iframe` primitive ([dashboards](references/dashboards.md)). A page behind another sign-in: `bi connection create web` ([signed-in pages](references/dashboards.md#signed-in-pages)) |
@@ -290,9 +290,11 @@ names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
 An image or video up to 16383 pixels per edge and 8192 by 8192 pixels in area uploads, so an ultra-wide LED master such as 9216 by 2160 goes up with `--no-transcode`. 1080p at 30 fps in H.264 is the default and the recommended video format (a video fits 1920 by 1080, 1080 by 1920 portrait; an image fits 3840 pixels on each edge). Choose `--preset signage-1080p60` or `--preset signage-4k30` for screens that warrant it (`screen show` reports a screen's surface), and `--codec hevc`, with any of them, for fleets that decode HEVC. Every video leaves at one constant frame rate: keep one rate in a playlist, since some TVs flash black between clips whose rates differ.
 A video upload can be at most the project's plan limit, 500 MB on Standard and 1 GB on every other plan (`project capabilities` states `media_video_bytes`); a larger video is refused before it is read.
-A Raspberry Pi 5 (`screen show` names the model, or firmware ending `rpi-2712`)
-has no H.264 decoder and does not play H.264 video: upload every video for it
-with `--codec hevc`, with any preset, and never offer or retry H.264 when one fails.
+Every Raspberry Pi (`screen show` names the model) plays HEVC (H.265) video
+only: it skips an H.264 video with a warning, its page leaving the rotation as
+`decoder_unavailable` and the Player log reporting `player.video_unusable` with
+`cause` `no_hardware_decoder`. Upload every video for a Pi with `--codec hevc`,
+with any preset, and never offer or retry H.264 when one fails.
 Send many files with `media upload-batch`, not one `media upload` after another.
 
 Organize a large library with folders, not tag conventions: `media folder
