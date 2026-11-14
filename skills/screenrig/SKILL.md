@@ -236,8 +236,8 @@ screen is archived as `replaced`; delete it, never unarchive it.
 `screen show` (a board reports a little less than its rated size). A 2 GB board
 plays them all. A 1 GB board skips each of them with a warning in the screen's
 log and plays the rest, so use a card, an image or 1080p video (the default
-upload) there. Below 1 GB the Player plays nothing and says so on screen. Every
-other Player plays them whatever its memory.
+upload) there. Below 1 GB the Player plays nothing and says so on screen. No
+other Player limits them by memory.
 
 Prefer a card to an application: a card draws natively on every Player, changes
 with `card data put` without republishing, and suits a rotating loop. App code
