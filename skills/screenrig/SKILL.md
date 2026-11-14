@@ -191,6 +191,8 @@ Player's own menu (Device Configuration: Displays, Wi-Fi, Network, Time zone,
 Restart device, Shut down, Reset this screen) sets the network, time zone and
 display layout on the device, so no keyboard, SSH or agent step is needed. A
 Linux install with `install.sh --kiosk --manage-host` has the same screen.
+A Linux or Raspberry Pi Player needs 1 GB of memory, and 2 GB is recommended:
+tell the user before they buy a board.
 
 `screen archive` darkens a screen but keeps its playlist and binding. Before
 pairing a used display, run `screen list --state archived`. If `screen show` reports `recovery_pending`,
@@ -227,6 +229,15 @@ screen is archived as `replaced`; delete it, never unarchive it.
 | The same layout with staff-filled text, a photo or a link (brand rules, quick notices) | template (Premium): `fields` and `locked` on a playlist, then `playlist create --from-template` ([playlists](references/playlists.md#templates)) |
 | Data that lives elsewhere: a calendar, a sheet, a till, Slack, social posts, reviews | a card plus `source create`, from a preset when one exists (`source presets`; [sources](references/sources.md#presets)) |
 | Data that must stay current, and which way to feed it | a source, your own scheduled `card data put --ttl`, or a webhook ([keep cards current](references/sources.md#keep-cards-current)) |
+
+**Linux and Raspberry Pi memory.** Before you choose a web application, an
+`iframe` or video above 1920 by 1080 for a screen whose `host.platform` is `qt`
+(the Linux and Raspberry Pi Player), read `health.memory.total_bytes` in
+`screen show` (a board reports a little less than its rated size). A 2 GB board
+plays them all. A 1 GB board skips each of them with a warning in the screen's
+log and plays the rest, so use a card, an image or 1080p video (the default
+upload) there. Below 1 GB the Player plays nothing and says so on screen. Every
+other Player plays them whatever its memory.
 
 Prefer a card to an application: a card draws natively on every Player, changes
 with `card data put` without republishing, and suits a rotating loop. App code
