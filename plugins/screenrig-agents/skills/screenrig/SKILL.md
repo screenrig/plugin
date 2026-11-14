@@ -193,6 +193,11 @@ display layout on the device, so no keyboard, SSH or agent step is needed. A
 Linux install with `install.sh --kiosk --manage-host` has the same screen.
 A Linux or Raspberry Pi Player needs 1 GB of memory, and 2 GB is recommended:
 tell the user before they buy a board.
+To diagnose a Linux or Raspberry Pi Player from the user's computer, use its
+Remote debugging: adb on port 5555 with a root shell, off until the user turns
+it on in Device Configuration (Pi image or `--remote-debug` install) or puts
+their adb public key in a `screenrig-adb-key` file on the Pi's card; the first
+computer to connect is trusted (https://screenrig.ai/docs/players.md?utm_source=codex&utm_medium=package&utm_campaign=tof-libs#remote-debugging).
 
 `screen archive` darkens a screen but keeps its playlist and binding. Before
 pairing a used display, run `screen list --state archived`. If `screen show` reports `recovery_pending`,
