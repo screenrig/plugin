@@ -3,7 +3,7 @@ const require = screenrigCreateRequire(import.meta.url);
 import {
   handleEventsFollow,
   handleEventsList
-} from "./chunk-NJBVQMR3.js";
+} from "./chunk-GEODPA7F.js";
 import "./chunk-V7LAJBVM.js";
 import {
   addVerifyOptions
@@ -15,7 +15,7 @@ import {
   verifyLines,
   verifyMembers
 } from "./chunk-Z3XU7OGC.js";
-import "./chunk-E2AIBB3R.js";
+import "./chunk-IB5NL4E4.js";
 import {
   fleetLinkTags
 } from "./chunk-V7NCJHWY.js";

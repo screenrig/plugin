@@ -71,6 +71,14 @@ function healthLines(health) {
   const network = health.network;
   if (network) {
     add("network", [network.kind, number(network.wifi_rssi_dbm) ? "".concat(network.wifi_rssi_dbm, " dBm") : void 0].filter(Boolean).join(", "));
+    if (typeof network.hostname === "string")
+      add("hostname", network.hostname);
+    for (const entry of Array.isArray(network.interfaces) ? network.interfaces : []) {
+      if (typeof entry?.name !== "string" || !Array.isArray(entry.addresses))
+        continue;
+      const kind = typeof entry.kind === "string" && entry.kind !== "unknown" ? " (".concat(entry.kind, ")") : "";
+      add("address ".concat(entry.name).concat(kind), entry.addresses.filter((address) => typeof address === "string").join(", "));
+    }
   }
   const battery = health.battery;
   if (battery) {
