@@ -553,6 +553,31 @@ in `screen show`, which turns `done` or `failed` with the Player's `cause`
 and `detail`; a `sent` command with no result stays `sent`. Use `screen reload`
 first to refresh content, and run these only when the user asks.
 
+**Network change.** `screen network set SCREEN_ID (--wifi NAME [--hidden]
+[--password-file FILE|-] | --ethernet) (--dhcp | --address A/P --gateway G
+[--dns D,D]) [--rollback-after SECONDS]` changes one screen's connection and IPv4
+addressing (not its host name). Only the Raspberry Pi appliance and Linux Players
+installed to manage their host apply it (`network.configure` in `screen show`);
+any other screen answers `network_unsupported`, and a screen in a protected
+folder `protected_target`. A wrong setting can take a screen off the network, so
+run it only when the user asks and confirm the connection, addressing and
+rollback time with them first. The device keeps the settings only if it opens a
+new connection to screenRIG over them within the rollback time (60 to 600
+seconds, 180 by default); otherwise it restores the old ones by itself, also
+after a power cut. The Wi-Fi password is write-only: never put it in a command
+line, the chat or a report. Ask the user to write it to a file they control and
+give that file as `--password-file FILE`, or pipe it with `--password-file -`;
+every read says `password set`. Accepted is not kept: after the rollback time run
+`screen network show SCREEN_ID` (or read `commands` in `screen show`). `done`
+with `kept` is the result; `rolled_back` carries a reason in `detail`:
+`no_link` (no carrier, or the Wi-Fi network was not found), `wrong_password`,
+`no_address` (no DHCP lease, or a wrong manual address), `restarted` (the device
+restarted during the trial) or `not_connected` (anything else, screenRIG
+unreachable included, such as a captive portal or a firewall). A `refused_`
+cause changed nothing (`refused_busy` while an update or another network change
+is on trial). Tell the user the reason and retry only with their go-ahead; at
+most 4 per screen per 10 minutes.
+
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported) and, after an outage, `last_outage`, whose
 `likely_cause` is absent when unknown: never infer one. Monitor with `events list|follow`, `playback plays|list`
