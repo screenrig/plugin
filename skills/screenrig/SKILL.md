@@ -553,6 +553,21 @@ in `screen show`, which turns `done` or `failed` with the Player's `cause`
 and `detail`; a `sent` command with no result stays `sent`. Use `screen reload`
 first to refresh content, and run these only when the user asks.
 
+**Settings menu PIN.** A screen can require a PIN of 4 to 8 digits before its
+settings menu opens on the device (the Linux, Raspberry Pi and Android Players;
+`screen show` lists the host capability `menu_pin`). It keeps people at the
+screen from changing it. One PIN per screen, whether it was set on the device or
+remotely, and the last change wins; an offline screen applies a remote change when it next connects.
+Set it with `screen menu-pin set ID --pin-file pin.txt`, or `--pin-file -` to read
+standard input; the PIN is never an argument. Clear it with `screen menu-pin clear ID`.
+The PIN is the customer's secret: never echo it, repeat it in a reply, put it in a
+file you keep or in a log or note, and delete any temporary file you made for it as
+soon as the command returns. `screen show` says only whether a PIN is set, and
+nobody can read it back. A forgotten PIN is recovered by clearing it, which
+works while the screen shows the PIN prompt or is locked out and ends the
+lockout; then set a new one. A Player that cannot take a PIN answers
+`menu_pin_unsupported`.
+
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported) and, after an outage, `last_outage`, whose
 `likely_cause` is absent when unknown: never infer one. Monitor with `events list|follow`, `playback plays|list`
