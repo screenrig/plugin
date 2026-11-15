@@ -232,8 +232,10 @@ Linux kiosk Player; else `wall_unsupported`), no plan feature, and no `format`:
 author with `playlist init --screen-id SCREEN_ID`, which writes a 1080x1920
 canvas for 90 or 270 and 1920x1080 otherwise, and assigning a playlist that has
 a `format` to a one-output screen is `playlist_format_mismatch`. The Player's
-own menu can set its layout too, so read `screen show` for the wall before
-setting one. A grid takes `--columns`, an integer of at least 2 that divides
+own menu can set its layout too (Linux Device Configuration, Displays, Mode:
+Extend is a wall of both outputs, Mirror a wall of the first output alone, which
+the second display mirrors), so read `screen show` for the wall before setting
+one; a playlist with a `format` needs the screen extended. A grid takes `--columns`, an integer of at least 2 that divides
 the displays into at least 2 rows (12 displays in 4 columns make 3 rows); a row
 or column takes none. Prefer a grid when a row or column would exceed 16384 px
 (more than 8 landscape displays in a row), the widest buffer most GPUs
