@@ -201,6 +201,10 @@ Remote debugging: adb on port 5555 with a root shell, off until the user turns
 it on in Device Configuration (Pi image or `--remote-debug` install) or puts
 their adb public key in a `screenrig-adb-key` file on the Pi's card; the first
 computer to connect is trusted (https://screenrig.ai/docs/players.md?utm_source=skills-sh&utm_medium=package&utm_campaign=tof-libs#remote-debugging).
+Each Pi is named `screenrig-` plus six hex digits and answers at that name
+with `.local` on the local network while it is unpaired or has SSH or Remote
+debugging on; a paired screen's host name and local addresses are in
+`screen show`.
 
 `screen archive` darkens a screen but keeps its playlist and binding. Before
 pairing a used display, run `screen list --state archived`. If `screen show` reports `recovery_pending`,
@@ -294,7 +298,11 @@ Every Raspberry Pi (`screen show` names the model) plays HEVC (H.265) video
 only: it skips an H.264 video with a warning, its page leaving the rotation as
 `decoder_unavailable` and the Player log reporting `player.video_unusable` with
 `cause` `no_hardware_decoder`. Upload every video for a Pi with `--codec hevc`,
-with any preset, and never offer or retry H.264 when one fails.
+with any preset, and never offer or retry H.264 when one fails. A Raspberry Pi
+4, 400 or CM4 plays HEVC up to 1080p60 (`--preset signage-1080p60`) and 4K30
+(`--preset signage-4k30`); a Raspberry Pi 5 up to 4K60 (`--max-edge 3840
+--max-fps 60`). A Pi 4 shows 60 fps when the video is the page's only video,
+not moving, on a landscape screen with one display, and 30 fps otherwise.
 Send many files with `media upload-batch`, not one `media upload` after another.
 
 Organize a large library with folders, not tag conventions: `media folder
