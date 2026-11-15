@@ -600,6 +600,21 @@ cause changed nothing (`refused_busy` while an update or another network change
 is on trial). Tell the user the reason and retry only with their go-ahead; at
 most 4 per screen per 10 minutes.
 
+**Settings menu PIN.** A screen can require a PIN of 4 to 8 digits before its
+settings menu opens on the device. Only a Player that lists the host capability
+`menu_pin` in `screen show` takes one; any other screen answers
+`menu_pin_unsupported` (exit 5). Set it with `screen menu-pin set SCREEN_ID
+--pin-file FILE`, or `--pin-file -` to read standard input; the PIN is never an
+argument. `screen menu-pin clear SCREEN_ID` removes it, and `--expect-rev N` on
+either guards against a concurrent change. One PIN per screen, set on the device
+or remotely; the last change wins, and an offline screen applies a remote change
+when it next connects. The PIN is the customer's secret: never echo it, repeat it
+in a reply, or put it in a file you keep, a log or a note, and delete any
+temporary file you made for it as soon as the command returns. `screen show` says
+only whether a PIN is set and who last changed it; nobody can read it back.
+Clearing is also how a forgotten PIN is recovered, even at the PIN prompt or
+after a lockout; then set a new one.
+
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported) and, after an outage, `last_outage`, whose
 `likely_cause` is absent when unknown: never infer one. Monitor with `events list|follow`, `playback plays|list`
