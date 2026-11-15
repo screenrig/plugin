@@ -190,9 +190,11 @@ factory-reset Android 10+ device enrolls by QR code:
 (the Imager command for each operating system is in https://screenrig.ai/docs/players.md?utm_source=claude-directory&utm_medium=package&utm_campaign=tof-libs#raspberry-pi). The Pi boots
 into the Player and shows a pairing code, so pair it as above; a
 `screenrig-fleet-link` file on the boot partition enrolls it without a code. The
-Player's own menu (Device Configuration: Displays, Wi-Fi, Network, Time zone,
-Restart device, Shut down, Reset this screen) sets the network, time zone and
-display layout on the device, so no keyboard, SSH or agent step is needed. A
+Player's own menu (Device Configuration: Displays with Mode, Layout, Order,
+Rotation and Resolution, Wi-Fi, Network, Time zone, Restart device, Shut down,
+Reset this screen) sets the network, time zone and display layout on the device,
+so no keyboard, SSH or agent step is needed; with two displays the menu appears
+on the first display. A
 Linux install with `install.sh --kiosk --manage-host` has the same screen.
 A Linux or Raspberry Pi Player needs 1 GB of memory, and 2 GB is recommended:
 tell the user before they buy a board.
@@ -300,9 +302,17 @@ only: it skips an H.264 video with a warning, its page leaving the rotation as
 `cause` `no_hardware_decoder`. Upload every video for a Pi with `--codec hevc`,
 with any preset, and never offer or retry H.264 when one fails. A Raspberry
 Pi 4 plays HEVC up to 1080p60 (`--preset signage-1080p60`); a Raspberry Pi 5
-plays HEVC up to 4K30 (`--preset signage-4k30`). A Pi 4 shows 60 fps when the
-video is the page's only video, not moving, on a landscape screen with one
-display, and 30 fps otherwise.
+plays HEVC up to 4K60 (`--codec hevc --max-edge 3840 --max-fps 60`). 60 fps
+needs the video to be the page's only video, not moving, on a landscape screen
+with one display; a Pi 4 shows 30 fps otherwise.
+A Raspberry Pi 4 or 5 runs a display larger than 1080p, such as a 4K TV, at
+1920x1080 at 60 Hz unless 4K is set: 4K video still plays, scaled to the 1080p
+output by the display hardware. For native 4K detail set the output to 4K
+(`screen display-output SCREEN_ID --mode 3840x2160x60p`, or the user picks it
+in Device Configuration, Displays, Resolution); the Pi then works much harder
+and busy pages (web content, heavy animation, a video beside cards) run at lower
+frame rates, while simple pages and video stay smooth, so the CLI answers a
+`display_output_above_1080p` warning. `--mode auto` returns it to 1080p.
 Send many files with `media upload-batch`, not one `media upload` after another.
 
 Organize a large library with folders, not tag conventions: `media folder
@@ -523,7 +533,8 @@ Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
 7 days), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen display-idle` (dark after idle, wake on touch or presence),
 `screen brightness --mode auto` (light sensor), `screen display-output --mode
-3840x2160x60p|auto` (output mode, from the modes `screen show` lists),
+3840x2160x60p|auto` (output mode, from the modes `screen show` lists; a Raspberry
+Pi's `auto` is 1920x1080 at 60 Hz on a 4K display),
 `screen display-cec --on` (the TV switches to the Player), `screen kiosk-lock` (pin the
 Player on Android), `screen volume` (`--level 0-100`, `--mute`, `--unmute`; only
 where the Player declares it, else `volume_unsupported`; `screen show` reports
