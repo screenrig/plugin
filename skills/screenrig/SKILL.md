@@ -299,10 +299,10 @@ only: it skips an H.264 video with a warning, its page leaving the rotation as
 `decoder_unavailable` and the Player log reporting `player.video_unusable` with
 `cause` `no_hardware_decoder`. Upload every video for a Pi with `--codec hevc`,
 with any preset, and never offer or retry H.264 when one fails. A Raspberry Pi
-4, 400 or CM4 plays HEVC up to 1080p60 (`--preset signage-1080p60`) and 4K30
-(`--preset signage-4k30`); a Raspberry Pi 5 up to 4K60 (`--max-edge 3840
---max-fps 60`). A Pi 4 shows 60 fps when the video is the page's only video,
-not moving, on a landscape screen with one display, and 30 fps otherwise.
+4 plays HEVC up to 1080p60 (`--preset signage-1080p60`) and 4K30 (`--preset
+signage-4k30`); a Raspberry Pi 5 up to 4K60 (`--max-edge 3840 --max-fps 60`).
+A Pi 4 shows 60 fps when the video is the page's only video, not moving, on a
+landscape screen with one display, and 30 fps otherwise.
 Send many files with `media upload-batch`, not one `media upload` after another.
 
 Organize a large library with folders, not tag conventions: `media folder
