@@ -3,7 +3,7 @@ import { createRequire as screenrigCreateRequire } from "node:module";
 const require = screenrigCreateRequire(import.meta.url);
 import {
   FEED_REPEATABLE_FLAGS
-} from "./chunk-APKEIZV7.js";
+} from "./chunk-ZMT3NPWG.js";
 import {
   Command,
   CommanderError,
@@ -33,7 +33,6 @@ import {
   CLI_VERSION
 } from "./chunk-BFLHHH47.js";
 import "./chunk-P3D5NU6C.js";
-import "./chunk-SFYZH3GR.js";
 import {
   commandFromArgv,
   commandPath,
@@ -46,6 +45,11 @@ import {
   commandNotes,
   commandRelationships
 } from "./chunk-B3OG6ANV.js";
+import "./chunk-ZARW5VRV.js";
+import "./chunk-IZRCMRT5.js";
+import "./chunk-SFYZH3GR.js";
+import "./chunk-IYX5JHXW.js";
+import "./chunk-TXFBSTEK.js";
 import {
   CliError,
   ExitCode,
@@ -55,10 +59,6 @@ import {
   usageError,
   withDefaultHint
 } from "./chunk-VYWS3KLY.js";
-import "./chunk-PGM5AQER.js";
-import "./chunk-G4R5Q7OS.js";
-import "./chunk-LMVLFNSU.js";
-import "./chunk-XAYSKU3G.js";
 import "./chunk-3FYAGULW.js";
 
 // dist/cli-errors.js
@@ -141,14 +141,14 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-LJYPPMTX.js"),
-  ads: () => import("./ads-KWVDCBNS.js"),
-  media: () => import("./media-W3GHN5W3.js"),
-  playlists: () => import("./playlists-N22MP7XP.js"),
-  screens: () => import("./screens-SQHRYELC.js"),
-  monitoring: () => import("./monitoring-BQ5KIPJE.js"),
-  integrations: () => import("./integrations-7GIGI2YZ.js"),
-  migrate: () => import("./migrate-ZFL5EIJI.js"),
+  account: () => import("./account-7PI5SUFY.js"),
+  ads: () => import("./ads-GH2C6XIK.js"),
+  media: () => import("./media-4GWGBYMS.js"),
+  playlists: () => import("./playlists-2ZOTDCNN.js"),
+  screens: () => import("./screens-IYPANVPX.js"),
+  monitoring: () => import("./monitoring-B33PIPOG.js"),
+  integrations: () => import("./integrations-K6UBMHRG.js"),
+  migrate: () => import("./migrate-IU7IB56X.js"),
   docs: () => import("./docs-HGTHKTN7.js")
 };
 var TOP_LEVEL_COMMANDS = {
@@ -408,7 +408,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-REGT6LGU.js");
+    const { registerGuidance } = await import("./register-guidance-KAASQL6Z.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
