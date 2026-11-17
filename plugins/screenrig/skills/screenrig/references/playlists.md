@@ -284,6 +284,59 @@ lists it. A format change that moves a playlist into or out of a region is
 that resolve their own stack draw strips; any other Player's row reads
 `stack_only`.
 
+## Containers
+
+A `container` primitive is a rectangle on a page that shows one of its items at
+a time: a side panel that changes with the video beside it, a corner that
+alternates a clock and a logo, a panel that switches to a goal graphic while a
+score feed says so. The rest of the page keeps playing; only the rectangle
+turns.
+
+```json
+{"id": "side", "primitive": "container",
+ "rect": {"x": 1440, "y": 0, "width": 480, "height": 810}, "layer": 1,
+ "turn": {"on": "video", "every_ms": 12000, "match": "tag", "no_match": "clock", "min_ms": 4000},
+ "transition": {"type": "fade", "duration_ms": 400},
+ "items": [
+   {"id": "wx", "primitive": "card", "card": "weather", "major": 1, "layout": "full", "params": {}, "tags": ["city"]},
+   {"id": "menu", "primitive": "card", "card": "text", "major": 1, "layout": "full", "params": {}, "tags": ["food"]},
+   {"id": "goal", "primitive": "card", "card": "text", "major": 1, "layout": "full", "params": {},
+    "when": {"data": {"key": "scores", "path": "/moment", "equals": "goal"}}}]}
+```
+
+- `items`: 1 to 8 `card` or `image` bodies, each with its own page-unique `id`
+  and no `rect` or `layer` (the container's rectangle is theirs). A card item
+  takes `layout` (`"full"` fills the rectangle); an image item's selector is
+  `by: "id"`. At most 4 containers on a page; a container and each item count
+  toward the page's 24 primitives; containers do not nest.
+- `turn.on: "clock"` steps through the items every `every_ms` (1,000 to
+  3,600,000), shifted by `offset_ms`. Every screen showing the playlist is on
+  the same item at the same moment.
+- `turn.on: "video"` follows the page's one `video`: with `match: "tag"` the
+  first item whose `tags` share a tag with the playing file's media tags shows;
+  with `match: "index"` the items follow the file's position in the list. When
+  nothing matches, `no_match` is `clock` (step on `every_ms`), `hold` (keep
+  what is showing) or `hide` (show nothing). Tag the media (`media update ID
+  --tag food`) and the items alike.
+- `min_ms` (up to 60,000) keeps an item up at least that long; keep it shorter
+  than the shortest clip, or the panel lags the video.
+- An item with `when` is a moment: while its data condition holds (the shape of
+  a page's `visibility.data`) it shows instead of everything else, and leaves
+  when the condition ends. At least one item has no `when`.
+- `transition` is `cut` or a `fade` cross-dissolve of up to 2,000 ms.
+- A one-page playlist whose `media_end` page plays several files goes back to
+  the first file without reloading the page, so containers and cards stay up
+  across the loop.
+- The reserved card data key `{page.video}` reads what the page's video is
+  playing (`media_id`, `name`, `tags`, `index`, `count`, `lap`, `duration_ms`,
+  `started_at_ms`), as a card's `data` key or in a `when.data` or
+  `visibility.data` condition: `{"key": "{page.video}", "path": "/index",
+  "equals": 0}`.
+
+`playlist validate FILE` checks all of it. Template field tokens work inside an
+item's card `params` as on any card. `playlist export` refuses a playlist that
+holds a container.
+
 ## Templates
 
 A template (Premium) is an ordinary playlist with two additions, built once from the
@@ -354,7 +407,8 @@ video of its folders only (a stinger transition's logo included);
   optional `visibility` and `audio_cue`, and flat `primitives` (`id`,
   `primitive`, its own fields, `rect`, `layer`, `content_fit`, optional `enter`
   and `motion`).
-- Primitives are `image`, `video`, `stream`, `iframe`, `application`, `card`.
+- Primitives are `image`, `video`, `stream`, `iframe`, `application`, `card`
+  and `container` ([Containers](#containers)).
   Text and shapes are not primitives: draw them into an image with your own
   tools and `media upload` it, or show live text with a built-in card.
 - `image` and `video` need a `selector` (`by` `id`, `ids`, `all`, `tag`,
