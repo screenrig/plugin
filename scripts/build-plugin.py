@@ -11,10 +11,9 @@ from this organization: a skill written for the remote MCP server, a README, the
 license, the manifest, ``.mcp.json`` and the listing icon, built from
 ``directory/``.
 
-Pack sibling ``../cli`` or a ``--cli-artifact`` from current ``screenrig/cli``
-``main``. ``components.lock.json`` is provenance of the tarball just packed
-(filename, SHA-256, and the commit that produced those bytes). It is not a
-freeze of which SHA to fetch. Do not refetch a commit from that file.
+Pack sibling ``../cli`` or a ``--cli-artifact``. ``components.lock.json`` pins
+the bundled CLI: the commit CI packs and verifies, with the filename and
+SHA-256 of the tarball packed when the pin last moved.
 """
 
 from __future__ import annotations
@@ -406,7 +405,7 @@ def verify_cli_artifact(artifact: Path) -> None:
     if recorded.get("sha256") != digest:
         raise BuildError(
             "CLI tarball digest differs from recorded provenance; "
-            "pack current screenrig/cli main and rebuild with --write-lock"
+            "pack the commit to bundle and rebuild with --write-lock"
         )
 
 
@@ -750,15 +749,15 @@ def main() -> int:
         "--docs-only", action="store_true",
         help="refresh canonical public files and skills in an existing bundle; preserve CLI, manifests and provenance",
     )
-    parser.add_argument("--cli-artifact", type=Path, help="tarball packed from sibling ../cli or current screenrig/cli main")
+    parser.add_argument("--cli-artifact", type=Path, help="tarball packed from the screenrig/cli commit to bundle")
     parser.add_argument(
         "--write-lock",
         action="store_true",
-        help="record provenance of the tarball just packed; not a fetch pin",
+        help="pin the bundled CLI to the tarball just packed",
     )
     parser.add_argument(
         "--cli-commit",
-        help="commit that produced the packed tarball, recorded as provenance only",
+        help="commit that produced the packed tarball, recorded as the pin",
     )
     args = parser.parse_args()
     if args.docs_only and (args.cli_artifact or args.write_lock or args.cli_commit):

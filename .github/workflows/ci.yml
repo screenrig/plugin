@@ -5,11 +5,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      after_rebundle:
-        description: Set by the follow-up dispatch that gates an auto-rebundle commit.
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -20,8 +15,6 @@ concurrency:
 
 jobs:
   verify:
-    outputs:
-      bundle_updated: ${{ steps.rebuild.outputs.bundle_updated }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -32,19 +25,22 @@ jobs:
         with:
           node-version: "22.23.4"
           package-manager-cache: false
-      - name: Pack current screenrig/cli main
+      - name: Pack the pinned screenrig/cli commit
         run: |
           repository="screenrig/cli"
           filename="screenrig-cli.tgz"
           test "$(jq -r .cli.repository components.lock.json)" = "${repository}"
-          # Pack current main. Do not refetch a SHA from components.lock.json;
-          # that file is provenance of the tarball just packed.
+          # components.lock.json pins the CLI commit this plugin bundles. The
+          # pin moves only in a reviewed plugin commit, never by following
+          # screenrig/cli main, and it must be a commit on that main.
+          commit="$(jq -r .cli.commit components.lock.json)"
+          printf '%s' "${commit}" | grep -Eqx '[0-9a-f]{40}'
           install -d "${RUNNER_TEMP}/screenrig-cli-source"
           git -C "${RUNNER_TEMP}/screenrig-cli-source" init --quiet
-          git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --depth=1 \
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" fetch --quiet \
             "https://github.com/${repository}.git" main
-          git -C "${RUNNER_TEMP}/screenrig-cli-source" checkout --quiet --detach FETCH_HEAD
-          commit="$(git -C "${RUNNER_TEMP}/screenrig-cli-source" rev-parse HEAD)"
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" merge-base --is-ancestor "${commit}" FETCH_HEAD
+          git -C "${RUNNER_TEMP}/screenrig-cli-source" checkout --quiet --detach "${commit}"
           # Stamp the same CalVer the CLI distributing job used when this
           # main HEAD is tagged vYY.MM.N, so the tarball hash is stable.
           cli_version="$(python3 scripts/calver.py cli-stamp --repository "${repository}" --commit "${commit}")"
@@ -62,132 +58,28 @@ jobs:
           test -f "${RUNNER_TEMP}/screenrig-cli/${filename}"
           printf '%s' "${commit}" > "${RUNNER_TEMP}/screenrig-cli/commit"
       - name: Rebuild and verify the committed plugin bundle
-        id: rebuild
         run: |
-          echo "bundle_updated=false" >> "${GITHUB_OUTPUT}"
           filename="screenrig-cli.tgz"
           artifact="${RUNNER_TEMP}/screenrig-cli/${filename}"
           commit="$(cat "${RUNNER_TEMP}/screenrig-cli/commit")"
           packed="$(sha256sum "${artifact}" | awk '{print $1}')"
           locked="$(jq -r .cli.artifact.sha256 components.lock.json)"
           if [ "${packed}" != "${locked}" ]; then
-            if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
-              echo "Committed CLI tarball provenance differs from current screenrig/cli main" >&2
-              echo "packed ${packed}" >&2
-              echo "recorded ${locked}" >&2
+            # Packing is not byte-reproducible and a release tag on the pinned
+            # commit changes its stamped version, so the bundle's bytes decide:
+            # rebuilding from the pinned commit must change nothing in plugins/.
+            python3 scripts/build-plugin.py --cli-artifact "${artifact}" --write-lock --cli-commit "${commit}"
+            if [ -n "$(git status --porcelain -- plugins)" ]; then
+              echo "The committed bundle is not the pinned screenrig/cli ${commit}" >&2
+              git status --porcelain -- plugins >&2
               exit 1
             fi
-            python3 scripts/build-plugin.py --cli-artifact "${artifact}" --write-lock --cli-commit "${commit}"
-            install -d "${RUNNER_TEMP}/screenrig-cli-bundle-update"
-            cp components.lock.json "${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
-            cp -a plugins/screenrig "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig"
-            cp -a plugins/screenrig-agents "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig-agents"
-            echo "bundle_updated=true" >> "${GITHUB_OUTPUT}"
           fi
           python3 scripts/build-plugin.py --check --cli-artifact "${artifact}"
           sha256sum --strict -c contracts.sha256
           python3 scripts/validate-plugin.py --cli-artifact "${artifact}"
           python3 scripts/check-public-repo.py
           python3 scripts/test.py
-      - name: Upload rebuilt marketplace CLI when it drifted
-        if: github.ref == 'refs/heads/main' && steps.rebuild.outputs.bundle_updated == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: screenrig-cli-bundle-update
-          path: ${{ runner.temp }}/screenrig-cli-bundle-update/
-          # v4 omits dotfiles unless set; that deleted .claude-plugin/plugin.json.
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 1
-
-  distribute:
-    if: github.repository == 'screenrig/plugin' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: verify
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-      actions: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        if: needs.verify.outputs.bundle_updated == 'true'
-        with:
-          name: screenrig-cli-bundle-update
-          path: ${{ runner.temp }}/screenrig-cli-bundle-update
-      - name: Publish current CLI bundle when screenrig/cli main moved
-        if: needs.verify.outputs.bundle_updated == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AFTER_REBUNDLE: ${{ github.event.inputs.after_rebundle }}
-        run: |
-          update="${RUNNER_TEMP}/screenrig-cli-bundle-update/components.lock.json"
-          test -f "${update}"
-          old="$(jq -r .cli.artifact.sha256 components.lock.json)"
-          new="$(jq -r .cli.artifact.sha256 "${update}")"
-          if [ "${old}" = "${new}" ]; then
-            echo "Bundled CLI digest unchanged; not committing"
-            exit 0
-          fi
-          if [ "${AFTER_REBUNDLE}" = "true" ]; then
-            # This run exists to gate the rebundle commit the previous run
-            # pushed. Rebundling again would push a fresh ungated tip and
-            # dispatch forever, so never commit from this generation.
-            old_commit="$(jq -r .cli.commit components.lock.json)"
-            new_commit="$(jq -r .cli.commit "${update}")"
-            if [ "${old_commit}" = "${new_commit}" ]; then
-              # Packing screenrig/cli ${old_commit} is not byte-reproducible, so
-              # the digest alone moved while the bundled CLI stayed put. Accept
-              # the recorded provenance and leave this gated tip on main.
-              echo "Bundled CLI is still screenrig/cli ${old_commit}; tarball digest is not reproducible"
-              echo "recorded ${old}"
-              echo "packed ${new}"
-              exit 0
-            fi
-            echo "This run gates rebundle tip $(git rev-parse HEAD), yet screenrig/cli main moved again" >&2
-            echo "recorded ${old_commit} ${old}" >&2
-            echo "packed ${new_commit} ${new}" >&2
-            echo "Not chaining another rebundle; the next push to main bundles ${new_commit}" >&2
-            exit 1
-          fi
-          cp "${update}" components.lock.json
-          rm -rf plugins/screenrig plugins/screenrig-agents
-          cp -a "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig" plugins/screenrig
-          cp -a "${RUNNER_TEMP}/screenrig-cli-bundle-update/plugins-screenrig-agents" plugins/screenrig-agents
-          # download-artifact restores files as 644.
-          for folder in plugins/screenrig plugins/screenrig-agents; do
-            chmod 0755 "${folder}/cli/dist/bin.js" \
-              "${folder}/skills/screenrig/scripts/screenrig" \
-              "${folder}/skills/screenrig/scripts/screenrig-plugin-freshness" \
-              "${folder}/skills/screenrig-view-bridge/scripts/screenrig-view-bridge"
-          done
-          git add -- plugins/screenrig plugins/screenrig-agents
-          if git diff --cached --quiet; then
-            # Packing is not byte-reproducible, and a new release tag on the
-            # same CLI commit changes its stamped version, so the digest moves
-            # while the bundle agents install stays identical. Keep main as is.
-            echo "Bundled plugin unchanged; only the CLI tarball digest moved, not committing"
-            exit 0
-          fi
-          git add -- components.lock.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Bundle current screenrig/cli main"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-          tip="$(git rev-parse HEAD)"
-          # A GITHUB_TOKEN push never re-fires `on: push`, so this rebundle tip
-          # would carry no check runs at all. Dispatch these gates on the new
-          # tip, flagged as the follow-up generation so it cannot chain forever.
-          curl --proto '=https' --tlsv1.2 --fail --silent --show-error \
-            --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer ${GITHUB_TOKEN}" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            --data '{"ref":"main","inputs":{"after_rebundle":"true"}}' \
-            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches"
-          echo "Dispatched public plugin gates for rebundle tip ${tip}"
 
   secrets:
     runs-on: ubuntu-latest

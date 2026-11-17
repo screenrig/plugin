@@ -58,12 +58,15 @@ the logo lives in the agents folder.
   manifests. Never edit `plugins/` by hand: change inputs and regenerate.
   Documentation-only change: `scripts/build-plugin.py --docs-only` (verify with
   `--docs-only --check`); it preserves the CLI, manifests and provenance.
-- Locally the builder packs sibling `../cli` when present; CI packs
-  `https://github.com/screenrig/cli` `main`. `components.lock.json` is provenance
-  of the tarball just packed (filename, SHA-256, commit), not a pin to fetch.
-- A rebuild bundles every cli `main` commit since the one in `components.lock.json`: review `git log
-  <locked cli commit>..origin/main` with their authors first. Bare `build-plugin.py` runs `npm run build` in the
-  sibling cli, which cleans `dist/`; `--cli-artifact` avoids it.
+- `components.lock.json` pins the CLI commit the plugin bundles (commit,
+  filename, SHA-256). CI packs exactly that commit, requires it to be on
+  `screenrig/cli` `main`, and fails unless rebuilding from it leaves `plugins/`
+  unchanged; CI never commits. Nothing follows cli `main` by itself.
+- Move the pin in a plugin commit: with sibling `../cli` at the cli commit to
+  bundle, review `git log <pinned commit>..<new commit>` with its authors, run
+  `scripts/build-plugin.py` (it packs the sibling and rewrites the lock and
+  `plugins/`) and commit both. Bare `build-plugin.py` runs `npm run build` in
+  the sibling cli, which cleans `dist/`; `--cli-artifact` avoids it.
 - `release-version-files.json` inventories every version-bearing file in both
   folders; add new ones there when you generate them. `main` carries the
   released version and the workspace release stamps and tags it. CI neither

@@ -157,18 +157,16 @@ def check_public_tree(errors: list[str]) -> None:
             "python3 scripts/validate-plugin.py",
             "python3 scripts/test.py",
             "gitleaks\" git",
-            "contents: write",
-            "actions: write",
-            "after_rebundle",
-            "actions/workflows/ci.yml/dispatches",
             "jq -r .cli.commit",
-            "github.ref == 'refs/heads/main'",
-            "git push",
-            "GITHUB_TOKEN",
-            "Bundled CLI digest",
+            "merge-base --is-ancestor",
         ):
             if fact not in workflow:
                 errors.append(f"public CI is missing required gate: {fact}")
+        # The bundled CLI is the commit pinned in components.lock.json: CI
+        # verifies it and never writes to the repository.
+        for write in ("contents: write", "actions: write", "git push"):
+            if write in workflow:
+                errors.append(f"public CI must not write to the repository: {write}")
         if "github.run_number" in workflow:
             errors.append("public CI must not use github.run_number for CalVer")
     if (ROOT / "plugins" / "screenrig").is_dir() and not (ROOT / "scripts" / "calver.py").is_file():
