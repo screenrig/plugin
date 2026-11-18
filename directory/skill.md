@@ -137,9 +137,10 @@ a format screens do not play; say so and offer the CLI below.
 A tool that creates or rotates a secret, or answers with a sign-in or signed
 link, shows it once and says so in its description. Give that value only to
 the person or system it is for, say that it is shown once, and never repeat it
-in a summary. Deleting a project, moving it, transferring its owner and
-revoking an identity are permanent: do them only on the person's explicit
-request, after `screenrig_project_deletion_preview` for a deletion.
+in a summary. Deleting a project, moving it and revoking an identity are
+permanent: do them only on the person's explicit request, after
+`screenrig_project_deletion_preview` for a deletion. An agent never transfers
+a project's owner: the owner does that in the dashboard (Project settings).
 
 ## What the CLI adds
 
