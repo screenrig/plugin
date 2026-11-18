@@ -219,10 +219,10 @@ def check_directory_folder() -> None:
     tools = published_mcp_tools()
     if tools is not None:
         errors.extend(f"{label}/skills/screenrig/SKILL.md:{line}: {problem}" for line, problem in taught_tool_errors(skill, tools))
-    for fact in ("screenrig_screen_pair", "screenrig_playlist_create", "screenrig_screen_screenshot", "screenrig_docs_search",
-                 "screenrig_media_import", "screenrig_media_upload_create", "screenrig_project_create",
+    for fact in ("`screenrig_screen_write` action `pair`", "`screenrig_playlist_write` action `create`", "screenrig_screen_screenshot",
+                 "screenrig_docs_search", "`screenrig_media_write` action `import`", "`screenrig_media_write` action `upload_create`", "screenrig_project_create",
                  "https://github.com/screenrig/plugin", "do not download, install or run it yourself"):
-        if fact not in skill:
+        if fact not in " ".join(skill.split()):
             errors.append(f"{label}/skills/screenrig/SKILL.md: required fact missing: {fact}")
     readme = (DIRECTORY_PLUGIN / "README.md").read_text(encoding="utf-8") if (DIRECTORY_PLUGIN / "README.md").is_file() else ""
     prose = re.sub(r"```.*?```", "", readme, flags=re.DOTALL)
