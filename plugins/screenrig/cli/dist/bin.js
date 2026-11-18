@@ -3,16 +3,16 @@ import { createRequire as screenrigCreateRequire } from "node:module";
 const require = screenrigCreateRequire(import.meta.url);
 import {
   FEED_REPEATABLE_FLAGS
-} from "./chunk-ZMT3NPWG.js";
+} from "./chunk-37RRGB6J.js";
 import {
   Command,
   CommanderError,
   Option,
   nonnegativeInteger
-} from "./chunk-OG4KFC53.js";
+} from "./chunk-JUXJTASX.js";
 import {
   handleVersion
-} from "./chunk-6XNEMMGF.js";
+} from "./chunk-RQCDJSB2.js";
 import "./chunk-UD3J3FNQ.js";
 import {
   LOG_SINK_DEGRADED_CODE,
@@ -23,7 +23,7 @@ import {
   formatResultContext,
   processRuntime,
   resultContext
-} from "./chunk-B2ICBIZJ.js";
+} from "./chunk-C3XCC3IF.js";
 import {
   errorEnvelope,
   successEnvelope
@@ -141,15 +141,15 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-7PI5SUFY.js"),
-  ads: () => import("./ads-GH2C6XIK.js"),
-  media: () => import("./media-4GWGBYMS.js"),
-  playlists: () => import("./playlists-2ZOTDCNN.js"),
-  screens: () => import("./screens-IYPANVPX.js"),
-  monitoring: () => import("./monitoring-B33PIPOG.js"),
-  integrations: () => import("./integrations-K6UBMHRG.js"),
-  migrate: () => import("./migrate-IU7IB56X.js"),
-  docs: () => import("./docs-HGTHKTN7.js")
+  account: () => import("./account-VLRYF3WS.js"),
+  ads: () => import("./ads-QCYD6U52.js"),
+  media: () => import("./media-YKRO7M2F.js"),
+  playlists: () => import("./playlists-EPE5TGNZ.js"),
+  screens: () => import("./screens-KOWDR3DI.js"),
+  monitoring: () => import("./monitoring-JZPUPMXK.js"),
+  integrations: () => import("./integrations-YRBHNP2G.js"),
+  migrate: () => import("./migrate-Q7I3RMRO.js"),
+  docs: () => import("./docs-GPN2GZKO.js")
 };
 var TOP_LEVEL_COMMANDS = {
   project: "account",
@@ -408,7 +408,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-KAASQL6Z.js");
+    const { registerGuidance } = await import("./register-guidance-JQY5GNU7.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
