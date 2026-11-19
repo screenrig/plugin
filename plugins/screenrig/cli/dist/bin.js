@@ -3,7 +3,7 @@ import { createRequire as screenrigCreateRequire } from "node:module";
 const require = screenrigCreateRequire(import.meta.url);
 import {
   FEED_REPEATABLE_FLAGS
-} from "./chunk-37RRGB6J.js";
+} from "./chunk-2PXV6Q6W.js";
 import {
   Command,
   CommanderError,
@@ -45,7 +45,7 @@ import {
   commandNotes,
   commandRelationships
 } from "./chunk-B3OG6ANV.js";
-import "./chunk-ZARW5VRV.js";
+import "./chunk-U5YVRXQZ.js";
 import "./chunk-IZRCMRT5.js";
 import "./chunk-SFYZH3GR.js";
 import "./chunk-IYX5JHXW.js";
@@ -141,14 +141,14 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-5W7YBMZZ.js"),
+  account: () => import("./account-L2LKRAWR.js"),
   ads: () => import("./ads-DSXNMS7A.js"),
-  media: () => import("./media-WS6VHETO.js"),
-  playlists: () => import("./playlists-JIK5L3KW.js"),
-  screens: () => import("./screens-OIIGGUDT.js"),
+  media: () => import("./media-TP5ICOYP.js"),
+  playlists: () => import("./playlists-WMXWOAN3.js"),
+  screens: () => import("./screens-BZK6JLFL.js"),
   monitoring: () => import("./monitoring-W7S2D57Q.js"),
   integrations: () => import("./integrations-YYP4VOIN.js"),
-  migrate: () => import("./migrate-RNY74YXJ.js"),
+  migrate: () => import("./migrate-4ES2XLUF.js"),
   docs: () => import("./docs-PGOSNCGA.js")
 };
 var TOP_LEVEL_COMMANDS = {
@@ -408,7 +408,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-XKOS2QMD.js");
+    const { registerGuidance } = await import("./register-guidance-VWEWDCW3.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
