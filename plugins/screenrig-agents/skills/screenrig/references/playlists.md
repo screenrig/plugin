@@ -210,6 +210,11 @@ screen, so one playlist plays each screen's own media: media tagged `Lobby` or
 `{"by": "tag", "tag": "{screen.field.zone}", "one_at_a_time": true}`. A screen
 without the field, or whose value is not a tag (1 to 32 letters or digits),
 plays no file from that slot (`screen_fact_missing`, `screen_fact_invalid`).
+A `tags` entry may also be `{screen.tags}`, every tag of the screen:
+`{"by": "tag", "tags": {"any": ["{screen.tags}"]}}` plays the files that share a
+tag with the screen, so tagging a screen `lobby` and a file `lobby` is all it
+takes. A screen without tags plays no file from that slot. Media tags match
+exactly as written, so spell a file's tag as the screens spell theirs.
 A template cannot be previewed (`selector-preview` takes a concrete tag) or
 exported.
 
@@ -388,6 +393,12 @@ stay as they are.
 date-only `--until` covers that whole day. `replace --always` removes the dates
 and keeps a switch-off or weekly windows the project set.
 
+`--screen-tag TAG` shows the page only on screens carrying the tag (repeat or
+comma-separate to require every one) and `--not-screen-tag TAG` keeps it off
+screens carrying any listed tag: one playlist, with the lobby page on lobby
+screens only. `replace --every-screen` removes the rule. Tag the screens first
+(`screen tag ID --add lobby`); a tag change reaches the screen at once.
+
 Under Propose a page change is a review; your next page change of the same
 playlist joins your pending review, which also lets you replace or remove a page
 still waiting in it, and approving applies them together. Another proposer's
@@ -492,7 +503,12 @@ video of its folders only (a stinger transition's logo included);
   naming the setting to change. The screen needs Google or Microsoft on the
   internet.
 - `visibility` times are civil, read in each screen's time zone (its device's
-  unless `screen set-timezone` overrides it); keep at least one page without it. A
+  unless `screen set-timezone` overrides it); keep at least one page without it.
+  `visibility.screens` limits a page to the screens a rule matches, by tag and
+  screen ID: `{"enabled": true, "screens": {"tag": "lobby"}}`, or
+  `{"all": [{"tag": "cafe"}, {"not": {"tag": "kiosk"}}]}` for cafe screens that
+  are not kiosks (`all`, `any`, `not`, `tag`, `screen_id`; no folder). It
+  combines with dates and windows. A
   `visibility.data` condition (Plus) keys off card data. Its key `{screen.weather}`
   keys off the weather where each screen is (give the screen a location first,
   `screen update --location`): `{"key":"{screen.weather}","path":"/condition","equals":"rain"}`.

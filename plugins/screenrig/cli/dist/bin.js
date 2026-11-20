@@ -3,31 +3,31 @@ import { createRequire as screenrigCreateRequire } from "node:module";
 const require = screenrigCreateRequire(import.meta.url);
 import {
   FEED_REPEATABLE_FLAGS
-} from "./chunk-2PXV6Q6W.js";
+} from "./chunk-4OLAF46A.js";
 import {
   Command,
   CommanderError,
   Option,
   nonnegativeInteger
-} from "./chunk-G5JR6XAE.js";
+} from "./chunk-JXYJSOJJ.js";
 import {
   handleVersion
-} from "./chunk-H5MN6JPM.js";
+} from "./chunk-53SXWY3U.js";
 import "./chunk-UD3J3FNQ.js";
 import {
   LOG_SINK_DEGRADED_CODE,
   logSinkDegradedWarning
-} from "./chunk-Q5WKSHIH.js";
+} from "./chunk-JR7YEMUU.js";
 import {
   clearResultContext,
   formatResultContext,
   processRuntime,
   resultContext
-} from "./chunk-C3XCC3IF.js";
+} from "./chunk-ZZHHKVAA.js";
 import {
   errorEnvelope,
   successEnvelope
-} from "./chunk-4DSCAOZX.js";
+} from "./chunk-NYHG6D4D.js";
 import "./chunk-C6ZDNJWW.js";
 import {
   CLI_VERSION
@@ -45,9 +45,9 @@ import {
   commandNotes,
   commandRelationships
 } from "./chunk-B3OG6ANV.js";
-import "./chunk-U5YVRXQZ.js";
+import "./chunk-MYAAPH63.js";
 import "./chunk-IZRCMRT5.js";
-import "./chunk-SFYZH3GR.js";
+import "./chunk-FQBYL3RN.js";
 import "./chunk-IYX5JHXW.js";
 import "./chunk-TXFBSTEK.js";
 import {
@@ -104,7 +104,7 @@ function commandError(error, command) {
     case "commander.missingMandatoryOptionValue": {
       const required = command.options.filter((option) => option.mandatory && command.getOptionValue(option.attributeName()) === void 0);
       const positional = command.registeredArguments.filter((arg, index) => arg.required && index >= command.args.length).map((arg) => "<".concat(arg.name(), ">"));
-      const fleetTarget = command.registeredArguments.some((arg) => arg.variadic && !arg.required && arg.name() === "id") && command.options.some((option) => option.long === "--tag") && !command.args.length && command.getOptionValue("tag") === void 0 && command.getOptionValue("folder") === void 0;
+      const fleetTarget = command.registeredArguments.some((arg) => arg.variadic && !arg.required && arg.name() === "id") && command.options.some((option) => option.long === "--tag") && !command.args.length && ["tag", "folder", "audience"].every((name) => command.getOptionValue(name) === void 0);
       if (fleetTarget)
         throw usageError("".concat(path, " requires <id>, --tag TAG or --folder ID, and ").concat(required.map((option) => option.long).join(" "), "."));
       throw usageError("".concat(path, " requires ").concat([...positional, ...required.map((option) => option.long)].join(" "), "."));
@@ -141,15 +141,15 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-L2LKRAWR.js"),
-  ads: () => import("./ads-DSXNMS7A.js"),
-  media: () => import("./media-TP5ICOYP.js"),
-  playlists: () => import("./playlists-WMXWOAN3.js"),
-  screens: () => import("./screens-BZK6JLFL.js"),
-  monitoring: () => import("./monitoring-W7S2D57Q.js"),
-  integrations: () => import("./integrations-YYP4VOIN.js"),
-  migrate: () => import("./migrate-4ES2XLUF.js"),
-  docs: () => import("./docs-PGOSNCGA.js")
+  account: () => import("./account-OPC7MCEZ.js"),
+  ads: () => import("./ads-4NK5UFBP.js"),
+  media: () => import("./media-SIT5BHJD.js"),
+  playlists: () => import("./playlists-6UJJLUQM.js"),
+  screens: () => import("./screens-5F2RXGCU.js"),
+  monitoring: () => import("./monitoring-YHKM4A3I.js"),
+  integrations: () => import("./integrations-QLAXNTXH.js"),
+  migrate: () => import("./migrate-LW6EAODM.js"),
+  docs: () => import("./docs-67KAGRMR.js")
 };
 var TOP_LEVEL_COMMANDS = {
   project: "account",
@@ -251,7 +251,7 @@ function protectOption(command, option, argv, seen) {
     });
   }
   command.on("option:".concat(option.name()), () => {
-    const repeatable = name === "capability" && command.name() === "create" && command.parent?.name() === "service-client" || name === "tag" && ["fleet-links", "notifications"].includes(command.parent?.name() ?? "") && ["create", "update"].includes(command.name()) || ["any-tag", "all-tags", "severity", "active-hours"].includes(name) && command.parent?.name() === "notifications" && ["create", "update"].includes(command.name()) || name === "window" && command.parent?.name() === "reboot-schedule" && command.name() === "set" || name === "field" && command.parent?.name() === "fleet-links" && ["create", "update"].includes(command.name()) || ["set", "clear"].includes(name) && command.parent?.name() === "playlist" && ["create", "fields"].includes(command.name()) || ["var", "page"].includes(name) && command.parent?.name() === "view" && ["create", "update"].includes(command.name()) || name === "screen-id" && command.parent?.name() === "triggers" && ["create", "update"].includes(command.name()) || ["set", "secret", "unset-secret"].includes(name) && command.parent?.name() === "source" && ["create", "update", "test"].includes(command.name()) || ["screen-id", "tag"].includes(name) && command.parent?.name() === "alerts" && command.name() === "mute" || name === "filter" && command.parent?.name() === "subscriptions" && ["create", "update"].includes(command.name()) || command.parent?.name() === "screen" && (command.name() === "update" && (name === "field" || name === "unset-field") || command.name() === "list" && name === "field") || ["tag", "any-tag", "screen-id", "window", "monthly", "date", "except"].includes(name) && command.parent?.name() === "campaign" && ["create", "update", "preview"].includes(command.name()) || command.parent?.name() === "feeds" && command.name() === "get" && FEED_REPEATABLE_FLAGS.includes(name);
+    const repeatable = name === "capability" && command.name() === "create" && command.parent?.name() === "service-client" || name === "tag" && ["fleet-links", "notifications"].includes(command.parent?.name() ?? "") && ["create", "update"].includes(command.name()) || ["any-tag", "all-tags", "not-tag", "severity", "active-hours"].includes(name) && command.parent?.name() === "notifications" && ["create", "update"].includes(command.name()) || name === "window" && command.parent?.name() === "reboot-schedule" && command.name() === "set" || name === "field" && command.parent?.name() === "fleet-links" && ["create", "update"].includes(command.name()) || ["set", "clear"].includes(name) && command.parent?.name() === "playlist" && ["create", "fields"].includes(command.name()) || ["var", "page"].includes(name) && command.parent?.name() === "view" && ["create", "update"].includes(command.name()) || name === "screen-id" && command.parent?.name() === "triggers" && ["create", "update"].includes(command.name()) || ["set", "secret", "unset-secret"].includes(name) && command.parent?.name() === "source" && ["create", "update", "test"].includes(command.name()) || ["screen-id", "tag"].includes(name) && command.parent?.name() === "alerts" && command.name() === "mute" || name === "filter" && command.parent?.name() === "subscriptions" && ["create", "update"].includes(command.name()) || command.parent?.name() === "screen" && (command.name() === "update" && (name === "field" || name === "unset-field") || command.name() === "list" && name === "field") || ["screen-tag", "not-screen-tag"].includes(name) && command.parent?.name() === "page" && ["add", "replace"].includes(command.name()) || ["tag", "any-tag", "not-tag", "screen-id", "window", "monthly", "date", "except"].includes(name) && command.parent?.name() === "campaign" && ["create", "update", "preview"].includes(command.name()) || command.parent?.name() === "feeds" && command.name() === "get" && FEED_REPEATABLE_FLAGS.includes(name);
     if (seen.has(flagName(option)) && !repeatable)
       throw usageError("--".concat(name, " may be supplied only once."));
     seen.add(flagName(option));
@@ -408,7 +408,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-VWEWDCW3.js");
+    const { registerGuidance } = await import("./register-guidance-UAXXNACH.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
