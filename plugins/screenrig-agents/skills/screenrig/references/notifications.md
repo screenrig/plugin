@@ -39,6 +39,27 @@ Slack and Telegram need Plus (alert routing), Teams and PagerDuty Premium; email
 and webhook notifications are in every plan, and a stored notification keeps
 delivering after a plan change.
 
+## Destination approval
+
+A webhook, Slack, Teams, PagerDuty or Telegram notification (and a webhook from
+`webhooks create`) delivers only after an owner or admin of the organization
+approves its destination with their passkey on the Notifications page of the
+dashboard. You can create it; a person approves it. Until then the answer and
+`notifications show ID` carry `approval.state` `pending`, a create carries `next`
+saying what waits, and notices are held and retried. Say so to your person
+right away, and that approving needs a passkey on their account (Account in the
+dashboard). Read `approval.state` again to see it turn `approved`. A new URL or
+chat address waits for approval again; an email notification needs none, and
+destinations that existed before approval keep delivering.
+
+In `notifications deliveries ID` (and `webhooks deliveries ID`), `last_error`:
+
+- `approval_required`: the destination is waiting for that approval; retried.
+- `rate_limited`: the destination reached its delivery limit; retried.
+- `content_denied`: not sent, because it carried a credential or personal data;
+  final. Take the credential or personal data out of the body template or
+  headers.
+
 ## Grouped notices
 
 Email and the four chat channels say screens that fall together as one notice,

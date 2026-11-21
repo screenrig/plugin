@@ -104,6 +104,9 @@ Rules that tool schemas do not carry:
   screen, and tell the person how many screens it reaches.
 - Deleting, archiving, rebooting and takeovers interrupt what people see: do
   them only when the person asked for that screen.
+- A new webhook or chat notification sends nothing until an owner or admin
+  approves it with their passkey on the dashboard's Notifications page: tell
+  the person, and read its `approval` state again later.
 - A saved screenshot is a still image with a capture time, never live video.
 - screenRIG shows content. It does not record a room, share a desktop or type
   into a computer attached to a screen.
