@@ -269,6 +269,7 @@ import {
   SCREEN_FOLDER_ID_PATTERN,
   SCREEN_TAGS_MAX,
   audienceOption,
+  audienceRule,
   flagBool,
   flagNumber,
   flagString,
@@ -639,6 +640,10 @@ var handleScreenList = commandHandler(async (args, runtime, resolved) => {
   const token = requireToken(resolved.token);
   const client = clientFor(runtime, args, resolved.apiUrl, token);
   const { query, repeated } = screenListQuery(args);
+  requireFlagValue(args, "audience", '\'{"tag":"lobby"}\'');
+  const audience = flagString(args.flags, "audience");
+  if (audience !== void 0)
+    query.audience = JSON.stringify(await audienceRule(audience, runtime));
   const response = await client.listAll("/api/screens", query, repeated ? { queryRepeated: repeated } : void 0);
   const items = response.body?.items;
   const warnings = Array.isArray(items) ? items.flatMap((screen) => screenStorageWarnings(screen.id, screen, runtime.now())) : [];
@@ -1891,10 +1896,20 @@ async function screenScreenshotFleet(args, runtime, client, selector) {
         offline.set(screen.id, screen.last_online_at);
     if (ids.some((id) => !isScreenId(id)))
       throw usageError("Screen list response does not match the generated ScreenList contract.");
-  } else if (selector.by === "ids") {
-    ids = selector.screen_ids;
+  } else if (selector.by === "audience") {
+    const listed = await client.listAll("/api/screens", { audience: JSON.stringify(selector.audience) }, { uncapped: true });
+    const items = listed.body?.items;
+    if (!Array.isArray(items))
+      throw usageError("Screen list response does not match the generated ScreenList contract.");
+    const active = items.filter((screen) => screen?.state === "active" && typeof screen.id === "string");
+    ids = active.map((screen) => screen.id);
+    for (const screen of active)
+      if (screen.online === false)
+        offline.set(screen.id, screen.last_online_at);
+    if (ids.some((id) => !isScreenId(id)))
+      throw usageError("Screen list response does not match the generated ScreenList contract.");
   } else {
-    throw usageError("screen screenshot takes screen ids, --tag TAG or --folder ID.");
+    ids = selector.screen_ids;
   }
   if (ids.length) {
     try {
@@ -3023,8 +3038,8 @@ var handleScreenNetworkShow = commandHandler(async (args, runtime, resolved) => 
 function folderSelector(verb = "Target") {
   return new Option("--folder <ID>", "".concat(verb, " every active screen in this screen folder (sfd_...) and the folders inside it")).argParser(screenFolderIdOption("--folder")).conflicts("tag");
 }
-function audienceSelector() {
-  return new Option("--audience <RULE>", "Target every active screen this rule matches: ".concat(AUDIENCE_RULE_HELP, ", @FILE to read it from a file, or - for stdin")).argParser(audienceOption).conflicts(["tag", "folder"]);
+function audienceSelector(verb = "Target") {
+  return new Option("--audience <RULE>", "".concat(verb, " every active screen this rule matches: ").concat(AUDIENCE_RULE_HELP, ", @FILE to read it from a file, or - for stdin")).argParser(audienceOption).conflicts(["tag", "folder"]);
 }
 function registerScreenCommands(root, bind) {
   const screen = root.command("screen").description("Pair, configure, and inspect screens");
@@ -3032,7 +3047,7 @@ function registerScreenCommands(root, bind) {
   screen.command("pair").description("Claim a Player pairing code").argument("<code...>", "Player pairing code as shown; spaces and dashes are ignored").option("--name <NAME>", "Set the screen name").option("--folder <ID>", "Put the screen in this screen folder (sfd_...); omitted leaves it at the project root. An agent limited to screen folders must name a folder of its scope", screenFolderIdOption("--folder")).action(bind(handleScreenPair));
   screen.command("provision").description("Create a screen and browser handoff").addOption(new Option("--open", "Open the browser Player handoff").conflicts(["printUrl"])).option("--print-url", "Return the browser handoff URL").option("--name <NAME>", "Set the screen name").option("--folder <ID>", "Put the screen in this screen folder (sfd_...); omitted leaves it at the project root. An agent limited to screen folders must name a folder of its scope", screenFolderIdOption("--folder")).action(bind(handleScreenProvision));
   screen.command("update").description("Update a screen").argument("<id>", "Screen identifier").option("--name <NAME>", "Set the screen name").addOption(new Option("--playlist-id <ID>", "Select the playlist to assign").conflicts("clearPlaylist")).addOption(new Option("--clear-playlist", "Clear this screen's default assignment; keep pairing and other content levels, showing idle when none applies").conflicts("playlistId")).addOption(new Option("--timezone <ZONE>", "Override the screen's time zone with an IANA name; without an override it follows its device").conflicts(["clearTimezone"])).addOption(new Option("--clear-timezone", "Remove the override: the screen follows its device's time zone").conflicts(["timezone"])).addOption(new Option("--field <NAME=VALUE>", "Set a field: NAME is 1 to 32 lower case letters, digits or underscores, VALUE 1 to 200 characters (repeatable; at most 32 fields)").argParser(screenFieldSetOption).conflicts(["clearFields"])).addOption(new Option("--unset-field <NAME>", "Remove a field (repeatable)").argParser(screenUnsetFieldOption).conflicts(["clearFields"])).addOption(new Option("--clear-fields", "Remove every field").conflicts(["field", "unsetField"])).addOption(new Option("--location <LAT,LON>", "Set where the screen is, in decimal degrees; replaces the whole location").argParser(screenLocationOption).conflicts(["clearLocation"])).option("--location-name <NAME>", "Name the location, at most 40 characters: the place name a card shows (with --location)", screenLocationNameOption).option("--address <TEXT>", "Give the location an address, at most 200 characters (with --location)", screenAddressOption).addOption(new Option("--clear-location", "Remove the location").conflicts(["location"])).option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleScreenUpdate));
-  screen.command("list").description("List screens").addOption(new Option("--state <STATE>", "List archived screens; omitted lists active screens").choices(["archived"])).option("--tag <TAG>", "List only screens carrying this exact tag", screenTagOption).option("--folder <ID|root>", "List only the screens directly in this screen folder (sfd_...), not those of the folders inside it; root lists the screens outside every folder", screenListFolderOption).addOption(new Option("--field <NAME=VALUE>", "List only screens whose field NAME holds exactly VALUE (repeatable; every one must match)").argParser(screenFieldFilterOption)).addOption(new Option("--near <LAT,LON,KM>", "List only screens located within KM kilometres of the point; screens with no location are left out").argParser(screenNearOption)).action(bind(handleScreenList));
+  screen.command("list").description("List screens").addOption(new Option("--state <STATE>", "List archived screens; omitted lists active screens").choices(["archived"])).option("--tag <TAG>", "List only screens carrying this tag, in any letter case", screenTagOption).option("--folder <ID|root>", "List only the screens directly in this screen folder (sfd_...), not those of the folders inside it; root lists the screens outside every folder", screenListFolderOption).addOption(new Option("--field <NAME=VALUE>", "List only screens whose field NAME holds exactly VALUE (repeatable; every one must match)").argParser(screenFieldFilterOption)).addOption(new Option("--near <LAT,LON,KM>", "List only screens located within KM kilometres of the point; screens with no location are left out").argParser(screenNearOption)).addOption(new Option("--audience <RULE>", "List only the active screens this rule matches: ".concat(AUDIENCE_RULE_HELP, ", @FILE to read it from a file, or - for stdin")).argParser(audienceOption)).action(bind(handleScreenList));
   screen.command("show").description("Inspect a screen").argument("<id>", "Screen identifier").action(bind(handleScreenShow));
   screen.command("uptime").description("Read a screen's daily availability over UTC days").argument("<id>", "Screen identifier").option("--day-from <YYYY-MM-DD>", "First UTC day, inclusive (default 29 days before --day-to)").option("--day-to <YYYY-MM-DD>", "Last UTC day, inclusive (default today); at most 366 days after --day-from").addOption(reportFormatOption()).addOption(reportOutputOption("screen-uptime.FORMAT")).action(bind(handleScreenUptime));
   screen.command("presence").description("List a screen's online and offline transitions, newest first").argument("<id>", "Screen identifier").option("--since <TIME>", "Inclusive start of the transition time: RFC 3339, now, or an age such as 7d, 12h, 30m (default 30 days before --until)", playsInstantOption("--since")).option("--until <TIME>", "Exclusive end of the transition time: RFC 3339, now, or an age (default now); at most 366 days after --since", playsInstantOption("--until")).action(bind(handleScreenPresence));
@@ -3079,7 +3094,7 @@ function registerScreenCommands(root, bind) {
   live.command("status").description("Read a screen's live view session").argument("<id>", "Screen identifier").action(bind(handleScreenLiveStatus));
   live.command("stop").description("End a screen's live view session").argument("<id>", "Screen identifier").action(bind(handleScreenLiveStop));
   live.command("frame").description("Save JPEG frames of what a screen plays, from its live stream, to check playback and motion").argument("<id>", "Screen identifier").option("--output <PATH>", "Write one frame to this file, or the frames into this directory as frame-<captured_at>.jpg (default: the working directory)").option("--count <N>", "Save this many new frames (default 1)", positiveInteger("count")).option("--interval <DURATION>", "Pause between frames: 1s to 5m, or 0 to take each frame as it arrives (default 1s)", liveFrameIntervalOption).option("--duration <DURATION>", "Lease of the live session this command starts, at least long enough for the frames: 30s to 5m, such as 90s or 5m (default 2m)", liveDurationOption).option("--wait <DURATION>", "How long to wait for the Player to start publishing, and for each frame: 1s to 10m, or 0 to try once (default 30s)", liveWaitOption).option("--stop", "End the live session when done, also when a frame failed").action(bind(handleScreenLiveFrame));
-  screen.command("screenshot").description("Capture and download screenshots from a screen or a fleet of screens").argument("[id...]", "Screen identifier; several ids capture each screen").option("--tag <TAG>", "Capture every active screen carrying this tag", screenTagOption).addOption(folderSelector("Capture")).option("--output <PATH>", "Write the screenshot to this file; with several ids or --tag, a directory").option("--concurrency <N>", "Captures in flight at once with several ids or --tag (1-8, default 4)", positiveInteger("concurrency")).option("--poll-ms <MS>", "Set the operation polling interval", positiveInteger("poll-ms")).action(bind(handleScreenScreenshot));
+  screen.command("screenshot").description("Capture and download screenshots from a screen or a fleet of screens").argument("[id...]", "Screen identifier; several ids capture each screen").option("--tag <TAG>", "Capture every active screen carrying this tag", screenTagOption).addOption(folderSelector("Capture")).addOption(audienceSelector("Capture")).option("--output <PATH>", "Write the screenshot to this file; with several screens, a directory").option("--concurrency <N>", "Captures in flight at once with several screens (1-8, default 4)", positiveInteger("concurrency")).option("--poll-ms <MS>", "Set the operation polling interval", positiveInteger("poll-ms")).action(bind(handleScreenScreenshot));
   const tag = screen.command("tag").description("Set, add, remove, or clear screen tags on a screen or a fleet of screens").argument("[id...]", "Screen identifier; several ids target those screens in one fleet request").option("--tag <TAG>", "Target every active screen carrying this tag", screenTagOption).addOption(folderSelector()).addOption(audienceSelector()).option("--set <TAGS>", "Replace the tag set with these comma-separated tags", screenTagListOption("--set")).option("--add <TAGS>", "Add these comma-separated tags", screenTagListOption("--add")).option("--remove <TAGS>", "Remove these comma-separated tags", screenTagListOption("--remove")).option("--clear", "Remove every tag").option("--expect-rev <REVISION>", "Optionally require this screen revision (one screen id only)", revision).action(bind(handleScreenTag));
   requireOptionGroup(tag, "exactlyOne", ["--set", "--add", "--remove", "--clear"]);
   const move = screen.command("move").description("Move screens and screen folders into a screen folder, or back to the project root").argument("<ids...>", "Screen (scr_...) and screen folder (sfd_...) identifiers, at most 1000").option("--folder <ID>", "Destination screen folder (sfd_...)", screenFolderIdOption("--folder")).option("--root", "Move to the project root, outside every folder").option("--note <TEXT>", NOTE_HELP, reviewNoteOption).action(bind(handleScreenMove));

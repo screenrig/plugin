@@ -213,8 +213,8 @@ plays no file from that slot (`screen_fact_missing`, `screen_fact_invalid`).
 A `tags` entry may also be `{screen.tags}`, every tag of the screen:
 `{"by": "tag", "tags": {"any": ["{screen.tags}"]}}` plays the files that share a
 tag with the screen, so tagging a screen `lobby` and a file `lobby` is all it
-takes. A screen without tags plays no file from that slot. Media tags match
-exactly as written, so spell a file's tag as the screens spell theirs.
+takes. A screen without tags plays no file from that slot. Tags match in any
+letter case, so a screen tagged `Lobby` plays the files tagged `lobby`.
 A template cannot be previewed (`selector-preview` takes a concrete tag) or
 exported.
 

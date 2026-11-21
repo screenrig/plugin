@@ -401,13 +401,14 @@ Downloads are free. Stored media counts against the organization's storage
 limit ([Limits and errors](#limits-and-errors)), so delete unused media instead
 of piling it up.
 
-**Fleets.** `screen assign|reload|toast|tag` take several IDs, `--tag TAG`,
-`--folder ID` or `--audience RULE` (the rule campaigns take: `all`, `any`,
-`not`, `tag`, `screen_id`, `folder`, such as
-`'{"all":[{"tag":"cafe"},{"not":{"tag":"kiosk"}}]}'`); `screen screenshot`
-takes IDs, `--tag` or `--folder` only. `triggers create|update` and `alerts
-mute` take the same `--audience`, and `campaign` and `notifications` take
-`--not-tag TAG` beside their tag flags. Screen tags ignore letter case. The
+**Fleets.** `screen assign|reload|toast|tag|screenshot` take several IDs,
+`--tag TAG`, `--folder ID` or `--audience RULE` (the rule campaigns take: `all`,
+`any`, `not`, `tag`, `screen_id`, `folder`, such as
+`'{"all":[{"tag":"cafe"},{"not":{"tag":"kiosk"}}]}'`), and `screen list
+--audience RULE` lists the screens a rule matches before you act on them.
+`triggers create|update` and `alerts mute` take the same `--audience`, and
+`campaign` and `notifications` take `--not-tag TAG` beside their tag flags.
+Screen tags and media tags ignore letter case (`Lobby` is `lobby`). The
 answer stays `ok: true`; read `data.results[]`
 (`fleet_partial_failure`). Rerun an interrupted command unchanged; after a
 partial failure retry only the failed IDs. For a fleet publish, `playlist create

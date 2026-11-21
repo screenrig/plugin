@@ -10,7 +10,7 @@ import {
 } from "./chunk-B3OG6ANV.js";
 import {
   GUIDANCE_NOTES_1
-} from "./chunk-T7II2A6T.js";
+} from "./chunk-4OYJ7SDV.js";
 import {
   GUIDANCE_NOTES_2
 } from "./chunk-CL6A2JKF.js";
