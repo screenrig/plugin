@@ -12,7 +12,10 @@ current](#keep-cards-current) chooses between them).
 Commands go through the helper (`SKILL.md`, "Install and call the CLI").
 The help for `source create` lists the kinds; settings, status codes and
 privacy rules per kind are at https://screenrig.ai/docs/sources. Changing
-sources needs Manage access; `source list|show` needs Read only.
+sources needs Manage access; `source list|show` needs Read only. The connected
+sources (`microsoft365`, `google_calendar`, `square`, `shopify`, `toast`) need
+Premium and `momentus` Enterprise; calendars by address, sheets, CSV and JSON are
+in every plan, and a source set up before keeps refreshing.
 
 ## Presets
 

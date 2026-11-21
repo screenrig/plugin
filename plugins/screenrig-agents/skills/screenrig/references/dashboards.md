@@ -7,7 +7,9 @@ pages](#signed-in-pages)). A Grafana view: the server draws it
 as a PNG through Grafana's image renderer on a cadence and shares each render
 among screens of the same size; a screen never talks to Grafana and keeps the
 last image if Grafana fails. A connection's token stays on the server, sealed,
-and no playlist holds a credential.
+and no playlist holds a credential. BI dashboards need Premium: creating a
+connection or a view without it answers `feature_not_in_plan`, and views set up
+before keep playing.
 
 ## What the user does in Grafana
 

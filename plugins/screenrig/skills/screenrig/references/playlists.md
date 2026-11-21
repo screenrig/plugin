@@ -509,7 +509,7 @@ video of its folders only (a stinger transition's logo included);
   `{"all": [{"tag": "cafe"}, {"not": {"tag": "kiosk"}}]}` for cafe screens that
   are not kiosks (`all`, `any`, `not`, `tag`, `screen_id`; no folder). It
   combines with dates and windows. A
-  `visibility.data` condition (Plus) keys off card data. Its key `{screen.weather}`
+  `visibility.data` condition (Premium) keys off card data. Its key `{screen.weather}`
   keys off the weather where each screen is (give the screen a location first,
   `screen update --location`): `{"key":"{screen.weather}","path":"/condition","equals":"rain"}`.
   `/condition` is clear, cloud, fog, rain, snow, storm or wind; `/band` is

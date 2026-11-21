@@ -35,7 +35,9 @@ A recovered screen's message names the likely cause when it is known by then. A
 restart of the device or the Player is; the screen's network or a screenRIG
 interruption needs the Player's next health report (up to 15 minutes), so
 `screen show` often has it before any message does.
-Chat notices are free.
+Slack and Telegram need Plus (alert routing), Teams and PagerDuty Premium; email
+and webhook notifications are in every plan, and a stored notification keeps
+delivering after a plan change.
 
 ## Grouped notices
 

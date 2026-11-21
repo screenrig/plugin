@@ -3,7 +3,9 @@
 `screen screenshot` is a still. Live view is sub-second video of what the
 screen plays, shown to a person in the dashboard. You do not receive the video:
 start the session, give the person `data.viewer_url`, and use a screenshot for
-anything you must inspect yourself. Live view is free.
+anything you must inspect yourself. Starting live view needs Premium (without
+it `screen live start` answers `feature_not_in_plan`); `screen live status`,
+`screen live stop` and screenshots are in every plan.
 
 ## Start, watch, stop
 
@@ -42,7 +44,8 @@ checking layout.
 
 `screen live frame` saves JPEG frames of what a screen plays, taken from its
 live stream, so you can check playback and motion without waiting for
-screenshots. It needs only HTTPS. Frames are free.
+screenshots. It needs only HTTPS. It starts a live session, so it needs
+Premium too.
 
 ```sh
 screenrig screen live frame SCREEN_ID --output now.jpg --stop

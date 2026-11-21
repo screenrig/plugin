@@ -11,6 +11,7 @@ Reports read aggregates (uptime rollups, alert history, screen state, direct cam
 ## Write a file
 
 - `--format csv|xlsx|pdf --output FILE` on `reports show`, `alerts list`, `project uptime|health-trend`, `screen uptime|health-history`, `playback list|plays|totals|completeness` and `ads reports delivery|fill|spend`, `ads direct report`. The envelope has `path`, `bytes` and `sha256`; quote them with the file.
+- A file of a log (the plays and daily aggregates, play totals and completeness, a screen's health history, the alert list) is a log export, which needs Premium; the same rows as JSON stay readable (`playback list|totals|completeness` need Plus either way). Reports, uptime, the health trend and the advertising reports write files on every plan.
 - A sponsor's statement: `reports show proof_of_play --advertiser "Acme" --from 2026-10-01 --to 2026-10-31 --format pdf --output acme.pdf`. A play counts when the screen reports the media completed.
 
 ## Email on a schedule
@@ -20,7 +21,7 @@ Reports read aggregates (uptime rollups, alert history, screen state, direct cam
 
 ## Export a project
 
-- `project export DIR` writes `export.json` (every file with size and SHA-256), JSON for screens, folders, tags, schedules, playlists with every revision, campaigns, cards, sources, notifications, webhooks and application metadata, `media/files` with `media/manifest.json`, CSV under `data/` and `log/events.jsonl`. Secrets are never written. `--no-media` skips media and `--since DAY` starts the CSV data and the event log. Rerunning keeps complete media and continues partial downloads; `data.complete` false means a section failed: inspect its warning for recovery steps. `export_application_content_omitted` means retain the original application archives alongside this export for release files, including older playlist pins. Rerunning refreshes metadata; `--no-media` also reports this omission.
+- `project export DIR` writes `export.json` (every file with size and SHA-256), JSON for screens, folders, tags, schedules, playlists with every revision, campaigns, cards, sources, notifications, webhooks and application metadata, `media/files` with `media/manifest.json`, CSV under `data/` and `log/events.jsonl`. Secrets are never written. The plays and alerts CSV are log exports: without Premium that section is skipped and the rest is written. `--no-media` skips media and `--since DAY` starts the CSV data and the event log. Rerunning keeps complete media and continues partial downloads; `data.complete` false means a section failed: inspect its warning for recovery steps. `export_application_content_omitted` means retain the original application archives alongside this export for release files, including older playlist pins. Rerunning refreshes metadata; `--no-media` also reports this omission.
 
 ## Audit log
 

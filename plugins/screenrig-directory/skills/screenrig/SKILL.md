@@ -83,7 +83,7 @@ the same `idempotency_key` until every result page has been read.
 | See everything | `screenrig_visibility_open`, `screenrig_screen_list`, `screenrig_screen_get` |
 | Organise screens | `screenrig_screen_write` actions `folder_create` and `move`, tags and fields on `screenrig_screen_update` |
 | Dayparts and dated content | `screenrig_screen_inspect` action `playlist_schedule_preview`, then `screenrig_screen_actions` action type `set_playlist_schedule`; `screenrig_schedule_calendar` shows what plays when |
-| Urgent message now | `screenrig_screen_actions` action type `takeover`, ended with action type `takeover_clear` |
+| Urgent message now | `screenrig_screen_actions` action type `takeover` (Plus), ended with action type `takeover_clear` (every plan) |
 | One playlist across many screens for a period | `screenrig_campaign_preview`, then `screenrig_campaign_write` action `create` |
 | One action on many screens | `screenrig_screen_actions` by ID, tag or folder |
 | Display power, volume, reboots | `screenrig_screen_actions` action types `set_display_schedule`, `volume` and `set_reboot_schedule` |
@@ -151,7 +151,7 @@ usually in a format screens do not play; say so and offer the CLI below.
 | A link invitation | `screenrig_invitation_write` action `link` |
 | An outside system pushes data or an alert | `screenrig_card_write` action `webhook_create`, `screenrig_kv_write` action `webhook_create`, `screenrig_trigger_write` action `create` |
 | Tell an outside system about screens | `screenrig_notification_write` action `create` with the webhook channel, its signing secret from action `rotate_secret` |
-| Dashboards from Grafana, Power BI or Tableau | `screenrig_bi_write` actions `connection_create` and `view_create` |
+| Dashboards from Grafana, Power BI or Tableau (Premium) | `screenrig_bi_write` actions `connection_create` and `view_create` |
 | A Microsoft or Google account for calendar and room data | `screenrig_connection_write` actions `create` and `connect` |
 | Talk to screenRIG support | `screenrig_support_write` actions `create` and `send` |
 
@@ -176,7 +176,7 @@ runs on the person's computer:
   `screenrig_application_write` actions `upload_create` and `upload_commit`.
 - **Advertising.** Selling screen time and buying placements.
 - **Moving in.** Migrating screens and content from another signage system.
-- **Exports.** Plays as CSV and a live event stream.
+- **Exports.** Plays as CSV (Premium) and a live event stream.
 
 When a task needs the CLI, say so and tell the person they can install it
 themselves: the full screenRIG plugin with its bundled CLI is at

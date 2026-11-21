@@ -118,7 +118,8 @@ never with `--json`. `screenrig status` reports service availability.
 ## Limited to screens
 
 The project owner can limit an agent (or the person it works for) to screen
-folders and single screens; the reach is the narrower of the agent's scope and
+folders and single screens (screen scope, Premium; a scope already set keeps
+applying on any plan); the reach is the narrower of the agent's scope and
 its person's. A folder in the scope holds every folder inside it. Inside it you
 do what your access level allows to those screens, their folders, commands,
 schedules and campaigns whose whole audience is inside it. What plays (assign,
@@ -137,7 +138,7 @@ you work for can approve.
   outside are listed with `editable: false`; do not change them.
 - Members, agents, invitations, fleet links, settings and project-wide reports
   are outside any scope. Read playback, calendar and logs per screen.
-- A protected folder (Premium; and the folders inside it) needs a second approver for
+- A protected folder (Enterprise; and the folders inside it) needs a second approver for
   anything that reaches its screens, at every access level. Assigning, schedules,
   takeovers, campaigns and folder or move changes return `pending_review`: say it
   waits, never that it plays. Tags, fields, location, timezone, replace, delete,
@@ -383,12 +384,13 @@ content, and inspect every render at full size before publishing.
    (Premium; `playlist revisions` is open on every plan).
 3. Take `screen screenshot SCREEN_ID` and inspect it before saying content is
    showing. `screen play-page` shows one page.
-   Watch a screen live or sample frames: [live view](references/live-view.md).
+   Watch a screen live or sample frames (Premium): [live view](references/live-view.md).
 
 Playlist JSON rules are in [playlists](references/playlists.md); `playlist
 validate` checks documents.
 
-**Reviews.** When the project requires review or the sign-in is Propose, writes
+**Reviews.** When the project requires review (approvals, which the owner turns
+on with Premium) or the sign-in is Propose, writes
 return `pending_review` with `data.review.url`. Tell the person it waits for
 review and never say it is playing; do not poll. Check `reviews show ID`. A
 rejection carries `decision_note`: fix and propose again. Agents never approve.
@@ -538,7 +540,7 @@ nothing. MCP: `screenrig_schedule_import_preview` and
 `rows` as objects keyed by column.
 
 Per-screen tools: `screen schedule set`, `screen takeover` (emergencies, at most
-7 days), page `visibility`, `screen display` and `display-schedule` (panel
+7 days; starting one needs Plus, and `screen takeover clear` is in every plan), page `visibility`, `screen display` and `display-schedule` (panel
 power), `screen display-idle` (dark after idle, wake on touch or presence),
 `screen brightness --mode auto` (light sensor), `screen display-output --mode
 3840x2160x60p|auto` (output mode, from the modes `screen show` lists; a Raspberry
@@ -600,7 +602,8 @@ most 4 per screen per 10 minutes.
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported) and, after an outage, `last_outage`, whose
 `likely_cause` is absent when unknown: never infer one. Monitor with `events list|follow`, `playback plays|list`
-(proof of play, CSV export), `notifications` and `alerts` (below). `screen reload`
+(proof of play: the plays are in every plan, the daily totals need Plus and a
+CSV, XLSX or PDF file Premium), `notifications` and `alerts` (below). `screen reload`
 asks a Player to reload once; acceptance is not proof.
 
 **On site and out of service.** `screen identify SCREEN_ID` shows the screen's
@@ -621,8 +624,8 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 
 | Group | Reach for it when | First command |
 | --- | --- | --- |
-| `triggers` | An emergency system (CAP 1.2), Home Assistant, a sensor or an alerting tool must show something on screens by itself | CAP: `triggers create --name NAME --tag TAG` (`--pull FILE` also reads CAP sources); any other sender: `triggers create --name NAME --kind overlay --show bar\|takeover --tag TAG` ([overlay triggers](references/playlists.md#overlay-triggers)); then `triggers test ID`. The URL and secret go only to the sender's administrator |
-| `notifications` | A person should hear when a screen goes offline or fails (email, chat, pager), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), `--slack URL`, `--teams URL`, `--pagerduty KEY`, `--telegram TOKEN --telegram-chat ID`; prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `reach_dropped`, `group_empty` (a campaign reaches fewer screens, or a tag or folder of its audience matches none), `card_data_stale` (a card's `--ttl` data expired with no write to renew it), `running_hot`, `on_battery`, `storage_full`, `content_stuck`, `not_playing`, `loop_stalled`, `glass_blank`, `glass_frozen`, `crashing`; `--tag TAG` (any), `--all-tags A,B` or `--audience FILE|-` (campaign rules), `--hold MINUTES`, `--reach-drop-screens N --reach-drop-percent P`, `--min-severity info|warning|error` (`screen_offline` is error, the rest warning), `--severity not_playing=error`, `--active-hours "Mon-Fri 08:00-22:00" --timezone ZONE` (a notice due outside waits for the next window, or `--outside-hours drop`), `update ID --snooze 1h`. Channels, grouping and glass verdicts: [notifications](references/notifications.md). `webhooks` remains for raw event feeds |
+| `triggers` | An emergency system (CAP 1.2), Home Assistant, a sensor or an alerting tool must show something on screens by itself | CAP (Premium): `triggers create --name NAME --tag TAG` (`--pull FILE` also reads CAP sources); overlay triggers are in every plan; any other sender: `triggers create --name NAME --kind overlay --show bar\|takeover --tag TAG` ([overlay triggers](references/playlists.md#overlay-triggers)); then `triggers test ID`. The URL and secret go only to the sender's administrator |
+| `notifications` | A person should hear when a screen goes offline or fails (email, chat, pager), or another system should react (signed webhook) | `notifications list` first: every project already emails its owner when a screen is offline 10 minutes. Then `notifications create --email owner --conditions screen_offline,display_disconnected`, or `--webhook URL` (verify `ScreenRig-Signature`; `data.secret` is shown once), `--slack URL` or `--telegram TOKEN --telegram-chat ID` (Plus), `--teams URL` or `--pagerduty KEY` (Premium); prove it with `notifications test ID` and `notifications deliveries ID`. Other conditions: `reach_dropped`, `group_empty` (a campaign reaches fewer screens, or a tag or folder of its audience matches none), `card_data_stale` (a card's `--ttl` data expired with no write to renew it), `running_hot`, `on_battery`, `storage_full`, `content_stuck`, `not_playing`, `loop_stalled`, `glass_blank`, `glass_frozen`, `crashing`; `--tag TAG` (any), `--all-tags A,B` or `--audience FILE|-` (campaign rules), `--hold MINUTES`, `--reach-drop-screens N --reach-drop-percent P`, `--min-severity info|warning|error` (`screen_offline` is error, the rest warning), `--severity not_playing=error`, `--active-hours "Mon-Fri 08:00-22:00" --timezone ZONE` (a notice due outside waits for the next window, or `--outside-hours drop`), `update ID --snooze 1h`. Channels, grouping and glass verdicts: [notifications](references/notifications.md). `webhooks` remains for raw event feeds |
 | `alerts` | The user asks what needs attention on the screens, or named screens will be down for maintenance | `alerts list` shows the open problems, one per screen and condition (`--state all` adds resolved; `crashing` is a notice, not an alert). `alerts ack ID` when someone is on it, or `alerts snooze ID --for 4h` to look again later; either skips a notice still in its hold. For maintenance the user names, `alerts mute --tag TAG --for 2h --note TEXT` (or `--screen-id ID`; under 30 days) keeps those screens out of notices and attention; `alerts unmute MUTE_ID` (ids from `alerts mutes`) ends it when the work is done. Changing alerts needs Manage access |
 | `kv`, `kv webhook` | An application keeps live state that the agent or an outside sender sets; the app reads it with `screenrig.kv.get` and hears changes through `screenrig.kv.onChange` | `kv set KEY --app-id app_ID --json-value JSON`; for a sender such as a point of sale or cron job, `kv webhook create KEY --app-id app_ID` (the secret is shown once); a card's webhook: [card webhooks](references/playlists.md#card-webhooks) |
 | `card`, `card data` | A built-in card shows live data (menu, ticker, KPIs) that changes without a republish | `card create --type TYPE --file PARAMS.json`, then `card data put crd_ID --file FILE` |
@@ -632,8 +635,8 @@ Reach for these when the task matches; `screenrig GROUP --help` has the rest.
 | `operations` | A command returned an `operation_id` (a `--no-wait` upload) and the result is not ready | `operations wait ID` before using it; `operations cancel ID` drops an abandoned one |
 | `source` | A card should stay live from data that lives elsewhere: calendars, a Google Sheet, a CSV, JSON or XML address, a Slack channel, social posts, reviews, room calendars, a venue's Momentus bookings, a Square, Shopify or Toast menu | `source presets` lists the ready-made ones; `source test --kind KIND --card crd_ID ...` (or `--preset NAME`) previews, `source create` saves, `source show ID` proves it; `source rooms ID` maps a venue's rooms to screens; credentials only as `--secret NAME=@FILE`; Microsoft and Google access is shared through `connection` ([sources](references/sources.md#presets)) |
 | `invitations` | A person or an ad buyer should join the project | `invitations create --email ADDRESS` (`--kind ad-buyer`: [advertising](references/advertising.md)), `invitations list`, `invitations revoke ID` |
-| `playback totals\|completeness`, `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
-| `reports` | The user wants health, uptime or alerts for a property by folder, tag or screen, a file to hand someone (CSV, XLSX, PDF), a sponsor's or advertiser's proof of play, a report emailed on a schedule, or a full copy of the project | `reports list`, then `reports show fleet_health` (every folder rolls up the folders inside it; `--group-by screen --folder-id ID --direct` for a folder's own screens). `--format pdf\|xlsx\|csv --output FILE` writes it, and the alerts, uptime, health, playback and ads report commands take the same flags. `reports show proof_of_play --advertiser NAME --format pdf` is the statement for an advertiser. `reports subscriptions create --kind KIND --cadence weekly --format pdf --recipients MEMBERS` emails project members only (user ids or member emails); `reports subscriptions send ID` mails it now and the subscription shows `last_status` and `last_error`. `project export DIR` writes JSON, original media with a hash manifest, CSV and the event log, never secrets; rerun it to continue. [reports](references/reports.md) |
+| `playback totals\|completeness` (Plus), `screen uptime\|presence\|health-history`, `project uptime\|health-trend` | The user asks how much played, whether every play arrived, whether screens stayed up, or how healthy the fleet was over time | `playback totals --by screen --top 5`, `playback completeness --screen-id SCREEN_ID`, `screen uptime SCREEN_ID`, `screen health-history SCREEN_ID --resolution hour`, `project health-trend --from 7d` |
+| `reports` | The user wants health, uptime or alerts for a property by folder, tag or screen, a file to hand someone (CSV, XLSX, PDF), a sponsor's or advertiser's proof of play, a report emailed on a schedule, or a full copy of the project | `reports list`, then `reports show fleet_health` (every folder rolls up the folders inside it; `--group-by screen --folder-id ID --direct` for a folder's own screens). `--format pdf\|xlsx\|csv --output FILE` writes it, and the alerts, uptime, health, playback and ads report commands take the same flags; a file of the plays, play totals and completeness, a screen's health history or the alert list is a log export (Premium). `reports show proof_of_play --advertiser NAME --format pdf` is the statement for an advertiser. `reports subscriptions create --kind KIND --cadence weekly --format pdf --recipients MEMBERS` emails project members only (user ids or member emails); `reports subscriptions send ID` mails it now and the subscription shows `last_status` and `last_error`. `project export DIR` writes JSON, original media with a hash manifest, CSV and the event log, never secrets; rerun it to continue. [reports](references/reports.md) |
 | `audit` | (Premium) The user asks who changed something, what a screen, playlist or setting was before, what an agent or a colleague changed last week, or wants the record of changes for a compliance review | `audit list --resource-type screen --resource-id ID` (or `--actor-kind agent`, `--source mcp`, `--action 'playlist.*'`, `--since TIME`), `audit show ID` prints each changed field's before and after. Secrets read `(redacted)`; every other value is as stored. `audit export --format pdf\|xlsx\|csv --output FILE` writes the filtered log, and `audit head` then `audit verify --anchor SEQ:HASH` proves a kept copy was not rewritten. Kept 400 days; card data, K/V values and telemetry are not in it. [reports](references/reports.md) |
 | `reviews`, `notes` | Reviews and Notes in this skill cover the workflow | `reviews list` shows what waits; `reviews withdraw ID` pulls back your own pending change; `notes` is the first call in a project |
 
@@ -691,13 +694,18 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   them at [pricing](https://screenrig.ai/pricing?utm_source=claude-directory&utm_medium=package&utm_campaign=tof-libs), and carry on with
   what the current plan allows. `screenrig project capabilities` lists each
   feature and its plan. Beyond Standard, Plus has campaigns, weighted rotation,
-  data conditions, walls of 3 displays (two are in every plan), alert routing, reports,
-  dashboards, connected sources, media sync, uploaders and screen scope;
-  Premium adds single sign-on, the audit log, protected folders, playlist
-  templates, the Library, the schedule calendar across folders, tags and
-  campaigns, playlist revision restore, schedule import, per-screen keyed data
-  and direct campaigns; Enterprise adds SCIM, schedule change control, the
-  Momentus source and walls of 4 to 12 displays. No plan limits how many screens
+  walls of 3 displays (two are in every plan), alert routing to Slack and
+  Telegram, reports, media sync, uploaders, takeovers and proof-of-play totals;
+  Premium adds BI dashboards, connected sources, screen scope, data conditions,
+  alerts to Microsoft Teams and PagerDuty, live view, approvals (requiring
+  review for agent changes), CAP alerts, log exports (plays, totals, health
+  history and alerts as CSV, XLSX or PDF), single sign-on, the audit log,
+  playlist templates, the Library, the schedule calendar across folders, tags
+  and campaigns, playlist revision restore, schedule import, per-screen keyed
+  data, the screen map and direct campaigns; Enterprise adds protected folders,
+  SCIM, schedule change control, the Momentus source and walls of 4 to 12
+  displays. What a project already set up keeps running on any plan, and
+  ending, turning off or deleting it is always allowed. No plan limits how many screens
   a project has, so never suggest a plan to add screens.
 - Never expose secrets: credentials of any kind, authentication headers, cookies, signed
   URLs and webhook secrets stay out of conversation, files and logs, and a
