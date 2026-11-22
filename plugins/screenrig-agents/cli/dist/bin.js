@@ -30,7 +30,8 @@ import {
 } from "./chunk-NYHG6D4D.js";
 import "./chunk-C6ZDNJWW.js";
 import {
-  CLI_VERSION
+  CLI_VERSION,
+  cliDistribution
 } from "./chunk-BFLHHH47.js";
 import "./chunk-P3D5NU6C.js";
 import {
@@ -92,7 +93,7 @@ function commandError(error, command) {
     case "commander.excessArguments": {
       const word = command.commands.length && !command.registeredArguments.length && /^[a-z][a-z0-9-]{0,39}$/.test(command.args[0] ?? "") ? command.args[0] : void 0;
       if (word)
-        throw usageError("".concat(path || "screenrig", " has no command ").concat(word, ". See command help for supported commands."), { command: "screenrig".concat(path ? " ".concat(path) : "", " --help"), reason: "List supported commands, arguments, and options." });
+        throw usageError("".concat(path || "screenrig", " has no command ").concat(word, ". See command help for supported commands."), helpNext(path), updateHint());
       throw usageError("".concat(path || "screenrig", " does not accept ").concat(command.registeredArguments.length ? "extra" : "positional", " arguments."));
     }
     case "commander.conflictingOption": {
@@ -116,22 +117,29 @@ function commandError(error, command) {
     case "commander.unknownOption": {
       const option = safeName(error.message, /unknown option '([^']*)'/, /^--?[A-Za-z][A-Za-z0-9-]{0,39}$/, "=");
       if (option)
-        throw usageError("".concat(path || "screenrig", " does not accept ").concat(option, ". See command help for supported options."), { command: "screenrig".concat(path ? " ".concat(path) : "", " --help"), reason: "List supported commands, arguments, and options." });
+        throw usageError("".concat(path || "screenrig", " does not accept ").concat(option, ". See command help for supported options."), helpNext(path), updateHint());
       break;
     }
     case "commander.unknownCommand": {
       const name = safeName(error.message, /unknown command '([^']*)'/, /^[a-z][a-z0-9-]{0,39}$/);
       if (name)
-        throw usageError("".concat(path || "screenrig", " has no command ").concat(name, ". See command help for supported commands."), { command: "screenrig".concat(path ? " ".concat(path) : "", " --help"), reason: "List supported commands, arguments, and options." });
+        throw usageError("".concat(path || "screenrig", " has no command ").concat(name, ". See command help for supported commands."), helpNext(path), updateHint());
       break;
     }
   }
-  throw usageError("Unknown command or unsupported option. See command help for supported arguments.", { command: "screenrig".concat(path ? " ".concat(path) : "", " --help"), reason: "List supported commands, arguments, and options." });
+  throw usageError("Unknown command or unsupported option. See command help for supported arguments.", helpNext(path), updateHint());
 }
 function safeName(message, quoted, shape, cut) {
   const raw = quoted.exec(message)?.[1];
   const name = raw !== void 0 && cut ? raw.split(cut)[0] : raw;
   return name !== void 0 && shape.test(name) ? name : void 0;
+}
+function helpNext(path) {
+  return { command: "screenrig".concat(path ? " ".concat(path) : "", " --help"), reason: "List supported commands, arguments, and options." };
+}
+function updateHint() {
+  const update = cliDistribution().kind === "plugin_bundle" ? "rerun the screenRIG plugin's bootstrap helper, which reports refresh when a newer plugin release exists, and update the plugin" : "update the screenRIG plugin, or the screenrig package in a developer shell";
+  return "This is screenRIG CLI ".concat(CLI_VERSION, ". The docs at screenrig.ai describe the current release; for a command or option listed there and missing here, ").concat(update, ".");
 }
 
 // dist/cli-commands/globals.js
@@ -141,13 +149,13 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-OPC7MCEZ.js"),
-  ads: () => import("./ads-4NK5UFBP.js"),
-  media: () => import("./media-SIT5BHJD.js"),
-  playlists: () => import("./playlists-6UJJLUQM.js"),
-  screens: () => import("./screens-PJI72EPI.js"),
-  monitoring: () => import("./monitoring-YHKM4A3I.js"),
-  integrations: () => import("./integrations-QLAXNTXH.js"),
+  account: () => import("./account-KPFJA4C6.js"),
+  ads: () => import("./ads-UCEA6DSB.js"),
+  media: () => import("./media-MOFZDOBD.js"),
+  playlists: () => import("./playlists-FDURLF26.js"),
+  screens: () => import("./screens-MT5VRPJT.js"),
+  monitoring: () => import("./monitoring-B7R7BPJH.js"),
+  integrations: () => import("./integrations-25ANQSJJ.js"),
   migrate: () => import("./migrate-LW6EAODM.js"),
   docs: () => import("./docs-67KAGRMR.js")
 };
@@ -408,7 +416,7 @@ async function executeCommand(argv, runtime) {
     }
   }
   if (tree.helpRequested()) {
-    const { registerGuidance } = await import("./register-guidance-P4HLJ757.js");
+    const { registerGuidance } = await import("./register-guidance-M6RMD376.js");
     registerGuidance(tree.root);
     const help = describeHelp(tree.selected(), tree.inventoryRequested());
     return { envelope: successEnvelope(help), exitCode: ExitCode.Success, human: help.usage, output: "help" };
