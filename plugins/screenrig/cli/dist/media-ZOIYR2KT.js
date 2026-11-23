@@ -576,6 +576,107 @@ async function appDev(args, runtime, resolved) {
   return { envelope: successEnvelope({ event: "stopped" }), exitCode: ExitCode.Success, human: "", output: "stream" };
 }
 
+// dist/app-releases.js
+var releasesPath = (id) => "/api/applications/".concat(encodeURIComponent(id), "/releases");
+function senderText(row) {
+  const name = row.agent?.name ?? row.actor?.display_name;
+  return name ? plainText(name) : "-";
+}
+function stateText(row) {
+  return "".concat(row.state).concat(row.latest ? " (latest)" : "").concat(row.error_code ? " ".concat(plainText(row.error_code)) : "");
+}
+function applicationReleaseLines(applicationId, page) {
+  const items = Array.isArray(page?.items) ? page.items : [];
+  const next = typeof page?.next_cursor === "string" && page.next_cursor ? page.next_cursor : void 0;
+  return [
+    "Application ".concat(applicationId, " releases (").concat(items.length, ")"),
+    ...items.length ? table(["RELEASE", "STATE", "PLACEMENTS", "BYTES", "BY", "CREATED", "EXPIRES"], items.map((item) => [
+      item.id,
+      stateText(item),
+      String(item.placements),
+      String(item.expanded_bytes ?? item.compressed_bytes),
+      senderText(item),
+      item.created_at,
+      item.expires_at ?? ""
+    ])) : ["No releases"],
+    ...next ? ["next: screenrig app releases ".concat(applicationId, " --cursor ").concat(next)] : []
+  ];
+}
+var handleAppReleases = commandHandler(async (args, runtime, resolved) => {
+  const id = args.positionals[2];
+  if (!id)
+    throw usageError("app releases requires <id>.");
+  const limit = flagString(args.flags, "limit");
+  const cursor = flagString(args.flags, "cursor");
+  if (limit !== void 0 && (Number(limit) < 1 || Number(limit) > 100))
+    throw usageError("--limit must be 1 to 100.");
+  const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+  const response = limit !== void 0 || cursor !== void 0 ? await client.call({ method: "GET", path: releasesPath(id), query: { ...limit !== void 0 ? { limit } : {}, ...cursor !== void 0 ? { cursor } : {} } }) : await client.listAll(releasesPath(id), void 0, { cursorParam: "cursor" });
+  return {
+    envelope: jsonBody(response, client.requestId),
+    exitCode: ExitCode.Success,
+    human: applicationReleaseLines(id, response.body).join("\n")
+  };
+}, true);
+function count(value, noun) {
+  return "".concat(value, " ").concat(noun).concat(value === 1 ? "" : "s");
+}
+function applicationReleaseUseLines(applicationId, answer) {
+  const playlists = Array.isArray(answer.playlists) ? answer.playlists : [];
+  const of = (outcome) => playlists.filter((playlist) => playlist.outcome === outcome);
+  const refused = of("refused");
+  const applied = of("applied");
+  const unchanged = of("unchanged");
+  const pending = of("would_change");
+  const screens = "".concat(count(answer.screens, "screen"));
+  const lines = answer.dry_run ? [
+    "Preview: ".concat(answer.release_id, " would replace the release of ").concat(applicationId, " in ").concat(count(pending.length, "playlist"), " (").concat(screens, ")"),
+    ...answer.already > 0 ? ["already on ".concat(answer.release_id, ": ").concat(count(answer.already, "placement"))] : []
+  ] : [
+    "".concat(applicationId, " moved to ").concat(answer.release_id, ": ").concat(applied.length, " applied, ").concat(unchanged.length, " unchanged, ").concat(refused.length, " refused (").concat(screens, ")"),
+    ...answer.already > 0 ? ["already on ".concat(answer.release_id, ": ").concat(count(answer.already, "placement"))] : []
+  ];
+  const rows = playlists.filter((playlist) => playlist.outcome !== "unchanged");
+  if (rows.length) {
+    lines.push(...table(["PLAYLIST", "NAME", "PLACEMENTS", "SCREENS", "OUTCOME"], rows.map((playlist) => [
+      playlist.playlist_id,
+      plainText(playlist.playlist_name),
+      String(playlist.placements),
+      String(playlist.screen_count),
+      playlist.outcome === "applied" && playlist.revision !== void 0 ? "applied (revision ".concat(playlist.revision, ")") : playlist.outcome
+    ])));
+  }
+  for (const playlist of refused) {
+    lines.push("refused ".concat(playlist.playlist_id, ": ").concat(playlist.problem?.code ?? "refused", ": ").concat(plainText(playlist.problem?.detail ?? "")).trimEnd());
+  }
+  return lines;
+}
+var handleAppUseRelease = commandHandler(async (args, runtime, resolved) => {
+  const id = args.positionals[2];
+  const releaseId = args.positionals[3];
+  if (!id || !releaseId)
+    throw usageError("app use-release requires <id> <release_id>.");
+  const apply = flagBool(args.flags, "apply");
+  const client = clientFor(runtime, args, resolved.apiUrl, requireToken(resolved.token));
+  const response = await client.call({
+    method: "POST",
+    path: "".concat(releasesPath(id), "/").concat(encodeURIComponent(releaseId), "/use"),
+    body: { dry_run: !apply },
+    idempotent: apply
+  });
+  const answer = response.body;
+  const playlists = Array.isArray(answer?.playlists) ? answer.playlists : [];
+  const refused = playlists.filter((playlist) => playlist.outcome === "refused");
+  const base = "screenrig app use-release ".concat(id, " ").concat(releaseId);
+  const next = !apply ? playlists.some((playlist) => playlist.outcome === "would_change") ? { command: "".concat(base, " --apply"), reason: "Pins every placement of the application to this release." } : void 0 : refused.length ? { command: "".concat(base, " --apply"), reason: "Retries the refused playlists; the ones already moved are skipped. Fix what each problem names first." } : void 0;
+  const warnings = refused.length ? [{ code: "playlists_refused", message: "".concat(count(refused.length, "playlist"), " not moved to ").concat(releaseId, ": ").concat(refused.map((playlist) => playlist.playlist_id).join(", "), ".") }] : [];
+  return {
+    envelope: jsonBody(response, client.requestId, next ? { next } : void 0, warnings),
+    exitCode: ExitCode.Success,
+    human: [...applicationReleaseUseLines(id, answer), ...next ? ["next: ".concat(next.command)] : []].join("\n")
+  };
+}, true);
+
 // dist/cli-commands/app.js
 function registerAppCommands(root, bind) {
   const app = root.command("app").description("Develop, pack, upload, rename, inspect, and delete applications");
@@ -586,6 +687,8 @@ function registerAppCommands(root, bind) {
   app.command("upload").description("Upload an application directory").argument("<directory>", "Local directory").option("--name <NAME>", "Set the application name").option("--no-wait", "Return after acceptance without waiting for processing").option("--poll-ms <MS>", "Set the operation polling interval", positiveInteger("poll-ms")).action(bind(handleAppUpload));
   app.command("update").description("Publish a new application release").argument("<id>", "Application identifier").argument("<directory>", "Local directory").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).option("--no-wait", "Return after acceptance without waiting for processing").option("--poll-ms <MS>", "Set the operation polling interval", positiveInteger("poll-ms")).action(bind(handleAppUpdate));
   app.command("list").description("List applications").action(bind(handleAppList));
+  app.command("releases").description("List an application's releases and the playlist placements that pin each").argument("<id>", "Application identifier").option("--limit <N>", "Read one page of this many releases, 1 to 100", positiveInteger("limit")).option("--cursor <CURSOR>", "Read the page after the data.next_cursor of the previous page").action(bind(handleAppReleases));
+  app.command("use-release").description("Preview or apply moving every placement of an application to one of its releases").argument("<id>", "Application identifier").argument("<release_id>", "Ready release identifier, as app releases lists it").option("--apply", "Write the move; without it nothing changes").action(bind(handleAppUseRelease));
   app.command("rename").description("Change an application's display name").argument("<id>", "Application identifier").requiredOption("--name <NAME>", "New application name").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleAppRename));
   app.command("show").description("Inspect an application").argument("<id>", "Application identifier").action(bind(handleAppShow));
   app.command("delete").description("Delete an application and all of its releases").argument("<id>", "Application identifier").option("--expect-rev <REVISION>", "Optionally require this resource revision", revision).action(bind(handleAppDelete));
