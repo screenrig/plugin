@@ -86,6 +86,7 @@ the same `idempotency_key` until every result page has been read.
 | Tell people when a screen goes dark | `screenrig_notification_write` action `create`, checked with action `test` |
 | Uptime, publishing and proof of play | `screenrig_report_read` actions `list` and `get`, emailed on a schedule with `screenrig_report_subscription_write` action `create` |
 | Invite a teammate | `screenrig_invitation_write` action `create` (email) |
+| Roll an application back, or forward to its latest release | `screenrig_application_read` action `releases`, then `screenrig_playlist_manage` action `use_application_release` with `dry_run` true to see the playlists and screens that change, and again without it |
 
 Rules that tool schemas do not carry:
 
