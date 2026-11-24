@@ -5,8 +5,8 @@ description: Free, agent-driven digital signage. Put menus, announcements, dashb
 
 # Operate screenRIG
 
-screenRIG puts content on TVs, kiosks and displays. In this plugin you work
-through the screenRIG connector: tools whose names start with `screenrig_`,
+screenRIG puts content on TVs, kiosks and displays. You work through the
+screenRIG connector: tools whose names start with `screenrig_`,
 on the person's own account. The person installs a Player on each screen from
 [Downloads](https://screenrig.ai/downloads?utm_source=claude-directory&utm_medium=package&utm_campaign=tof-libs) (any browser:
 https://play.screenrig.ai); setup detail is in
@@ -23,8 +23,8 @@ approval.
 ## Connect
 
 1. If no `screenrig_` tool is available, ask the person to connect the
-   screenRIG connector from this plugin's Connectors tab (in Claude Code:
-   `/mcp`). They sign in or create a free account at
+   screenRIG connector, `https://api.screenrig.ai/mcp`, from the host's
+   connector settings (in Claude Code: `/mcp`). They sign in or create a free account at
    [the dashboard](https://screenrig.ai/dashboard/signup?utm_source=claude-directory&utm_medium=package&utm_campaign=tof-libs), choose the project
    and the access level, and approve. Recommend Manage: Read only reads,
    Propose sends each change to a person for review, Manage changes and
