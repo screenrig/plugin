@@ -72,7 +72,7 @@ Agent: The office TV shows your sales as a ranked table. When a row changes in
 ```
 
 - **Free, with unlimited screens.** Paid plans add business tools, more people,
-  people to talk to, governance and contract terms. Downloads are free, and each
+  governance and contract terms. Enterprise adds people to talk to. Downloads are free, and each
   screen replays what it downloads from its own storage.
 - **Runs on cheap sticks and the TVs you already have.** Players for Android
   and Google TV, the Amazon Signage Stick and Fire TV Sticks, Apple TV, macOS,
