@@ -174,7 +174,8 @@ api.DOMAIN); no USB or ADB. `screenrig screen pair "ABC 234"`, then
 `screen show SCREEN_ID` until `state` is `active` and `online` is true. Read
 `observation.surfaces[]` for the size the Player draws at and its orientation,
 and `observation.display_output.mode` for the resolution it drives the display
-at: a TV box drives a 4K display while it draws at 1920 by 1080. Tag each screen right after
+at (`3840x2160x60p`, or `3840x2160` from a Samsung or LG display, which reports its panel
+without a refresh rate): a TV box or signage display drives 4K while it draws at 1920 by 1080. Tag each screen right after
 pairing (`screen tag SCREEN_ID --set Lobby,Floor2`) and, for a large estate,
 file it in a folder (`screen move SCREEN_ID --folder ID`); tags and folders
 select fleets and are not authorization. Displays run by a device manager use
