@@ -172,7 +172,9 @@ Ask for the code the Player shows (a browser: open https://play.screenrig.ai on
 the screen device, or play.DOMAIN when `doctor` reports another environment's
 api.DOMAIN); no USB or ADB. `screenrig screen pair "ABC 234"`, then
 `screen show SCREEN_ID` until `state` is `active` and `online` is true. Read
-`observation.surfaces[]` for size and orientation. Tag each screen right after
+`observation.surfaces[]` for the size the Player draws at and its orientation,
+and `observation.display_output.mode` for the resolution it drives the display
+at: a TV box drives a 4K display while it draws at 1920 by 1080. Tag each screen right after
 pairing (`screen tag SCREEN_ID --set Lobby,Floor2`) and, for a large estate,
 file it in a folder (`screen move SCREEN_ID --folder ID`); tags and folders
 select fleets and are not authorization. Displays run by a device manager use
@@ -297,7 +299,7 @@ page with sound takes no `audio_cue`.
 `media upload` transcodes locally and needs `ffmpeg` and `ffprobe`; `doctor`
 names what is missing, so ask the user to install ffmpeg rather than installing
 software yourself. Give uploads distinctive filenames and letter-or-digit tags.
-An image or video up to 16383 pixels per edge and 8192 by 8192 pixels in area uploads, so an ultra-wide LED master such as 9216 by 2160 goes up with `--no-transcode`. 1080p at 30 fps in H.264 is the default and the recommended video format (a video fits 1920 by 1080, 1080 by 1920 portrait; an image fits 3840 pixels on each edge). Choose `--preset signage-1080p60` or `--preset signage-4k30` for screens that warrant it (`screen show` reports a screen's surface), and `--codec hevc`, with any of them, for fleets that decode HEVC. Every video leaves at one constant frame rate: keep one rate in a playlist, since some TVs flash black between clips whose rates differ.
+An image or video up to 16383 pixels per edge and 8192 by 8192 pixels in area uploads, so an ultra-wide LED master such as 9216 by 2160 goes up with `--no-transcode`. 1080p at 30 fps in H.264 is the default and the recommended video format (a video fits 1920 by 1080, 1080 by 1920 portrait; an image fits 3840 pixels on each edge). Choose `--preset signage-1080p60` or `--preset signage-4k30` for screens that warrant it (`screen show` reports the display's resolution as `observation.display_output.mode`; a 1920 by 1080 surface does not mean a 1080p display), and `--codec hevc`, with any of them, for fleets that decode HEVC. Every video leaves at one constant frame rate: keep one rate in a playlist, since some TVs flash black between clips whose rates differ.
 A video upload can be at most the project's plan limit, 500 MB on Standard and 1 GB on every other plan (`project capabilities` states `media_video_bytes`); a larger video is refused before it is read.
 Every Raspberry Pi (`screen show` names the model) plays HEVC (H.265) video
 only: it skips an H.264 video with a warning, its page leaving the rotation as
