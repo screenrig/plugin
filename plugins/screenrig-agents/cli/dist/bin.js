@@ -9,7 +9,7 @@ import {
   CommanderError,
   Option,
   nonnegativeInteger
-} from "./chunk-YOZLDGO3.js";
+} from "./chunk-NFZJXWOD.js";
 import {
   handleVersion
 } from "./chunk-XBINUTX4.js";
@@ -149,15 +149,15 @@ function registerGlobalOptions(root) {
 
 // dist/cli-commands/index.js
 var COMMAND_BUNDLES = {
-  account: () => import("./account-22YFT3CS.js"),
-  ads: () => import("./ads-36ESAN35.js"),
-  media: () => import("./media-X5SFWHGA.js"),
-  playlists: () => import("./playlists-XWMGI3RU.js"),
-  screens: () => import("./screens-ULAO7YXF.js"),
-  monitoring: () => import("./monitoring-FZNJHCOT.js"),
-  integrations: () => import("./integrations-RNFG3KQL.js"),
-  migrate: () => import("./migrate-JY2FQYN5.js"),
-  docs: () => import("./docs-W5DEUK7L.js")
+  account: () => import("./account-7OYQF43F.js"),
+  ads: () => import("./ads-6KAUYZAC.js"),
+  media: () => import("./media-UMB5NALK.js"),
+  playlists: () => import("./playlists-XB6QK3CT.js"),
+  screens: () => import("./screens-DM3ZKPJA.js"),
+  monitoring: () => import("./monitoring-JJJWZ3TO.js"),
+  integrations: () => import("./integrations-Z723V42G.js"),
+  migrate: () => import("./migrate-NFC4SIP7.js"),
+  docs: () => import("./docs-2HP57QZC.js")
 };
 var TOP_LEVEL_COMMANDS = {
   project: "account",
