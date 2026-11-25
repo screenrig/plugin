@@ -53,6 +53,11 @@ the state word alone.
 `.total_bytes` in MB, `health.cpu.cores`, `.load_1m`, `.utilization_percent`,
 `.app_percent`, `health.temperature_c`, `health.crashes_24h`,
 `health.renderer_restarts_24h`, `health.reported_at`, `health.stale`.
+Platform, from `health.platform`: `os_name` with `os_version` (and `sdk_int`
+as the Android API level), `os_build`, `security_patch` (Android: the device
+maker's own claim, so say "reports a security patch of", never "patched"),
+`soc_manufacturer` and `soc_model` as the chip, and `web_engine.name` with
+`.version`. Absent `platform` means the Player does not report it: unknown.
 
 **Connection** — `state`, `online`, `last_seen_at`, `last_online_at`,
 `health.network.kind`, `health.network.wifi_rssi_dbm` in dBm,

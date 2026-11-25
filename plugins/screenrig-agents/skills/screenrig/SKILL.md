@@ -620,7 +620,12 @@ after a lockout; then set a new one.
 
 **Health and history.** `screen show` returns `health`, `display` and `storage`
 (absent means unreported) and, after an outage, `last_outage`, whose
-`likely_cause` is absent when unknown: never infer one. Monitor with `events list|follow`, `playback plays|list`
+`likely_cause` is absent when unknown: never infer one. `health.platform` is
+what the screen runs on (operating system and build, Android security patch,
+chip, web engine); `screen list --security-patch-before YYYY-MM-DD` and
+`--web-engine NAME --web-engine-below MAJOR` list the screens behind a patch
+date or engine version. The patch date is the device maker's claim: an old one
+is evidence, a recent one is not proof. Monitor with `events list|follow`, `playback plays|list`
 (proof of play: the plays are in every plan, the daily totals need Plus and a
 CSV, XLSX or PDF file Premium), `notifications` and `alerts` (below). `screen reload`
 asks a Player to reload once; acceptance is not proof.
