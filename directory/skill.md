@@ -150,7 +150,7 @@ usually in a format screens do not play; say so and offer the CLI below.
 | A link invitation | `screenrig_invitation_write` action `link` |
 | An outside system pushes data or an alert | `screenrig_card_write` action `webhook_create`, `screenrig_kv_write` action `webhook_create`, `screenrig_trigger_write` action `create` |
 | Tell an outside system about screens | `screenrig_notification_write` action `create` with the webhook channel, its signing secret from action `rotate_secret` |
-| Dashboards from Grafana, Power BI or Tableau (Premium) | `screenrig_bi_write` actions `connection_create` and `view_create` |
+| Dashboards from Grafana, Power BI or Tableau (Enterprise) | `screenrig_bi_write` actions `connection_create` and `view_create` |
 | A Microsoft or Google account for calendar and room data | `screenrig_connection_write` actions `create` and `connect` |
 | Talk to screenRIG support | `screenrig_support_write` actions `create` and `send` |
 

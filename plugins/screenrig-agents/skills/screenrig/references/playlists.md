@@ -78,7 +78,7 @@ screenrig kv webhook deliveries kvw_ID --card crd_ID               # why each po
   Place the owning `crd_` instance with `data: "room-{screen.field.room}"`;
   each screen reads the key filled from its own field. JSON, CSV and Sheets
   sources use the same envelope with `key_template` in their settings (per-screen
-  keyed data on a source needs Premium).
+  keyed data on a source needs Enterprise).
   Preview source mappings with `source test`; all outputs use the owning card's
   schema. Use separate instances, mappings and key prefixes for different cards
   reading the same feed. Missing fields, duplicate keys or invalid documents

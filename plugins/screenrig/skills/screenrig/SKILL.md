@@ -388,13 +388,13 @@ content, and inspect every render at full size before publishing.
    (Premium; `playlist revisions` is open on every plan).
 3. Take `screen screenshot SCREEN_ID` and inspect it before saying content is
    showing. `screen play-page` shows one page.
-   Watch a screen live or sample frames (Premium): [live view](references/live-view.md).
+   Watch a screen live or sample frames (Enterprise): [live view](references/live-view.md).
 
 Playlist JSON rules are in [playlists](references/playlists.md); `playlist
 validate` checks documents.
 
 **Reviews.** When the project requires review (approvals, which the owner turns
-on with Premium) or the sign-in is Propose, writes
+on with Enterprise) or the sign-in is Propose, writes
 return `pending_review` with `data.review.url`. Tell the person it waits for
 review and never say it is playing; do not poll. Check `reviews show ID`. A
 rejection carries `decision_note`: fix and propose again. Agents never approve.
@@ -521,7 +521,7 @@ screenrig campaign create --name Browse --playlist-id pl_MENU --screen-id scr_KI
 The second plays the menu while someone uses the kiosk and returns to its
 default attract loop after 90 idle seconds.
 
-**Schedule import** (Premium). For a sheet of schedule lines (a venue's spreadsheet of
+**Schedule import** (Enterprise). For a sheet of schedule lines (a venue's spreadsheet of
 screen codes, file names, start and end times) do not create levels one by one.
 `screenrig schedule import FILE --name NAME` (CSV, XLSX or JSON rows) checks
 every row and prints its errors by column, the levels it makes and the calendar
@@ -736,13 +736,13 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   feature and its plan. Beyond Standard, Plus has campaigns, weighted rotation,
   walls of 3 displays (two are in every plan), alert routing to Slack and
   Telegram, reports, media sync, uploaders, takeovers and proof-of-play totals;
-  Premium adds BI dashboards, connected sources, screen scope, data conditions,
-  alerts to Microsoft Teams and PagerDuty, live view, approvals (requiring
-  review for agent changes), CAP alerts, log exports (plays, totals, health
-  history and alerts as CSV, XLSX or PDF), single sign-on, the audit log,
-  playlist templates, the Library, the schedule calendar across folders, tags
-  and campaigns, playlist revision restore, schedule import, per-screen keyed
-  data, the screen map and direct campaigns; Enterprise adds protected folders,
+  Premium adds connected sources, screen scope, data conditions, CAP alerts,
+  log exports (plays, totals, health history and alerts as CSV, XLSX or PDF),
+  single sign-on, the audit log, playlist templates, the Library, the schedule
+  calendar across folders, tags and campaigns, playlist revision restore, the
+  screen map and direct campaigns; Enterprise adds BI dashboards, alerts to
+  Microsoft Teams and PagerDuty, live view, approvals (requiring review for
+  agent changes), schedule import, per-screen keyed data, protected folders,
   SCIM, schedule change control, the Momentus source and walls of 4 to 12
   displays. What a project already set up keeps running on any plan, and
   ending, turning off or deleting it is always allowed. No plan limits how many screens
