@@ -697,17 +697,30 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   identical command (same idempotency key). Honor retry delays. Do not retry
   permission or admission refusals.
 - **Requests.** An organization's agents, CLI sessions and MCP tool calls
-  together make at most 500 agent requests an hour on Standard and Plus, 2,000
-  on Premium and Education, and 10,000 on Enterprise, across all its projects.
-  Nothing is charged and screens keep playing. Card data and key/value writes,
-  waiting on an operation, screen messages (toast, reload, identify, play-page,
-  screenshot, live view) and listen streams do not count. Over the cap the
-  answer is 429 `rate_limited` with `error.retry_after_seconds` (up to an
-  hour): wait that long once, rerun the same command once, never loop, and tell
-  the user. `screenrig billing usage` shows storage against the plan limit and
-  the hourly cap (`agent_requests_per_hour`); the `RateLimit` header of each
-  counted response carries the requests remaining. Spend requests well: `media upload-batch` for
-  many files, and a listen stream (`events follow`) instead of polling lists.
+  together make at most this many agent requests a minute and an hour, across
+  all its projects: 30 and 300 on Standard, 60 and 1,000 on Plus, 200 and 3,000
+  on Premium and Education, 1,000 and 8,000 on Enterprise. Nothing is charged
+  and screens keep playing. Card data and key/value writes (their own rate a
+  minute: 30 on Standard, 120 on Plus, 600 on Premium and Education, 3,000 on
+  Enterprise), waiting on an operation, screen messages (toast, reload,
+  identify, play-page, screenshot, live view) and listen streams do not count.
+  Over either cap the answer is 429 `rate_limited` with
+  `error.retry_after_seconds` (up to an hour; under a minute when the minute
+  refused it): wait that long once, rerun the same command once, never loop, and
+  tell the user. A request the minute refuses does not spend the hour.
+  `screenrig billing usage` shows storage against the plan limit, the requests
+  a minute and an hour (`agent_requests_per_minute`, `agent_requests_per_hour`)
+  and the live agents (`live_agents`); the `RateLimit` header of each counted
+  response carries the requests remaining. Spend requests well: `media
+  upload-batch` for many files, and a listen stream (`events follow`) instead of
+  polling lists.
+- **Live agents.** An organization may hold 3 live agents on Standard, 10 on
+  Plus, 50 on Premium and Education, and 200 on Enterprise, across all its
+  projects. An agent counts while its sign-in waits for approval, and after that
+  for 30 days from the last time it connected or renewed its sign-in. Past the
+  limit, approving one more sign-in answers 409 `agent_limit_exceeded`: do not
+  retry. Tell the user to disconnect an agent nobody uses (it frees its place;
+  it connects again when wanted), then connect again.
 - **Storage.** Each plan includes a fixed amount (1 GB on Standard, 100 GB on
   Plus, 1,000 GB on Premium and Education, 10,000 GB on Enterprise). An upload
   that would exceed it answers 413 `quota_exceeded`: delete unused content or
