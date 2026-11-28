@@ -698,8 +698,9 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   permission or admission refusals.
 - **Requests.** An organization's agents, CLI sessions and MCP tool calls
   together make at most this many agent requests a minute and an hour, across
-  all its projects: 30 and 300 on Standard, 60 and 1,000 on Plus, 200 and 3,000
-  on Premium and Education, 1,000 and 8,000 on Enterprise. Nothing is charged
+  all its projects: 60 a minute on every plan but Enterprise (300), and 180 an
+  hour on Standard, 240 on Plus, 960 on Premium and Education, 10,000 on
+  Enterprise. Nothing is charged
   and screens keep playing. Card data and key/value writes (their own rate a
   minute: 30 on Standard, 120 on Plus, 600 on Premium and Education, 3,000 on
   Enterprise), waiting on an operation, screen messages (toast, reload,
@@ -707,7 +708,9 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   Over either cap the answer is 429 `rate_limited` with
   `error.retry_after_seconds` (up to an hour; under a minute when the minute
   refused it): wait that long once, rerun the same command once, never loop, and
-  tell the user. A request the minute refuses does not spend the hour.
+  tell the user. When the hour refused it, tell the user the plan's hourly cap
+  and the larger one the error detail names, so they can choose to wait or
+  upgrade. A request the minute refuses does not spend the hour.
   `screenrig billing usage` shows storage against the plan limit, the requests
   a minute and an hour (`agent_requests_per_minute`, `agent_requests_per_hour`)
   and the live agents (`live_agents`); the `RateLimit` header of each counted
