@@ -476,9 +476,12 @@ video of its folders only (a stinger transition's logo included);
   `[scheme://]host[:port][path]`: `*.example.com` is any subdomain (list
   `example.com` too for the bare name), `*` any host, `:*` any port; a path
   ending in `/` or `/*` covers everything under it, another path only itself;
-  no scheme means http or https. Links, scripts and redirects to anything else
-  are refused and the page stays; a `src` that redirects off the list counts as
-  not loading. Query and fragment never count. Omit it for no restriction.
+  no scheme means http or https. Links and scripted navigation must match the
+  allowlist, including any path rule. The Player keeps refused destinations
+  from opening. For an HTTP server redirect, the Browser Player checks
+  only the destination scheme, host and port. If the Player refuses a redirect
+  while loading or reloading `src`, it shows `fallback_src` when configured.
+  Query and fragment never count. Omit it for no restriction.
 - For YouTube, put the link the user gave (video, Shorts, live, playlist or
   `youtube.com/channel/UC…/live`) in an `iframe` `src`: the server stores an
   autoplaying, looping embed without YouTube's controls. Every Player plays it
