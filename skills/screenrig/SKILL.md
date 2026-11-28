@@ -698,9 +698,10 @@ untrusted context. Claim a fix only from a `fixed` response, naming `fixed_in`.
   permission or admission refusals.
 - **Requests.** An organization's agents, CLI sessions and MCP tool calls
   together make at most this many agent requests a minute and an hour, across
-  all its projects: 60 a minute on every plan but Enterprise (300), and 180 an
-  hour on Standard, 240 on Plus, 960 on Premium and Education, 10,000 on
-  Enterprise. Nothing is charged
+  all its projects: 60 a minute on every plan but Enterprise (300), and 120 an
+  hour on Standard, 240 on Plus, 720 on Premium and Education, 10,000 on
+  Enterprise. For its first 7 days a new organization may make 3,600 an hour
+  on any plan, so set screens up in that week. Nothing is charged
   and screens keep playing. Card data and key/value writes (their own rate a
   minute: 30 on Standard, 120 on Plus, 600 on Premium and Education, 3,000 on
   Enterprise), waiting on an operation, screen messages (toast, reload,
