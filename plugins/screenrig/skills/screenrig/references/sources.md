@@ -479,7 +479,8 @@ asks again.
 ## Keep cards current
 
 screenRIG reads addresses on a schedule and accepts pushes; for everything else
-you are the automation. Pick the lane by how each card's data moves.
+you are the automation. Pick the lane by how each card's data moves. Whichever
+lane, write into the card's context how it stays current ([context](../SKILL.md#context)).
 
 | The data | Lane |
 | --- | --- |
@@ -509,10 +510,14 @@ screenrig card data put crd_ID --file data.json --ttl 3h
    no new write the card goes blank on every screen, offline ones included, and
    a page that depends on it through `visibility.data` falls back. Write on every
    run, changed or not: the write renews the expiry.
-4. Once per project, so a stopped schedule is noticed:
+4. Write into the card's context what the schedule reads, how often it runs,
+   where it runs and how to stop it (`screenrig context set card crd_ID --text
+   TEXT`; read it first with `context show card crd_ID` and keep what still holds),
+   so the next agent finds the schedule instead of starting a second one.
+5. Once per project, so a stopped schedule is noticed:
    `screenrig notifications create --email owner --conditions card_data_stale`
    ([notifications](notifications.md#card_data_stale-a-scheduled-write-stops)).
-5. A write that answers `rate_limited` waits `error.retry_after_seconds`; never
+6. A write that answers `rate_limited` waits `error.retry_after_seconds`; never
    write faster than the data moves.
 
 ### Systems that push
@@ -540,7 +545,7 @@ attribution, and changing it is TradingView's to allow.
 customer to save the credential to a file, preview, then create:
 
 ```sh
-screenrig card create --type workplace-posts --file posts.json
+screenrig card create --type workplace-posts --file posts.json --context "Announcements card; fed by the Slack source below."
 screenrig source test --preset slack-channel --card crd_ID --set channel=C0123456789 --secret token=@slack.token
 screenrig source create --preset slack-channel --card crd_ID --name "Announcements" --set channel=C0123456789 --secret token=@slack.token
 ```

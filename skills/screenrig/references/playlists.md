@@ -12,7 +12,7 @@ application only for what a card cannot do.
 ```sh
 screenrig cards list --category food        # or --tag weather
 screenrig cards show menu                   # schemas, tier, layouts, feed, example
-screenrig card create --type menu --file params.json   # returns crd_ID
+screenrig card create --type menu --file params.json --context "TEXT"   # returns crd_ID
 screenrig card data put crd_ID --file data.json [--expect-rev N] [--ttl 2h]
 screenrig card preview crd_ID --output card.png
 ```
@@ -266,7 +266,7 @@ strip hides what it covers. Make it in three steps:
    1920 --target-height 240` writes it). A strip holds `image` and `card`
    primitives only, one canvas for every page, and no soundtrack.
 2. Create it as a region playlist: `screenrig playlist create ticker.json
-   --format-region footer --format-orientation landscape`. `--format-region` is
+   --format-region footer --format-orientation landscape --context "TEXT"`. `--format-region` is
    `header` (top), `footer` (bottom) or `side` (right edge, full height);
    `--format-orientation` is the orientation of the display it is made for, as
    the viewer sees it. `playlist update ID FILE` takes the same flags, and
